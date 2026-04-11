@@ -1,0 +1,150 @@
+import inquirer from 'inquirer';
+import chalk from 'chalk';
+import Database from 'better-sqlite3';
+import { listRoofFaces, getRoofFace, insertRoofFace, updateRoofFace, deleteRoofFace } from '../../db/queries.js';
+import type { RoofFace } from '../../domain/types.js';
+
+async function promptFace(existing?: RoofFace): Promise<Omit<RoofFace, 'id'>> {
+  const ans = await inquirer.prompt([
+    {
+      type: 'input',
+      name: 'roof_face_id',
+      message: 'Face ID (unique key, e.g. south-1):',
+      default: existing?.roof_face_id,
+      when: !existing,
+      validate: (v: string) => v.trim().length > 0 || 'Required',
+    },
+    {
+      type: 'input',
+      name: 'name',
+      message: 'Name:',
+      default: existing?.name,
+      validate: (v: string) => v.trim().length > 0 || 'Required',
+    },
+    {
+      type: 'input',
+      name: 'orientation_deg',
+      message: 'Orientation — azimuth (°): 0=N  90=E  140=SE  180=S  270=W',
+      default: existing?.orientation_deg?.toString(),
+      validate: (v: string) => {
+        const n = parseFloat(v);
+        if (isNaN(n)) return 'Must be a number';
+        if (n < 0 || n > 360) return 'Must be 0–360';
+        return true;
+      },
+      filter: (v: string) => parseFloat(v),
+    },
+    {
+      type: 'input',
+      name: 'tilt_deg',
+      message: 'Tilt (°, 0=flat – 90=vertical):',
+      default: existing?.tilt_deg?.toString(),
+      validate: (v: string) => {
+        const n = parseFloat(v);
+        if (isNaN(n)) return 'Must be a number';
+        if (n < 0 || n > 90) return 'Must be 0–90';
+        return true;
+      },
+      filter: (v: string) => parseFloat(v),
+    },
+    {
+      type: 'input',
+      name: 'usable_area_m2',
+      message: 'Usable area (m², optional — leave blank to skip):',
+      default: existing?.usable_area_m2?.toString() ?? '',
+      validate: (v: string) => {
+        if (v.trim() === '') return true;
+        const n = parseFloat(v);
+        return (isNaN(n) || n <= 0) ? 'Must be > 0' : true;
+      },
+      filter: (v: string) => v.trim() === '' ? null : parseFloat(v),
+    },
+    {
+      type: 'input',
+      name: 'notes',
+      message: 'Notes (optional):',
+      default: existing?.notes ?? '',
+    },
+  ]);
+
+  return {
+    roof_face_id: existing?.roof_face_id ?? ans.roof_face_id,
+    name: ans.name,
+    orientation_deg: ans.orientation_deg,
+    tilt_deg: ans.tilt_deg,
+    usable_area_m2: ans.usable_area_m2,
+    notes: ans.notes || null,
+  };
+}
+
+export async function roofFacesFlow(db: Database.Database): Promise<void> {
+  while (true) {
+    const faces = listRoofFaces(db);
+    const choices = [
+      { name: 'Add face', value: 'add' },
+      ...(faces.length > 0 ? [
+        { name: 'Edit face', value: 'edit' },
+        { name: 'Delete face', value: 'delete' },
+        { name: 'List faces', value: 'list' },
+      ] : []),
+      new inquirer.Separator(),
+      { name: '← Back', value: 'back' },
+    ];
+
+    const { action } = await inquirer.prompt([{
+      type: 'list',
+      name: 'action',
+      message: 'Face',
+      choices,
+    }]);
+
+    if (action === 'back') break;
+
+    if (action === 'list') {
+      console.log('');
+      for (const f of faces) {
+        const area = f.usable_area_m2 != null ? `  ${f.usable_area_m2} m²` : '';
+        console.log(chalk.cyan(`  ${f.roof_face_id}`) + `  ${f.name}  |  ${f.orientation_deg}°  tilt ${f.tilt_deg}°${area}`);
+      }
+      continue;
+    }
+
+    if (action === 'add') {
+      const data = await promptFace();
+      if (getRoofFace(db, data.roof_face_id)) {
+        console.log(chalk.red(`Face ID "${data.roof_face_id}" already exists.`));
+      } else {
+        insertRoofFace(db, data);
+        console.log(chalk.green('Face saved.'));
+      }
+      continue;
+    }
+
+    if (action === 'edit' || action === 'delete') {
+      const { id } = await inquirer.prompt([{
+        type: 'list',
+        name: 'id',
+        message: action === 'edit' ? 'Select face to edit:' : 'Select face to delete:',
+        choices: faces.map((f) => ({ name: `${f.roof_face_id}  —  ${f.name}`, value: f.roof_face_id })),
+      }]);
+
+      if (action === 'delete') {
+        const { confirm } = await inquirer.prompt([{
+          type: 'confirm',
+          name: 'confirm',
+          message: `Delete face "${id}" and all its panel count assignments?`,
+          default: false,
+        }]);
+        if (confirm) {
+          deleteRoofFace(db, id);
+          console.log(chalk.green('Face deleted.'));
+        }
+      } else {
+        const existing = getRoofFace(db, id)!;
+        const data = await promptFace(existing);
+        updateRoofFace(db, data);
+        console.log(chalk.green('Face updated.'));
+      }
+    }
+  }
+}
