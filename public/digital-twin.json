@@ -1,0 +1,979 @@
+{
+  "project": {
+    "project_id": "offgridos-project",
+    "name": "OffGridOS Baseline",
+    "location": {
+      "country": "NL",
+      "place_name": "Warten",
+      "latitude": 53.126579,
+      "longitude": 5.899564
+    },
+    "current_assumptions": {
+      "roof_face_to_array_default": "1:1",
+      "array_to_mppt_default": "1:1",
+      "project_mppts_provisional": true
+    },
+    "preferences": {}
+  },
+  "entities": {
+    "roof_faces": [
+      {
+        "id": 5,
+        "roof_face_id": "flat-ne",
+        "name": "Flat NE",
+        "orientation_deg": 51,
+        "tilt_deg": 15,
+        "usable_area_m2": null,
+        "notes": null
+      },
+      {
+        "id": 4,
+        "roof_face_id": "ne",
+        "name": "North-East",
+        "orientation_deg": 51,
+        "tilt_deg": 60,
+        "usable_area_m2": null,
+        "notes": null
+      },
+      {
+        "id": 3,
+        "roof_face_id": "nw",
+        "name": "North-West",
+        "orientation_deg": 321,
+        "tilt_deg": 45,
+        "usable_area_m2": null,
+        "notes": null
+      },
+      {
+        "id": 1,
+        "roof_face_id": "se",
+        "name": "South-East",
+        "orientation_deg": 141,
+        "tilt_deg": 45,
+        "usable_area_m2": null,
+        "notes": null
+      },
+      {
+        "id": 2,
+        "roof_face_id": "sw",
+        "name": "South-West",
+        "orientation_deg": 231,
+        "tilt_deg": 60,
+        "usable_area_m2": null,
+        "notes": null
+      }
+    ],
+    "panel_types": [
+      {
+        "id": 13,
+        "panel_type_id": "aiko-475-all-black",
+        "model": "Aiko 475Wp All Black Glas-Glas",
+        "wp": 475,
+        "voc": 45,
+        "vmp": 38,
+        "isc": 13.2,
+        "imp": 12.5,
+        "length_mm": 1762,
+        "width_mm": 1134,
+        "notes": "ABC technology; Voc/Vmp/Isc/Imp estimated — verify datasheet; ref: 2393526667917",
+        "wp_per_m2": 237.7,
+        "price": null,
+        "price_per_wp": null
+      },
+      {
+        "id": 10,
+        "panel_type_id": "canadian-bihiku6-rood",
+        "model": "Canadian Solar BiHiKu6 (Rood)",
+        "wp": 390,
+        "voc": 41,
+        "vmp": 34.3,
+        "isc": 12,
+        "imp": 11.37,
+        "length_mm": 1765,
+        "width_mm": 1048,
+        "notes": "Bifacial rood; Voc/Vmp/Isc/Imp estimated; €220-320/panel",
+        "wp_per_m2": 210.8,
+        "price": 270,
+        "price_per_wp": 0.69
+      },
+      {
+        "id": 7,
+        "panel_type_id": "canadian-hiku6",
+        "model": "Canadian Solar HiKu6",
+        "wp": 400,
+        "voc": 41.1,
+        "vmp": 34.4,
+        "isc": 12.2,
+        "imp": 11.63,
+        "length_mm": 1765,
+        "width_mm": 1048,
+        "notes": "Voc/Vmp/Isc/Imp estimated; €180-280/panel",
+        "wp_per_m2": 216.2,
+        "price": 230,
+        "price_per_wp": 0.57
+      },
+      {
+        "id": 1,
+        "panel_type_id": "eurener-280",
+        "model": "Eurener 280W",
+        "wp": 280,
+        "voc": 38,
+        "vmp": 31,
+        "isc": 9.5,
+        "imp": 9.03,
+        "length_mm": 1650,
+        "width_mm": 992,
+        "notes": "Isc/dims estimated — verify against datasheet",
+        "wp_per_m2": 171.1,
+        "price": null,
+        "price_per_wp": null
+      },
+      {
+        "id": 12,
+        "panel_type_id": "ja-deepblue-3-rood",
+        "model": "JA Solar DeepBlue 3.0 (Rood)",
+        "wp": 390,
+        "voc": 41.4,
+        "vmp": 34.6,
+        "isc": 12,
+        "imp": 11.27,
+        "length_mm": 1755,
+        "width_mm": 1038,
+        "notes": "Rood; Voc/Vmp/Isc/Imp estimated; €230-330/panel",
+        "wp_per_m2": 214.1,
+        "price": 280,
+        "price_per_wp": 0.72
+      },
+      {
+        "id": 8,
+        "panel_type_id": "ja-deepblue-4",
+        "model": "JA Solar DeepBlue 4.0",
+        "wp": 410,
+        "voc": 41.6,
+        "vmp": 34.8,
+        "isc": 12.5,
+        "imp": 11.78,
+        "length_mm": 1755,
+        "width_mm": 1038,
+        "notes": "Voc/Vmp/Isc/Imp estimated; €200-300/panel",
+        "wp_per_m2": 225.1,
+        "price": 250,
+        "price_per_wp": 0.61
+      },
+      {
+        "id": 9,
+        "panel_type_id": "jinko-tiger-neo",
+        "model": "Jinko Solar Tiger Neo N-Type",
+        "wp": 420,
+        "voc": 42.6,
+        "vmp": 35.7,
+        "isc": 12.47,
+        "imp": 11.77,
+        "length_mm": 1765,
+        "width_mm": 1134,
+        "notes": "N-Type; Voc/Vmp/Isc/Imp estimated; €220-320/panel",
+        "wp_per_m2": 209.8,
+        "price": 270,
+        "price_per_wp": 0.64
+      },
+      {
+        "id": 6,
+        "panel_type_id": "longi-hi-mo-6",
+        "model": "LONGi Hi-MO 6",
+        "wp": 410,
+        "voc": 41.5,
+        "vmp": 34.7,
+        "isc": 12.5,
+        "imp": 11.82,
+        "length_mm": 1755,
+        "width_mm": 1038,
+        "notes": "Voc/Vmp/Isc/Imp estimated; €200-300/panel",
+        "wp_per_m2": 225.1,
+        "price": 250,
+        "price_per_wp": 0.61
+      },
+      {
+        "id": 4,
+        "panel_type_id": "qcells-qpeak-duo-g10",
+        "model": "Qcells Q.Peak Duo G10+",
+        "wp": 390,
+        "voc": 41.8,
+        "vmp": 35,
+        "isc": 11.5,
+        "imp": 11.14,
+        "length_mm": 1755,
+        "width_mm": 1038,
+        "notes": "Voc/Vmp/Isc/Imp estimated; €250-350/panel",
+        "wp_per_m2": 214.1,
+        "price": 300,
+        "price_per_wp": 0.77
+      },
+      {
+        "id": 3,
+        "panel_type_id": "rec-alpha-pure-r",
+        "model": "REC Alpha Pure-R",
+        "wp": 410,
+        "voc": 42.4,
+        "vmp": 35.5,
+        "isc": 12.1,
+        "imp": 11.55,
+        "length_mm": 1754,
+        "width_mm": 1038,
+        "notes": "Voc/Vmp/Isc/Imp estimated; €300-400/panel",
+        "wp_per_m2": 225.2,
+        "price": 350,
+        "price_per_wp": 0.85
+      },
+      {
+        "id": 2,
+        "panel_type_id": "sunpower-maxeon6",
+        "model": "SunPower Maxeon 6",
+        "wp": 430,
+        "voc": 43.4,
+        "vmp": 36.4,
+        "isc": 12.75,
+        "imp": 11.81,
+        "length_mm": 1722,
+        "width_mm": 1134,
+        "notes": "IBC; Voc/Vmp/Isc/Imp estimated; €350-450/panel",
+        "wp_per_m2": 220.2,
+        "price": 400,
+        "price_per_wp": 0.93
+      },
+      {
+        "id": 5,
+        "panel_type_id": "trina-vertex-s-plus",
+        "model": "Trina Solar Vertex S+",
+        "wp": 410,
+        "voc": 41.8,
+        "vmp": 34.9,
+        "isc": 12.5,
+        "imp": 11.75,
+        "length_mm": 1754,
+        "width_mm": 1134,
+        "notes": "Voc/Vmp/Isc/Imp estimated; €220-320/panel",
+        "wp_per_m2": 206.1,
+        "price": 270,
+        "price_per_wp": 0.66
+      },
+      {
+        "id": 11,
+        "panel_type_id": "trina-vertex-s-plus-rood",
+        "model": "Trina Solar Vertex S+ (Rood)",
+        "wp": 400,
+        "voc": 41.8,
+        "vmp": 34.9,
+        "isc": 12.2,
+        "imp": 11.46,
+        "length_mm": 1754,
+        "width_mm": 1134,
+        "notes": "Rood; Voc/Vmp/Isc/Imp estimated; €240-340/panel",
+        "wp_per_m2": 201.1,
+        "price": 290,
+        "price_per_wp": 0.72
+      }
+    ],
+    "strings": [],
+    "arrays": [
+      {
+        "array_id": "array-flat-ne",
+        "roof_face_id": "flat-ne",
+        "name": "Flat NE",
+        "string_ids": [],
+        "panel_assignment_ids": [
+          "roof-panel-9"
+        ],
+        "installed_wp": 1560
+      },
+      {
+        "array_id": "array-ne",
+        "roof_face_id": "ne",
+        "name": "North-East",
+        "string_ids": [],
+        "panel_assignment_ids": [
+          "roof-panel-7"
+        ],
+        "installed_wp": 780
+      },
+      {
+        "array_id": "array-nw",
+        "roof_face_id": "nw",
+        "name": "North-West",
+        "string_ids": [],
+        "panel_assignment_ids": [
+          "roof-panel-6"
+        ],
+        "installed_wp": 2730
+      },
+      {
+        "array_id": "array-se",
+        "roof_face_id": "se",
+        "name": "South-East",
+        "string_ids": [],
+        "panel_assignment_ids": [
+          "roof-panel-5"
+        ],
+        "installed_wp": 1560
+      },
+      {
+        "array_id": "array-sw",
+        "roof_face_id": "sw",
+        "name": "South-West",
+        "string_ids": [],
+        "panel_assignment_ids": [
+          "roof-panel-8"
+        ],
+        "installed_wp": 780
+      }
+    ],
+    "mppt_types": [
+      {
+        "id": 1,
+        "mppt_type_id": "victron-75-10",
+        "model": "SmartSolar 75/10",
+        "max_voc": 75,
+        "max_pv_power": 480,
+        "max_charge_current": 10,
+        "nominal_battery_voltage": 48,
+        "notes": null
+      },
+      {
+        "id": 2,
+        "mppt_type_id": "victron-75-15",
+        "model": "SmartSolar 75/15",
+        "max_voc": 75,
+        "max_pv_power": 720,
+        "max_charge_current": 15,
+        "nominal_battery_voltage": 48,
+        "notes": null
+      },
+      {
+        "id": 3,
+        "mppt_type_id": "victron-100-15",
+        "model": "SmartSolar 100/15",
+        "max_voc": 100,
+        "max_pv_power": 720,
+        "max_charge_current": 15,
+        "nominal_battery_voltage": 48,
+        "notes": null
+      },
+      {
+        "id": 4,
+        "mppt_type_id": "victron-100-20",
+        "model": "SmartSolar 100/20",
+        "max_voc": 100,
+        "max_pv_power": 960,
+        "max_charge_current": 20,
+        "nominal_battery_voltage": 48,
+        "notes": null
+      },
+      {
+        "id": 5,
+        "mppt_type_id": "victron-150-35",
+        "model": "SmartSolar 150/35",
+        "max_voc": 150,
+        "max_pv_power": 1680,
+        "max_charge_current": 35,
+        "nominal_battery_voltage": 48,
+        "notes": null
+      },
+      {
+        "id": 6,
+        "mppt_type_id": "victron-150-45",
+        "model": "SmartSolar 150/45",
+        "max_voc": 150,
+        "max_pv_power": 2160,
+        "max_charge_current": 45,
+        "nominal_battery_voltage": 48,
+        "notes": null
+      },
+      {
+        "id": 7,
+        "mppt_type_id": "victron-150-60",
+        "model": "SmartSolar 150/60",
+        "max_voc": 150,
+        "max_pv_power": 2880,
+        "max_charge_current": 60,
+        "nominal_battery_voltage": 48,
+        "notes": null
+      },
+      {
+        "id": 8,
+        "mppt_type_id": "victron-150-70",
+        "model": "SmartSolar 150/70",
+        "max_voc": 150,
+        "max_pv_power": 3360,
+        "max_charge_current": 70,
+        "nominal_battery_voltage": 48,
+        "notes": null
+      },
+      {
+        "id": 9,
+        "mppt_type_id": "victron-150-85",
+        "model": "SmartSolar 150/85",
+        "max_voc": 150,
+        "max_pv_power": 4080,
+        "max_charge_current": 85,
+        "nominal_battery_voltage": 48,
+        "notes": null
+      },
+      {
+        "id": 10,
+        "mppt_type_id": "victron-150-100",
+        "model": "SmartSolar 150/100",
+        "max_voc": 150,
+        "max_pv_power": 4800,
+        "max_charge_current": 100,
+        "nominal_battery_voltage": 48,
+        "notes": null
+      },
+      {
+        "id": 11,
+        "mppt_type_id": "victron-250-60",
+        "model": "SmartSolar 250/60",
+        "max_voc": 250,
+        "max_pv_power": 2880,
+        "max_charge_current": 60,
+        "nominal_battery_voltage": 48,
+        "notes": null
+      },
+      {
+        "id": 12,
+        "mppt_type_id": "victron-250-70",
+        "model": "SmartSolar 250/70",
+        "max_voc": 250,
+        "max_pv_power": 3360,
+        "max_charge_current": 70,
+        "nominal_battery_voltage": 48,
+        "notes": null
+      },
+      {
+        "id": 13,
+        "mppt_type_id": "victron-250-85",
+        "model": "SmartSolar 250/85",
+        "max_voc": 250,
+        "max_pv_power": 4080,
+        "max_charge_current": 85,
+        "nominal_battery_voltage": 48,
+        "notes": null
+      },
+      {
+        "id": 14,
+        "mppt_type_id": "victron-250-100",
+        "model": "SmartSolar 250/100",
+        "max_voc": 250,
+        "max_pv_power": 4800,
+        "max_charge_current": 100,
+        "nominal_battery_voltage": 48,
+        "notes": null
+      },
+      {
+        "id": 15,
+        "mppt_type_id": "victron-mrs-48-6000-100-450-100",
+        "model": "Multi RS Solar 48/6000/100-450/100",
+        "max_voc": 450,
+        "max_pv_power": 6000,
+        "max_charge_current": 100,
+        "nominal_battery_voltage": 48,
+        "notes": "Integrated MPPT / solar charger: 450 V max PV voltage, 65-450 V MPPT range, 12 A max operational PV input current, 16 A max PV short-circuit current, 6000 W total solar charging power, 3000 W per tracker, 100 A combined charger current."
+      }
+    ],
+    "project_mppts": [
+      {
+        "project_mppt_id": "project-mppt-flat-ne",
+        "roof_face_id": "flat-ne",
+        "array_id": "array-flat-ne",
+        "name": "Flat NE MPPT",
+        "provisional": true,
+        "notes": "Derived placeholder until explicit project MPPT selections are stored."
+      },
+      {
+        "project_mppt_id": "project-mppt-ne",
+        "roof_face_id": "ne",
+        "array_id": "array-ne",
+        "name": "North-East MPPT",
+        "provisional": true,
+        "notes": "Derived placeholder until explicit project MPPT selections are stored."
+      },
+      {
+        "project_mppt_id": "project-mppt-nw",
+        "roof_face_id": "nw",
+        "array_id": "array-nw",
+        "name": "North-West MPPT",
+        "provisional": true,
+        "notes": "Derived placeholder until explicit project MPPT selections are stored."
+      },
+      {
+        "project_mppt_id": "project-mppt-se",
+        "roof_face_id": "se",
+        "array_id": "array-se",
+        "name": "South-East MPPT",
+        "provisional": true,
+        "notes": "Derived placeholder until explicit project MPPT selections are stored."
+      },
+      {
+        "project_mppt_id": "project-mppt-sw",
+        "roof_face_id": "sw",
+        "array_id": "array-sw",
+        "name": "South-West MPPT",
+        "provisional": true,
+        "notes": "Derived placeholder until explicit project MPPT selections are stored."
+      }
+    ],
+    "battery_types": [
+      {
+        "id": 12,
+        "battery_type_id": "bslbatt-b-lfp48-100e",
+        "model": "BSLBATT B-LFP48-100E",
+        "chemistry": "LiFePO4",
+        "nominal_voltage": 48,
+        "capacity_ah": 100,
+        "capacity_kwh": 5.12,
+        "max_charge_rate": null,
+        "max_discharge_rate": null,
+        "notes": "Victron CAN compatibel, beperkt leverbaar NL via internationale EU-distributeurs ~€900–1100",
+        "victron_can": 1,
+        "price": 969,
+        "url": "https://www.erm-energies.com/lithium/815-batterie-bslbatt-b-lfp48-100e-48-v-512-kwh.html",
+        "price_per_kwh": 189.26,
+        "source": "https://www.erm-energies.com/lithium/815-batterie-bslbatt-b-lfp48-100e-48-v-512-kwh.html",
+        "cooling": "passive"
+      },
+      {
+        "id": 4,
+        "battery_type_id": "byd-bbox-lv",
+        "model": "BYD B-Box LV (per module)",
+        "chemistry": "LiFePO4",
+        "nominal_voltage": 48,
+        "capacity_ah": 83,
+        "capacity_kwh": 4,
+        "max_charge_rate": null,
+        "max_discharge_rate": null,
+        "notes": "Modular stack, ~€1000+/module; stack multiples for larger banks",
+        "victron_can": 1,
+        "price": 1320,
+        "url": "https://shop-rebor.com/en/products/byd-battery-box-lvs-4-0",
+        "price_per_kwh": 330,
+        "source": "https://shop-rebor.com/en/products/byd-battery-box-lvs-4-0",
+        "cooling": "passive"
+      },
+      {
+        "id": 10,
+        "battery_type_id": "dyness-b4850",
+        "model": "Dyness B4850 (per module)",
+        "chemistry": "LiFePO4",
+        "nominal_voltage": 48,
+        "capacity_ah": 50,
+        "capacity_kwh": 2.4,
+        "max_charge_rate": null,
+        "max_discharge_rate": null,
+        "notes": "Victron CAN compatibel, breed leverbaar NL ~€438–530/module (dutchsolarstore.nl, nordzon.nl)",
+        "victron_can": 1,
+        "price": 387.5,
+        "url": "https://www.nrjdeals.com/produit/dyness-b4850/",
+        "price_per_kwh": 161.46,
+        "source": "https://www.nrjdeals.com/produit/dyness-b4850/",
+        "cooling": "passive"
+      },
+      {
+        "id": 15,
+        "battery_type_id": "pylontech-pelio-l",
+        "model": "Pylontech Pelio-L (per module)",
+        "chemistry": "LiFePO4",
+        "nominal_voltage": 51.2,
+        "capacity_ah": 100,
+        "capacity_kwh": 5.12,
+        "max_charge_rate": null,
+        "max_discharge_rate": null,
+        "notes": "Victron CAN gecertificeerd, leverbaar NL ~€1195/module (lithiumaccus.nl)",
+        "victron_can": 1,
+        "price": 862,
+        "url": "https://www.itstechnologies.shop/products/pylontech-pelio-l-5-12-lv-battery-module",
+        "price_per_kwh": 168.36,
+        "source": "https://www.itstechnologies.shop/products/pylontech-pelio-l-5-12-lv-battery-module",
+        "cooling": "passive"
+      },
+      {
+        "id": 1,
+        "battery_type_id": "pylontech-us5000-1c",
+        "model": "Pylontech US5000-1C",
+        "chemistry": "LiFePO4",
+        "nominal_voltage": 48,
+        "capacity_ah": 100,
+        "capacity_kwh": 4.8,
+        "max_charge_rate": null,
+        "max_discharge_rate": null,
+        "notes": "Reference model. Market standard, ~€830–1150",
+        "victron_can": 1,
+        "price": 655,
+        "url": "https://sunnergie.com/product/pylon-us5000-4-8kwh-lithium-battery/",
+        "price_per_kwh": 136.46,
+        "source": "https://sunnergie.com/product/pylon-us5000-4-8kwh-lithium-battery/",
+        "cooling": "passive"
+      },
+      {
+        "id": 11,
+        "battery_type_id": "pytes-ebox-48100r",
+        "model": "Pytes E-BOX-48100R (per module)",
+        "chemistry": "LiFePO4",
+        "nominal_voltage": 51.2,
+        "capacity_ah": 100,
+        "capacity_kwh": 5.12,
+        "max_charge_rate": null,
+        "max_discharge_rate": null,
+        "notes": "Victron CAN compatibel, leverbaar NL ~€800/module (etbsmits.nl, eigenstroomopslaan.nl)",
+        "victron_can": 1,
+        "price": 626,
+        "url": "https://www.stromzone.com/en/product/pytes-e-box-48100r",
+        "price_per_kwh": 122.27,
+        "source": "https://www.stromzone.com/en/product/pytes-e-box-48100r",
+        "cooling": "passive"
+      },
+      {
+        "id": 13,
+        "battery_type_id": "zyc-simpo-5000",
+        "model": "ZYC SIMPO 5000 LiFePO4 51.2V/100Ah 5.12kWh",
+        "chemistry": "LiFePO4",
+        "nominal_voltage": 51.2,
+        "capacity_ah": 100,
+        "capacity_kwh": 5.12,
+        "max_charge_rate": null,
+        "max_discharge_rate": null,
+        "notes": "BluePowerShop listing; Victron-compatible battery module.",
+        "victron_can": 1,
+        "price": 1095.4,
+        "url": "https://panpower.eu/pl/systemy-magazynowania/5059-zyc-energy-simpo-5000-5kwh-512v.html",
+        "price_per_kwh": 213.95,
+        "source": "https://panpower.eu/pl/systemy-magazynowania/5059-zyc-energy-simpo-5000-5kwh-512v.html",
+        "cooling": "passive"
+      }
+    ],
+    "battery_banks": [],
+    "inverter_types": [
+      {
+        "id": 2,
+        "inverter_id": "victron-mp2-48-5000",
+        "model": "Multiplus-II 48/5000/70-50",
+        "input_voltage_v": 48,
+        "output_voltage_v": 230,
+        "continuous_power_w": 4000,
+        "peak_power_va": 5000,
+        "max_charge_current_a": 70,
+        "efficiency_pct": 96,
+        "price": null,
+        "notes": "Single AC input"
+      },
+      {
+        "id": 6,
+        "inverter_id": "victron-mrs-48-6000-100-450-100",
+        "model": "Multi RS Solar 48/6000/100-450/100",
+        "input_voltage_v": 48,
+        "output_voltage_v": 230,
+        "continuous_power_w": 4800,
+        "peak_power_va": 6000,
+        "max_charge_current_a": 100,
+        "efficiency_pct": 96.5,
+        "price": null,
+        "notes": "Victron Multi RS Solar. Official specs: DC input 38-62 V, AC output 230 VAC, max continuous inverter current 25 A AC, peak 9 kW for 3 s / 7 kW for 4 min, solar: 450 V max, MPPT range 65-450 V, 2 x 3000 W trackers, 12 A max PV input current, 100 A combined charge current, 50 A transfer switch."
+      },
+      {
+        "id": 3,
+        "inverter_id": "victron-mp2-48-10000",
+        "model": "Multiplus-II 48/10000/140-100",
+        "input_voltage_v": 48,
+        "output_voltage_v": 230,
+        "continuous_power_w": 8000,
+        "peak_power_va": 10000,
+        "max_charge_current_a": 140,
+        "efficiency_pct": 96,
+        "price": null,
+        "notes": "Single AC input"
+      }
+    ],
+    "project_inverters": [],
+    "branch_circuits": [],
+    "consumers": [],
+    "generators": [],
+    "consumer_monthly_profiles": [],
+    "generator_monthly_profiles": [],
+    "solar_monthly_profiles": []
+  },
+  "relationships": {
+    "array_to_mppt": [
+      {
+        "relationship_id": "array-flat-ne__project-mppt-flat-ne",
+        "from_array_id": "array-flat-ne",
+        "to_project_mppt_id": "project-mppt-flat-ne",
+        "evaluation": {
+          "electrical_status": "within_limits",
+          "reasons": [
+            "provisional_project_mppt"
+          ],
+          "notes": "This relationship is a structural placeholder until explicit project MPPT selections and calculator outputs exist."
+        }
+      },
+      {
+        "relationship_id": "array-ne__project-mppt-ne",
+        "from_array_id": "array-ne",
+        "to_project_mppt_id": "project-mppt-ne",
+        "evaluation": {
+          "electrical_status": "within_limits",
+          "reasons": [
+            "provisional_project_mppt"
+          ],
+          "notes": "This relationship is a structural placeholder until explicit project MPPT selections and calculator outputs exist."
+        }
+      },
+      {
+        "relationship_id": "array-nw__project-mppt-nw",
+        "from_array_id": "array-nw",
+        "to_project_mppt_id": "project-mppt-nw",
+        "evaluation": {
+          "electrical_status": "within_limits",
+          "reasons": [
+            "provisional_project_mppt"
+          ],
+          "notes": "This relationship is a structural placeholder until explicit project MPPT selections and calculator outputs exist."
+        }
+      },
+      {
+        "relationship_id": "array-se__project-mppt-se",
+        "from_array_id": "array-se",
+        "to_project_mppt_id": "project-mppt-se",
+        "evaluation": {
+          "electrical_status": "within_limits",
+          "reasons": [
+            "provisional_project_mppt"
+          ],
+          "notes": "This relationship is a structural placeholder until explicit project MPPT selections and calculator outputs exist."
+        }
+      },
+      {
+        "relationship_id": "array-sw__project-mppt-sw",
+        "from_array_id": "array-sw",
+        "to_project_mppt_id": "project-mppt-sw",
+        "evaluation": {
+          "electrical_status": "within_limits",
+          "reasons": [
+            "provisional_project_mppt"
+          ],
+          "notes": "This relationship is a structural placeholder until explicit project MPPT selections and calculator outputs exist."
+        }
+      }
+    ],
+    "mppt_to_battery_bank": [],
+    "battery_bank_to_inverter": [],
+    "inverter_to_branch_circuit": [],
+    "branch_circuit_to_consumer": []
+  },
+  "derived": {
+    "string_states": [],
+    "array_states": [
+      {
+        "array_id": "array-flat-ne",
+        "installed_wp": 1560,
+        "roof_face_id": "flat-ne",
+        "panel_count": 4
+      },
+      {
+        "array_id": "array-ne",
+        "installed_wp": 780,
+        "roof_face_id": "ne",
+        "panel_count": 2
+      },
+      {
+        "array_id": "array-nw",
+        "installed_wp": 2730,
+        "roof_face_id": "nw",
+        "panel_count": 7
+      },
+      {
+        "array_id": "array-se",
+        "installed_wp": 1560,
+        "roof_face_id": "se",
+        "panel_count": 4
+      },
+      {
+        "array_id": "array-sw",
+        "installed_wp": 780,
+        "roof_face_id": "sw",
+        "panel_count": 2
+      }
+    ],
+    "battery_bank_states": [],
+    "monthly_balance": [
+      {
+        "month": "january",
+        "solar_kwh": null,
+        "consumer_kwh": null,
+        "generator_kwh": null,
+        "battery_charge_kwh": null,
+        "battery_discharge_kwh": null,
+        "surplus_kwh": null,
+        "deficit_kwh": null,
+        "notes": "Monthly balance is not calculated yet in the current export foundation."
+      },
+      {
+        "month": "february",
+        "solar_kwh": null,
+        "consumer_kwh": null,
+        "generator_kwh": null,
+        "battery_charge_kwh": null,
+        "battery_discharge_kwh": null,
+        "surplus_kwh": null,
+        "deficit_kwh": null,
+        "notes": "Monthly balance is not calculated yet in the current export foundation."
+      },
+      {
+        "month": "march",
+        "solar_kwh": null,
+        "consumer_kwh": null,
+        "generator_kwh": null,
+        "battery_charge_kwh": null,
+        "battery_discharge_kwh": null,
+        "surplus_kwh": null,
+        "deficit_kwh": null,
+        "notes": "Monthly balance is not calculated yet in the current export foundation."
+      },
+      {
+        "month": "april",
+        "solar_kwh": null,
+        "consumer_kwh": null,
+        "generator_kwh": null,
+        "battery_charge_kwh": null,
+        "battery_discharge_kwh": null,
+        "surplus_kwh": null,
+        "deficit_kwh": null,
+        "notes": "Monthly balance is not calculated yet in the current export foundation."
+      },
+      {
+        "month": "may",
+        "solar_kwh": null,
+        "consumer_kwh": null,
+        "generator_kwh": null,
+        "battery_charge_kwh": null,
+        "battery_discharge_kwh": null,
+        "surplus_kwh": null,
+        "deficit_kwh": null,
+        "notes": "Monthly balance is not calculated yet in the current export foundation."
+      },
+      {
+        "month": "june",
+        "solar_kwh": null,
+        "consumer_kwh": null,
+        "generator_kwh": null,
+        "battery_charge_kwh": null,
+        "battery_discharge_kwh": null,
+        "surplus_kwh": null,
+        "deficit_kwh": null,
+        "notes": "Monthly balance is not calculated yet in the current export foundation."
+      },
+      {
+        "month": "july",
+        "solar_kwh": null,
+        "consumer_kwh": null,
+        "generator_kwh": null,
+        "battery_charge_kwh": null,
+        "battery_discharge_kwh": null,
+        "surplus_kwh": null,
+        "deficit_kwh": null,
+        "notes": "Monthly balance is not calculated yet in the current export foundation."
+      },
+      {
+        "month": "august",
+        "solar_kwh": null,
+        "consumer_kwh": null,
+        "generator_kwh": null,
+        "battery_charge_kwh": null,
+        "battery_discharge_kwh": null,
+        "surplus_kwh": null,
+        "deficit_kwh": null,
+        "notes": "Monthly balance is not calculated yet in the current export foundation."
+      },
+      {
+        "month": "september",
+        "solar_kwh": null,
+        "consumer_kwh": null,
+        "generator_kwh": null,
+        "battery_charge_kwh": null,
+        "battery_discharge_kwh": null,
+        "surplus_kwh": null,
+        "deficit_kwh": null,
+        "notes": "Monthly balance is not calculated yet in the current export foundation."
+      },
+      {
+        "month": "october",
+        "solar_kwh": null,
+        "consumer_kwh": null,
+        "generator_kwh": null,
+        "battery_charge_kwh": null,
+        "battery_discharge_kwh": null,
+        "surplus_kwh": null,
+        "deficit_kwh": null,
+        "notes": "Monthly balance is not calculated yet in the current export foundation."
+      },
+      {
+        "month": "november",
+        "solar_kwh": null,
+        "consumer_kwh": null,
+        "generator_kwh": null,
+        "battery_charge_kwh": null,
+        "battery_discharge_kwh": null,
+        "surplus_kwh": null,
+        "deficit_kwh": null,
+        "notes": "Monthly balance is not calculated yet in the current export foundation."
+      },
+      {
+        "month": "december",
+        "solar_kwh": null,
+        "consumer_kwh": null,
+        "generator_kwh": null,
+        "battery_charge_kwh": null,
+        "battery_discharge_kwh": null,
+        "surplus_kwh": null,
+        "deficit_kwh": null,
+        "notes": "Monthly balance is not calculated yet in the current export foundation."
+      }
+    ],
+    "warnings": [
+      {
+        "severity": "info",
+        "scope": "export",
+        "message": "Arrays and project MPPTs are currently derived from roof-face assignments and are not yet persisted explicitly.",
+        "related_ids": [
+          "array-flat-ne",
+          "array-ne",
+          "array-nw",
+          "array-se",
+          "array-sw"
+        ]
+      },
+      {
+        "severity": "info",
+        "scope": "monthly_balance",
+        "message": "Monthly balance values are placeholders until the first calculation pipeline is implemented.",
+        "related_ids": []
+      }
+    ],
+    "summary": {
+      "total_installed_wp": 7410,
+      "roof_face_count": 5,
+      "array_count": 5,
+      "project_mppt_count": 5,
+      "battery_type_count": 7,
+      "inverter_type_count": 3,
+      "has_outside_limits": false
+    }
+  },
+  "meta": {
+    "generated_at": "2026-04-12T14:53:40.316Z",
+    "source_db_path": "/Users/joostokkinga/Code/OffGridOS/project.db",
+    "export_version": 1,
+    "units": {
+      "power": "W",
+      "energy": "kWh",
+      "voltage": "V",
+      "current": "A"
+    }
+  }
+}

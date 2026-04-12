@@ -68,6 +68,20 @@ export interface BatteryType {
   notes?: string;
 }
 
+export interface Inverter {
+  id: number;
+  inverter_id: string;
+  model: string;
+  input_voltage_v: number;
+  output_voltage_v: number;
+  continuous_power_w: number;
+  peak_power_va: number;
+  max_charge_current_a: number;
+  efficiency_pct?: number | null;
+  price?: number | null;
+  notes?: string;
+}
+
 export interface Preferences {
   target_battery_voltage?: number;
   autonomy_days?: number;

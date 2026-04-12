@@ -6,6 +6,7 @@ import type {
   RoofPanelAssignment,
   MpptType,
   BatteryType,
+  Inverter,
   Preferences,
 } from '../domain/types.js';
 
@@ -195,6 +196,16 @@ export function updateBatteryType(db: Database.Database, data: Omit<BatteryType,
 
 export function deleteBatteryType(db: Database.Database, battery_type_id: string): void {
   db.prepare('DELETE FROM battery_types WHERE battery_type_id = ?').run(battery_type_id);
+}
+
+// ── Inverters ────────────────────────────────────────────────────────────────
+
+export function listInverters(db: Database.Database): Inverter[] {
+  return db.prepare('SELECT * FROM inverters ORDER BY continuous_power_w, peak_power_va').all() as Inverter[];
+}
+
+export function getInverter(db: Database.Database, inverter_id: string): Inverter | null {
+  return (db.prepare('SELECT * FROM inverters WHERE inverter_id = ?').get(inverter_id) as Inverter) ?? null;
 }
 
 // ── Preferences ───────────────────────────────────────────────────────────────
