@@ -2,7 +2,7 @@
 
 ## NOW
 
-- Extend the first JSON export foundation so it emits real `array -> MPPT`, `MPPT -> battery bank`, and `battery bank -> inverter` evaluations instead of provisional placeholders.
+- Extend the first JSON export foundation so it emits real `MPPT -> battery bank` and `battery bank -> inverter` evaluations alongside the new first-pass `array -> MPPT` fit output.
 - Turn the React MVP notes into the first implementation slice: app shell, overview screen, and navigation.
 - Replace the `Calculations coming in Step 4` placeholder in [`src/calc/runner.ts`](./src/calc/runner.ts) with the first real calculation pipeline for array, MPPT, battery-bank, and monthly-balance outputs.
 - Connect the `ogos run` command to actual result generation and write the output report file.

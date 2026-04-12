@@ -283,7 +283,10 @@
         "panel_assignment_ids": [
           "roof-panel-9"
         ],
-        "installed_wp": 1560
+        "panel_type_id": "canadian-bihiku6-rood",
+        "panel_count": 4,
+        "installed_wp": 1560,
+        "notes": "Provisional assumption: current export treats each roof-face assignment as one series string for first MPPT-fit estimation."
       },
       {
         "array_id": "array-ne",
@@ -293,7 +296,10 @@
         "panel_assignment_ids": [
           "roof-panel-7"
         ],
-        "installed_wp": 780
+        "panel_type_id": "canadian-bihiku6-rood",
+        "panel_count": 2,
+        "installed_wp": 780,
+        "notes": "Provisional assumption: current export treats each roof-face assignment as one series string for first MPPT-fit estimation."
       },
       {
         "array_id": "array-nw",
@@ -303,7 +309,10 @@
         "panel_assignment_ids": [
           "roof-panel-6"
         ],
-        "installed_wp": 2730
+        "panel_type_id": "canadian-bihiku6-rood",
+        "panel_count": 7,
+        "installed_wp": 2730,
+        "notes": "Provisional assumption: current export treats each roof-face assignment as one series string for first MPPT-fit estimation."
       },
       {
         "array_id": "array-se",
@@ -313,7 +322,10 @@
         "panel_assignment_ids": [
           "roof-panel-5"
         ],
-        "installed_wp": 1560
+        "panel_type_id": "canadian-bihiku6-rood",
+        "panel_count": 4,
+        "installed_wp": 1560,
+        "notes": "Provisional assumption: current export treats each roof-face assignment as one series string for first MPPT-fit estimation."
       },
       {
         "array_id": "array-sw",
@@ -323,7 +335,10 @@
         "panel_assignment_ids": [
           "roof-panel-8"
         ],
-        "installed_wp": 780
+        "panel_type_id": "canadian-bihiku6-rood",
+        "panel_count": 2,
+        "installed_wp": 780,
+        "notes": "Provisional assumption: current export treats each roof-face assignment as one series string for first MPPT-fit estimation."
       }
     ],
     "mppt_types": [
@@ -483,41 +498,46 @@
         "project_mppt_id": "project-mppt-flat-ne",
         "roof_face_id": "flat-ne",
         "array_id": "array-flat-ne",
-        "name": "Flat NE MPPT",
+        "mppt_type_id": "victron-250-60",
+        "name": "Flat NE SmartSolar 250/60",
         "provisional": true,
-        "notes": "Derived placeholder until explicit project MPPT selections are stored."
+        "notes": "Derived provisional MPPT choice based on a first single-string-per-roof-face assumption."
       },
       {
         "project_mppt_id": "project-mppt-ne",
         "roof_face_id": "ne",
         "array_id": "array-ne",
-        "name": "North-East MPPT",
+        "mppt_type_id": "victron-100-20",
+        "name": "North-East SmartSolar 100/20",
         "provisional": true,
-        "notes": "Derived placeholder until explicit project MPPT selections are stored."
+        "notes": "Derived provisional MPPT choice based on a first single-string-per-roof-face assumption."
       },
       {
         "project_mppt_id": "project-mppt-nw",
         "roof_face_id": "nw",
         "array_id": "array-nw",
-        "name": "North-West MPPT",
+        "mppt_type_id": "victron-mrs-48-6000-100-450-100",
+        "name": "North-West Multi RS Solar 48/6000/100-450/100",
         "provisional": true,
-        "notes": "Derived placeholder until explicit project MPPT selections are stored."
+        "notes": "Derived provisional MPPT choice based on a first single-string-per-roof-face assumption."
       },
       {
         "project_mppt_id": "project-mppt-se",
         "roof_face_id": "se",
         "array_id": "array-se",
-        "name": "South-East MPPT",
+        "mppt_type_id": "victron-250-60",
+        "name": "South-East SmartSolar 250/60",
         "provisional": true,
-        "notes": "Derived placeholder until explicit project MPPT selections are stored."
+        "notes": "Derived provisional MPPT choice based on a first single-string-per-roof-face assumption."
       },
       {
         "project_mppt_id": "project-mppt-sw",
         "roof_face_id": "sw",
         "array_id": "array-sw",
-        "name": "South-West MPPT",
+        "mppt_type_id": "victron-100-20",
+        "name": "South-West SmartSolar 100/20",
         "provisional": true,
-        "notes": "Derived placeholder until explicit project MPPT selections are stored."
+        "notes": "Derived provisional MPPT choice based on a first single-string-per-roof-face assumption."
       }
     ],
     "battery_types": [
@@ -704,60 +724,85 @@
         "relationship_id": "array-flat-ne__project-mppt-flat-ne",
         "from_array_id": "array-flat-ne",
         "to_project_mppt_id": "project-mppt-flat-ne",
+        "input_voltage_v": 137.2,
+        "input_current_a": 11.37,
+        "input_power_w": 1560,
         "evaluation": {
           "electrical_status": "within_limits",
+          "fit_status": "underutilized",
           "reasons": [
-            "provisional_project_mppt"
+            "single_string_assumption",
+            "low_utilization"
           ],
-          "notes": "This relationship is a structural placeholder until explicit project MPPT selections and calculator outputs exist."
+          "notes": "First-fit calculation uses a provisional single-string-per-roof-face assumption to estimate MPPT suitability."
         }
       },
       {
         "relationship_id": "array-ne__project-mppt-ne",
         "from_array_id": "array-ne",
         "to_project_mppt_id": "project-mppt-ne",
+        "input_voltage_v": 68.6,
+        "input_current_a": 11.37,
+        "input_power_w": 780,
         "evaluation": {
           "electrical_status": "within_limits",
+          "fit_status": "acceptable",
           "reasons": [
-            "provisional_project_mppt"
+            "single_string_assumption",
+            "acceptable_headroom"
           ],
-          "notes": "This relationship is a structural placeholder until explicit project MPPT selections and calculator outputs exist."
+          "notes": "First-fit calculation uses a provisional single-string-per-roof-face assumption to estimate MPPT suitability."
         }
       },
       {
         "relationship_id": "array-nw__project-mppt-nw",
         "from_array_id": "array-nw",
         "to_project_mppt_id": "project-mppt-nw",
+        "input_voltage_v": 240.1,
+        "input_current_a": 11.37,
+        "input_power_w": 2730,
         "evaluation": {
           "electrical_status": "within_limits",
+          "fit_status": "underutilized",
           "reasons": [
-            "provisional_project_mppt"
+            "single_string_assumption",
+            "low_utilization"
           ],
-          "notes": "This relationship is a structural placeholder until explicit project MPPT selections and calculator outputs exist."
+          "notes": "First-fit calculation uses a provisional single-string-per-roof-face assumption to estimate MPPT suitability."
         }
       },
       {
         "relationship_id": "array-se__project-mppt-se",
         "from_array_id": "array-se",
         "to_project_mppt_id": "project-mppt-se",
+        "input_voltage_v": 137.2,
+        "input_current_a": 11.37,
+        "input_power_w": 1560,
         "evaluation": {
           "electrical_status": "within_limits",
+          "fit_status": "underutilized",
           "reasons": [
-            "provisional_project_mppt"
+            "single_string_assumption",
+            "low_utilization"
           ],
-          "notes": "This relationship is a structural placeholder until explicit project MPPT selections and calculator outputs exist."
+          "notes": "First-fit calculation uses a provisional single-string-per-roof-face assumption to estimate MPPT suitability."
         }
       },
       {
         "relationship_id": "array-sw__project-mppt-sw",
         "from_array_id": "array-sw",
         "to_project_mppt_id": "project-mppt-sw",
+        "input_voltage_v": 68.6,
+        "input_current_a": 11.37,
+        "input_power_w": 780,
         "evaluation": {
           "electrical_status": "within_limits",
+          "fit_status": "acceptable",
           "reasons": [
-            "provisional_project_mppt"
+            "single_string_assumption",
+            "acceptable_headroom"
           ],
-          "notes": "This relationship is a structural placeholder until explicit project MPPT selections and calculator outputs exist."
+          "notes": "First-fit calculation uses a provisional single-string-per-roof-face assumption to estimate MPPT suitability."
         }
       }
     ],
@@ -773,31 +818,41 @@
         "array_id": "array-flat-ne",
         "installed_wp": 1560,
         "roof_face_id": "flat-ne",
-        "panel_count": 4
+        "panel_count": 4,
+        "input_voltage_v": 137.2,
+        "input_current_a": 11.37
       },
       {
         "array_id": "array-ne",
         "installed_wp": 780,
         "roof_face_id": "ne",
-        "panel_count": 2
+        "panel_count": 2,
+        "input_voltage_v": 68.6,
+        "input_current_a": 11.37
       },
       {
         "array_id": "array-nw",
         "installed_wp": 2730,
         "roof_face_id": "nw",
-        "panel_count": 7
+        "panel_count": 7,
+        "input_voltage_v": 240.09999999999997,
+        "input_current_a": 11.37
       },
       {
         "array_id": "array-se",
         "installed_wp": 1560,
         "roof_face_id": "se",
-        "panel_count": 4
+        "panel_count": 4,
+        "input_voltage_v": 137.2,
+        "input_current_a": 11.37
       },
       {
         "array_id": "array-sw",
         "installed_wp": 780,
         "roof_face_id": "sw",
-        "panel_count": 2
+        "panel_count": 2,
+        "input_voltage_v": 68.6,
+        "input_current_a": 11.37
       }
     ],
     "battery_bank_states": [],
@@ -950,6 +1005,18 @@
       },
       {
         "severity": "info",
+        "scope": "array_to_mppt",
+        "message": "Provisional array-to-MPPT fit has been derived from the current roof-face panel assignments.",
+        "related_ids": [
+          "array-flat-ne",
+          "array-ne",
+          "array-nw",
+          "array-se",
+          "array-sw"
+        ]
+      },
+      {
+        "severity": "info",
         "scope": "monthly_balance",
         "message": "Monthly balance values are placeholders until the first calculation pipeline is implemented.",
         "related_ids": []
@@ -966,7 +1033,7 @@
     }
   },
   "meta": {
-    "generated_at": "2026-04-12T14:53:40.316Z",
+    "generated_at": "2026-04-12T15:04:10.716Z",
     "source_db_path": "/Users/joostokkinga/Code/OffGridOS/project.db",
     "export_version": 1,
     "units": {

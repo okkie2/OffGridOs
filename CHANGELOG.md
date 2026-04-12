@@ -2,6 +2,7 @@
 
 ## 2026-04-12
 
+- Replaced the structural `array -> MPPT` placeholder in `ogos export` with a first provisional fit evaluation based on the current roof-face panel assignments, derived MPPT candidates, and initial `electrical_status` / `fit_status` logic.
 - Changed `ogos export` to write to `public/digital-twin.json` by default so the local React app reads the latest export without a manual copy step.
 - Added the first `ogos export` command and digital-twin JSON export foundation, deriving arrays and provisional project MPPTs from current roof-face assignments.
 - Added `IMPLEMENTATION_START_RECOMMENDATION.md` to mark the transition point from design work into the first implementation slice.
