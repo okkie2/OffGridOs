@@ -129,7 +129,7 @@ Key fields:
 - `usable_capacity_kwh`
 - `notes`
 
-### Inverter
+### Inverter type
 
 Represents one inverter or inverter/charger in the design.
 
@@ -387,9 +387,9 @@ Suggested top-level shape:
     "panel_types": [],
     "strings": [],
     "arrays": [],
-    "mppts": [],
+    "mppt_configurations": [],
     "battery_banks": [],
-    "inverters": [],
+    "inverter_types": [],
     "branch_circuits": [],
     "consumers": [],
     "generators": [],

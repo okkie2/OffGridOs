@@ -2,6 +2,7 @@
 
 ## 2026-04-19
 
+- Normalized the remaining inverter and MPPT configuration naming so the live schema, TypeScript types, export shape, sample JSON, and canonical docs now use `inverter_types`, `mppt_configurations`, and `inverter_configurations` consistently.
 - Added a local production-rehearsal path by making the server host configurable, then verified the build, server boot, API, and SQLite persistence on a clean throwaway database.
 - Added the first real report rendering flow so `ogos run` now validates input, writes `report.md`, and the CLI report menu can show the latest calculation summary.
 - Cleaned up the main navigation, screen-spec, baseline, and relationship docs so their prose now favors configuration-focused language in user-facing sections.

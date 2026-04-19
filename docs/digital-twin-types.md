@@ -103,8 +103,8 @@ interface MpptType {
   notes?: string;
 }
 
-interface ProjectMppt {
-  project_mppt_id: string;
+interface MpptConfiguration {
+  mppt_configuration_id: string;
   mppt_type_id: string;
   name: string;
   notes?: string;
@@ -151,8 +151,8 @@ interface InverterType {
   notes?: string;
 }
 
-interface ProjectInverter {
-  project_inverter_id: string;
+interface InverterConfiguration {
+  inverter_configuration_id: string;
   inverter_id: string;
   name: string;
   notes?: string;
@@ -160,7 +160,7 @@ interface ProjectInverter {
 
 interface BranchCircuit {
   branch_circuit_id: string;
-  project_inverter_id: string;
+  inverter_configuration_id: string;
   name: string;
   nominal_voltage_v: number;
   fuse_rating_a?: number | null;
@@ -246,7 +246,7 @@ interface DerivedBatteryBankState {
 interface ArrayToMpptRelationship {
   relationship_id: string;
   from_array_id: string;
-  to_project_mppt_id: string;
+  to_mppt_configuration_id: string;
   input_voltage_v: number;
   input_current_a: number;
   input_power_w: number;
@@ -255,7 +255,7 @@ interface ArrayToMpptRelationship {
 
 interface MpptToBatteryBankRelationship {
   relationship_id: string;
-  from_project_mppt_id: string;
+  from_mppt_configuration_id: string;
   to_battery_bank_id: string;
   output_voltage_v: number;
   output_current_a: number;
@@ -266,7 +266,7 @@ interface MpptToBatteryBankRelationship {
 interface BatteryBankToInverterRelationship {
   relationship_id: string;
   from_battery_bank_id: string;
-  to_project_inverter_id: string;
+  to_inverter_configuration_id: string;
   supply_voltage_v: number;
   continuous_current_a: number;
   peak_current_a: number;
@@ -275,7 +275,7 @@ interface BatteryBankToInverterRelationship {
 
 interface InverterToBranchCircuitRelationship {
   relationship_id: string;
-  from_project_inverter_id: string;
+  from_inverter_configuration_id: string;
   to_branch_circuit_id: string;
   nominal_voltage_v: number;
   max_current_a: number;
@@ -302,11 +302,11 @@ interface DigitalTwin {
   strings: String[];
   arrays: Array[];
   mppt_types: MpptType[];
-  project_mppts: ProjectMppt[];
+  mppt_configurations: MpptConfiguration[];
   battery_types: BatteryType[];
   battery_banks: BatteryBank[];
   inverter_types: InverterType[];
-  project_inverters: ProjectInverter[];
+  inverter_configurations: InverterConfiguration[];
   branch_circuits: BranchCircuit[];
   consumers: Consumer[];
   generators: Generator[];

@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { seedMpptTypes, seedBatteryTypes, seedInverters, seedLocation, seedPanelTypes, seedRoofFaces, seedRoofPanels } from './seeds.js';
+import { seedMpptTypes, seedBatteryTypes, seedInverterTypes, seedLocation, seedPanelTypes, seedRoofFaces, seedRoofPanels } from './seeds.js';
 
 function hasTable(db: Database.Database, tableName: string): boolean {
   const row = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?").get(tableName) as { name?: string } | undefined;
@@ -187,7 +187,7 @@ export function initSchema(db: Database.Database): void {
       value TEXT NOT NULL
     );
 
-    CREATE TABLE IF NOT EXISTS inverters (
+    CREATE TABLE IF NOT EXISTS inverter_types (
       id                   INTEGER PRIMARY KEY AUTOINCREMENT,
       inverter_id          TEXT UNIQUE NOT NULL,
       model                TEXT NOT NULL,
@@ -220,11 +220,18 @@ export function initSchema(db: Database.Database): void {
     ['battery_bank_id', 'selected_battery_type_id', 'configured_battery_count', 'batteries_per_string', 'parallel_strings'],
     'battery_bank_id',
   );
+  migrateLegacyTableRows(
+    db,
+    'inverters',
+    'inverter_types',
+    ['inverter_id', 'model', 'input_voltage_v', 'output_voltage_v', 'continuous_power_w', 'peak_power_va', 'max_charge_current_a', 'efficiency_pct', 'price', 'notes'],
+    'inverter_id',
+  );
   seedLocation(db);
   seedRoofFaces(db);
   seedPanelTypes(db);
   seedRoofPanels(db);
   seedMpptTypes(db);
   seedBatteryTypes(db);
-  seedInverters(db);
+  seedInverterTypes(db);
 }

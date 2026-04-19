@@ -13,7 +13,7 @@ Every concept must be referred to by its canonical name across the database sche
 | Roof panel assignment | `roof_panels` | `RoofPanelAssignment` | Panel count |
 | MPPT type | `mppt_types` | `MpptType` | MPPT |
 | Battery type | `battery_types` | `BatteryType` | Battery |
-| Inverter | `inverters` | `Inverter` | Inverter |
+| Inverter type | `inverter_types` | `InverterType` | Inverter |
 | Preference | `preferences` | `Preferences` | Preference |
 | Victron CAN | `battery_types.victron_can` | `BatteryType.victron_can` | Victron CAN |
 

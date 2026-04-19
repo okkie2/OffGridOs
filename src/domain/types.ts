@@ -90,7 +90,7 @@ export interface BatteryType {
   notes?: string;
 }
 
-export interface Inverter {
+export interface InverterType {
   id: number;
   inverter_id: string;
   model: string;

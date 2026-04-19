@@ -521,9 +521,9 @@ export function seedBatteryTypes(db: Database.Database): void {
   insertAll(BATTERY_TYPES);
 }
 
-export function seedInverters(db: Database.Database): void {
+export function seedInverterTypes(db: Database.Database): void {
   const insert = db.prepare(`
-    INSERT OR IGNORE INTO inverters
+    INSERT OR IGNORE INTO inverter_types
       (inverter_id, model, input_voltage_v, output_voltage_v, continuous_power_w, peak_power_va, max_charge_current_a, efficiency_pct, price, notes)
     VALUES
       (@inverter_id, @model, @input_voltage_v, @output_voltage_v, @continuous_power_w, @peak_power_va, @max_charge_current_a, @efficiency_pct, @price, @notes)

@@ -462,7 +462,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
         const updated = withDb(databasePath, (db) => {
           if (selectedInverterTypeId) {
-            const inverter = db.prepare('SELECT 1 FROM inverters WHERE inverter_id = ?').get(selectedInverterTypeId);
+            const inverter = db.prepare('SELECT 1 FROM inverter_types WHERE inverter_id = ?').get(selectedInverterTypeId);
             if (!inverter) {
               return { status: 400 as const, body: { error: `Inverter type "${selectedInverterTypeId}" not found.` } };
             }

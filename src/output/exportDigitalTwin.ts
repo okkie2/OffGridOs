@@ -4,7 +4,7 @@ import type Database from 'better-sqlite3';
 import type {
   BatteryType,
   BatteryBankConfiguration,
-  Inverter,
+  InverterType,
   Location,
   MpptType,
   PanelType,
@@ -17,7 +17,7 @@ import {
   getLocation,
   getPreferences,
   listBatteryTypes,
-  listInverters,
+  listInverterTypes,
   listMpptTypes,
   listPanelTypes,
   listBatteryBankConfigurations,
@@ -135,7 +135,7 @@ interface DigitalTwinExport {
     mppt_configurations: ExportMpptConfiguration[];
     battery_types: BatteryType[];
     battery_banks: ExportBatteryBank[];
-    inverter_types: Inverter[];
+    inverter_types: InverterType[];
     inverter_configurations: ExportInverterConfiguration[];
     solar_monthly_profiles: ExportSolarMonthlyProfile[];
     branch_circuits: [];
@@ -495,7 +495,7 @@ function buildArrays(
   return { arrays, arrayStates, totalInstalledWp };
 }
 
-function buildProjectMppts(
+function buildMpptConfigurations(
   arrays: ExportArray[],
   roofFaceConfigurations: RoofFaceConfiguration[],
   panelTypes: PanelType[],
@@ -645,11 +645,11 @@ function buildBatteryBanks(
   }];
 }
 
-function pickDerivedInverter(inverterTypes: Inverter[]): Inverter | undefined {
+function pickDerivedInverter(inverterTypes: InverterType[]): InverterType | undefined {
   return [...inverterTypes].sort((left, right) => left.continuous_power_w - right.continuous_power_w)[0];
 }
 
-function buildProjectInverters(inverterTypes: Inverter[], preferences: Preferences): ExportInverterConfiguration[] {
+function buildInverterConfigurations(inverterTypes: InverterType[], preferences: Preferences): ExportInverterConfiguration[] {
   const preferredInverter = preferences.preferred_inverter_type_id
     ? inverterTypes.find((inverter) => inverter.inverter_id === preferences.preferred_inverter_type_id)
     : undefined;
@@ -741,7 +741,7 @@ function buildBatteryBankStates(
 function buildBatteryBankToInverterRelationships(
   batteryBanks: ExportBatteryBank[],
   inverterConfigurations: ExportInverterConfiguration[],
-  inverterTypes: Inverter[],
+  inverterTypes: InverterType[],
 ): DigitalTwinExport['relationships']['battery_bank_to_inverter'] {
   const batteryBank = batteryBanks[0];
   const inverterConfiguration = inverterConfigurations[0];
@@ -808,14 +808,14 @@ export function buildDigitalTwinExport(db: Database.Database, dbPath: string): D
   const roofPanels = listRoofPanels(db);
   const mpptTypes = listMpptTypes(db);
   const batteryTypes = listBatteryTypes(db);
-  const inverterTypes = listInverters(db);
+  const inverterTypes = listInverterTypes(db);
 
   const { arrays, arrayStates, totalInstalledWp } = buildArrays(roofFaces, roofFaceConfigurations, roofPanels, panelTypes);
   const { solarMonthlyProfiles, projectMonthlySolarOutput } = buildSolarMonthlyProfiles(roofFaces, arrays, location);
-  const mpptConfigurations = buildProjectMppts(arrays, roofFaceConfigurations, panelTypes, mpptTypes);
+  const mpptConfigurations = buildMpptConfigurations(arrays, roofFaceConfigurations, panelTypes, mpptTypes);
   const arrayToMppt = buildArrayToMpptRelationships(arrays, roofFaceConfigurations, mpptConfigurations, panelTypes, mpptTypes);
   const batteryBanks = buildBatteryBanks(batteryTypes, preferences, batteryBankConfigurations);
-  const inverterConfigurations = buildProjectInverters(inverterTypes, preferences);
+  const inverterConfigurations = buildInverterConfigurations(inverterTypes, preferences);
   const mpptToBatteryBank = buildMpptToBatteryBankRelationships(mpptConfigurations, batteryBanks, mpptTypes, batteryTypes);
   const batteryBankStates = buildBatteryBankStates(batteryBanks, mpptToBatteryBank);
   const batteryBankToInverter = buildBatteryBankToInverterRelationships(batteryBanks, inverterConfigurations, inverterTypes);

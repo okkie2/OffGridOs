@@ -71,11 +71,11 @@ Suggested shape:
   "strings": [],
   "arrays": [],
   "mppt_types": [],
-  "project_mppts": [],
+  "mppt_configurations": [],
   "battery_types": [],
   "battery_banks": [],
   "inverter_types": [],
-  "project_inverters": [],
+  "inverter_configurations": [],
   "branch_circuits": [],
   "consumers": [],
   "generators": [],
@@ -114,7 +114,7 @@ Example:
 {
   "relationship_id": "array-ne-1__mppt-ne-1",
   "from_array_id": "array-ne-1",
-  "to_project_mppt_id": "mppt-ne-1",
+  "to_mppt_configuration_id": "mppt-ne-1",
   "input_voltage_v": 82.0,
   "input_current_a": 11.37,
   "input_power_w": 780.0,
@@ -265,7 +265,7 @@ For the first exported version, prioritize:
 1. `roof_faces`
 2. `panel_types`
 3. `arrays`
-4. `project_mppts`
+4. `mppt_configurations`
 5. `battery_banks`
 6. `array_to_mppt`
 7. `mppt_to_battery_bank`

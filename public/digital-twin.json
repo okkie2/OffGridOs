@@ -6,12 +6,14 @@
       "country": "NL",
       "place_name": "Warten",
       "latitude": 53.126579,
-      "longitude": 5.899564
+      "longitude": 5.899564,
+      "northing": null,
+      "easting": null
     },
     "current_assumptions": {
       "roof_face_to_array_default": "1:1",
       "array_to_mppt_default": "1:1",
-      "project_mppts_provisional": true
+      "mppt_configurations_provisional": true
     },
     "preferences": {}
   },
@@ -72,6 +74,15 @@
         "notes": null
       }
     ],
+    "roof_face_configurations": [
+      {
+        "roof_face_id": "se",
+        "panels_per_string": 2,
+        "parallel_strings": 2,
+        "selected_mppt_type_id": "victron-150-35"
+      }
+    ],
+    "battery_bank_configurations": [],
     "panel_types": [
       {
         "id": 13,
@@ -300,11 +311,11 @@
         "name": "Flat NE",
         "string_ids": [],
         "panel_assignment_ids": [
-          "roof-panel-9"
+          "roof-panel-11"
         ],
-        "panel_type_id": "canadian-bihiku6-rood",
+        "panel_type_id": "aiko-475-all-black",
         "panel_count": 4,
-        "installed_wp": 1560,
+        "installed_wp": 1900,
         "notes": "Provisional assumption: current export treats each roof-face assignment as one series string for first MPPT-fit estimation."
       },
       {
@@ -313,11 +324,11 @@
         "name": "North-East",
         "string_ids": [],
         "panel_assignment_ids": [
-          "roof-panel-7"
+          "roof-panel-12"
         ],
-        "panel_type_id": "canadian-bihiku6-rood",
+        "panel_type_id": "aiko-475-all-black",
         "panel_count": 2,
-        "installed_wp": 780,
+        "installed_wp": 950,
         "notes": "Provisional assumption: current export treats each roof-face assignment as one series string for first MPPT-fit estimation."
       },
       {
@@ -326,7 +337,7 @@
         "name": "North-West",
         "string_ids": [],
         "panel_assignment_ids": [
-          "roof-panel-6"
+          "roof-panel-13"
         ],
         "panel_type_id": "canadian-bihiku6-rood",
         "panel_count": 7,
@@ -339,7 +350,7 @@
         "name": "South-East",
         "string_ids": [],
         "panel_assignment_ids": [
-          "roof-panel-5"
+          "roof-panel-14"
         ],
         "panel_type_id": "canadian-bihiku6-rood",
         "panel_count": 4,
@@ -352,7 +363,7 @@
         "name": "South-West",
         "string_ids": [],
         "panel_assignment_ids": [
-          "roof-panel-8"
+          "roof-panel-15"
         ],
         "panel_type_id": "canadian-bihiku6-rood",
         "panel_count": 2,
@@ -557,9 +568,9 @@
         "max_pv_short_circuit_current_a": 16
       }
     ],
-    "project_mppts": [
+    "mppt_configurations": [
       {
-        "project_mppt_id": "project-mppt-dakkapellen",
+        "mppt_configuration_id": "mppt-configuration-dakkapellen",
         "roof_face_id": "dakkapellen",
         "array_id": "array-dakkapellen",
         "name": "Dakkapellen MPPT",
@@ -567,49 +578,49 @@
         "notes": "No provisional MPPT could be derived from the current array assumptions."
       },
       {
-        "project_mppt_id": "project-mppt-flat-ne",
+        "mppt_configuration_id": "mppt-configuration-flat-ne",
         "roof_face_id": "flat-ne",
         "array_id": "array-flat-ne",
         "mppt_type_id": "victron-250-60",
         "name": "Flat NE SmartSolar 250/60",
         "provisional": true,
-        "notes": "Derived provisional MPPT choice based on a first single-string-per-roof-face assumption."
+        "notes": "Derived provisional MPPT choice based on the current saved or assumed face layout."
       },
       {
-        "project_mppt_id": "project-mppt-ne",
+        "mppt_configuration_id": "mppt-configuration-ne",
         "roof_face_id": "ne",
         "array_id": "array-ne",
         "mppt_type_id": "victron-100-20",
         "name": "North-East SmartSolar 100/20",
         "provisional": true,
-        "notes": "Derived provisional MPPT choice based on a first single-string-per-roof-face assumption."
+        "notes": "Derived provisional MPPT choice based on the current saved or assumed face layout."
       },
       {
-        "project_mppt_id": "project-mppt-nw",
+        "mppt_configuration_id": "mppt-configuration-nw",
         "roof_face_id": "nw",
         "array_id": "array-nw",
         "mppt_type_id": "victron-mrs-48-6000-100-450-100",
         "name": "North-West Multi RS Solar 48/6000/100-450/100",
         "provisional": true,
-        "notes": "Derived provisional MPPT choice based on a first single-string-per-roof-face assumption."
+        "notes": "Derived provisional MPPT choice based on the current saved or assumed face layout."
       },
       {
-        "project_mppt_id": "project-mppt-se",
+        "mppt_configuration_id": "mppt-configuration-se",
         "roof_face_id": "se",
         "array_id": "array-se",
-        "mppt_type_id": "victron-250-60",
-        "name": "South-East SmartSolar 250/60",
-        "provisional": true,
-        "notes": "Derived provisional MPPT choice based on a first single-string-per-roof-face assumption."
+        "mppt_type_id": "victron-150-35",
+        "name": "South-East SmartSolar 150/35",
+        "provisional": false,
+        "notes": "Uses the saved face-level MPPT choice."
       },
       {
-        "project_mppt_id": "project-mppt-sw",
+        "mppt_configuration_id": "mppt-configuration-sw",
         "roof_face_id": "sw",
         "array_id": "array-sw",
         "mppt_type_id": "victron-100-20",
         "name": "South-West SmartSolar 100/20",
         "provisional": true,
-        "notes": "Derived provisional MPPT choice based on a first single-string-per-roof-face assumption."
+        "notes": "Derived provisional MPPT choice based on the current saved or assumed face layout."
       }
     ],
     "battery_types": [
@@ -754,7 +765,7 @@
     ],
     "inverter_types": [
       {
-        "id": 2,
+        "id": 1,
         "inverter_id": "victron-mp2-48-5000",
         "model": "Multiplus-II 48/5000/70-50",
         "input_voltage_v": 48,
@@ -767,7 +778,7 @@
         "notes": "Single AC input"
       },
       {
-        "id": 6,
+        "id": 3,
         "inverter_id": "victron-mrs-48-6000-100-450-100",
         "model": "Multi RS Solar 48/6000/100-450/100",
         "input_voltage_v": 48,
@@ -780,7 +791,7 @@
         "notes": "Victron Multi RS Solar. Official specs: DC input 38-62 V, AC output 230 VAC, max continuous inverter current 25 A AC, peak 9 kW for 3 s / 7 kW for 4 min, solar: 450 V max, MPPT range 65-450 V, 2 x 3000 W trackers, 12 A max PV input current, 100 A combined charge current, 50 A transfer switch."
       },
       {
-        "id": 3,
+        "id": 2,
         "inverter_id": "victron-mp2-48-10000",
         "model": "Multiplus-II 48/10000/140-100",
         "input_voltage_v": 48,
@@ -793,28 +804,677 @@
         "notes": "Single AC input"
       }
     ],
-    "project_inverters": [
+    "inverter_configurations": [
       {
-        "project_inverter_id": "project-inverter-main",
+        "inverter_configuration_id": "inverter-configuration-main",
         "inverter_id": "victron-mp2-48-5000",
         "name": "Multiplus-II 48/5000/70-50",
         "provisional": true,
-        "notes": "Derived provisional inverter choice currently uses the smallest catalog inverter until load-side design is modeled."
+        "notes": "Derived provisional inverter choice currently uses the smallest catalog inverter until load-side configuration is modeled."
+      }
+    ],
+    "solar_monthly_profiles": [
+      {
+        "roof_face_id": "dakkapellen",
+        "roof_face_name": "Dakkapellen",
+        "month": "january",
+        "average_daily_kwh": 0,
+        "monthly_kwh": 0,
+        "installed_wp": 0,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "dakkapellen",
+        "roof_face_name": "Dakkapellen",
+        "month": "february",
+        "average_daily_kwh": 0,
+        "monthly_kwh": 0,
+        "installed_wp": 0,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "dakkapellen",
+        "roof_face_name": "Dakkapellen",
+        "month": "march",
+        "average_daily_kwh": 0,
+        "monthly_kwh": 0,
+        "installed_wp": 0,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "dakkapellen",
+        "roof_face_name": "Dakkapellen",
+        "month": "april",
+        "average_daily_kwh": 0,
+        "monthly_kwh": 0,
+        "installed_wp": 0,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "dakkapellen",
+        "roof_face_name": "Dakkapellen",
+        "month": "may",
+        "average_daily_kwh": 0,
+        "monthly_kwh": 0,
+        "installed_wp": 0,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "dakkapellen",
+        "roof_face_name": "Dakkapellen",
+        "month": "june",
+        "average_daily_kwh": 0,
+        "monthly_kwh": 0,
+        "installed_wp": 0,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "dakkapellen",
+        "roof_face_name": "Dakkapellen",
+        "month": "july",
+        "average_daily_kwh": 0,
+        "monthly_kwh": 0,
+        "installed_wp": 0,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "dakkapellen",
+        "roof_face_name": "Dakkapellen",
+        "month": "august",
+        "average_daily_kwh": 0,
+        "monthly_kwh": 0,
+        "installed_wp": 0,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "dakkapellen",
+        "roof_face_name": "Dakkapellen",
+        "month": "september",
+        "average_daily_kwh": 0,
+        "monthly_kwh": 0,
+        "installed_wp": 0,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "dakkapellen",
+        "roof_face_name": "Dakkapellen",
+        "month": "october",
+        "average_daily_kwh": 0,
+        "monthly_kwh": 0,
+        "installed_wp": 0,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "dakkapellen",
+        "roof_face_name": "Dakkapellen",
+        "month": "november",
+        "average_daily_kwh": 0,
+        "monthly_kwh": 0,
+        "installed_wp": 0,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "dakkapellen",
+        "roof_face_name": "Dakkapellen",
+        "month": "december",
+        "average_daily_kwh": 0,
+        "monthly_kwh": 0,
+        "installed_wp": 0,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "flat-ne",
+        "roof_face_name": "Flat NE",
+        "month": "january",
+        "average_daily_kwh": 0.64,
+        "monthly_kwh": 19.8,
+        "installed_wp": 1900,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "flat-ne",
+        "roof_face_name": "Flat NE",
+        "month": "february",
+        "average_daily_kwh": 1.34,
+        "monthly_kwh": 37.5,
+        "installed_wp": 1900,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "flat-ne",
+        "roof_face_name": "Flat NE",
+        "month": "march",
+        "average_daily_kwh": 2.66,
+        "monthly_kwh": 82.5,
+        "installed_wp": 1900,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "flat-ne",
+        "roof_face_name": "Flat NE",
+        "month": "april",
+        "average_daily_kwh": 4.16,
+        "monthly_kwh": 124.8,
+        "installed_wp": 1900,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "flat-ne",
+        "roof_face_name": "Flat NE",
+        "month": "may",
+        "average_daily_kwh": 5.37,
+        "monthly_kwh": 166.5,
+        "installed_wp": 1900,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "flat-ne",
+        "roof_face_name": "Flat NE",
+        "month": "june",
+        "average_daily_kwh": 6.08,
+        "monthly_kwh": 182.4,
+        "installed_wp": 1900,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "flat-ne",
+        "roof_face_name": "Flat NE",
+        "month": "july",
+        "average_daily_kwh": 5.95,
+        "monthly_kwh": 184.5,
+        "installed_wp": 1900,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "flat-ne",
+        "roof_face_name": "Flat NE",
+        "month": "august",
+        "average_daily_kwh": 5.05,
+        "monthly_kwh": 156.5,
+        "installed_wp": 1900,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "flat-ne",
+        "roof_face_name": "Flat NE",
+        "month": "september",
+        "average_daily_kwh": 3.51,
+        "monthly_kwh": 105.3,
+        "installed_wp": 1900,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "flat-ne",
+        "roof_face_name": "Flat NE",
+        "month": "october",
+        "average_daily_kwh": 2.01,
+        "monthly_kwh": 62.3,
+        "installed_wp": 1900,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "flat-ne",
+        "roof_face_name": "Flat NE",
+        "month": "november",
+        "average_daily_kwh": 0.89,
+        "monthly_kwh": 26.7,
+        "installed_wp": 1900,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "flat-ne",
+        "roof_face_name": "Flat NE",
+        "month": "december",
+        "average_daily_kwh": 0.55,
+        "monthly_kwh": 17.1,
+        "installed_wp": 1900,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "ne",
+        "roof_face_name": "North-East",
+        "month": "january",
+        "average_daily_kwh": 0.1,
+        "monthly_kwh": 3.1,
+        "installed_wp": 950,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "ne",
+        "roof_face_name": "North-East",
+        "month": "february",
+        "average_daily_kwh": 0.22,
+        "monthly_kwh": 6.2,
+        "installed_wp": 950,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "ne",
+        "roof_face_name": "North-East",
+        "month": "march",
+        "average_daily_kwh": 0.38,
+        "monthly_kwh": 11.8,
+        "installed_wp": 950,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "ne",
+        "roof_face_name": "North-East",
+        "month": "april",
+        "average_daily_kwh": 0.53,
+        "monthly_kwh": 15.9,
+        "installed_wp": 950,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "ne",
+        "roof_face_name": "North-East",
+        "month": "may",
+        "average_daily_kwh": 0.62,
+        "monthly_kwh": 19.2,
+        "installed_wp": 950,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "ne",
+        "roof_face_name": "North-East",
+        "month": "june",
+        "average_daily_kwh": 0.62,
+        "monthly_kwh": 18.6,
+        "installed_wp": 950,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "ne",
+        "roof_face_name": "North-East",
+        "month": "july",
+        "average_daily_kwh": 0.61,
+        "monthly_kwh": 18.9,
+        "installed_wp": 950,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "ne",
+        "roof_face_name": "North-East",
+        "month": "august",
+        "average_daily_kwh": 0.55,
+        "monthly_kwh": 17.1,
+        "installed_wp": 950,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "ne",
+        "roof_face_name": "North-East",
+        "month": "september",
+        "average_daily_kwh": 0.43,
+        "monthly_kwh": 12.9,
+        "installed_wp": 950,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "ne",
+        "roof_face_name": "North-East",
+        "month": "october",
+        "average_daily_kwh": 0.27,
+        "monthly_kwh": 8.4,
+        "installed_wp": 950,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "ne",
+        "roof_face_name": "North-East",
+        "month": "november",
+        "average_daily_kwh": 0.14,
+        "monthly_kwh": 4.2,
+        "installed_wp": 950,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "ne",
+        "roof_face_name": "North-East",
+        "month": "december",
+        "average_daily_kwh": 0.09,
+        "monthly_kwh": 2.8,
+        "installed_wp": 950,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "nw",
+        "roof_face_name": "North-West",
+        "month": "january",
+        "average_daily_kwh": 0.55,
+        "monthly_kwh": 17.1,
+        "installed_wp": 2730,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "nw",
+        "roof_face_name": "North-West",
+        "month": "february",
+        "average_daily_kwh": 1.15,
+        "monthly_kwh": 32.2,
+        "installed_wp": 2730,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "nw",
+        "roof_face_name": "North-West",
+        "month": "march",
+        "average_daily_kwh": 2.26,
+        "monthly_kwh": 70.1,
+        "installed_wp": 2730,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "nw",
+        "roof_face_name": "North-West",
+        "month": "april",
+        "average_daily_kwh": 3.33,
+        "monthly_kwh": 99.9,
+        "installed_wp": 2730,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "nw",
+        "roof_face_name": "North-West",
+        "month": "may",
+        "average_daily_kwh": 3.86,
+        "monthly_kwh": 119.7,
+        "installed_wp": 2730,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "nw",
+        "roof_face_name": "North-West",
+        "month": "june",
+        "average_daily_kwh": 3.92,
+        "monthly_kwh": 117.6,
+        "installed_wp": 2730,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "nw",
+        "roof_face_name": "North-West",
+        "month": "july",
+        "average_daily_kwh": 3.84,
+        "monthly_kwh": 119,
+        "installed_wp": 2730,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "nw",
+        "roof_face_name": "North-West",
+        "month": "august",
+        "average_daily_kwh": 3.44,
+        "monthly_kwh": 106.6,
+        "installed_wp": 2730,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "nw",
+        "roof_face_name": "North-West",
+        "month": "september",
+        "average_daily_kwh": 2.66,
+        "monthly_kwh": 79.8,
+        "installed_wp": 2730,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "nw",
+        "roof_face_name": "North-West",
+        "month": "october",
+        "average_daily_kwh": 1.7,
+        "monthly_kwh": 52.7,
+        "installed_wp": 2730,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "nw",
+        "roof_face_name": "North-West",
+        "month": "november",
+        "average_daily_kwh": 0.76,
+        "monthly_kwh": 22.8,
+        "installed_wp": 2730,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "nw",
+        "roof_face_name": "North-West",
+        "month": "december",
+        "average_daily_kwh": 0.48,
+        "monthly_kwh": 14.9,
+        "installed_wp": 2730,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "se",
+        "roof_face_name": "South-East",
+        "month": "january",
+        "average_daily_kwh": 0.69,
+        "monthly_kwh": 21.4,
+        "installed_wp": 1560,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "se",
+        "roof_face_name": "South-East",
+        "month": "february",
+        "average_daily_kwh": 1.42,
+        "monthly_kwh": 39.8,
+        "installed_wp": 1560,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "se",
+        "roof_face_name": "South-East",
+        "month": "march",
+        "average_daily_kwh": 2.8,
+        "monthly_kwh": 86.8,
+        "installed_wp": 1560,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "se",
+        "roof_face_name": "South-East",
+        "month": "april",
+        "average_daily_kwh": 4.12,
+        "monthly_kwh": 123.6,
+        "installed_wp": 1560,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "se",
+        "roof_face_name": "South-East",
+        "month": "may",
+        "average_daily_kwh": 4.77,
+        "monthly_kwh": 147.9,
+        "installed_wp": 1560,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "se",
+        "roof_face_name": "South-East",
+        "month": "june",
+        "average_daily_kwh": 4.85,
+        "monthly_kwh": 145.5,
+        "installed_wp": 1560,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "se",
+        "roof_face_name": "South-East",
+        "month": "july",
+        "average_daily_kwh": 4.75,
+        "monthly_kwh": 147.3,
+        "installed_wp": 1560,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "se",
+        "roof_face_name": "South-East",
+        "month": "august",
+        "average_daily_kwh": 4.26,
+        "monthly_kwh": 132.1,
+        "installed_wp": 1560,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "se",
+        "roof_face_name": "South-East",
+        "month": "september",
+        "average_daily_kwh": 3.29,
+        "monthly_kwh": 98.7,
+        "installed_wp": 1560,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "se",
+        "roof_face_name": "South-East",
+        "month": "october",
+        "average_daily_kwh": 2.11,
+        "monthly_kwh": 65.4,
+        "installed_wp": 1560,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "se",
+        "roof_face_name": "South-East",
+        "month": "november",
+        "average_daily_kwh": 0.94,
+        "monthly_kwh": 28.2,
+        "installed_wp": 1560,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "se",
+        "roof_face_name": "South-East",
+        "month": "december",
+        "average_daily_kwh": 0.59,
+        "monthly_kwh": 18.3,
+        "installed_wp": 1560,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "sw",
+        "roof_face_name": "South-West",
+        "month": "january",
+        "average_daily_kwh": 0.3,
+        "monthly_kwh": 9.3,
+        "installed_wp": 780,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "sw",
+        "roof_face_name": "South-West",
+        "month": "february",
+        "average_daily_kwh": 0.62,
+        "monthly_kwh": 17.4,
+        "installed_wp": 780,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "sw",
+        "roof_face_name": "South-West",
+        "month": "march",
+        "average_daily_kwh": 1.11,
+        "monthly_kwh": 34.4,
+        "installed_wp": 780,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "sw",
+        "roof_face_name": "South-West",
+        "month": "april",
+        "average_daily_kwh": 1.54,
+        "monthly_kwh": 46.2,
+        "installed_wp": 780,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "sw",
+        "roof_face_name": "South-West",
+        "month": "may",
+        "average_daily_kwh": 1.78,
+        "monthly_kwh": 55.2,
+        "installed_wp": 780,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "sw",
+        "roof_face_name": "South-West",
+        "month": "june",
+        "average_daily_kwh": 1.8,
+        "monthly_kwh": 54,
+        "installed_wp": 780,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "sw",
+        "roof_face_name": "South-West",
+        "month": "july",
+        "average_daily_kwh": 1.76,
+        "monthly_kwh": 54.6,
+        "installed_wp": 780,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "sw",
+        "roof_face_name": "South-West",
+        "month": "august",
+        "average_daily_kwh": 1.58,
+        "monthly_kwh": 49,
+        "installed_wp": 780,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "sw",
+        "roof_face_name": "South-West",
+        "month": "september",
+        "average_daily_kwh": 1.23,
+        "monthly_kwh": 36.9,
+        "installed_wp": 780,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "sw",
+        "roof_face_name": "South-West",
+        "month": "october",
+        "average_daily_kwh": 0.79,
+        "monthly_kwh": 24.5,
+        "installed_wp": 780,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "sw",
+        "roof_face_name": "South-West",
+        "month": "november",
+        "average_daily_kwh": 0.39,
+        "monthly_kwh": 11.7,
+        "installed_wp": 780,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
+      },
+      {
+        "roof_face_id": "sw",
+        "roof_face_name": "South-West",
+        "month": "december",
+        "average_daily_kwh": 0.26,
+        "monthly_kwh": 8.1,
+        "installed_wp": 780,
+        "notes": "Provisional planning estimate based on installed PV, roof geometry, and location latitude."
       }
     ],
     "branch_circuits": [],
     "consumers": [],
     "generators": [],
     "consumer_monthly_profiles": [],
-    "generator_monthly_profiles": [],
-    "solar_monthly_profiles": []
+    "generator_monthly_profiles": []
   },
   "relationships": {
     "array_to_mppt": [
       {
-        "relationship_id": "array-dakkapellen__project-mppt-dakkapellen",
+        "relationship_id": "array-dakkapellen__mppt-configuration-dakkapellen",
         "from_array_id": "array-dakkapellen",
-        "to_project_mppt_id": "project-mppt-dakkapellen",
+        "to_mppt_configuration_id": "mppt-configuration-dakkapellen",
         "input_voltage_v": null,
         "input_current_a": null,
         "input_power_w": 0,
@@ -827,12 +1487,12 @@
         }
       },
       {
-        "relationship_id": "array-flat-ne__project-mppt-flat-ne",
+        "relationship_id": "array-flat-ne__mppt-configuration-flat-ne",
         "from_array_id": "array-flat-ne",
-        "to_project_mppt_id": "project-mppt-flat-ne",
-        "input_voltage_v": 137.2,
-        "input_current_a": 11.37,
-        "input_power_w": 1560,
+        "to_mppt_configuration_id": "mppt-configuration-flat-ne",
+        "input_voltage_v": 152,
+        "input_current_a": 12.5,
+        "input_power_w": 1900,
         "evaluation": {
           "electrical_status": "within_limits",
           "fit_status": "underutilized",
@@ -840,30 +1500,30 @@
             "single_string_assumption",
             "low_utilization"
           ],
-          "notes": "First-fit calculation uses a provisional single-string-per-roof-face assumption to estimate MPPT suitability."
+          "notes": "First-fit calculation uses the current saved or derived face layout to estimate MPPT suitability."
         }
       },
       {
-        "relationship_id": "array-ne__project-mppt-ne",
+        "relationship_id": "array-ne__mppt-configuration-ne",
         "from_array_id": "array-ne",
-        "to_project_mppt_id": "project-mppt-ne",
-        "input_voltage_v": 68.6,
-        "input_current_a": 11.37,
-        "input_power_w": 780,
+        "to_mppt_configuration_id": "mppt-configuration-ne",
+        "input_voltage_v": 76,
+        "input_current_a": 12.5,
+        "input_power_w": 950,
         "evaluation": {
           "electrical_status": "within_limits",
-          "fit_status": "acceptable",
+          "fit_status": "optimal",
           "reasons": [
             "single_string_assumption",
-            "acceptable_headroom"
+            "well_matched"
           ],
-          "notes": "First-fit calculation uses a provisional single-string-per-roof-face assumption to estimate MPPT suitability."
+          "notes": "First-fit calculation uses the current saved or derived face layout to estimate MPPT suitability."
         }
       },
       {
-        "relationship_id": "array-nw__project-mppt-nw",
+        "relationship_id": "array-nw__mppt-configuration-nw",
         "from_array_id": "array-nw",
-        "to_project_mppt_id": "project-mppt-nw",
+        "to_mppt_configuration_id": "mppt-configuration-nw",
         "input_voltage_v": 240.1,
         "input_current_a": 11.37,
         "input_power_w": 2730,
@@ -874,30 +1534,30 @@
             "single_string_assumption",
             "low_utilization"
           ],
-          "notes": "First-fit calculation uses a provisional single-string-per-roof-face assumption to estimate MPPT suitability."
+          "notes": "First-fit calculation uses the current saved or derived face layout to estimate MPPT suitability."
         }
       },
       {
-        "relationship_id": "array-se__project-mppt-se",
+        "relationship_id": "array-se__mppt-configuration-se",
         "from_array_id": "array-se",
-        "to_project_mppt_id": "project-mppt-se",
-        "input_voltage_v": 137.2,
-        "input_current_a": 11.37,
+        "to_mppt_configuration_id": "mppt-configuration-se",
+        "input_voltage_v": 68.6,
+        "input_current_a": 22.74,
         "input_power_w": 1560,
         "evaluation": {
           "electrical_status": "within_limits",
-          "fit_status": "underutilized",
+          "fit_status": "optimal",
           "reasons": [
-            "single_string_assumption",
-            "low_utilization"
+            "configured_string_layout",
+            "well_matched"
           ],
-          "notes": "First-fit calculation uses a provisional single-string-per-roof-face assumption to estimate MPPT suitability."
+          "notes": "First-fit calculation uses the current saved or derived face layout to estimate MPPT suitability."
         }
       },
       {
-        "relationship_id": "array-sw__project-mppt-sw",
+        "relationship_id": "array-sw__mppt-configuration-sw",
         "from_array_id": "array-sw",
-        "to_project_mppt_id": "project-mppt-sw",
+        "to_mppt_configuration_id": "mppt-configuration-sw",
         "input_voltage_v": 68.6,
         "input_current_a": 11.37,
         "input_power_w": 780,
@@ -908,14 +1568,14 @@
             "single_string_assumption",
             "acceptable_headroom"
           ],
-          "notes": "First-fit calculation uses a provisional single-string-per-roof-face assumption to estimate MPPT suitability."
+          "notes": "First-fit calculation uses the current saved or derived face layout to estimate MPPT suitability."
         }
       }
     ],
     "mppt_to_battery_bank": [
       {
-        "relationship_id": "project-mppt-dakkapellen__battery-bank-main",
-        "from_project_mppt_id": "project-mppt-dakkapellen",
+        "relationship_id": "mppt-configuration-dakkapellen__battery-bank-main",
+        "from_mppt_configuration_id": "mppt-configuration-dakkapellen",
         "to_battery_bank_id": "battery-bank-main",
         "output_voltage_v": null,
         "max_charge_current_a": null,
@@ -924,12 +1584,12 @@
           "reasons": [
             "missing_storage_chain_data"
           ],
-          "notes": "No provisional MPPT-to-battery-bank evaluation could be derived from the current MPPT and battery selections."
+          "notes": "No provisional MPPT-to-battery-bank evaluation could be derived from the current MPPT and battery configurations."
         }
       },
       {
-        "relationship_id": "project-mppt-flat-ne__battery-bank-main",
-        "from_project_mppt_id": "project-mppt-flat-ne",
+        "relationship_id": "mppt-configuration-flat-ne__battery-bank-main",
+        "from_mppt_configuration_id": "mppt-configuration-flat-ne",
         "to_battery_bank_id": "battery-bank-main",
         "output_voltage_v": 51.2,
         "max_charge_current_a": 60,
@@ -944,8 +1604,8 @@
         }
       },
       {
-        "relationship_id": "project-mppt-ne__battery-bank-main",
-        "from_project_mppt_id": "project-mppt-ne",
+        "relationship_id": "mppt-configuration-ne__battery-bank-main",
+        "from_mppt_configuration_id": "mppt-configuration-ne",
         "to_battery_bank_id": "battery-bank-main",
         "output_voltage_v": 51.2,
         "max_charge_current_a": 20,
@@ -960,8 +1620,8 @@
         }
       },
       {
-        "relationship_id": "project-mppt-nw__battery-bank-main",
-        "from_project_mppt_id": "project-mppt-nw",
+        "relationship_id": "mppt-configuration-nw__battery-bank-main",
+        "from_mppt_configuration_id": "mppt-configuration-nw",
         "to_battery_bank_id": "battery-bank-main",
         "output_voltage_v": 51.2,
         "max_charge_current_a": 100,
@@ -976,11 +1636,11 @@
         }
       },
       {
-        "relationship_id": "project-mppt-se__battery-bank-main",
-        "from_project_mppt_id": "project-mppt-se",
+        "relationship_id": "mppt-configuration-se__battery-bank-main",
+        "from_mppt_configuration_id": "mppt-configuration-se",
         "to_battery_bank_id": "battery-bank-main",
         "output_voltage_v": 51.2,
-        "max_charge_current_a": 60,
+        "max_charge_current_a": 35,
         "evaluation": {
           "electrical_status": "within_limits",
           "fit_status": "acceptable",
@@ -992,8 +1652,8 @@
         }
       },
       {
-        "relationship_id": "project-mppt-sw__battery-bank-main",
-        "from_project_mppt_id": "project-mppt-sw",
+        "relationship_id": "mppt-configuration-sw__battery-bank-main",
+        "from_mppt_configuration_id": "mppt-configuration-sw",
         "to_battery_bank_id": "battery-bank-main",
         "output_voltage_v": 51.2,
         "max_charge_current_a": 20,
@@ -1010,15 +1670,15 @@
     ],
     "battery_bank_to_inverter": [
       {
-        "relationship_id": "battery-bank-main__project-inverter-main",
+        "relationship_id": "battery-bank-main__inverter-configuration-main",
         "from_battery_bank_id": "battery-bank-main",
-        "to_project_inverter_id": "project-inverter-main",
+        "to_inverter_configuration_id": "inverter-configuration-main",
         "nominal_voltage_v": 51.2,
         "continuous_power_w": 4000,
         "evaluation": {
           "electrical_status": "within_limits",
           "reasons": [
-            "provisional_inverter_selection",
+            "provisional_inverter_configuration",
             "battery_voltage_near_nominal",
             "load_profile_not_modeled"
           ],
@@ -1042,19 +1702,19 @@
       },
       {
         "array_id": "array-flat-ne",
-        "installed_wp": 1560,
+        "installed_wp": 1900,
         "roof_face_id": "flat-ne",
         "panel_count": 4,
-        "input_voltage_v": 137.2,
-        "input_current_a": 11.37
+        "input_voltage_v": 152,
+        "input_current_a": 12.5
       },
       {
         "array_id": "array-ne",
-        "installed_wp": 780,
+        "installed_wp": 950,
         "roof_face_id": "ne",
         "panel_count": 2,
-        "input_voltage_v": 68.6,
-        "input_current_a": 11.37
+        "input_voltage_v": 76,
+        "input_current_a": 12.5
       },
       {
         "array_id": "array-nw",
@@ -1069,8 +1729,8 @@
         "installed_wp": 1560,
         "roof_face_id": "se",
         "panel_count": 4,
-        "input_voltage_v": 137.2,
-        "input_current_a": 11.37
+        "input_voltage_v": 68.6,
+        "input_current_a": 22.74
       },
       {
         "array_id": "array-sw",
@@ -1087,7 +1747,81 @@
         "module_count": 1,
         "nominal_voltage_v": 51.2,
         "capacity_kwh": 5.12,
-        "total_mppt_charge_current_a": 260
+        "total_mppt_charge_current_a": 235
+      }
+    ],
+    "project_monthly_solar_output": [
+      {
+        "month": "january",
+        "average_daily_kwh": 2.28,
+        "monthly_kwh": 70.7,
+        "notes": "Sum of the roof-face monthly solar output estimates."
+      },
+      {
+        "month": "february",
+        "average_daily_kwh": 4.75,
+        "monthly_kwh": 133.1,
+        "notes": "Sum of the roof-face monthly solar output estimates."
+      },
+      {
+        "month": "march",
+        "average_daily_kwh": 9.21,
+        "monthly_kwh": 285.6,
+        "notes": "Sum of the roof-face monthly solar output estimates."
+      },
+      {
+        "month": "april",
+        "average_daily_kwh": 13.68,
+        "monthly_kwh": 410.4,
+        "notes": "Sum of the roof-face monthly solar output estimates."
+      },
+      {
+        "month": "may",
+        "average_daily_kwh": 16.4,
+        "monthly_kwh": 508.5,
+        "notes": "Sum of the roof-face monthly solar output estimates."
+      },
+      {
+        "month": "june",
+        "average_daily_kwh": 17.27,
+        "monthly_kwh": 518.1,
+        "notes": "Sum of the roof-face monthly solar output estimates."
+      },
+      {
+        "month": "july",
+        "average_daily_kwh": 16.91,
+        "monthly_kwh": 524.3,
+        "notes": "Sum of the roof-face monthly solar output estimates."
+      },
+      {
+        "month": "august",
+        "average_daily_kwh": 14.88,
+        "monthly_kwh": 461.3,
+        "notes": "Sum of the roof-face monthly solar output estimates."
+      },
+      {
+        "month": "september",
+        "average_daily_kwh": 11.12,
+        "monthly_kwh": 333.6,
+        "notes": "Sum of the roof-face monthly solar output estimates."
+      },
+      {
+        "month": "october",
+        "average_daily_kwh": 6.88,
+        "monthly_kwh": 213.3,
+        "notes": "Sum of the roof-face monthly solar output estimates."
+      },
+      {
+        "month": "november",
+        "average_daily_kwh": 3.12,
+        "monthly_kwh": 93.6,
+        "notes": "Sum of the roof-face monthly solar output estimates."
+      },
+      {
+        "month": "december",
+        "average_daily_kwh": 1.97,
+        "monthly_kwh": 61.2,
+        "notes": "Sum of the roof-face monthly solar output estimates."
       }
     ],
     "monthly_balance": [
@@ -1264,13 +1998,13 @@
         "scope": "battery_bank_to_inverter",
         "message": "Storage-side relationship checks currently validate nominal voltage alignment only. Capacity sizing and AC demand fit are not modeled yet.",
         "related_ids": [
-          "project-mppt-dakkapellen",
-          "project-mppt-flat-ne",
-          "project-mppt-ne",
-          "project-mppt-nw",
-          "project-mppt-se",
-          "project-mppt-sw",
-          "project-inverter-main"
+          "mppt-configuration-dakkapellen",
+          "mppt-configuration-flat-ne",
+          "mppt-configuration-ne",
+          "mppt-configuration-nw",
+          "mppt-configuration-se",
+          "mppt-configuration-sw",
+          "inverter-configuration-main"
         ]
       },
       {
@@ -1281,17 +2015,17 @@
       }
     ],
     "summary": {
-      "total_installed_wp": 7410,
+      "total_installed_wp": 7920,
       "roof_face_count": 6,
       "array_count": 6,
-      "project_mppt_count": 6,
+      "mppt_configuration_count": 6,
       "battery_type_count": 7,
       "inverter_type_count": 3,
       "has_outside_limits": true
     }
   },
   "meta": {
-    "generated_at": "2026-04-12T21:03:19.303Z",
+    "generated_at": "2026-04-19T20:22:41.854Z",
     "source_db_path": "/Users/joostokkinga/Code/OffGridOS/project.db",
     "export_version": 1,
     "units": {

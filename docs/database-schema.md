@@ -121,7 +121,7 @@ erDiagram
     ROOF_FACES ||--o| ROOF_FACE_CONFIGURATIONS : "has"
     MPPT_TYPES ||--o{ ROOF_FACE_CONFIGURATIONS : "selected for"
     BATTERY_TYPES ||--o{ BATTERY_BANK_CONFIGURATIONS : "selected for"
-    INVERTERS ||--o{ PREFERENCES : "preferred"
+    INVERTER_TYPES ||--o{ PREFERENCES : "preferred"
 ```
 
 ## Notes
@@ -131,7 +131,7 @@ erDiagram
 - `roof_panels` stores the current panel assignment per roof face.
 - `roof_face_configurations` stores per-face string layout and MPPT choice.
 - `battery_bank_configurations` stores the current battery-bank sizing choice.
-- `mppt_types`, `battery_types`, and `inverters` are catalog tables.
+- `mppt_types`, `battery_types`, and `inverter_types` are catalog tables.
 - `preferences` currently stores the preferred inverter configuration.
 - monthly solar output by roof face is currently derived at export time rather than stored as a base table.
 - the project-level monthly solar total is the sum of those derived roof-face monthly outputs.

@@ -8,7 +8,7 @@ import type {
   MpptType,
   BatteryType,
   BatteryBankConfiguration,
-  Inverter,
+  InverterType,
   Preferences,
 } from '../domain/types.js';
 
@@ -288,14 +288,14 @@ export function deleteBatteryType(db: Database.Database, battery_type_id: string
   db.prepare('DELETE FROM battery_types WHERE battery_type_id = ?').run(battery_type_id);
 }
 
-// ── Inverters ────────────────────────────────────────────────────────────────
+// ── Inverter types ───────────────────────────────────────────────────────────
 
-export function listInverters(db: Database.Database): Inverter[] {
-  return db.prepare('SELECT * FROM inverters ORDER BY continuous_power_w, peak_power_va').all() as Inverter[];
+export function listInverterTypes(db: Database.Database): InverterType[] {
+  return db.prepare('SELECT * FROM inverter_types ORDER BY continuous_power_w, peak_power_va').all() as InverterType[];
 }
 
-export function getInverter(db: Database.Database, inverter_id: string): Inverter | null {
-  return (db.prepare('SELECT * FROM inverters WHERE inverter_id = ?').get(inverter_id) as Inverter) ?? null;
+export function getInverterType(db: Database.Database, inverter_id: string): InverterType | null {
+  return (db.prepare('SELECT * FROM inverter_types WHERE inverter_id = ?').get(inverter_id) as InverterType) ?? null;
 }
 
 // ── Preferences ───────────────────────────────────────────────────────────────

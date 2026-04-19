@@ -26,7 +26,7 @@ The current database already contains:
 - `mppt_types`
 - `battery_types`
 - `preferences`
-- `inverters`
+- `inverter_types`
 
 This gives us:
 
@@ -126,7 +126,7 @@ Persist rationale:
 
 - keeps the general model flexible for more than one string per array
 
-### `project_mppts`
+### `mppt_configurations`
 
 Purpose:
 
@@ -135,7 +135,7 @@ Purpose:
 Suggested columns:
 
 - `id INTEGER PRIMARY KEY AUTOINCREMENT`
-- `project_mppt_id TEXT UNIQUE NOT NULL`
+- `mppt_configuration_id TEXT UNIQUE NOT NULL`
 - `mppt_type_id TEXT NOT NULL REFERENCES mppt_types(mppt_type_id)`
 - `name TEXT NOT NULL`
 - `notes TEXT`
@@ -154,7 +154,7 @@ Suggested columns:
 
 - `id INTEGER PRIMARY KEY AUTOINCREMENT`
 - `array_id TEXT NOT NULL REFERENCES arrays(array_id)`
-- `project_mppt_id TEXT NOT NULL REFERENCES project_mppts(project_mppt_id)`
+- `mppt_configuration_id TEXT NOT NULL REFERENCES mppt_configurations(mppt_configuration_id)`
 
 Rules:
 
@@ -190,10 +190,10 @@ Purpose:
 Suggested columns:
 
 - `id INTEGER PRIMARY KEY AUTOINCREMENT`
-- `project_mppt_id TEXT NOT NULL REFERENCES project_mppts(project_mppt_id)`
+- `mppt_configuration_id TEXT NOT NULL REFERENCES mppt_configurations(mppt_configuration_id)`
 - `battery_bank_id TEXT NOT NULL REFERENCES battery_banks(battery_bank_id)`
 
-### `project_inverters`
+### `inverter_configurations`
 
 Purpose:
 
@@ -202,8 +202,8 @@ Purpose:
 Suggested columns:
 
 - `id INTEGER PRIMARY KEY AUTOINCREMENT`
-- `project_inverter_id TEXT UNIQUE NOT NULL`
-- `inverter_id TEXT NOT NULL REFERENCES inverters(inverter_id)`
+- `inverter_configuration_id TEXT UNIQUE NOT NULL`
+- `inverter_type_id TEXT NOT NULL REFERENCES inverter_types(inverter_id)`
 - `name TEXT NOT NULL`
 - `notes TEXT`
 
@@ -221,7 +221,7 @@ Suggested columns:
 
 - `id INTEGER PRIMARY KEY AUTOINCREMENT`
 - `battery_bank_id TEXT NOT NULL REFERENCES battery_banks(battery_bank_id)`
-- `project_inverter_id TEXT NOT NULL REFERENCES project_inverters(project_inverter_id)`
+- `inverter_configuration_id TEXT NOT NULL REFERENCES inverter_configurations(inverter_configuration_id)`
 
 ### `branch_circuits`
 
@@ -233,7 +233,7 @@ Suggested columns:
 
 - `id INTEGER PRIMARY KEY AUTOINCREMENT`
 - `branch_circuit_id TEXT UNIQUE NOT NULL`
-- `project_inverter_id TEXT NOT NULL REFERENCES project_inverters(project_inverter_id)`
+- `inverter_configuration_id TEXT NOT NULL REFERENCES inverter_configurations(inverter_configuration_id)`
 - `name TEXT NOT NULL`
 - `nominal_voltage_v REAL NOT NULL`
 - `fuse_rating_a REAL`
@@ -349,7 +349,7 @@ To keep scope manageable, the first useful database extension should only add:
 - `strings`
 - `arrays`
 - `array_strings`
-- `project_mppts`
+- `mppt_configurations`
 - `array_mppts`
 - `battery_banks`
 - `mppt_battery_banks`
@@ -364,7 +364,7 @@ That gives the digital twin a meaningful electrical backbone before adding AC-si
 
 After the first slice works, add:
 
-- `project_inverters`
+- `inverter_configurations`
 - `battery_bank_inverters`
 - `branch_circuits`
 - `consumers`
