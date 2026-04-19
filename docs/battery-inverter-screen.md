@@ -1,6 +1,6 @@
 # Battery Inverter Screen
 
-This note defines the detailed screen for the battery bank, project inverter, and their surrounding relationships.
+This note defines the detailed screen for the battery bank, inverter configuration, and their surrounding relationships.
 
 Terminology in this note must follow [UBIQUITOUS_LANGUAGE.md](../UBIQUITOUS_LANGUAGE.md).
 
@@ -21,7 +21,7 @@ This screen should show:
 
 - battery bank configuration
 - `MPPT -> battery bank` relationships
-- selected inverter
+- selected inverter configuration
 - `battery bank -> inverter` relationship
 - monthly battery pressure and seasonal margin
 
@@ -89,7 +89,7 @@ This is the second core section.
 
 Show:
 
-- selected inverter
+- selected inverter configuration
 - inverter input voltage
 - continuous power
 - peak power
@@ -124,7 +124,7 @@ Suggested adjustable inputs:
 - battery unit count
 - series count
 - parallel count
-- selected inverter
+- selected inverter configuration
 
 Suggested guidance:
 

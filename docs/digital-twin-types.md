@@ -333,7 +333,7 @@ For the current project phase:
 - one roof face will usually map to one array
 - one array will usually map to one project MPPT
 - one battery bank is enough
-- one project inverter is enough
+- one inverter configuration is enough
 - one or more branch circuits will group downstream consumers
 
 In this model, a `Consumer` may be either a concrete appliance or endpoint, or a modeled load group such as living room sockets or a lighting group, as long as it stays below the `BranchCircuit` level.

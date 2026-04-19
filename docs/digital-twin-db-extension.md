@@ -215,7 +215,7 @@ Persist rationale:
 
 Purpose:
 
-- connect the battery bank to one or more project inverter instances
+- connect the battery bank to one or more inverter configuration instances
 
 Suggested columns:
 

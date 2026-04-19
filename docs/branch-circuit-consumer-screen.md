@@ -20,7 +20,7 @@ It is the main AC-side distribution view.
 
 This screen should show:
 
-- selected project inverter
+- selected inverter configuration
 - branch circuits downstream of that inverter
 - consumers grouped by branch circuit
 - `inverter -> branch circuit` evaluations
@@ -41,7 +41,7 @@ Suggested layout:
 
 Show:
 
-- selected inverter
+- selected inverter configuration
 - output voltage
 - continuous power
 - peak power
@@ -167,4 +167,3 @@ The first implemented version of this screen should prioritize:
 5. monthly demand context
 
 That is enough to make the AC-side distribution understandable.
-
