@@ -149,5 +149,4 @@ The first version should use:
 - monthly scaling factors
 - clear separation between power checks and energy checks
 
-That will be enough to make the digital twin useful without overcomplicating the design.
-
+That will be enough to make the digital twin useful without overcomplicating the model.

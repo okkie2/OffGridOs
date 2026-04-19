@@ -6,10 +6,11 @@ import { openDb } from './db/connection.js';
 import { initSchema } from './db/schema.js';
 import { deleteRoofPanelsForFace, getBatteryBankConfiguration, getRoofFace, getPanelType, listRoofPanels, setPref, upsertBatteryBankConfiguration, upsertRoofFaceConfiguration, updateRoofFace, upsertLocation, upsertRoofPanel } from './db/queries.js';
 import { buildDigitalTwinExport } from './output/exportDigitalTwin.js';
-import { resolveDatabasePath, resolveServerPort, resolveWebDistPath } from './config/runtime.js';
+import { resolveDatabasePath, resolveServerHost, resolveServerPort, resolveWebDistPath } from './config/runtime.js';
 
 const databasePath = resolveDatabasePath();
 const webDistPath = resolveWebDistPath();
+const serverHost = resolveServerHost();
 const serverPort = resolveServerPort();
 
 function ensureDatabaseReady(dbPath: string): void {
@@ -519,7 +520,7 @@ const server = http.createServer((request, response) => {
   handleStaticRequest(request, response);
 });
 
-server.listen(serverPort, () => {
-  console.log(`OffGridOS server listening on http://0.0.0.0:${serverPort}`);
+server.listen(serverPort, serverHost, () => {
+  console.log(`OffGridOS server listening on http://${serverHost}:${serverPort}`);
   console.log(`Using database: ${databasePath}`);
 });

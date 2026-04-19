@@ -114,7 +114,7 @@ Suggested values:
 - high-surplus months
 - autonomy pressure
 
-This section should connect system design to seasonal lived reality.
+This section should connect system configuration to seasonal lived reality.
 
 ## 6. Adjustment options section
 
@@ -166,4 +166,3 @@ The first implemented version of this screen should prioritize:
 5. adjustment options
 
 That is enough to make the storage side of the twin understandable.
-

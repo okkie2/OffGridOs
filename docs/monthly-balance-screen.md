@@ -101,7 +101,7 @@ Useful fields:
 - generator dependence
 - suggested interpretation
 
-This section is especially important for off-grid design decisions.
+This section is especially important for off-grid configuration decisions.
 
 ## 5. Strongest-month section
 
@@ -139,7 +139,7 @@ Suggested actions:
 - `Accept seasonal generator support`
 - `Review inverter and branch-circuit pressure`
 
-The point is not to auto-change the design, but to show likely levers.
+The point is not to auto-change the configuration, but to show likely levers.
 
 ## Key questions this screen should answer
 
@@ -174,4 +174,3 @@ The first implemented version of this screen should prioritize:
 5. strongest-month interpretation
 
 That is enough to make seasonal behavior visible and actionable.
-

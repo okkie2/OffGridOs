@@ -1,9 +1,12 @@
 import chalk from 'chalk';
+import path from 'path';
 import { openDb } from '../db/connection.js';
 import { loadProjectInput } from '../db/loader.js';
 import { validate, hasErrors } from '../validation/index.js';
 import { evaluateArrayToMpptFit, pickDerivedMpptType } from './arrayToMppt.js';
 import type { ValidationMessage } from '../domain/types.js';
+import { buildDigitalTwinExport } from '../output/exportDigitalTwin.js';
+import { writeReportMarkdown } from '../output/report.js';
 
 function printMessages(msgs: ValidationMessage[]): void {
   for (const m of msgs) {
@@ -69,13 +72,22 @@ function printArrayToMpptPass(input: ReturnType<typeof loadProjectInput>): void 
 
 export function runCalculations(dbPath: string): void {
   const db = openDb(dbPath);
-  const input = loadProjectInput(db);
-  db.close();
+  let input!: ReturnType<typeof loadProjectInput>;
+  let exportData!: ReturnType<typeof buildDigitalTwinExport>;
+
+  try {
+    input = loadProjectInput(db);
+    exportData = buildDigitalTwinExport(db, dbPath);
+  } finally {
+    db.close();
+  }
 
   const msgs = validate(input);
   const errors = msgs.filter((m) => m.level === 'error');
   const warnings = msgs.filter((m) => m.level === 'warning');
   const infos = msgs.filter((m) => m.level === 'info');
+  const reportPath = path.join(process.cwd(), 'report.md');
+  const calculationStatus = errors.length > 0 ? 'blocked' : 'ready';
 
   if (errors.length > 0) {
     console.log(chalk.red.bold(`\n✖ Validation failed — ${errors.length} error(s)\n`));
@@ -92,10 +104,30 @@ export function runCalculations(dbPath: string): void {
 
   if (hasErrors(msgs)) {
     console.log(chalk.red('\nFix the errors above before running calculations.'));
-    return;
   }
 
-  console.log(chalk.green('\n✔ Validation passed.'));
+  if (!hasErrors(msgs)) {
+    console.log(chalk.green('\n✔ Validation passed.'));
+  } else {
+    console.log(chalk.yellow('\nValidation completed with blocking errors.'));
+  }
   printArrayToMpptPass(input);
-  console.log(chalk.yellow('\nBattery-bank, inverter, and monthly balance calculations are still to come.'));
+  if (hasErrors(msgs)) {
+    console.log(chalk.yellow('\nBattery-bank, inverter, and monthly balance calculations are still to come.'));
+  } else {
+    console.log(chalk.green('\nReport data is ready.'));
+  }
+
+  const writtenPath = writeReportMarkdown(
+    {
+      exportData,
+      validationMessages: msgs,
+      dbPath,
+      generatedAt: new Date().toISOString(),
+      calculationStatus,
+    },
+    reportPath,
+  );
+
+  console.log(chalk.green(`\nReport written: ${writtenPath}`));
 }

@@ -6,7 +6,7 @@ Terminology in this note must follow [UBIQUITOUS_LANGUAGE.md](../UBIQUITOUS_LANG
 
 ## Purpose
 
-The design now includes several main screens.
+The app now includes several main screens.
 
 This note defines:
 
@@ -136,7 +136,7 @@ This should be reflected in:
 
 - the URL when practical
 - UI breadcrumbs
-- selection state
+- configuration state
 
 ## Breadcrumbs
 
@@ -190,4 +190,3 @@ The first React implementation should prioritize:
 5. monthly balance
 
 Branch-circuit detail can follow once the downstream model is ready enough.
-

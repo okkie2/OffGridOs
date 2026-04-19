@@ -19,7 +19,7 @@ This applies to:
 The evaluation model should support:
 
 - hard electrical boundaries
-- softer design trade-offs
+- softer configuration trade-offs
 - explainable UI messages
 
 ## Evaluation shape
@@ -84,7 +84,7 @@ Soft-fit reasons:
 
 - `near_voltage_limit`
 - `summer_clipping_expected`
-- `winter_biased_design`
+- `winter_biased_configuration`
 - `low_utilization`
 - `well_matched`
 
@@ -152,7 +152,7 @@ Some reasons should explicitly allow seasonal trade-offs.
 For example:
 
 - `summer_clipping_expected`
-- `winter_biased_design`
+- `winter_biased_configuration`
 
 These should not force `outside_limits`.
 They belong under `within_limits` with a fit status such as `clipping_expected` or `acceptable`.
@@ -177,7 +177,6 @@ Use this guide when:
 
 1. defining calculator outputs
 2. shaping JSON export
-3. designing UI badges, warnings, and tooltips
+3. shaping UI badges, warnings, and tooltips
 
 Do not store all `reasons` in SQLite initially unless they become part of an audited or user-edited workflow.
-

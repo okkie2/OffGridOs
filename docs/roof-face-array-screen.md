@@ -120,7 +120,7 @@ Suggested values:
 - weakest month
 - seasonal notes
 
-This helps the user understand why a design that clips in summer may still be valuable in winter.
+This helps the user understand why a configuration that clips in summer may still be valuable in winter.
 
 ## 6. Adjustment options section
 
@@ -178,4 +178,3 @@ The first implemented version of this screen should prioritize:
 5. adjustment options
 
 That is enough to make the screen useful without overloading it.
-

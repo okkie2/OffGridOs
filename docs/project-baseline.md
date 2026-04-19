@@ -8,10 +8,10 @@ Terminology in this note must follow [UBIQUITOUS_LANGUAGE.md](../UBIQUITOUS_LANG
 
 The repository now contains both:
 
-- a general digital twin design direction
+- a general digital twin architecture direction
 - a specific real-world project baseline
 
-This note records the current project baseline so later design and implementation work can distinguish:
+This note records the current project baseline so later configuration and implementation work can distinguish:
 
 - what is already encoded in `project.db`
 - what is intended next but not yet encoded
@@ -41,7 +41,7 @@ The current database now uses the intended split panel types across the roof fac
 
 ## Interpretation
 
-The current `project.db` now reflects the intended panel selection by roof face.
+The current `project.db` now reflects the intended panel configuration by roof face.
 
 The current panel catalog still contains the likely candidate panel types for this split, including:
 
@@ -66,4 +66,4 @@ The baseline split is now aligned, so future project-data work should focus on:
 
 - keeping the shared location coordinates up to date when the real site measurement is known
 - refining panel pricing or model metadata if a better black-panel comparison becomes available
-- expanding the remaining persisted project data for arrays, MPPTs, battery-bank design, and inverter design
+- expanding the remaining persisted project data for arrays, MPPTs, battery-bank configuration, and inverter configuration

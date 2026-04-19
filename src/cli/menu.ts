@@ -9,6 +9,7 @@ import { roofPanelsFlow } from './flows/roofPanels.js';
 import { mpptTypesFlow } from './flows/mpptTypes.js';
 import { batteryTypesFlow } from './flows/batteryTypes.js';
 import { preferencesFlow } from './flows/preferences.js';
+import { runCalculations } from '../calc/runner.js';
 import fs from 'fs';
 import path from 'path';
 import { resolveDatabasePath } from '../config/runtime.js';
@@ -128,7 +129,7 @@ async function calculateMenu(): Promise<void> {
     const db = getDb();
     if (!db) return;
     db.close();
-    console.log(chalk.yellow('Calculations coming in Step 4.'));
+    runCalculations(DB_PATH);
   }
 }
 

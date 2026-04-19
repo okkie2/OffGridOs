@@ -55,6 +55,8 @@ NODE_ENV=production
 
 The hosting platform must also provide `PORT`, which the Node server uses at runtime.
 
+For local production rehearsals, you can optionally set `HOST=127.0.0.1` so the server binds to the loopback interface instead of the platform default.
+
 ## Build and start
 
 OffGridOS uses:
@@ -122,6 +124,7 @@ This setup is a good fit while OffGridOS remains:
 The production Node server is responsible for:
 
 - reading `DATABASE_PATH`
+- reading `HOST` when a local override is needed
 - creating the database directory when needed
 - initializing the schema at startup
 - serving the built frontend

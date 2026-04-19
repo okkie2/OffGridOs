@@ -337,7 +337,7 @@ function getProjectStorageKey(data: DigitalTwinExport): string {
 
 function buildLocalFaceSummaries(data: DigitalTwinExport): LocalFaceSummary[] {
   const projectId = getProjectStorageKey(data);
-  const designByFaceId = new Map(data.entities.roof_face_configurations.map((design) => [design.roof_face_id, design]));
+  const configurationByFaceId = new Map(data.entities.roof_face_configurations.map((configuration) => [configuration.roof_face_id, configuration]));
 
   return data.entities.roof_faces.map((roofFace) => {
     const array = data.entities.arrays.find((item) => item.roof_face_id === roofFace.roof_face_id);
@@ -345,7 +345,7 @@ function buildLocalFaceSummaries(data: DigitalTwinExport): LocalFaceSummary[] {
     const projectMppt = array ? data.entities.mppt_configurations.find((item) => item.array_id === array.array_id) : null;
     const relation = array ? data.relationships.array_to_mppt.find((item) => item.from_array_id === array.array_id) : null;
     const storagePrefix = `${projectId}:roof-face:${roofFace.roof_face_id}`;
-    const persistedDesign = designByFaceId.get(roofFace.roof_face_id);
+    const persistedConfiguration = configurationByFaceId.get(roofFace.roof_face_id);
     const panelTypeId = readPersistentState<string>(
       `${storagePrefix}:panel-type`,
       array?.panel_type_id ?? data.entities.panel_types[0]?.panel_type_id ?? '',
@@ -359,15 +359,15 @@ function buildLocalFaceSummaries(data: DigitalTwinExport): LocalFaceSummary[] {
     );
     const panelsPerString = readPersistentState<number>(
       `${storagePrefix}:panels-per-string`,
-      Math.max(persistedDesign?.panels_per_string ?? arrayState?.panel_count ?? array?.panel_count ?? 0, 0),
+      Math.max(persistedConfiguration?.panels_per_string ?? arrayState?.panel_count ?? array?.panel_count ?? 0, 0),
     );
     const parallelStrings = readPersistentState<number>(
       `${storagePrefix}:parallel-strings`,
-      Math.max(persistedDesign?.parallel_strings ?? (configuredPanelCount > 0 ? 1 : 0), 0),
+      Math.max(persistedConfiguration?.parallel_strings ?? (configuredPanelCount > 0 ? 1 : 0), 0),
     );
     const selectedMpptTypeId = readPersistentState<string>(
       `${storagePrefix}:mppt-type`,
-      persistedDesign?.selected_mppt_type_id ?? projectMppt?.mppt_type_id ?? data.entities.mppt_types[0]?.mppt_type_id ?? '',
+      persistedConfiguration?.selected_mppt_type_id ?? projectMppt?.mppt_type_id ?? data.entities.mppt_types[0]?.mppt_type_id ?? '',
     );
     const selectedMpptType = selectedMpptTypeId
       ? data.entities.mppt_types.find((item) => item.mppt_type_id === selectedMpptTypeId) ?? null
@@ -1182,7 +1182,7 @@ function RoofFaceDetail({
   refreshProjectData: () => Promise<void>;
 }) {
   const roofFace = data.entities.roof_faces.find((item) => item.roof_face_id === roofFaceId);
-  const persistedDesign = data.entities.roof_face_configurations.find((item) => item.roof_face_id === roofFaceId) ?? null;
+  const persistedConfiguration = data.entities.roof_face_configurations.find((item) => item.roof_face_id === roofFaceId) ?? null;
   const array = data.entities.arrays.find((item) => item.roof_face_id === roofFaceId);
   const arrayState = data.derived.array_states.find((item) => item.roof_face_id === roofFaceId);
     const projectMppt = array ? data.entities.mppt_configurations.find((item) => item.array_id === array.array_id) : null;
@@ -1205,15 +1205,15 @@ function RoofFaceDetail({
   );
   const [panelsPerString, setPanelsPerString] = usePersistentState(
     `${storagePrefix}:panels-per-string`,
-    Math.max(persistedDesign?.panels_per_string ?? installedPanelCount, 0),
+    Math.max(persistedConfiguration?.panels_per_string ?? installedPanelCount, 0),
   );
   const [parallelStrings, setParallelStrings] = usePersistentState(
     `${storagePrefix}:parallel-strings`,
-    Math.max(persistedDesign?.parallel_strings ?? (installedPanelCount > 0 ? 1 : 0), 0),
+    Math.max(persistedConfiguration?.parallel_strings ?? (installedPanelCount > 0 ? 1 : 0), 0),
   );
   const [selectedMpptTypeId, setSelectedMpptTypeId] = usePersistentState(
     `${storagePrefix}:mppt-type`,
-    persistedDesign?.selected_mppt_type_id ?? projectMppt?.mppt_type_id ?? data.entities.mppt_types[0]?.mppt_type_id ?? '',
+    persistedConfiguration?.selected_mppt_type_id ?? projectMppt?.mppt_type_id ?? data.entities.mppt_types[0]?.mppt_type_id ?? '',
   );
   const [isSavingFace, setIsSavingFace] = useState(false);
   const [faceSaveMessage, setFaceSaveMessage] = useState<string | null>(null);

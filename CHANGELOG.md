@@ -2,6 +2,10 @@
 
 ## 2026-04-19
 
+- Added a local production-rehearsal path by making the server host configurable, then verified the build, server boot, API, and SQLite persistence on a clean throwaway database.
+- Added the first real report rendering flow so `ogos run` now validates input, writes `report.md`, and the CLI report menu can show the latest calculation summary.
+- Cleaned up the main navigation, screen-spec, baseline, and relationship docs so their prose now favors configuration-focused language in user-facing sections.
+- Reworked remaining user-facing wording in the README and app so the top-level language now favors configuration and architecture terminology over selection- or design-oriented phrasing.
 - Renamed all `docs/` files from ALL_CAPS to kebab-case and updated every cross-reference in README, CHANGELOG, AGENTS, and the docs themselves.
 - Removed 10 stale or superseded docs: pre-implementation planning artifacts (`prompt.md`, `react-mvp-scope.md`, `react-mvp-implementation-plan.md`, `export-builder-tasks.md`, `frontend-shell-tasks.md`, `mvp-readiness-checklist.md`, `implementation-start-recommendation.md`, `first-user-workflow.md`), the static-JSON setup note (`react-json-viewer-setup.md`, now superseded by the server API), and the duplicate face-count reference (`roof-faces-and-panel-counts.md`, covered by `project-baseline.md`).
 - Removed the legacy compatibility mapping from the ubiquitous-language and naming docs so the repository now speaks only in the current configuration-based vocabulary.

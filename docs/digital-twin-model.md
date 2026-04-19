@@ -34,7 +34,7 @@ The graph should include:
 - one MPPT per array
 - MPPTs
 - battery bank
-- converter / inverter
+- inverter/charger
 - branch circuits
 - consumers
 - generator
@@ -67,7 +67,7 @@ These should normally be computed from the inputs and constraints:
 - MPPT input fit
 - battery output state
 - battery charging behaviour
-- converter / inverter loading
+- inverter/charger loading
 - relationship electrical status between connected components
 - relationship fit status between connected components
 - fuse suggestions

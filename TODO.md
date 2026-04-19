@@ -1,4 +1,4 @@
-# TODO
+
 
 ## NOW
 
@@ -11,7 +11,6 @@
 - Normalize the remaining project configuration table names to the `*_configurations` pattern once the schema migration plan is ready.
 - Define and implement the first durable schema slice for PV-side topology and battery-bank linkage when the current configuration is stable enough to encode.
 - Add the remaining input flows and CRUD coverage for any schema tables that are still read-only from the CLI or web app.
-- Implement the report rendering flow so `report.md` contains a useful summary of inputs, validation results, and calculated outputs.
 
 ## LATER
 

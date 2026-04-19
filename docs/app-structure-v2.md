@@ -7,14 +7,14 @@ It replaces the earlier mixed screen direction with a cleaner step-by-step flow.
 The core pattern for each page is:
 
 - `Start information`
-- `Selection / configuration`
+- `Configuration`
 - `Result`
 - `Feedback`
 
 This keeps the app consistent. Each page should help the user understand:
 
 - what is already known
-- what can be selected or configured now
+- what can be configured now
 - what the resulting configuration is
 - what the judgment is for the relationship being modeled
 
@@ -25,8 +25,8 @@ Judgment and fit language only make sense when describing a relationship between
 Examples:
 
 - `array -> MPPT`
-- `MPPT -> battery array`
-- `battery array -> inverter`
+- `MPPT -> battery bank`
+- `battery bank -> inverter`
 - `inverter -> branch circuit`
 - `branch circuit -> consumers`
 
@@ -92,9 +92,9 @@ Start information:
 
 - face summary
 
-Selection / configuration:
+Configuration:
 
-- panel selection
+- panel configuration
 - panel array configuration
 
 Result:
@@ -110,15 +110,15 @@ Notes:
 - this page is about the face and its array
 - it should not drift into MPPT judgment language unless the user moves to the next page
 
-### 3. MPPT Selection / Face
+### 3. MPPT Configuration / Face
 
 Start information:
 
 - panel array summary
 
-Selection / configuration:
+Configuration:
 
-- MPPT selection
+- MPPT configuration
 
 Result:
 
@@ -140,18 +140,18 @@ Start information:
 - MPPT array summary
 - all upstream MPPT outputs coming in from the configured faces
 
-Selection / configuration:
+Configuration:
 
-- battery selection
-- battery array configuration
+- battery configuration
+- battery bank configuration
 
 Result:
 
-- battery array configuration
+- battery bank configuration
 
 Feedback:
 
-- `MPPTs -> battery array` judgment
+- `MPPTs -> battery bank` judgment
 
 Notes:
 
@@ -166,11 +166,11 @@ Notes:
 
 Start information:
 
-- battery array summary
+- battery bank summary
 
-Selection / configuration:
+Configuration:
 
-- inverter selection
+- inverter configuration
 
 Result:
 
@@ -178,7 +178,7 @@ Result:
 
 Feedback:
 
-- `battery array -> inverter` judgment
+- `battery bank -> inverter` judgment
 
 Notes:
 
@@ -191,9 +191,9 @@ Start information:
 
 - inverter summary
 
-Selection / configuration:
+Configuration:
 
-- group selection
+- group configuration
 - fusing
 
 Result:
@@ -215,9 +215,9 @@ Start information:
 
 - branch-circuit summary
 
-Selection / configuration:
+Configuration:
 
-- consumer selection
+- consumer group configuration
 - consumer configuration
 
 Result:
@@ -238,7 +238,7 @@ Start information:
 
 - all judgments together
 
-Selection / configuration:
+Configuration:
 
 - none required as primary function
 
@@ -260,7 +260,7 @@ This structure suggests a cleaner progression:
 
 1. `Location`
 2. `Panel array / face`
-3. `MPPT selection / face`
+3. `MPPT configuration / face`
 4. `Battery array`
 5. `Inverter array`
 6. `Branch circuits / fusing`

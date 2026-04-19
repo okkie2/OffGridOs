@@ -2,7 +2,7 @@
 
 OffGridOS is a single-project, single-user off-grid system planning tool built around a small SQLite project database, a Node server, and a React web app.
 
-The core flow — location, faces, battery array, inverter array — is server-backed and persists to SQLite. The next work targets replacing provisional derived selections with explicit persisted project data and stabilising the schema.
+The core flow — location, faces, battery array, inverter array — is server-backed and persists to SQLite. The next work targets replacing provisional derived configurations with explicit persisted project data and stabilising the schema.
 
 ## Quick Start
 
@@ -58,7 +58,7 @@ For deployment and persistent-storage requirements, see [deployment.md](./docs/d
 - [database-schema.md](./docs/database-schema.md): Mermaid ER diagram of the current SQLite schema and how the core tables relate to each other.
 - [project-baseline.md](./docs/project-baseline.md): current real-project baseline and intended configuration details from `project.db`.
 
-### App structure and design
+### App structure and architecture
 
 - [app-structure-v2.md](./docs/app-structure-v2.md): current preferred page-by-page app structure, including the stepwise flow from location through consumers and dashboard.
 - [app-navigation.md](./docs/app-navigation.md): navigation structure connecting the overview and subsystem drill-down screens.
@@ -67,7 +67,7 @@ For deployment and persistent-storage requirements, see [deployment.md](./docs/d
 - [digital-twin-db-extension.md](./docs/digital-twin-db-extension.md): phased plan for which digital twin entities should be persisted in SQLite and in what order.
 - [digital-twin-types.md](./docs/digital-twin-types.md): TypeScript-facing draft of the digital twin object model and relationship evaluation shape.
 - [relationship-evaluation-guide.md](./docs/relationship-evaluation-guide.md): statuses and reason codes for evaluating compatibility across the system chain.
-- [monthly-usage-model.md](./docs/monthly-usage-model.md): first-pass design for seasonal usage variation and monthly factors.
+- [monthly-usage-model.md](./docs/monthly-usage-model.md): first-pass model for seasonal usage variation and monthly factors.
 - [json-export-shape.md](./docs/json-export-shape.md): API export contract for the React app, including entities, relationships, derived results, and metadata.
 
 ### Screen specs
