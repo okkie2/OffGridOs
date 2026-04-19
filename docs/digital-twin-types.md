@@ -2,7 +2,7 @@
 
 This note defines a first TypeScript-facing object model for the OffGridOS digital twin.
 
-Terminology in this note must follow [UBIQUITOUS_LANGUAGE.md](./UBIQUITOUS_LANGUAGE.md).
+Terminology in this note must follow [UBIQUITOUS_LANGUAGE.md](../UBIQUITOUS_LANGUAGE.md).
 
 ## Purpose
 

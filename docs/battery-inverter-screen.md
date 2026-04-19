@@ -2,7 +2,7 @@
 
 This note defines the detailed screen for the battery bank, project inverter, and their surrounding relationships.
 
-Terminology in this note must follow [UBIQUITOUS_LANGUAGE.md](./UBIQUITOUS_LANGUAGE.md).
+Terminology in this note must follow [UBIQUITOUS_LANGUAGE.md](../UBIQUITOUS_LANGUAGE.md).
 
 ## Purpose
 

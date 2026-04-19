@@ -2,7 +2,7 @@
 
 This note defines the detailed screen for branch circuits, consumers, and downstream distribution.
 
-Terminology in this note must follow [UBIQUITOUS_LANGUAGE.md](./UBIQUITOUS_LANGUAGE.md).
+Terminology in this note must follow [UBIQUITOUS_LANGUAGE.md](../UBIQUITOUS_LANGUAGE.md).
 
 ## Purpose
 

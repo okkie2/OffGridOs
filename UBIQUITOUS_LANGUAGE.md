@@ -1,4 +1,4 @@
-# OffGridOS Ubiquitous Language
+## OffGridOS Ubiquitous Language
 
 This is the canonical source for all domain terminology in this repository.
 Every concept must be referred to by its canonical name across the database schema, TypeScript interfaces, CLI prompts, validation messages, UI labels, and documentation.
@@ -17,6 +17,17 @@ Every concept must be referred to by its canonical name across the database sche
 | Preference | `preferences` | `Preferences` | Preference |
 | Victron CAN | `battery_types.victron_can` | `BatteryType.victron_can` | Victron CAN |
 
+## Project configuration concepts
+
+Use `configuration` for project-selected or project-configured records when you need a shared naming pattern across the domain.
+
+| Domain concept | DB table (plural snake_case) | TS interface (singular PascalCase) | Preferred label |
+|---|---|---|---|
+| Roof face configuration | `roof_face_configurations` | `RoofFaceConfiguration` | Roof face configuration |
+| Battery bank configuration | `battery_bank_configurations` | `BatteryBankConfiguration` | Battery bank configuration |
+| MPPT configuration | `mppt_configurations` | `MpptConfiguration` | MPPT configuration |
+| Inverter configuration | `inverter_configurations` | `InverterConfiguration` | Inverter configuration |
+
 ## Output-only concepts
 
 | Domain concept | TS interface | Used in |
@@ -24,7 +35,7 @@ Every concept must be referred to by its canonical name across the database sche
 | Project input | `ProjectInput` | Aggregated input passed to calculations |
 | Yield estimate | `YieldEstimate` | Monthly kWh per roof face |
 | String suggestion | `StringSuggestion` | Suggested string layout per roof face |
-| MPPT suggestion | `MpptSuggestion` | Suggested MPPT selection and fit evaluation |
+| MPPT suggestion | `MpptSuggestion` | Suggested MPPT configuration and fit evaluation |
 | Battery recommendation | `BatteryRecommendation` | Capacity and unit-count recommendation |
 | Cable suggestion | `CableSuggestion` | Minimum cross-section per string |
 | Validation message | `ValidationMessage` | Validation and feedback output |
@@ -57,7 +68,7 @@ Use the following terms consistently in the digital twin and future schema work.
 - Two `35 V`, `10 A` panels in parallel are not a string; this is a `parallel module group` of about `35 V`, `20 A`.
 - Two strings of two `35 V`, `10 A` panels in series, connected in parallel, form `parallel strings` of about `70 V`, `20 A`.
 
-## Current design assumptions
+## Current configuration assumptions
 
 - A roof face may feed one or more arrays.
 - Each array feeds exactly one MPPT.
@@ -89,7 +100,7 @@ Use `outside_limits` when the relationship violates a hard electrical boundary s
 
 ### Fit status
 
-`fit_status` answers the design-quality question when the relationship is within hard limits:
+`fit_status` answers the configuration-quality question when the relationship is within hard limits:
 
 - `optimal`
 - `acceptable`
@@ -122,6 +133,12 @@ The field is named `orientation_deg` in both the DB column and the TypeScript mo
 - DB tables use plural snake_case.
 - TypeScript interfaces use singular PascalCase.
 - CLI prompts, UI labels, and output text should match the canonical domain concept name.
+- Use `*_types` for catalog tables.
+- Use `*_configurations` for project-selected or project-configured records when the noun needs to cover the whole selected setup.
+- Use `roof_face_configuration` language for the selected per-face PV setup, including panel choice, count, string layout, and MPPT choice.
+- Use `battery_bank_configuration` language for the selected battery-bank setup.
+- Use `mppt_configuration` language for the selected MPPT setup.
+- Use `inverter_configuration` language for the selected inverter setup.
 - Use `string` only for series-connected panels.
 - Use `array` for the full PV grouping connected to one MPPT input.
 - Use `MPPT input fit` to describe whether a selected array is a good or poor match for a selected MPPT.

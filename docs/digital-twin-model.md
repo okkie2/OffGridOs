@@ -2,7 +2,7 @@
 
 This note describes the intended system model for OffGridOS as a digital twin of an off-grid electrical installation.
 
-Terminology in this note must follow [UBIQUITOUS_LANGUAGE.md](./UBIQUITOUS_LANGUAGE.md).
+Terminology in this note must follow [UBIQUITOUS_LANGUAGE.md](../UBIQUITOUS_LANGUAGE.md).
 
 ## Goal
 
@@ -179,7 +179,7 @@ The JSON should represent:
 - monthly scenario values
 - derived result snapshots if precomputed
 
-Use the terminology and concept boundaries from [UBIQUITOUS_LANGUAGE.md](./UBIQUITOUS_LANGUAGE.md) when defining these JSON objects.
+Use the terminology and concept boundaries from [UBIQUITOUS_LANGUAGE.md](../UBIQUITOUS_LANGUAGE.md) when defining these JSON objects.
 
 ## Recommendation
 

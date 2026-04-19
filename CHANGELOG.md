@@ -1,7 +1,102 @@
 # CHANGELOG
 
+## 2026-04-19
+
+- Renamed all `docs/` files from ALL_CAPS to kebab-case and updated every cross-reference in README, CHANGELOG, AGENTS, and the docs themselves.
+- Removed 10 stale or superseded docs: pre-implementation planning artifacts (`prompt.md`, `react-mvp-scope.md`, `react-mvp-implementation-plan.md`, `export-builder-tasks.md`, `frontend-shell-tasks.md`, `mvp-readiness-checklist.md`, `implementation-start-recommendation.md`, `first-user-workflow.md`), the static-JSON setup note (`react-json-viewer-setup.md`, now superseded by the server API), and the duplicate face-count reference (`roof-faces-and-panel-counts.md`, covered by `project-baseline.md`).
+- Removed the legacy compatibility mapping from the ubiquitous-language and naming docs so the repository now speaks only in the current configuration-based vocabulary.
+- Synced the ubiquitous-language doc, API route names, UI labels, and export wording to the configuration-based vocabulary so project-selected records now read as configurations instead of designs or selections where practical.
+- Moved all design, spec, screen, and planning documents out of the repository root into a `docs/` directory so the root only holds core governance files (`AGENTS.md`, `UBIQUITOUS_LANGUAGE.md`, `CHANGELOG.md`, `TODO.md`, `ROADMAP.md`, `README.md`) and project runtime files.
+- Deleted `GLOSSARY.md` (it was only a compatibility pointer to `UBIQUITOUS_LANGUAGE.md`); any existing links now resolve directly to `UBIQUITOUS_LANGUAGE.md`.
+- Updated `README.md` with grouped documentation sections (governance, operations, domain and schema, app structure, screen specs, planning history) and corrected all doc paths to `docs/`.
+- Fixed cross-references inside moved docs so links to root-staying files use `../` paths.
+- Added a schema naming cleanup task to `TODO.md` so the remaining project configuration tables can be normalized to the `*_configurations` pattern later.
+- Added `NAMING_CONVENTIONS.md` and updated `UBIQUITOUS_LANGUAGE.md` so catalog tables use `*_types` and project-selected records use `*_configurations` as the shared naming rule.
+- Surfaced the project-level monthly solar output in the UI so the summed average daily kWh and monthly kWh for all roof faces are visible alongside the existing monthly balance view.
+- Added derived monthly solar output to the export path so each roof face now contributes a per-month average daily kWh estimate and the project also exposes the summed monthly solar total.
+- Added `DATABASE_SCHEMA.md` with a Mermaid ER diagram so the current SQLite schema and table relationships are easy to scan from the repo docs.
+- Aligned the checked-in `project.db` and `PROJECT_BASELINE.md` with the intended roof-face panel split, so the baseline now uses black panels on `flat-ne` and `ne` and red panels on `nw`, `se`, and `sw`.
+- Added shared `northing` and `easting` fields to the Location model so the database, API, export path, and UI can carry the full coordinate set on the common project location.
+- Updated `README.md` with a clearer repository overview, a local quick-start path, and a direct pointer to `DEPLOYMENT.md`.
+- Added `DEPLOYMENT.md` and linked it from `README.md` so the deployment shape is documented in a hosting-target-agnostic way, with Railway described as the current target.
+- Added shared runtime configuration for database-path and port resolution so the CLI and server can use the same SQLite path, including `DATABASE_PATH` support for Railway.
+- Added the first production Node server that bootstraps SQLite, serves the built frontend, and exposes `GET /api/health`, `GET /api/digital-twin`, and `PUT /api/location`.
+- Switched the React app away from reading `public/digital-twin.json` directly so it now loads project data through the server API.
+- Added the first server-backed `Location` save flow for place name, country, latitude, and longitude, while leaving the remaining location-page extras local for now.
+- Added the first server-backed `Faces` save flow for roof-face name, azimuth, and tilt, while leaving panel layout, panel type, and MPPT selection local for now.
+- Added the first server-backed face panel-assignment save flow so selected panel type and panel count can persist to SQLite, including `0` panels as a valid persisted face state.
+- Added persisted face-configuration state for string layout and MPPT choice, and updated the server-backed export so the saved face configuration now affects the face-level MPPT evaluation after refresh.
+- Added the first server-backed `Battery array` save flow so battery type, count, batteries per string, and parallel strings persist to SQLite and feed the exported battery-bank chain after refresh.
+- Added the first server-backed `Inverter array` save flow so the selected inverter persists via project preferences, the inverter catalog is seeded from the export data, and the battery-bank-to-inverter chain now reflects the saved inverter after refresh.
+- Seeded the project baseline into fresh databases so location, roof faces, panel types, and roof-panel assignments now match the intended five-face project setup instead of starting from an empty PV catalog.
+- Clarified the product direction in the docs: OffGridOS stays a single-project, single-user MVP for now, with Postgres reserved for a later collaboration or concurrency pivot.
+- Re-centered `TODO.md` and `ROADMAP.md` around the now-complete core server-backed flow so the next work targets the shared location model and the remaining schema refinements.
+- Reframed `ROADMAP.md` around the new target architecture: SQLite as the source of truth, a Node server, a React frontend, and Railway-ready persistent storage.
+- Rewrote `TODO.md` so the near-term queue now focuses on shared database-path handling, a production server, API-backed frontend loading, and the step-by-step page-flow migration.
+
+## 2026-04-17
+
+- Added `ROOF_FACES_AND_PANEL_COUNTS.md` as a quick reference for the current roof faces, panel counts, and location details in `project.db`.
+- Linked the new roof-face reference document from `README.md`.
+
 ## 2026-04-12
 
+- Filled in `Pylontech US5000-1C` battery charge/discharge rate data in `project.db` and the regenerated export so Battery array and Inverter array can show a real continuous battery power figure instead of `n/a`.
+- Added the combined battery-array max power to the Inverter array page so the battery-side power ceiling is visible alongside the inverter sizing checks.
+- Made the Inverter array page inherit the locally configured Battery array draft, so inverter checks now use the selected battery type, battery count, and string layout from the Battery array page instead of only the provisional export battery.
+- Simplified the Battery array page by demoting per-face upstream MPPT cards into an expandable section, removing repeated summary noise, hiding `n/a` battery capability rows, and splitting consequences into a selected-month block and a refill-rule block.
+- Repeated the monthly solar totals table on the Battery array page and added `10% -> 90%` refill-time consequences for both the brightest and darkest month for the selected battery setup.
+- Added a best-month battery refill rule to the Battery array page: the UI now checks whether the bank can recharge from `10%` to `90%` in one day in the sunniest month and shows the required refill energy and refill ratio.
+- Added monthly total yield values to the `Faces` page table so the combined expected `kWh/day` and `kWh/month` across all faces is visible per month.
+- Added the month-column expected-yield table to the `Faces` page so all configured faces can be compared side by side without drilling into each face.
+- Made the Battery array page month-aware by adding a selected-month control, aggregating estimated face yield for that month, and using expected solar energy to judge whether the battery array is relatively small, reasonable, or relatively large.
+- Replaced the placeholder monthly feedback block on the face detail page with an estimated yield table that shows `kWh/day` and `kWh/month` in one column per month based on installed PV, face azimuth, tilt, and location latitude.
+- Refocused the Battery array page on the `MPPTs -> battery array` relationship by removing array-to-MPPT fit badges from the upstream cards and adding a battery sizing judgment based on total upstream charging power, target battery voltage, and estimated charge time.
+- Changed the Battery array page so faces with `0` assigned panels show `No panels assigned` instead of a misleading `Outside limits` MPPT status.
+- Aligned array labels in the app with the locally saved face names so the 1:1 face and array naming no longer drifts after local edits.
+- Corrected the Battery array page so MPPT output power is shown in electrical watts (`W`) instead of panel rating watts-peak (`Wp`).
+- Updated the Battery array page to show per-upstream-MPPT input PV and estimated battery-side output in volts, watts, and amps at the current target battery voltage, and added a target-voltage selector derived from valid battery string layouts.
+- Added the `Dakkapellen` face to `project.db` with `231°` azimuth and `15°` tilt so it is available in the app's face flow and export.
+- Made the overview, location result cards, and faces page follow locally saved face drafts for names, panel counts, installed Wp, and MPPT selections.
+- Allowed `0` panels on a face so a face can be discounted in the local app flow without forcing a fake string layout.
+- Merged the split `Panel arrays` and `MPPTs` app flow into one `Faces` section with a single face detail page.
+- Updated the app's MPPT fit checks to use per-tracker PV power and current limits for the Multi RS Solar entry.
+- Added tracker-level MPPT fields to the catalog and updated the Multi RS Solar entry to record 2 trackers, 12 A PV input current per tracker, and 16 A PV short-circuit current per tracker.
+- Added Wp values to the panel-selection dropdown labels so panel power is visible while selecting.
+- Made the `Panel arrays` and `MPPTs` sidebar face names follow the locally saved face labels.
+- Added `Wp/m²` to the panel-selection card alongside the panel dimensions.
+- Added panel height and width to the panel-selection card on the face detail page.
+- Added local storage persistence for editable Location, face, battery-array, and inverter-array fields so user changes survive refreshes.
+- Moved face switching for `Panel arrays` into the sidebar as a submenu instead of keeping the selector inside the page.
+- Added the first real `Inverter array` page and moved inverter selection and compatibility checks out of the Battery array page.
+- Cleaned the active planning docs to use `PV-and-battery` language and `panel-array face` wording instead of the older storage and roof-face phrasing.
+- Renamed the overview face and battery labels to `Faces` and `Battery array` so the dashboard matches the restarted page structure.
+- Renamed the `Storage` page to `Battery array` and kept `/storage` as a compatibility alias while the new page flow settles.
+- Split the mixed face detail into separate `Panel arrays` and `MPPTs` detail routes so array configuration and MPPT selection no longer live on one combined page.
+- Split the old `Roof faces` summary into separate `Panel arrays` and `MPPTs` pages as the first realignment step toward the new app structure.
+- Renamed the `Object` page to `Location` and reshaped it around the new page-flow structure with shared site inputs, results, and face count.
+- Added `APP_STRUCTURE_V2.md` as the new canonical page-structure reference, including generic faces, multiple-inverter allowance, and `Branch circuits / fusing`.
+- Removed fit wording from the Location page so it now shows only electrical status for the face and array-to-MPPT views.
+- Added editable latitude and longitude fields to the Location page so GPS coordinates can be entered alongside the shared site inputs.
+- Removed inverter selection from the Storage page so that page stays focused on upstream MPPT inputs, battery selection, and battery-array configuration.
+- Added a vertical gap between the Storage page’s upstream MPPT panel and the battery selection/array row so the sections no longer feel glued together.
+- Added per-MPPT output voltage, charge current, and target battery-bank info to the Storage page’s upstream MPPT cards.
+- Added MPPT output voltage and max charge current to each roof-face card, and padded the Storage page’s upstream MPPT panel so its heading no longer sits against the border.
+- Made the sidebar navigation explicitly route to `#/storage` so the Storage page opens reliably from the menu.
+- Added a dedicated `Storage` page with read-only upstream MPPT inputs, battery selection and battery-array controls, and inverter selection with voltage/current/power checks.
+- Added a dedicated `Roof faces` page copied from the dashboard layout, and removed the system chain, storage chain, warnings, and MPPT → Battery → Inverter fit sections from that page.
+- Moved the selected-panel dropdown to the top of the roof-face panel-selection box and removed the duplicate model row so the card reads selector-first.
+- Reflowed the roof-face panel-selection metrics into a two-column spec grid so the selected panel details read more compactly.
+- Moved `Installed Wp` into the array-configuration box and changed the roof-face panel-selection box to show the selected panel's own attributes instead of array totals.
+- Removed the `Panel assignments` row from the roof-face panel-selection box so that section stays focused on the editable panel choice and the installed PV total.
+- Moved `Array ID` from the roof-face panel-selection box into the array-configuration box and removed the repeated panel-model text from the array summary.
+- Removed the duplicate panel-type text from the roof-face panel-selection box so the selected-panel dropdown is the single source of truth there.
+- Moved the editable roof-face name, azimuth, and tilt fields into the roof-face hero and removed the extra roof-configuration pane.
+- Made the roof-face detail page editable for roof name, azimuth, and tilt, and clarified that shared northing/easting coordinates belong on the separate Location page.
+- Added a first roof-face string configurator in the React app so users can set panels per string and parallel strings locally on the detail page and inspect the live effect on array and MPPT fit.
+- Extended `ogos export` with a provisional storage chain: one derived battery bank, one derived inverter, `MPPT -> battery bank` checks, `battery bank -> inverter` checks, and battery-bank state output.
+- Updated the first React overview to show the provisional battery bank, inverter, and storage-side relationship checks from the export.
+- Replaced the `ogos run` calculation placeholder with a first real PV → MPPT pass that prints provisional fit output from a reusable calculation helper.
 - Replaced the structural `array -> MPPT` placeholder in `ogos export` with a first provisional fit evaluation based on the current roof-face panel assignments, derived MPPT candidates, and initial `electrical_status` / `fit_status` logic.
 - Changed `ogos export` to write to `public/digital-twin.json` by default so the local React app reads the latest export without a manual copy step.
 - Added the first `ogos export` command and digital-twin JSON export foundation, deriving arrays and provisional project MPPTs from current roof-face assignments.

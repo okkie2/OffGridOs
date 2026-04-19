@@ -2,7 +2,7 @@
 
 This note defines the first detailed JSON export contract for the OffGridOS digital twin.
 
-Terminology in this note must follow [UBIQUITOUS_LANGUAGE.md](./UBIQUITOUS_LANGUAGE.md).
+Terminology in this note must follow [UBIQUITOUS_LANGUAGE.md](../UBIQUITOUS_LANGUAGE.md).
 
 ## Purpose
 
@@ -137,6 +137,7 @@ Suggested shape:
   "string_states": [],
   "array_states": [],
   "battery_bank_states": [],
+  "project_monthly_solar_output": [],
   "monthly_balance": [],
   "warnings": [],
   "summary": {}
@@ -169,6 +170,17 @@ Suggested fields:
 - `nominal_voltage_v`
 - `capacity_kwh`
 - `usable_capacity_kwh`
+
+### `project_monthly_solar_output`
+
+One row per calendar month with the sum of the roof-face solar output estimates.
+
+Suggested fields:
+
+- `month`
+- `average_daily_kwh`
+- `monthly_kwh`
+- `notes`
 
 ### `monthly_balance`
 
@@ -261,4 +273,3 @@ For the first exported version, prioritize:
 9. `summary`
 
 That is enough to drive the first useful frontend views.
-

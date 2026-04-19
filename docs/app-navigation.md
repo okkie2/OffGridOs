@@ -2,7 +2,7 @@
 
 This note defines the first navigation structure for the OffGridOS React app.
 
-Terminology in this note must follow [UBIQUITOUS_LANGUAGE.md](./UBIQUITOUS_LANGUAGE.md).
+Terminology in this note must follow [UBIQUITOUS_LANGUAGE.md](../UBIQUITOUS_LANGUAGE.md).
 
 ## Purpose
 
@@ -78,7 +78,7 @@ Purpose:
 
 Main screen:
 
-- [ROOF_FACE_ARRAY_SCREEN.md](./ROOF_FACE_ARRAY_SCREEN.md)
+- [roof-face-array-screen.md](./roof-face-array-screen.md)
 
 ### Battery and inverter
 
@@ -89,7 +89,7 @@ Purpose:
 
 Main screen:
 
-- [BATTERY_INVERTER_SCREEN.md](./BATTERY_INVERTER_SCREEN.md)
+- [battery-inverter-screen.md](./battery-inverter-screen.md)
 
 ### Branch circuits
 
@@ -101,7 +101,7 @@ Purpose:
 
 Main screen:
 
-- [BRANCH_CIRCUIT_CONSUMER_SCREEN.md](./BRANCH_CIRCUIT_CONSUMER_SCREEN.md)
+- [branch-circuit-consumer-screen.md](./branch-circuit-consumer-screen.md)
 
 ### Monthly balance
 
@@ -113,7 +113,7 @@ Purpose:
 
 Main screen:
 
-- [MONTHLY_BALANCE_SCREEN.md](./MONTHLY_BALANCE_SCREEN.md)
+- [monthly-balance-screen.md](./monthly-balance-screen.md)
 
 ## Drill-down flow
 

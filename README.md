@@ -1,34 +1,79 @@
 # OffGridOS
 
-CLI solar configuration tool for off-grid system planning.
+OffGridOS is a single-project, single-user off-grid system planning tool built around a small SQLite project database, a Node server, and a React web app.
+
+The core flow — location, faces, battery array, inverter array — is server-backed and persists to SQLite. The next work targets replacing provisional derived selections with explicit persisted project data and stabilising the schema.
+
+## Quick Start
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Create or verify the local database:
+
+```bash
+npx tsx src/cli/index.ts init
+```
+
+Run the web UI in development:
+
+```bash
+npm run dev:web
+```
+
+Build the production app:
+
+```bash
+npm run build
+```
+
+Start the production server:
+
+```bash
+npm run start
+```
+
+For deployment and persistent-storage requirements, see [deployment.md](./docs/deployment.md).
 
 ## Documentation
+
+### Repository governance
 
 - [AGENTS.md](./AGENTS.md): repository-specific working conventions and durable guidance.
 - [UBIQUITOUS_LANGUAGE.md](./UBIQUITOUS_LANGUAGE.md): canonical terminology for domain concepts, PV topology, and naming rules.
 - [TODO.md](./TODO.md): concrete near-term work queue, organized as `NOW`, `NEXT`, and `LATER`.
 - [ROADMAP.md](./ROADMAP.md): higher-level direction and deferred work, also organized as `NOW`, `NEXT`, and `LATER`.
-- [DIGITAL_TWIN_MODEL.md](./DIGITAL_TWIN_MODEL.md): design note for the component graph, bidirectional dependency model, and monthly scenario views.
-- [DIGITAL_TWIN_DATA_MODEL.md](./DIGITAL_TWIN_DATA_MODEL.md): concrete draft of entities, relationships, evaluation fields, and JSON export shape.
-- [DIGITAL_TWIN_DB_EXTENSION.md](./DIGITAL_TWIN_DB_EXTENSION.md): proposal for which digital twin entities should be persisted in SQLite and in what migration order.
-- [DIGITAL_TWIN_TYPES.md](./DIGITAL_TWIN_TYPES.md): TypeScript-facing draft of the digital twin object model and reusable relationship evaluation shape.
-- [RELATIONSHIP_EVALUATION_GUIDE.md](./RELATIONSHIP_EVALUATION_GUIDE.md): recommended statuses and reason codes for evaluating compatibility across the system chain.
-- [MONTHLY_USAGE_MODEL.md](./MONTHLY_USAGE_MODEL.md): first-pass design for seasonal usage variation, monthly factors, and when richer usage profiles may be needed later.
-- [PROJECT_BASELINE.md](./PROJECT_BASELINE.md): current real-project baseline and intended next project-specific configuration details from `project.db`.
-- [FIRST_USER_WORKFLOW.md](./FIRST_USER_WORKFLOW.md): first end-to-end user workflow and suggested initial React views for the digital twin.
-- [JSON_EXPORT_SHAPE.md](./JSON_EXPORT_SHAPE.md): detailed first-pass export contract for the React app, including entities, relationships, derived results, and metadata.
-- [FIRST_SCREEN_LAYOUT.md](./FIRST_SCREEN_LAYOUT.md): recommended first overview screen layout for the React app and what it should show on load.
-- [ROOF_FACE_ARRAY_SCREEN.md](./ROOF_FACE_ARRAY_SCREEN.md): recommended detailed screen for one roof face, its array, and MPPT fit evaluation.
-- [BATTERY_INVERTER_SCREEN.md](./BATTERY_INVERTER_SCREEN.md): recommended detailed screen for the battery bank, inverter, and their evaluated relationships.
-- [BRANCH_CIRCUIT_CONSUMER_SCREEN.md](./BRANCH_CIRCUIT_CONSUMER_SCREEN.md): recommended detailed screen for downstream branch circuits, consumers, and AC-side distribution.
-- [MONTHLY_BALANCE_SCREEN.md](./MONTHLY_BALANCE_SCREEN.md): recommended seasonal system screen for monthly surplus, deficit, battery pressure, and generator dependence.
-- [APP_NAVIGATION.md](./APP_NAVIGATION.md): first navigation structure for connecting the overview and subsystem drill-down screens.
-- [REACT_MVP_SCOPE.md](./REACT_MVP_SCOPE.md): recommended first implementation boundary for the React app, including what to include now and what to postpone.
-- [REACT_MVP_IMPLEMENTATION_PLAN.md](./REACT_MVP_IMPLEMENTATION_PLAN.md): staged order of work for turning the MVP scope into a buildable React app.
-- [EXPORT_BUILDER_TASKS.md](./EXPORT_BUILDER_TASKS.md): concrete first task breakdown for building the JSON export foundation needed by the React MVP.
-- [FRONTEND_SHELL_TASKS.md](./FRONTEND_SHELL_TASKS.md): concrete first task breakdown for building the React shell, routes, and overview-driven UI.
-- [MVP_READINESS_CHECKLIST.md](./MVP_READINESS_CHECKLIST.md): checklist for deciding when the design is stable enough to start the first implementation slice.
-- [IMPLEMENTATION_START_RECOMMENDATION.md](./IMPLEMENTATION_START_RECOMMENDATION.md): summary of why the project is ready to move from design into the first implementation slice.
-- [REACT_JSON_VIEWER_SETUP.md](./REACT_JSON_VIEWER_SETUP.md): reference note for the React app + JSON export inspection setup.
 - [CHANGELOG.md](./CHANGELOG.md): reverse-chronological log of notable repository changes.
-- [GLOSSARY.md](./GLOSSARY.md): compatibility pointer to the canonical ubiquitous language file.
+
+### Operations
+
+- [deployment.md](./docs/deployment.md): deployment guide for running the Node server, React frontend, and persistent SQLite database, with Railway as the current target.
+
+### Domain and schema
+
+- [naming-conventions.md](./docs/naming-conventions.md): target naming rule for catalog tables, project configurations, and derived outputs.
+- [database-schema.md](./docs/database-schema.md): Mermaid ER diagram of the current SQLite schema and how the core tables relate to each other.
+- [project-baseline.md](./docs/project-baseline.md): current real-project baseline and intended configuration details from `project.db`.
+
+### App structure and design
+
+- [app-structure-v2.md](./docs/app-structure-v2.md): current preferred page-by-page app structure, including the stepwise flow from location through consumers and dashboard.
+- [app-navigation.md](./docs/app-navigation.md): navigation structure connecting the overview and subsystem drill-down screens.
+- [digital-twin-model.md](./docs/digital-twin-model.md): component graph, bidirectional dependency model, and monthly scenario views.
+- [digital-twin-data-model.md](./docs/digital-twin-data-model.md): entities, relationships, evaluation fields, and JSON export shape.
+- [digital-twin-db-extension.md](./docs/digital-twin-db-extension.md): phased plan for which digital twin entities should be persisted in SQLite and in what order.
+- [digital-twin-types.md](./docs/digital-twin-types.md): TypeScript-facing draft of the digital twin object model and relationship evaluation shape.
+- [relationship-evaluation-guide.md](./docs/relationship-evaluation-guide.md): statuses and reason codes for evaluating compatibility across the system chain.
+- [monthly-usage-model.md](./docs/monthly-usage-model.md): first-pass design for seasonal usage variation and monthly factors.
+- [json-export-shape.md](./docs/json-export-shape.md): API export contract for the React app, including entities, relationships, derived results, and metadata.
+
+### Screen specs
+
+- [first-screen-layout.md](./docs/first-screen-layout.md): overview screen layout and what it should show on load.
+- [roof-face-array-screen.md](./docs/roof-face-array-screen.md): detailed screen for one roof face, its array, and MPPT fit evaluation.
+- [battery-inverter-screen.md](./docs/battery-inverter-screen.md): detailed screen for the battery bank, inverter, and their evaluated relationships.
+- [monthly-balance-screen.md](./docs/monthly-balance-screen.md): seasonal system screen for monthly surplus, deficit, battery pressure, and generator dependence.
+- [branch-circuit-consumer-screen.md](./docs/branch-circuit-consumer-screen.md): future screen for downstream branch circuits, consumers, and AC-side distribution.

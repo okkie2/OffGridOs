@@ -2,17 +2,21 @@
 
 ## NOW
 
-- Complete the first digital twin MVP loop: export core project data, evaluate the main system relationships, and render the React overview plus the first drill-down screens.
-- Make the system explainable enough that a user can understand upstream/downstream effects and seasonal trade-offs from one shared model.
+- Keep the core product flow stable on top of the new runtime: Node server, SQLite as the source of truth, and a React frontend served from the same app.
+- Keep the deployed architecture Railway-ready by storing the database on persistent storage and treating the app container as disposable.
+- Continue replacing temporary frontend state bridges with API-backed reads and writes so the UI works directly against the project model.
+- Stabilize the step-by-step product flow around `Location`, `Face`, `Battery array`, `Inverter array`, `Branch circuits / fusing`, `Consumers`, and `Dashboard`.
+- Keep the system explainable enough that a user can understand upstream and downstream effects from one shared data model.
 
 ## NEXT
 
-- Broaden the persisted and exported data model beyond the current PV-and-storage backbone so the tool can manage fuller branch-circuit, consumer, and generator configurations.
-- Add better reporting around sizing decisions, trade-offs, statuses, and seasonal warnings so the results are easier to act on.
-- Introduce robust import/export paths for moving project data between SQLite, JSON, and the React app.
+- Replace provisional derived selections with explicit project data for arrays, MPPTs, battery-bank design, and inverter design.
+- Broaden the persisted model beyond the current PV-and-battery backbone so the tool can manage branch circuits, consumers, and generator scenarios cleanly.
+- Add better reporting around sizing decisions, trade-offs, statuses, and seasonal warnings so results become easier to review and act on.
+- Define durable import and export paths for project data without making the frontend depend on a generated JSON file.
 
 ## LATER
 
-- Support more advanced optimisation and scenario analysis.
-- Add richer presentation layers for system visualization, summary output, and reporting.
-- Consider multi-project workflows if the repository grows beyond a single `project.db` model.
+- Support more advanced optimisation, scenario comparison, and seasonal planning.
+- Add richer presentation layers for system visualization, summary output, and shareable reporting.
+- Consider multi-project workflows, collaboration needs, and a future move to Postgres if concurrency or scale starts to matter.
