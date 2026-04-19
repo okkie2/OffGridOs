@@ -2,10 +2,12 @@ import Database from 'better-sqlite3';
 import type {
   Location,
   RoofFace,
+  RoofFaceConfiguration,
   PanelType,
   RoofPanelAssignment,
   MpptType,
   BatteryType,
+  BatteryBankConfiguration,
   Inverter,
   Preferences,
 } from '../domain/types.js';
@@ -19,10 +21,10 @@ export function getLocation(db: Database.Database): Location | null {
 export function upsertLocation(db: Database.Database, data: Omit<Location, 'id'>): void {
   const existing = getLocation(db);
   if (existing) {
-    db.prepare('UPDATE location SET country=@country, place_name=@place_name, latitude=@latitude, longitude=@longitude WHERE id=@id')
+    db.prepare('UPDATE location SET country=@country, place_name=@place_name, latitude=@latitude, longitude=@longitude, northing=@northing, easting=@easting WHERE id=@id')
       .run({ ...data, id: existing.id });
   } else {
-    db.prepare('INSERT INTO location (country, place_name, latitude, longitude) VALUES (@country, @place_name, @latitude, @longitude)')
+    db.prepare('INSERT INTO location (country, place_name, latitude, longitude, northing, easting) VALUES (@country, @place_name, @latitude, @longitude, @northing, @easting)')
       .run(data);
   }
 }
@@ -114,6 +116,65 @@ export function deleteRoofPanel(db: Database.Database, id: number): void {
   db.prepare('DELETE FROM roof_panels WHERE id = ?').run(id);
 }
 
+export function deleteRoofPanelsForFace(db: Database.Database, roof_face_id: string): void {
+  db.prepare('DELETE FROM roof_panels WHERE roof_face_id = ?').run(roof_face_id);
+}
+
+// ── Roof-face configuration state ────────────────────────────────────────────
+
+export function listRoofFaceConfigurations(db: Database.Database): RoofFaceConfiguration[] {
+  return db.prepare('SELECT * FROM roof_face_configurations ORDER BY roof_face_id').all() as RoofFaceConfiguration[];
+}
+
+export function getRoofFaceConfiguration(db: Database.Database, roof_face_id: string): RoofFaceConfiguration | null {
+  return (db.prepare('SELECT * FROM roof_face_configurations WHERE roof_face_id = ?').get(roof_face_id) as RoofFaceConfiguration) ?? null;
+}
+
+export function upsertRoofFaceConfiguration(db: Database.Database, data: Omit<RoofFaceConfiguration, 'id'>): void {
+  db.prepare(`
+    INSERT INTO roof_face_configurations (roof_face_id, panels_per_string, parallel_strings, selected_mppt_type_id)
+    VALUES (@roof_face_id, @panels_per_string, @parallel_strings, @selected_mppt_type_id)
+    ON CONFLICT(roof_face_id) DO UPDATE SET
+      panels_per_string = excluded.panels_per_string,
+      parallel_strings = excluded.parallel_strings,
+      selected_mppt_type_id = excluded.selected_mppt_type_id
+  `).run(data);
+}
+
+// ── Battery-bank configuration state ─────────────────────────────────────────
+
+export function listBatteryBankConfigurations(db: Database.Database): BatteryBankConfiguration[] {
+  return db.prepare('SELECT * FROM battery_bank_configurations ORDER BY battery_bank_id').all() as BatteryBankConfiguration[];
+}
+
+export function getBatteryBankConfiguration(db: Database.Database, battery_bank_id: string): BatteryBankConfiguration | null {
+  return (db.prepare('SELECT * FROM battery_bank_configurations WHERE battery_bank_id = ?').get(battery_bank_id) as BatteryBankConfiguration) ?? null;
+}
+
+export function upsertBatteryBankConfiguration(db: Database.Database, data: Omit<BatteryBankConfiguration, 'id'>): void {
+  db.prepare(`
+    INSERT INTO battery_bank_configurations (
+      battery_bank_id,
+      selected_battery_type_id,
+      configured_battery_count,
+      batteries_per_string,
+      parallel_strings
+    )
+    VALUES (
+      @battery_bank_id,
+      @selected_battery_type_id,
+      @configured_battery_count,
+      @batteries_per_string,
+      @parallel_strings
+    )
+    ON CONFLICT(battery_bank_id) DO UPDATE SET
+      selected_battery_type_id = excluded.selected_battery_type_id,
+      configured_battery_count = excluded.configured_battery_count,
+      batteries_per_string = excluded.batteries_per_string,
+      parallel_strings = excluded.parallel_strings
+  `).run(data);
+}
+
 // ── MPPT types ────────────────────────────────────────────────────────────────
 
 export function listMpptTypes(db: Database.Database): MpptType[] {
@@ -126,16 +187,45 @@ export function getMpptType(db: Database.Database, mppt_type_id: string): MpptTy
 
 export function insertMpptType(db: Database.Database, data: Omit<MpptType, 'id'>): void {
   db.prepare(`
-    INSERT INTO mppt_types (mppt_type_id, model, max_voc, max_pv_power, max_charge_current, nominal_battery_voltage, notes)
-    VALUES (@mppt_type_id, @model, @max_voc, @max_pv_power, @max_charge_current, @nominal_battery_voltage, @notes)
+    INSERT INTO mppt_types (
+      mppt_type_id,
+      model,
+      tracker_count,
+      max_voc,
+      max_pv_power,
+      max_pv_input_current_a,
+      max_pv_short_circuit_current_a,
+      max_charge_current,
+      nominal_battery_voltage,
+      notes
+    )
+    VALUES (
+      @mppt_type_id,
+      @model,
+      @tracker_count,
+      @max_voc,
+      @max_pv_power,
+      @max_pv_input_current_a,
+      @max_pv_short_circuit_current_a,
+      @max_charge_current,
+      @nominal_battery_voltage,
+      @notes
+    )
   `).run(data);
 }
 
 export function updateMpptType(db: Database.Database, data: Omit<MpptType, 'id'>): void {
   db.prepare(`
     UPDATE mppt_types
-    SET model=@model, max_voc=@max_voc, max_pv_power=@max_pv_power,
-        max_charge_current=@max_charge_current, nominal_battery_voltage=@nominal_battery_voltage, notes=@notes
+    SET model=@model,
+        tracker_count=@tracker_count,
+        max_voc=@max_voc,
+        max_pv_power=@max_pv_power,
+        max_pv_input_current_a=@max_pv_input_current_a,
+        max_pv_short_circuit_current_a=@max_pv_short_circuit_current_a,
+        max_charge_current=@max_charge_current,
+        nominal_battery_voltage=@nominal_battery_voltage,
+        notes=@notes
     WHERE mppt_type_id=@mppt_type_id
   `).run(data);
 }
@@ -227,6 +317,8 @@ export function getPreferences(db: Database.Database): Preferences {
         prefs.preferred_mppt_type_id = value; break;
       case 'preferred_battery_type_id':
         prefs.preferred_battery_type_id = value; break;
+      case 'preferred_inverter_type_id':
+        prefs.preferred_inverter_type_id = value; break;
     }
   }
   return prefs;

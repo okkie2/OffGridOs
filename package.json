@@ -7,11 +7,12 @@
     "ogos": "./dist/cli/index.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && vite build",
     "build:web": "vite build",
     "dev": "tsx",
-    "dev:web": "vite",
+    "dev:web": "vite --host 127.0.0.1 --port 6001 --strictPort",
     "menu": "tsx src/cli/menu.ts",
+    "start": "node dist/server.js",
     "test": "vitest run",
     "test:watch": "vitest"
   },

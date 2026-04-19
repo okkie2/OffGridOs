@@ -4,6 +4,8 @@ export interface Location {
   place_name: string;
   latitude: number;
   longitude: number;
+  northing?: number | null;
+  easting?: number | null;
 }
 
 export interface RoofFace {
@@ -38,12 +40,32 @@ export interface RoofPanelAssignment {
   count: number;
 }
 
+export interface RoofFaceConfiguration {
+  id: number;
+  roof_face_id: string;
+  panels_per_string?: number | null;
+  parallel_strings?: number | null;
+  selected_mppt_type_id?: string | null;
+}
+
+export interface BatteryBankConfiguration {
+  id: number;
+  battery_bank_id: string;
+  selected_battery_type_id?: string | null;
+  configured_battery_count: number;
+  batteries_per_string: number;
+  parallel_strings: number;
+}
+
 export interface MpptType {
   id: number;
   mppt_type_id: string;
   model: string;
+  tracker_count: number;
   max_voc: number;
   max_pv_power: number;
+  max_pv_input_current_a?: number | null;
+  max_pv_short_circuit_current_a?: number | null;
   max_charge_current: number;
   nominal_battery_voltage: number;
   notes?: string;
@@ -89,6 +111,7 @@ export interface Preferences {
   max_cable_length_m?: number;
   preferred_mppt_type_id?: string;
   preferred_battery_type_id?: string;
+  preferred_inverter_type_id?: string;
 }
 
 export interface ProjectInput {

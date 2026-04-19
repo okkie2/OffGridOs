@@ -14,10 +14,21 @@ const baseInput: ProjectInput = {
     { id: 1, roof_face_id: 'south', panel_type_id: 'p1', count: 10 },
   ],
   mpptTypes: [
-    { id: 1, mppt_type_id: 'mppt1', model: 'SmartSolar 150/35', max_voc: 150, max_pv_power: 2000, max_charge_current: 35, nominal_battery_voltage: 48 },
+    {
+      id: 1,
+      mppt_type_id: 'mppt1',
+      model: 'SmartSolar 150/35',
+      tracker_count: 1,
+      max_voc: 150,
+      max_pv_power: 2000,
+      max_pv_input_current_a: null,
+      max_pv_short_circuit_current_a: null,
+      max_charge_current: 35,
+      nominal_battery_voltage: 48,
+    },
   ],
   batteryTypes: [
-    { id: 1, battery_type_id: 'b1', model: 'Pylontech US5000-1C', chemistry: 'LiFePO4', nominal_voltage: 48, capacity_ah: 100, capacity_kwh: 4.8 },
+    { id: 1, battery_type_id: 'b1', model: 'Pylontech US5000-1C', chemistry: 'LiFePO4', nominal_voltage: 48, capacity_ah: 100, capacity_kwh: 4.8, victron_can: true, cooling: 'passive' },
   ],
   preferences: {
     target_battery_voltage: 48,

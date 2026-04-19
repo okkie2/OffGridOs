@@ -11,8 +11,9 @@ import { batteryTypesFlow } from './flows/batteryTypes.js';
 import { preferencesFlow } from './flows/preferences.js';
 import fs from 'fs';
 import path from 'path';
+import { resolveDatabasePath } from '../config/runtime.js';
 
-const DB_PATH = path.join(process.cwd(), 'project.db');
+const DB_PATH = resolveDatabasePath();
 
 function getDb() {
   if (!fs.existsSync(DB_PATH)) {

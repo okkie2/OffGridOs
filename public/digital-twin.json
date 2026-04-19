@@ -18,6 +18,15 @@
   "entities": {
     "roof_faces": [
       {
+        "id": 6,
+        "roof_face_id": "dakkapellen",
+        "name": "Dakkapellen",
+        "orientation_deg": 231,
+        "tilt_deg": 15,
+        "usable_area_m2": null,
+        "notes": null
+      },
+      {
         "id": 5,
         "roof_face_id": "flat-ne",
         "name": "Flat NE",
@@ -276,6 +285,16 @@
     "strings": [],
     "arrays": [
       {
+        "array_id": "array-dakkapellen",
+        "roof_face_id": "dakkapellen",
+        "name": "Dakkapellen",
+        "string_ids": [],
+        "panel_assignment_ids": [],
+        "panel_count": 0,
+        "installed_wp": 0,
+        "notes": "No panel assignment currently present for this roof face."
+      },
+      {
         "array_id": "array-flat-ne",
         "roof_face_id": "flat-ne",
         "name": "Flat NE",
@@ -350,7 +369,10 @@
         "max_pv_power": 480,
         "max_charge_current": 10,
         "nominal_battery_voltage": 48,
-        "notes": null
+        "notes": null,
+        "tracker_count": 1,
+        "max_pv_input_current_a": null,
+        "max_pv_short_circuit_current_a": null
       },
       {
         "id": 2,
@@ -360,7 +382,10 @@
         "max_pv_power": 720,
         "max_charge_current": 15,
         "nominal_battery_voltage": 48,
-        "notes": null
+        "notes": null,
+        "tracker_count": 1,
+        "max_pv_input_current_a": null,
+        "max_pv_short_circuit_current_a": null
       },
       {
         "id": 3,
@@ -370,7 +395,10 @@
         "max_pv_power": 720,
         "max_charge_current": 15,
         "nominal_battery_voltage": 48,
-        "notes": null
+        "notes": null,
+        "tracker_count": 1,
+        "max_pv_input_current_a": null,
+        "max_pv_short_circuit_current_a": null
       },
       {
         "id": 4,
@@ -380,7 +408,10 @@
         "max_pv_power": 960,
         "max_charge_current": 20,
         "nominal_battery_voltage": 48,
-        "notes": null
+        "notes": null,
+        "tracker_count": 1,
+        "max_pv_input_current_a": null,
+        "max_pv_short_circuit_current_a": null
       },
       {
         "id": 5,
@@ -390,7 +421,10 @@
         "max_pv_power": 1680,
         "max_charge_current": 35,
         "nominal_battery_voltage": 48,
-        "notes": null
+        "notes": null,
+        "tracker_count": 1,
+        "max_pv_input_current_a": null,
+        "max_pv_short_circuit_current_a": null
       },
       {
         "id": 6,
@@ -400,7 +434,10 @@
         "max_pv_power": 2160,
         "max_charge_current": 45,
         "nominal_battery_voltage": 48,
-        "notes": null
+        "notes": null,
+        "tracker_count": 1,
+        "max_pv_input_current_a": null,
+        "max_pv_short_circuit_current_a": null
       },
       {
         "id": 7,
@@ -410,7 +447,10 @@
         "max_pv_power": 2880,
         "max_charge_current": 60,
         "nominal_battery_voltage": 48,
-        "notes": null
+        "notes": null,
+        "tracker_count": 1,
+        "max_pv_input_current_a": null,
+        "max_pv_short_circuit_current_a": null
       },
       {
         "id": 8,
@@ -420,7 +460,10 @@
         "max_pv_power": 3360,
         "max_charge_current": 70,
         "nominal_battery_voltage": 48,
-        "notes": null
+        "notes": null,
+        "tracker_count": 1,
+        "max_pv_input_current_a": null,
+        "max_pv_short_circuit_current_a": null
       },
       {
         "id": 9,
@@ -430,7 +473,10 @@
         "max_pv_power": 4080,
         "max_charge_current": 85,
         "nominal_battery_voltage": 48,
-        "notes": null
+        "notes": null,
+        "tracker_count": 1,
+        "max_pv_input_current_a": null,
+        "max_pv_short_circuit_current_a": null
       },
       {
         "id": 10,
@@ -440,7 +486,10 @@
         "max_pv_power": 4800,
         "max_charge_current": 100,
         "nominal_battery_voltage": 48,
-        "notes": null
+        "notes": null,
+        "tracker_count": 1,
+        "max_pv_input_current_a": null,
+        "max_pv_short_circuit_current_a": null
       },
       {
         "id": 11,
@@ -450,7 +499,10 @@
         "max_pv_power": 2880,
         "max_charge_current": 60,
         "nominal_battery_voltage": 48,
-        "notes": null
+        "notes": null,
+        "tracker_count": 1,
+        "max_pv_input_current_a": null,
+        "max_pv_short_circuit_current_a": null
       },
       {
         "id": 12,
@@ -460,7 +512,10 @@
         "max_pv_power": 3360,
         "max_charge_current": 70,
         "nominal_battery_voltage": 48,
-        "notes": null
+        "notes": null,
+        "tracker_count": 1,
+        "max_pv_input_current_a": null,
+        "max_pv_short_circuit_current_a": null
       },
       {
         "id": 13,
@@ -470,7 +525,10 @@
         "max_pv_power": 4080,
         "max_charge_current": 85,
         "nominal_battery_voltage": 48,
-        "notes": null
+        "notes": null,
+        "tracker_count": 1,
+        "max_pv_input_current_a": null,
+        "max_pv_short_circuit_current_a": null
       },
       {
         "id": 14,
@@ -480,7 +538,10 @@
         "max_pv_power": 4800,
         "max_charge_current": 100,
         "nominal_battery_voltage": 48,
-        "notes": null
+        "notes": null,
+        "tracker_count": 1,
+        "max_pv_input_current_a": null,
+        "max_pv_short_circuit_current_a": null
       },
       {
         "id": 15,
@@ -490,10 +551,21 @@
         "max_pv_power": 6000,
         "max_charge_current": 100,
         "nominal_battery_voltage": 48,
-        "notes": "Integrated MPPT / solar charger: 450 V max PV voltage, 65-450 V MPPT range, 12 A max operational PV input current, 16 A max PV short-circuit current, 6000 W total solar charging power, 3000 W per tracker, 100 A combined charger current."
+        "notes": "Integrated MPPT / solar charger: 450 V max PV voltage, 65-450 V MPPT range, 12 A max operational PV input current, 16 A max PV short-circuit current, 6000 W total solar charging power, 3000 W per tracker, 100 A combined charger current.",
+        "tracker_count": 2,
+        "max_pv_input_current_a": 12,
+        "max_pv_short_circuit_current_a": 16
       }
     ],
     "project_mppts": [
+      {
+        "project_mppt_id": "project-mppt-dakkapellen",
+        "roof_face_id": "dakkapellen",
+        "array_id": "array-dakkapellen",
+        "name": "Dakkapellen MPPT",
+        "provisional": true,
+        "notes": "No provisional MPPT could be derived from the current array assumptions."
+      },
       {
         "project_mppt_id": "project-mppt-flat-ne",
         "roof_face_id": "flat-ne",
@@ -621,9 +693,9 @@
         "nominal_voltage": 48,
         "capacity_ah": 100,
         "capacity_kwh": 4.8,
-        "max_charge_rate": null,
-        "max_discharge_rate": null,
-        "notes": "Reference model. Market standard, ~€830–1150",
+        "max_charge_rate": 80,
+        "max_discharge_rate": 80,
+        "notes": "Reference model. Market standard, ~€830–1150 Continuous charge/discharge working value set to 80A based on published US5000-1C product listings; short-duration higher rates not modeled yet.",
         "victron_can": 1,
         "price": 655,
         "url": "https://sunnergie.com/product/pylon-us5000-4-8kwh-lithium-battery/",
@@ -668,7 +740,18 @@
         "cooling": "passive"
       }
     ],
-    "battery_banks": [],
+    "battery_banks": [
+      {
+        "battery_bank_id": "battery-bank-main",
+        "battery_type_id": "pytes-ebox-48100r",
+        "name": "Pytes E-BOX-48100R (per module) bank",
+        "module_count": 1,
+        "nominal_voltage_v": 51.2,
+        "capacity_kwh": 5.12,
+        "provisional": true,
+        "notes": "Derived provisional battery-bank choice uses one module of the preferred or best-priced compatible battery type."
+      }
+    ],
     "inverter_types": [
       {
         "id": 2,
@@ -710,7 +793,15 @@
         "notes": "Single AC input"
       }
     ],
-    "project_inverters": [],
+    "project_inverters": [
+      {
+        "project_inverter_id": "project-inverter-main",
+        "inverter_id": "victron-mp2-48-5000",
+        "name": "Multiplus-II 48/5000/70-50",
+        "provisional": true,
+        "notes": "Derived provisional inverter choice currently uses the smallest catalog inverter until load-side design is modeled."
+      }
+    ],
     "branch_circuits": [],
     "consumers": [],
     "generators": [],
@@ -720,6 +811,21 @@
   },
   "relationships": {
     "array_to_mppt": [
+      {
+        "relationship_id": "array-dakkapellen__project-mppt-dakkapellen",
+        "from_array_id": "array-dakkapellen",
+        "to_project_mppt_id": "project-mppt-dakkapellen",
+        "input_voltage_v": null,
+        "input_current_a": null,
+        "input_power_w": 0,
+        "evaluation": {
+          "electrical_status": "outside_limits",
+          "reasons": [
+            "missing_mppt_fit_data"
+          ],
+          "notes": "No provisional MPPT fit could be derived from the current panel and MPPT data."
+        }
+      },
       {
         "relationship_id": "array-flat-ne__project-mppt-flat-ne",
         "from_array_id": "array-flat-ne",
@@ -806,14 +912,134 @@
         }
       }
     ],
-    "mppt_to_battery_bank": [],
-    "battery_bank_to_inverter": [],
+    "mppt_to_battery_bank": [
+      {
+        "relationship_id": "project-mppt-dakkapellen__battery-bank-main",
+        "from_project_mppt_id": "project-mppt-dakkapellen",
+        "to_battery_bank_id": "battery-bank-main",
+        "output_voltage_v": null,
+        "max_charge_current_a": null,
+        "evaluation": {
+          "electrical_status": "outside_limits",
+          "reasons": [
+            "missing_storage_chain_data"
+          ],
+          "notes": "No provisional MPPT-to-battery-bank evaluation could be derived from the current MPPT and battery selections."
+        }
+      },
+      {
+        "relationship_id": "project-mppt-flat-ne__battery-bank-main",
+        "from_project_mppt_id": "project-mppt-flat-ne",
+        "to_battery_bank_id": "battery-bank-main",
+        "output_voltage_v": 51.2,
+        "max_charge_current_a": 60,
+        "evaluation": {
+          "electrical_status": "within_limits",
+          "fit_status": "acceptable",
+          "reasons": [
+            "provisional_battery_bank",
+            "battery_voltage_near_nominal"
+          ],
+          "notes": "This provisional relationship checks nominal battery voltage compatibility only. Module-count sizing and battery current limits are not modeled yet."
+        }
+      },
+      {
+        "relationship_id": "project-mppt-ne__battery-bank-main",
+        "from_project_mppt_id": "project-mppt-ne",
+        "to_battery_bank_id": "battery-bank-main",
+        "output_voltage_v": 51.2,
+        "max_charge_current_a": 20,
+        "evaluation": {
+          "electrical_status": "within_limits",
+          "fit_status": "acceptable",
+          "reasons": [
+            "provisional_battery_bank",
+            "battery_voltage_near_nominal"
+          ],
+          "notes": "This provisional relationship checks nominal battery voltage compatibility only. Module-count sizing and battery current limits are not modeled yet."
+        }
+      },
+      {
+        "relationship_id": "project-mppt-nw__battery-bank-main",
+        "from_project_mppt_id": "project-mppt-nw",
+        "to_battery_bank_id": "battery-bank-main",
+        "output_voltage_v": 51.2,
+        "max_charge_current_a": 100,
+        "evaluation": {
+          "electrical_status": "within_limits",
+          "fit_status": "acceptable",
+          "reasons": [
+            "provisional_battery_bank",
+            "battery_voltage_near_nominal"
+          ],
+          "notes": "This provisional relationship checks nominal battery voltage compatibility only. Module-count sizing and battery current limits are not modeled yet."
+        }
+      },
+      {
+        "relationship_id": "project-mppt-se__battery-bank-main",
+        "from_project_mppt_id": "project-mppt-se",
+        "to_battery_bank_id": "battery-bank-main",
+        "output_voltage_v": 51.2,
+        "max_charge_current_a": 60,
+        "evaluation": {
+          "electrical_status": "within_limits",
+          "fit_status": "acceptable",
+          "reasons": [
+            "provisional_battery_bank",
+            "battery_voltage_near_nominal"
+          ],
+          "notes": "This provisional relationship checks nominal battery voltage compatibility only. Module-count sizing and battery current limits are not modeled yet."
+        }
+      },
+      {
+        "relationship_id": "project-mppt-sw__battery-bank-main",
+        "from_project_mppt_id": "project-mppt-sw",
+        "to_battery_bank_id": "battery-bank-main",
+        "output_voltage_v": 51.2,
+        "max_charge_current_a": 20,
+        "evaluation": {
+          "electrical_status": "within_limits",
+          "fit_status": "acceptable",
+          "reasons": [
+            "provisional_battery_bank",
+            "battery_voltage_near_nominal"
+          ],
+          "notes": "This provisional relationship checks nominal battery voltage compatibility only. Module-count sizing and battery current limits are not modeled yet."
+        }
+      }
+    ],
+    "battery_bank_to_inverter": [
+      {
+        "relationship_id": "battery-bank-main__project-inverter-main",
+        "from_battery_bank_id": "battery-bank-main",
+        "to_project_inverter_id": "project-inverter-main",
+        "nominal_voltage_v": 51.2,
+        "continuous_power_w": 4000,
+        "evaluation": {
+          "electrical_status": "within_limits",
+          "reasons": [
+            "provisional_inverter_selection",
+            "battery_voltage_near_nominal",
+            "load_profile_not_modeled"
+          ],
+          "notes": "This provisional relationship checks DC nominal voltage compatibility only. Inverter sizing against real AC demand is not modeled yet."
+        }
+      }
+    ],
     "inverter_to_branch_circuit": [],
     "branch_circuit_to_consumer": []
   },
   "derived": {
     "string_states": [],
     "array_states": [
+      {
+        "array_id": "array-dakkapellen",
+        "installed_wp": 0,
+        "roof_face_id": "dakkapellen",
+        "panel_count": 0,
+        "input_voltage_v": null,
+        "input_current_a": null
+      },
       {
         "array_id": "array-flat-ne",
         "installed_wp": 1560,
@@ -855,7 +1081,15 @@
         "input_current_a": 11.37
       }
     ],
-    "battery_bank_states": [],
+    "battery_bank_states": [
+      {
+        "battery_bank_id": "battery-bank-main",
+        "module_count": 1,
+        "nominal_voltage_v": 51.2,
+        "capacity_kwh": 5.12,
+        "total_mppt_charge_current_a": 260
+      }
+    ],
     "monthly_balance": [
       {
         "month": "january",
@@ -996,6 +1230,20 @@
         "scope": "export",
         "message": "Arrays and project MPPTs are currently derived from roof-face assignments and are not yet persisted explicitly.",
         "related_ids": [
+          "array-dakkapellen",
+          "array-flat-ne",
+          "array-ne",
+          "array-nw",
+          "array-se",
+          "array-sw"
+        ]
+      },
+      {
+        "severity": "warning",
+        "scope": "array_to_mppt",
+        "message": "At least one provisional array-to-MPPT fit is outside limits under the current single-string assumption.",
+        "related_ids": [
+          "array-dakkapellen",
           "array-flat-ne",
           "array-ne",
           "array-nw",
@@ -1005,14 +1253,24 @@
       },
       {
         "severity": "info",
-        "scope": "array_to_mppt",
-        "message": "Provisional array-to-MPPT fit has been derived from the current roof-face panel assignments.",
+        "scope": "battery_bank",
+        "message": "A provisional one-module battery bank has been derived from the preferred or best-priced compatible battery type.",
         "related_ids": [
-          "array-flat-ne",
-          "array-ne",
-          "array-nw",
-          "array-se",
-          "array-sw"
+          "battery-bank-main"
+        ]
+      },
+      {
+        "severity": "info",
+        "scope": "battery_bank_to_inverter",
+        "message": "Storage-side relationship checks currently validate nominal voltage alignment only. Capacity sizing and AC demand fit are not modeled yet.",
+        "related_ids": [
+          "project-mppt-dakkapellen",
+          "project-mppt-flat-ne",
+          "project-mppt-ne",
+          "project-mppt-nw",
+          "project-mppt-se",
+          "project-mppt-sw",
+          "project-inverter-main"
         ]
       },
       {
@@ -1024,16 +1282,16 @@
     ],
     "summary": {
       "total_installed_wp": 7410,
-      "roof_face_count": 5,
-      "array_count": 5,
-      "project_mppt_count": 5,
+      "roof_face_count": 6,
+      "array_count": 6,
+      "project_mppt_count": 6,
       "battery_type_count": 7,
       "inverter_type_count": 3,
-      "has_outside_limits": false
+      "has_outside_limits": true
     }
   },
   "meta": {
-    "generated_at": "2026-04-12T15:04:10.716Z",
+    "generated_at": "2026-04-12T21:03:19.303Z",
     "source_db_path": "/Users/joostokkinga/Code/OffGridOS/project.db",
     "export_version": 1,
     "units": {

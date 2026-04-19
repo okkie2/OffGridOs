@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
-import path from 'path';
+import { resolveDatabasePath } from '../config/runtime.js';
 
 export function openDb(dbPath?: string): Database.Database {
-  const resolved = dbPath ?? path.join(process.cwd(), 'project.db');
+  const resolved = resolveDatabasePath(dbPath);
   return new Database(resolved);
 }

@@ -1,5 +1,90 @@
 import Database from 'better-sqlite3';
-import { seedMpptTypes, seedBatteryTypes } from './seeds.js';
+import { seedMpptTypes, seedBatteryTypes, seedInverters, seedLocation, seedPanelTypes, seedRoofFaces, seedRoofPanels } from './seeds.js';
+
+function hasTable(db: Database.Database, tableName: string): boolean {
+  const row = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?").get(tableName) as { name?: string } | undefined;
+  return Boolean(row);
+}
+
+function migrateLegacyTableRows(
+  db: Database.Database,
+  oldTable: string,
+  newTable: string,
+  columns: string[],
+  uniqueKey: string,
+): void {
+  if (!hasTable(db, oldTable)) {
+    return;
+  }
+
+  if (!hasTable(db, newTable)) {
+    db.exec(`ALTER TABLE ${oldTable} RENAME TO ${newTable};`);
+    return;
+  }
+
+  const insertSql = `INSERT INTO ${newTable} (${columns.join(', ')}) VALUES (${columns.map((column) => `@${column}`).join(', ')})`;
+  const updateSql = `UPDATE ${newTable} SET ${columns.filter((column) => column !== uniqueKey).map((column) => `${column}=@${column}`).join(', ')} WHERE ${uniqueKey}=@${uniqueKey}`;
+  const insert = db.prepare(insertSql);
+  const update = db.prepare(updateSql);
+  const rows = db.prepare(`SELECT ${columns.join(', ')} FROM ${oldTable}`).all() as Record<string, unknown>[];
+
+  const transaction = db.transaction(() => {
+    for (const row of rows) {
+      const existing = db.prepare(`SELECT 1 FROM ${newTable} WHERE ${uniqueKey} = ?`).get(row[uniqueKey]);
+      if (existing) {
+        update.run(row);
+      } else {
+        insert.run(row);
+      }
+    }
+    db.exec(`DROP TABLE ${oldTable};`);
+  });
+
+  transaction();
+}
+
+function ensureBatteryTypesColumns(db: Database.Database): void {
+  const cols = new Set((db.prepare("PRAGMA table_info('battery_types')").all() as { name: string }[]).map((row) => row.name));
+  const additions = [
+    !cols.has('victron_can') ? "ALTER TABLE battery_types ADD COLUMN victron_can INTEGER NOT NULL DEFAULT 0;" : '',
+    !cols.has('cooling') ? "ALTER TABLE battery_types ADD COLUMN cooling TEXT NOT NULL DEFAULT 'passive';" : '',
+    !cols.has('price') ? 'ALTER TABLE battery_types ADD COLUMN price REAL;' : '',
+    !cols.has('price_per_kwh') ? 'ALTER TABLE battery_types ADD COLUMN price_per_kwh REAL;' : '',
+    !cols.has('source') ? 'ALTER TABLE battery_types ADD COLUMN source TEXT;' : '',
+    !cols.has('url') ? 'ALTER TABLE battery_types ADD COLUMN url TEXT;' : '',
+  ].filter(Boolean);
+
+  if (additions.length > 0) {
+    db.exec(additions.join('\n'));
+    db.prepare("UPDATE battery_types SET cooling = COALESCE(cooling, 'passive')").run();
+  }
+}
+
+function ensureLocationColumns(db: Database.Database): void {
+  const cols = new Set((db.prepare("PRAGMA table_info('location')").all() as { name: string }[]).map((row) => row.name));
+  const additions = [
+    !cols.has('northing') ? 'ALTER TABLE location ADD COLUMN northing REAL;' : '',
+    !cols.has('easting') ? 'ALTER TABLE location ADD COLUMN easting REAL;' : '',
+  ].filter(Boolean);
+
+  if (additions.length > 0) {
+    db.exec(additions.join('\n'));
+  }
+}
+
+function ensureMpptTypesColumns(db: Database.Database): void {
+  const cols = new Set((db.prepare("PRAGMA table_info('mppt_types')").all() as { name: string }[]).map((row) => row.name));
+  const additions = [
+    !cols.has('tracker_count') ? 'ALTER TABLE mppt_types ADD COLUMN tracker_count INTEGER NOT NULL DEFAULT 1;' : '',
+    !cols.has('max_pv_input_current_a') ? 'ALTER TABLE mppt_types ADD COLUMN max_pv_input_current_a REAL;' : '',
+    !cols.has('max_pv_short_circuit_current_a') ? 'ALTER TABLE mppt_types ADD COLUMN max_pv_short_circuit_current_a REAL;' : '',
+  ].filter(Boolean);
+
+  if (additions.length > 0) {
+    db.exec(additions.join('\n'));
+    db.prepare("UPDATE mppt_types SET tracker_count = COALESCE(tracker_count, 1)").run();
+  }
+}
 
 export function initSchema(db: Database.Database): void {
   db.exec(`
@@ -8,7 +93,9 @@ export function initSchema(db: Database.Database): void {
       country   TEXT NOT NULL,
       place_name TEXT NOT NULL,
       latitude  REAL NOT NULL,
-      longitude REAL NOT NULL
+      longitude REAL NOT NULL,
+      northing  REAL,
+      easting   REAL
     );
 
     CREATE TABLE IF NOT EXISTS roof_faces (
@@ -45,12 +132,32 @@ export function initSchema(db: Database.Database): void {
       count         INTEGER NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS roof_face_configurations (
+      id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+      roof_face_id          TEXT UNIQUE NOT NULL REFERENCES roof_faces(roof_face_id),
+      panels_per_string     INTEGER,
+      parallel_strings      INTEGER,
+      selected_mppt_type_id TEXT REFERENCES mppt_types(mppt_type_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS battery_bank_configurations (
+      id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+      battery_bank_id          TEXT UNIQUE NOT NULL,
+      selected_battery_type_id TEXT REFERENCES battery_types(battery_type_id),
+      configured_battery_count  INTEGER NOT NULL DEFAULT 1,
+      batteries_per_string      INTEGER NOT NULL DEFAULT 1,
+      parallel_strings          INTEGER NOT NULL DEFAULT 1
+    );
+
     CREATE TABLE IF NOT EXISTS mppt_types (
       id                     INTEGER PRIMARY KEY AUTOINCREMENT,
       mppt_type_id           TEXT UNIQUE NOT NULL,
       model                  TEXT NOT NULL,
+      tracker_count          INTEGER NOT NULL DEFAULT 1,
       max_voc                REAL NOT NULL,
       max_pv_power           REAL NOT NULL,
+      max_pv_input_current_a REAL,
+      max_pv_short_circuit_current_a REAL,
       max_charge_current     REAL NOT NULL,
       nominal_battery_voltage REAL NOT NULL,
       notes                  TEXT
@@ -93,8 +200,31 @@ export function initSchema(db: Database.Database): void {
       price                REAL,
       notes                TEXT
     );
+
   `);
 
+  ensureLocationColumns(db);
+  ensureBatteryTypesColumns(db);
+  ensureMpptTypesColumns(db);
+  migrateLegacyTableRows(
+    db,
+    'roof_face_designs',
+    'roof_face_configurations',
+    ['roof_face_id', 'panels_per_string', 'parallel_strings', 'selected_mppt_type_id'],
+    'roof_face_id',
+  );
+  migrateLegacyTableRows(
+    db,
+    'battery_bank_designs',
+    'battery_bank_configurations',
+    ['battery_bank_id', 'selected_battery_type_id', 'configured_battery_count', 'batteries_per_string', 'parallel_strings'],
+    'battery_bank_id',
+  );
+  seedLocation(db);
+  seedRoofFaces(db);
+  seedPanelTypes(db);
+  seedRoofPanels(db);
   seedMpptTypes(db);
   seedBatteryTypes(db);
+  seedInverters(db);
 }

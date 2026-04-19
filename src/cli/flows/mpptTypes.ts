@@ -22,6 +22,14 @@ async function promptMppt(existing?: MpptType): Promise<Omit<MpptType, 'id'>> {
     },
     {
       type: 'input',
+      name: 'tracker_count',
+      message: 'MPPT tracker count:',
+      default: existing?.tracker_count?.toString() ?? '1',
+      validate: (v: string) => (!isNaN(parseFloat(v)) && parseInt(v, 10) > 0) || 'Must be > 0',
+      filter: (v: string) => parseInt(v, 10),
+    },
+    {
+      type: 'input',
       name: 'max_voc',
       message: 'Max PV Voc (V):',
       default: existing?.max_voc?.toString(),
@@ -35,6 +43,22 @@ async function promptMppt(existing?: MpptType): Promise<Omit<MpptType, 'id'>> {
       default: existing?.max_pv_power?.toString(),
       validate: (v: string) => (!isNaN(parseFloat(v)) && parseFloat(v) > 0) || 'Must be > 0',
       filter: (v: string) => parseFloat(v),
+    },
+    {
+      type: 'input',
+      name: 'max_pv_input_current_a',
+      message: 'Max PV input current per tracker (A, optional):',
+      default: existing?.max_pv_input_current_a?.toString() ?? '',
+      validate: (v: string) => v.trim() === '' || (!isNaN(parseFloat(v)) && parseFloat(v) > 0) || 'Must be > 0',
+      filter: (v: string) => (v.trim() === '' ? null : parseFloat(v)),
+    },
+    {
+      type: 'input',
+      name: 'max_pv_short_circuit_current_a',
+      message: 'Max PV short-circuit current per tracker (A, optional):',
+      default: existing?.max_pv_short_circuit_current_a?.toString() ?? '',
+      validate: (v: string) => v.trim() === '' || (!isNaN(parseFloat(v)) && parseFloat(v) > 0) || 'Must be > 0',
+      filter: (v: string) => (v.trim() === '' ? null : parseFloat(v)),
     },
     {
       type: 'input',
@@ -63,8 +87,11 @@ async function promptMppt(existing?: MpptType): Promise<Omit<MpptType, 'id'>> {
   return {
     mppt_type_id: existing?.mppt_type_id ?? ans.mppt_type_id,
     model: ans.model,
+    tracker_count: ans.tracker_count,
     max_voc: ans.max_voc,
     max_pv_power: ans.max_pv_power,
+    max_pv_input_current_a: ans.max_pv_input_current_a,
+    max_pv_short_circuit_current_a: ans.max_pv_short_circuit_current_a,
     max_charge_current: ans.max_charge_current,
     nominal_battery_voltage: ans.nominal_battery_voltage,
     notes: ans.notes || null,
@@ -97,9 +124,10 @@ export async function mpptTypesFlow(db: Database.Database): Promise<void> {
     if (action === 'list') {
       console.log('');
       for (const m of controllers) {
+        const perTrackerPower = m.tracker_count > 0 ? Math.round(m.max_pv_power / m.tracker_count) : m.max_pv_power;
         console.log(
           chalk.cyan(`  ${m.mppt_type_id}`) +
-          `  ${m.model}  |  Voc ${m.max_voc}V  ${m.max_charge_current}A  ${m.nominal_battery_voltage}V battery`
+          `  ${m.model}  |  ${m.tracker_count} tracker(s)  ${m.max_voc}V Voc  ${perTrackerPower}W/tracker  ${m.max_charge_current}A charge`
         );
       }
       continue;
