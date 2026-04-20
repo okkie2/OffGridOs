@@ -2,6 +2,8 @@
 
 ## 2026-04-20
 
+- Renamed the surface `Outcome` block to `Evaluation` and rewrote its helper text so it now reads as the evaluation of the panel, string, and MPPT combination.
+- Tightened the surface-detail row rhythm so the stacked sections now use one consistent vertical gap from the top config cards through the Outcome row and down to Expected yield.
 - Tightened the surface detail page by moving `Panel count` beside `Selected panel`, shortening the section guidance copy, switching MPPT limits to a two-column layout, stopping the top-row cards from stretching taller than their content, narrowing the lower summary/notes blocks, and removing the extra `Fit result` heading.
 - Widened the surface `Summary and evaluation` block to two columns and moved `Notes` alongside it so the lower part of the surface page reads with more breathing room.
 - Reorganized the surface `Evaluation` pane into dependency-based sections (`Selected panel`, `Current array`, `Selected MPPT`, `Fit result`) so it is clearer which outputs change when configuration inputs change.

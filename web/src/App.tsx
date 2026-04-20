@@ -2016,8 +2016,8 @@ function RoofFaceDetail({
 
         <section className="panel panel-span-2 balanced-row-panel summary-panel">
           <div className="section-head">
-            <h2>Outcome</h2>
-            <p>Read-only fit checks.</p>
+            <h2>Evaluation</h2>
+            <p>Evaluation of panel, string, and MPPT combination.</p>
           </div>
           {panelType ? (
             <div className="fit-card">
@@ -2026,7 +2026,7 @@ function RoofFaceDetail({
                   <div className="outcome-panel">
                     <div className="outcome-summary">
                       <div className="outcome-status-line">
-                        <p className="result-label">Outcome</p>
+                        <p className="result-label">Evaluation</p>
                         <StatusBadge status={mpptCompatibility?.status ?? 'outside_limits'} fit={mpptCompatibility?.fit} />
                       </div>
                       <ul className="reason-list">

@@ -331,7 +331,7 @@ h1, h2, h3, p, dl, dd, dt {
   gap: 8px;
   flex-wrap: wrap;
   margin-top: auto;
-  padding-top: 12px;
+  padding-top: 8px;
 }
 
 .button-row-start {
@@ -355,7 +355,7 @@ h1, h2, h3, p, dl, dd, dt {
 .chain,
 .status-strip,
 .panel + .panel {
-  margin-top: 16px;
+  margin-top: 12px;
 }
 
 .chain,
@@ -370,7 +370,7 @@ h1, h2, h3, p, dl, dd, dt {
 }
 
 .storage-detail-grid {
-  margin-top: 14px;
+  margin-top: 0;
 }
 
 .panel-span-2 {
@@ -793,7 +793,7 @@ h1, h2, h3, p, dl, dd, dt {
 
 .detail-shell {
   display: grid;
-  gap: 16px;
+  gap: 12px;
 }
 
 .detail-page-title {
@@ -806,11 +806,11 @@ h1, h2, h3, p, dl, dd, dt {
 .detail-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 14px;
+  gap: 12px;
 }
 
 .detail-intro-grid {
-  margin-bottom: 12px;
+  margin-bottom: 0;
 }
 
 .detail-grid .panel,
@@ -844,7 +844,7 @@ h1, h2, h3, p, dl, dd, dt {
 
 .fit-card {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .panel-selector {
@@ -858,17 +858,17 @@ h1, h2, h3, p, dl, dd, dt {
 .config-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .panel-config-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .config-control-row {
-  align-items: end;
+  align-items: start;
 }
 
 .config-field-span-2 {
@@ -885,7 +885,7 @@ h1, h2, h3, p, dl, dd, dt {
 
 .config-field {
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .config-field span {
@@ -899,13 +899,14 @@ h1, h2, h3, p, dl, dd, dt {
 .config-field input,
 .config-field select {
   width: 100%;
-  min-height: 54px;
+  height: 54px;
   padding: 10px 12px;
   border: 1px solid var(--border);
   background: var(--surface-low);
   color: var(--text);
   font: inherit;
   border-radius: 8px;
+  box-sizing: border-box;
 }
 
 .mppt-config-row {
@@ -1067,10 +1068,10 @@ h1, h2, h3, p, dl, dd, dt {
 .mppt-panel-right,
 .outcome-panel {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   align-content: start;
-  margin-top: 10px;
-  padding-top: 10px;
+  margin-top: 8px;
+  padding-top: 8px;
   border-top: 1px solid var(--border);
 }
 
@@ -1112,7 +1113,7 @@ h1, h2, h3, p, dl, dd, dt {
 
 .outcome-summary {
   display: grid;
-  gap: 6px;
+  gap: 8px;
 }
 
 .outcome-status-line {
@@ -1124,6 +1125,7 @@ h1, h2, h3, p, dl, dd, dt {
 .outcome-checks {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px 14px;
+  margin-top: 6px;
 }
 
 .result-status-block {
