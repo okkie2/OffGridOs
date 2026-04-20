@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import http, { type IncomingMessage, type ServerResponse } from 'http';
-import { deleteRoofPanelsForFace, getBatteryBankConfiguration, getRoofFace, getPanelType, listRoofPanels, setPref, upsertBatteryBankConfiguration, upsertInverterConfiguration, upsertRoofFaceConfiguration, updateRoofFace, upsertLocation, upsertRoofPanel } from './db/queries.js';
+import { deleteRoofPanelsForFace, getBatteryBankConfiguration, getBatteryType, getInverterType, getMpptType, getPreferences, getRoofFace, getPanelType, insertBatteryType, insertInverterType, insertMpptType, insertPanelType, listArrayToMpptMappings, listBatteryBankConfigurations, listBatteryTypes, listInverterConfigurations, listInverterTypes, listMpptTypes, listPanelTypes, listPvArrays, listRoofFaceConfigurations, listRoofPanels, setPref, updateBatteryType, updateInverterType, updateMpptType, updatePanelType, upsertBatteryBankConfiguration, upsertInverterConfiguration, upsertRoofFaceConfiguration, updateRoofFace, upsertLocation, upsertRoofPanel } from './db/queries.js';
 import { buildDigitalTwinExport } from './output/exportDigitalTwin.js';
 import { resolveDatabasePath, resolveServerHost, resolveServerPort, resolveWebDistPath } from './config/runtime.js';
 import { ensureDatabaseReady, withDb } from './server/bootstrap.js';
@@ -38,6 +38,10 @@ function isValidLatitude(value: number): boolean {
 
 function isValidLongitude(value: number): boolean {
   return Number.isFinite(value) && value >= -180 && value <= 180;
+}
+
+function isValidNonEmptyText(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
 }
 
 function getContentType(filePath: string): string {
@@ -109,6 +113,823 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
       const message = error instanceof Error ? error.message : 'Unknown server error';
       sendJson(response, 500, { error: message });
     }
+    return true;
+  }
+
+  if (method === 'GET' && url.pathname === '/api/battery-types') {
+    try {
+      const payload = withDb(databasePath, (db) => listBatteryTypes(db));
+      sendJson(response, 200, payload);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown server error';
+      sendJson(response, 500, { error: message });
+    }
+    return true;
+  }
+
+  if (method === 'POST' && url.pathname === '/api/battery-types') {
+    void (async () => {
+      try {
+        const payload = await readJsonBody<{
+          battery_type_id?: unknown;
+          model?: unknown;
+          chemistry?: unknown;
+          nominal_voltage?: unknown;
+          capacity_ah?: unknown;
+          capacity_kwh?: unknown;
+          max_charge_rate?: unknown;
+          max_discharge_rate?: unknown;
+          victron_can?: unknown;
+          cooling?: unknown;
+          price?: unknown;
+          source?: unknown;
+          notes?: unknown;
+        }>(request);
+
+        const batteryTypeId = typeof payload.battery_type_id === 'string' ? payload.battery_type_id.trim() : '';
+        const model = typeof payload.model === 'string' ? payload.model.trim() : '';
+        const chemistry = typeof payload.chemistry === 'string' ? payload.chemistry.trim() : '';
+        const nominalVoltage = typeof payload.nominal_voltage === 'number' ? payload.nominal_voltage : Number(payload.nominal_voltage);
+        const capacityAh = typeof payload.capacity_ah === 'number' ? payload.capacity_ah : Number(payload.capacity_ah);
+        const capacityKwh = typeof payload.capacity_kwh === 'number' ? payload.capacity_kwh : Number(payload.capacity_kwh);
+        const maxChargeRate = payload.max_charge_rate == null || payload.max_charge_rate === ''
+          ? null
+          : (typeof payload.max_charge_rate === 'number' ? payload.max_charge_rate : Number(payload.max_charge_rate));
+        const maxDischargeRate = payload.max_discharge_rate == null || payload.max_discharge_rate === ''
+          ? null
+          : (typeof payload.max_discharge_rate === 'number' ? payload.max_discharge_rate : Number(payload.max_discharge_rate));
+        const victronCan = payload.victron_can === true || payload.victron_can === 'true' || payload.victron_can === 1 || payload.victron_can === '1';
+        const cooling = payload.cooling === 'active' ? 'active' : 'passive';
+        const price = payload.price == null || payload.price === ''
+          ? null
+          : (typeof payload.price === 'number' ? payload.price : Number(payload.price));
+        const source = isValidNonEmptyText(payload.source) ? payload.source.trim() : null;
+        const notes = isValidNonEmptyText(payload.notes) ? payload.notes.trim() : undefined;
+
+        if (!batteryTypeId || !model || !chemistry || !Number.isFinite(nominalVoltage) || nominalVoltage <= 0 || !Number.isFinite(capacityAh) || capacityAh <= 0 || !Number.isFinite(capacityKwh) || capacityKwh <= 0) {
+          sendJson(response, 400, {
+            error: 'Invalid battery type payload. Provide a unique battery_type_id, model, chemistry, nominal_voltage, capacity_ah, and capacity_kwh.',
+          });
+          return;
+        }
+
+        if ((maxChargeRate != null && !Number.isFinite(maxChargeRate)) || (maxDischargeRate != null && !Number.isFinite(maxDischargeRate)) || (price != null && !Number.isFinite(price))) {
+          sendJson(response, 400, { error: 'Invalid battery type payload. Optional numeric fields must be valid numbers when provided.' });
+          return;
+        }
+
+        const updated = withDb(databasePath, (db) => {
+          if (getBatteryType(db, batteryTypeId)) {
+            return { status: 409 as const, body: { error: `Battery type "${batteryTypeId}" already exists.` } };
+          }
+
+          insertBatteryType(db, {
+            battery_type_id: batteryTypeId,
+            model,
+            chemistry,
+            nominal_voltage: nominalVoltage,
+            capacity_ah: capacityAh,
+            capacity_kwh: capacityKwh,
+            max_charge_rate: maxChargeRate,
+            max_discharge_rate: maxDischargeRate,
+            victron_can: victronCan,
+            cooling,
+            price,
+            source,
+            url: source,
+            notes,
+          });
+
+          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath) };
+        });
+
+        sendJson(response, updated.status, updated.body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 500, { error: message });
+      }
+    })();
+    return true;
+  }
+
+  if (method === 'PUT' && url.pathname.startsWith('/api/battery-types/')) {
+    void (async () => {
+      try {
+        const batteryTypeId = decodeURIComponent(url.pathname.slice('/api/battery-types/'.length));
+        if (!batteryTypeId) {
+          sendJson(response, 400, { error: 'Battery type id is required.' });
+          return;
+        }
+
+        const payload = await readJsonBody<{
+          battery_type_id?: unknown;
+          model?: unknown;
+          chemistry?: unknown;
+          nominal_voltage?: unknown;
+          capacity_ah?: unknown;
+          capacity_kwh?: unknown;
+          max_charge_rate?: unknown;
+          max_discharge_rate?: unknown;
+          victron_can?: unknown;
+          cooling?: unknown;
+          price?: unknown;
+          source?: unknown;
+          notes?: unknown;
+        }>(request);
+
+        const bodyBatteryTypeId = typeof payload.battery_type_id === 'string' ? payload.battery_type_id.trim() : batteryTypeId;
+        const model = typeof payload.model === 'string' ? payload.model.trim() : '';
+        const chemistry = typeof payload.chemistry === 'string' ? payload.chemistry.trim() : '';
+        const nominalVoltage = typeof payload.nominal_voltage === 'number' ? payload.nominal_voltage : Number(payload.nominal_voltage);
+        const capacityAh = typeof payload.capacity_ah === 'number' ? payload.capacity_ah : Number(payload.capacity_ah);
+        const capacityKwh = typeof payload.capacity_kwh === 'number' ? payload.capacity_kwh : Number(payload.capacity_kwh);
+        const maxChargeRate = payload.max_charge_rate == null || payload.max_charge_rate === ''
+          ? null
+          : (typeof payload.max_charge_rate === 'number' ? payload.max_charge_rate : Number(payload.max_charge_rate));
+        const maxDischargeRate = payload.max_discharge_rate == null || payload.max_discharge_rate === ''
+          ? null
+          : (typeof payload.max_discharge_rate === 'number' ? payload.max_discharge_rate : Number(payload.max_discharge_rate));
+        const victronCan = payload.victron_can === true || payload.victron_can === 'true' || payload.victron_can === 1 || payload.victron_can === '1';
+        const cooling = payload.cooling === 'active' ? 'active' : 'passive';
+        const price = payload.price == null || payload.price === ''
+          ? null
+          : (typeof payload.price === 'number' ? payload.price : Number(payload.price));
+        const source = isValidNonEmptyText(payload.source) ? payload.source.trim() : null;
+        const notes = isValidNonEmptyText(payload.notes) ? payload.notes.trim() : undefined;
+
+        if (bodyBatteryTypeId !== batteryTypeId) {
+          sendJson(response, 400, { error: 'Battery type id in the URL must match the battery_type_id in the payload.' });
+          return;
+        }
+
+        if (!model || !chemistry || !Number.isFinite(nominalVoltage) || nominalVoltage <= 0 || !Number.isFinite(capacityAh) || capacityAh <= 0 || !Number.isFinite(capacityKwh) || capacityKwh <= 0) {
+          sendJson(response, 400, {
+            error: 'Invalid battery type payload. Provide model, chemistry, nominal_voltage, capacity_ah, and capacity_kwh.',
+          });
+          return;
+        }
+
+        if ((maxChargeRate != null && !Number.isFinite(maxChargeRate)) || (maxDischargeRate != null && !Number.isFinite(maxDischargeRate)) || (price != null && !Number.isFinite(price))) {
+          sendJson(response, 400, { error: 'Invalid battery type payload. Optional numeric fields must be valid numbers when provided.' });
+          return;
+        }
+
+        const updated = withDb(databasePath, (db) => {
+          const existing = getBatteryType(db, batteryTypeId);
+          if (!existing) {
+            return { status: 404 as const, body: { error: `Battery type "${batteryTypeId}" not found.` } };
+          }
+
+          updateBatteryType(db, {
+            battery_type_id: batteryTypeId,
+            model,
+            chemistry,
+            nominal_voltage: nominalVoltage,
+            capacity_ah: capacityAh,
+            capacity_kwh: capacityKwh,
+            max_charge_rate: maxChargeRate,
+            max_discharge_rate: maxDischargeRate,
+            victron_can: victronCan,
+            cooling,
+            price,
+            source,
+            url: source,
+            notes,
+          });
+
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+        });
+
+        sendJson(response, updated.status, updated.body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 500, { error: message });
+      }
+    })();
+    return true;
+  }
+
+  if (method === 'DELETE' && url.pathname.startsWith('/api/battery-types/')) {
+    void (async () => {
+      try {
+        const batteryTypeId = decodeURIComponent(url.pathname.slice('/api/battery-types/'.length));
+        if (!batteryTypeId) {
+          sendJson(response, 400, { error: 'Battery type id is required.' });
+          return;
+        }
+
+        const updated = withDb(databasePath, (db) => {
+          const existing = getBatteryType(db, batteryTypeId);
+          if (!existing) {
+            return { status: 404 as const, body: { error: `Battery type "${batteryTypeId}" not found.` } };
+          }
+
+          const usedInConfiguration = getBatteryBankConfiguration(db, 'battery-bank-main')?.selected_battery_type_id === batteryTypeId;
+          const preferredBatteryTypeId = getPreferences(db).preferred_battery_type_id;
+
+          if (usedInConfiguration || preferredBatteryTypeId === batteryTypeId) {
+            return { status: 400 as const, body: { error: `Battery type "${batteryTypeId}" is still referenced by the current project configuration.` } };
+          }
+
+          db.prepare('DELETE FROM battery_types WHERE battery_type_id = ?').run(batteryTypeId);
+
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+        });
+
+        sendJson(response, updated.status, updated.body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 500, { error: message });
+      }
+    })();
+    return true;
+  }
+
+  if (method === 'GET' && url.pathname === '/api/panel-types') {
+    try {
+      const payload = withDb(databasePath, (db) => listPanelTypes(db));
+      sendJson(response, 200, payload);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown server error';
+      sendJson(response, 500, { error: message });
+    }
+    return true;
+  }
+
+  if (method === 'POST' && url.pathname === '/api/panel-types') {
+    void (async () => {
+      try {
+        const payload = await readJsonBody<{
+          panel_type_id?: unknown;
+          model?: unknown;
+          wp?: unknown;
+          voc?: unknown;
+          vmp?: unknown;
+          isc?: unknown;
+          imp?: unknown;
+          length_mm?: unknown;
+          width_mm?: unknown;
+          notes?: unknown;
+        }>(request);
+
+        const panelTypeId = typeof payload.panel_type_id === 'string' ? payload.panel_type_id.trim() : '';
+        const model = typeof payload.model === 'string' ? payload.model.trim() : '';
+        const wp = typeof payload.wp === 'number' ? payload.wp : Number(payload.wp);
+        const voc = typeof payload.voc === 'number' ? payload.voc : Number(payload.voc);
+        const vmp = typeof payload.vmp === 'number' ? payload.vmp : Number(payload.vmp);
+        const isc = typeof payload.isc === 'number' ? payload.isc : Number(payload.isc);
+        const imp = typeof payload.imp === 'number' ? payload.imp : Number(payload.imp);
+        const lengthMm = typeof payload.length_mm === 'number' ? payload.length_mm : Number(payload.length_mm);
+        const widthMm = typeof payload.width_mm === 'number' ? payload.width_mm : Number(payload.width_mm);
+        const notes = isValidNonEmptyText(payload.notes) ? payload.notes.trim() : undefined;
+
+        if (!panelTypeId || !model || !Number.isFinite(wp) || wp <= 0 || !Number.isFinite(voc) || voc <= 0 || !Number.isFinite(vmp) || vmp <= 0 || !Number.isFinite(isc) || isc <= 0 || !Number.isFinite(imp) || imp <= 0 || !Number.isFinite(lengthMm) || lengthMm <= 0 || !Number.isFinite(widthMm) || widthMm <= 0) {
+          sendJson(response, 400, {
+            error: 'Invalid panel type payload. Provide a unique panel_type_id, model, wp, voc, vmp, isc, imp, length_mm, and width_mm.',
+          });
+          return;
+        }
+
+        const updated = withDb(databasePath, (db) => {
+          if (getPanelType(db, panelTypeId)) {
+            return { status: 409 as const, body: { error: `Panel type "${panelTypeId}" already exists.` } };
+          }
+
+          insertPanelType(db, {
+            panel_type_id: panelTypeId,
+            model,
+            wp,
+            voc,
+            vmp,
+            isc,
+            imp,
+            length_mm: lengthMm,
+            width_mm: widthMm,
+            notes,
+          });
+
+          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath) };
+        });
+
+        sendJson(response, updated.status, updated.body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 500, { error: message });
+      }
+    })();
+    return true;
+  }
+
+  if (method === 'PUT' && url.pathname.startsWith('/api/panel-types/')) {
+    void (async () => {
+      try {
+        const panelTypeId = decodeURIComponent(url.pathname.slice('/api/panel-types/'.length));
+        if (!panelTypeId) {
+          sendJson(response, 400, { error: 'Panel type id is required.' });
+          return;
+        }
+
+        const payload = await readJsonBody<{
+          panel_type_id?: unknown;
+          model?: unknown;
+          wp?: unknown;
+          voc?: unknown;
+          vmp?: unknown;
+          isc?: unknown;
+          imp?: unknown;
+          length_mm?: unknown;
+          width_mm?: unknown;
+          notes?: unknown;
+        }>(request);
+
+        const bodyPanelTypeId = typeof payload.panel_type_id === 'string' ? payload.panel_type_id.trim() : panelTypeId;
+        const model = typeof payload.model === 'string' ? payload.model.trim() : '';
+        const wp = typeof payload.wp === 'number' ? payload.wp : Number(payload.wp);
+        const voc = typeof payload.voc === 'number' ? payload.voc : Number(payload.voc);
+        const vmp = typeof payload.vmp === 'number' ? payload.vmp : Number(payload.vmp);
+        const isc = typeof payload.isc === 'number' ? payload.isc : Number(payload.isc);
+        const imp = typeof payload.imp === 'number' ? payload.imp : Number(payload.imp);
+        const lengthMm = typeof payload.length_mm === 'number' ? payload.length_mm : Number(payload.length_mm);
+        const widthMm = typeof payload.width_mm === 'number' ? payload.width_mm : Number(payload.width_mm);
+        const notes = isValidNonEmptyText(payload.notes) ? payload.notes.trim() : undefined;
+
+        if (bodyPanelTypeId !== panelTypeId) {
+          sendJson(response, 400, { error: 'Panel type id in the URL must match the panel_type_id in the payload.' });
+          return;
+        }
+
+        if (!model || !Number.isFinite(wp) || wp <= 0 || !Number.isFinite(voc) || voc <= 0 || !Number.isFinite(vmp) || vmp <= 0 || !Number.isFinite(isc) || isc <= 0 || !Number.isFinite(imp) || imp <= 0 || !Number.isFinite(lengthMm) || lengthMm <= 0 || !Number.isFinite(widthMm) || widthMm <= 0) {
+          sendJson(response, 400, {
+            error: 'Invalid panel type payload. Provide model, wp, voc, vmp, isc, imp, length_mm, and width_mm.',
+          });
+          return;
+        }
+
+        const updated = withDb(databasePath, (db) => {
+          const existing = getPanelType(db, panelTypeId);
+          if (!existing) {
+            return { status: 404 as const, body: { error: `Panel type "${panelTypeId}" not found.` } };
+          }
+
+          updatePanelType(db, {
+            panel_type_id: panelTypeId,
+            model,
+            wp,
+            voc,
+            vmp,
+            isc,
+            imp,
+            length_mm: lengthMm,
+            width_mm: widthMm,
+            notes,
+          });
+
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+        });
+
+        sendJson(response, updated.status, updated.body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 500, { error: message });
+      }
+    })();
+    return true;
+  }
+
+  if (method === 'DELETE' && url.pathname.startsWith('/api/panel-types/')) {
+    void (async () => {
+      try {
+        const panelTypeId = decodeURIComponent(url.pathname.slice('/api/panel-types/'.length));
+        if (!panelTypeId) {
+          sendJson(response, 400, { error: 'Panel type id is required.' });
+          return;
+        }
+
+        const updated = withDb(databasePath, (db) => {
+          const existing = getPanelType(db, panelTypeId);
+          if (!existing) {
+            return { status: 404 as const, body: { error: `Panel type "${panelTypeId}" not found.` } };
+          }
+
+          const usedInRoofPanel = listRoofPanels(db).some((assignment) => assignment.panel_type_id === panelTypeId);
+          if (usedInRoofPanel) {
+            return { status: 400 as const, body: { error: `Panel type "${panelTypeId}" is still referenced by roof panel assignments.` } };
+          }
+
+          db.prepare('DELETE FROM panel_types WHERE panel_type_id = ?').run(panelTypeId);
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+        });
+
+        sendJson(response, updated.status, updated.body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 500, { error: message });
+      }
+    })();
+    return true;
+  }
+
+  if (method === 'GET' && url.pathname === '/api/mppt-types') {
+    try {
+      const payload = withDb(databasePath, (db) => listMpptTypes(db));
+      sendJson(response, 200, payload);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown server error';
+      sendJson(response, 500, { error: message });
+    }
+    return true;
+  }
+
+  if (method === 'POST' && url.pathname === '/api/mppt-types') {
+    void (async () => {
+      try {
+        const payload = await readJsonBody<{
+          mppt_type_id?: unknown;
+          model?: unknown;
+          tracker_count?: unknown;
+          max_voc?: unknown;
+          max_pv_power?: unknown;
+          max_pv_input_current_a?: unknown;
+          max_pv_short_circuit_current_a?: unknown;
+          max_charge_current?: unknown;
+          nominal_battery_voltage?: unknown;
+          notes?: unknown;
+        }>(request);
+
+        const mpptTypeId = typeof payload.mppt_type_id === 'string' ? payload.mppt_type_id.trim() : '';
+        const model = typeof payload.model === 'string' ? payload.model.trim() : '';
+        const trackerCount = typeof payload.tracker_count === 'number' ? payload.tracker_count : Number(payload.tracker_count);
+        const maxVoc = typeof payload.max_voc === 'number' ? payload.max_voc : Number(payload.max_voc);
+        const maxPvPower = typeof payload.max_pv_power === 'number' ? payload.max_pv_power : Number(payload.max_pv_power);
+        const maxPvInputCurrentA = payload.max_pv_input_current_a == null || payload.max_pv_input_current_a === ''
+          ? null
+          : (typeof payload.max_pv_input_current_a === 'number' ? payload.max_pv_input_current_a : Number(payload.max_pv_input_current_a));
+        const maxPvShortCircuitCurrentA = payload.max_pv_short_circuit_current_a == null || payload.max_pv_short_circuit_current_a === ''
+          ? null
+          : (typeof payload.max_pv_short_circuit_current_a === 'number' ? payload.max_pv_short_circuit_current_a : Number(payload.max_pv_short_circuit_current_a));
+        const maxChargeCurrent = typeof payload.max_charge_current === 'number' ? payload.max_charge_current : Number(payload.max_charge_current);
+        const nominalBatteryVoltage = typeof payload.nominal_battery_voltage === 'number' ? payload.nominal_battery_voltage : Number(payload.nominal_battery_voltage);
+        const notes = isValidNonEmptyText(payload.notes) ? payload.notes.trim() : undefined;
+
+        if (!mpptTypeId || !model || !Number.isInteger(trackerCount) || trackerCount < 1 || !Number.isFinite(maxVoc) || maxVoc <= 0 || !Number.isFinite(maxPvPower) || maxPvPower <= 0 || !Number.isFinite(maxChargeCurrent) || maxChargeCurrent <= 0 || !Number.isFinite(nominalBatteryVoltage) || nominalBatteryVoltage <= 0) {
+          sendJson(response, 400, {
+            error: 'Invalid MPPT type payload. Provide a unique mppt_type_id, model, tracker_count, max_voc, max_pv_power, max_charge_current, and nominal_battery_voltage.',
+          });
+          return;
+        }
+
+        if ((maxPvInputCurrentA != null && !Number.isFinite(maxPvInputCurrentA)) || (maxPvShortCircuitCurrentA != null && !Number.isFinite(maxPvShortCircuitCurrentA))) {
+          sendJson(response, 400, { error: 'Invalid MPPT type payload. Optional PV current fields must be valid numbers when provided.' });
+          return;
+        }
+
+        const updated = withDb(databasePath, (db) => {
+          if (getMpptType(db, mpptTypeId)) {
+            return { status: 409 as const, body: { error: `MPPT type "${mpptTypeId}" already exists.` } };
+          }
+
+          insertMpptType(db, {
+            mppt_type_id: mpptTypeId,
+            model,
+            tracker_count: trackerCount,
+            max_voc: maxVoc,
+            max_pv_power: maxPvPower,
+            max_pv_input_current_a: maxPvInputCurrentA,
+            max_pv_short_circuit_current_a: maxPvShortCircuitCurrentA,
+            max_charge_current: maxChargeCurrent,
+            nominal_battery_voltage: nominalBatteryVoltage,
+            notes,
+          });
+
+          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath) };
+        });
+
+        sendJson(response, updated.status, updated.body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 500, { error: message });
+      }
+    })();
+    return true;
+  }
+
+  if (method === 'PUT' && url.pathname.startsWith('/api/mppt-types/')) {
+    void (async () => {
+      try {
+        const mpptTypeId = decodeURIComponent(url.pathname.slice('/api/mppt-types/'.length));
+        if (!mpptTypeId) {
+          sendJson(response, 400, { error: 'MPPT type id is required.' });
+          return;
+        }
+
+        const payload = await readJsonBody<{
+          mppt_type_id?: unknown;
+          model?: unknown;
+          tracker_count?: unknown;
+          max_voc?: unknown;
+          max_pv_power?: unknown;
+          max_pv_input_current_a?: unknown;
+          max_pv_short_circuit_current_a?: unknown;
+          max_charge_current?: unknown;
+          nominal_battery_voltage?: unknown;
+          notes?: unknown;
+        }>(request);
+
+        const bodyMpptTypeId = typeof payload.mppt_type_id === 'string' ? payload.mppt_type_id.trim() : mpptTypeId;
+        const model = typeof payload.model === 'string' ? payload.model.trim() : '';
+        const trackerCount = typeof payload.tracker_count === 'number' ? payload.tracker_count : Number(payload.tracker_count);
+        const maxVoc = typeof payload.max_voc === 'number' ? payload.max_voc : Number(payload.max_voc);
+        const maxPvPower = typeof payload.max_pv_power === 'number' ? payload.max_pv_power : Number(payload.max_pv_power);
+        const maxPvInputCurrentA = payload.max_pv_input_current_a == null || payload.max_pv_input_current_a === ''
+          ? null
+          : (typeof payload.max_pv_input_current_a === 'number' ? payload.max_pv_input_current_a : Number(payload.max_pv_input_current_a));
+        const maxPvShortCircuitCurrentA = payload.max_pv_short_circuit_current_a == null || payload.max_pv_short_circuit_current_a === ''
+          ? null
+          : (typeof payload.max_pv_short_circuit_current_a === 'number' ? payload.max_pv_short_circuit_current_a : Number(payload.max_pv_short_circuit_current_a));
+        const maxChargeCurrent = typeof payload.max_charge_current === 'number' ? payload.max_charge_current : Number(payload.max_charge_current);
+        const nominalBatteryVoltage = typeof payload.nominal_battery_voltage === 'number' ? payload.nominal_battery_voltage : Number(payload.nominal_battery_voltage);
+        const notes = isValidNonEmptyText(payload.notes) ? payload.notes.trim() : undefined;
+
+        if (bodyMpptTypeId !== mpptTypeId) {
+          sendJson(response, 400, { error: 'MPPT type id in the URL must match the mppt_type_id in the payload.' });
+          return;
+        }
+
+        if (!model || !Number.isInteger(trackerCount) || trackerCount < 1 || !Number.isFinite(maxVoc) || maxVoc <= 0 || !Number.isFinite(maxPvPower) || maxPvPower <= 0 || !Number.isFinite(maxChargeCurrent) || maxChargeCurrent <= 0 || !Number.isFinite(nominalBatteryVoltage) || nominalBatteryVoltage <= 0) {
+          sendJson(response, 400, {
+            error: 'Invalid MPPT type payload. Provide model, tracker_count, max_voc, max_pv_power, max_charge_current, and nominal_battery_voltage.',
+          });
+          return;
+        }
+
+        if ((maxPvInputCurrentA != null && !Number.isFinite(maxPvInputCurrentA)) || (maxPvShortCircuitCurrentA != null && !Number.isFinite(maxPvShortCircuitCurrentA))) {
+          sendJson(response, 400, { error: 'Invalid MPPT type payload. Optional PV current fields must be valid numbers when provided.' });
+          return;
+        }
+
+        const updated = withDb(databasePath, (db) => {
+          const existing = getMpptType(db, mpptTypeId);
+          if (!existing) {
+            return { status: 404 as const, body: { error: `MPPT type "${mpptTypeId}" not found.` } };
+          }
+
+          updateMpptType(db, {
+            mppt_type_id: mpptTypeId,
+            model,
+            tracker_count: trackerCount,
+            max_voc: maxVoc,
+            max_pv_power: maxPvPower,
+            max_pv_input_current_a: maxPvInputCurrentA,
+            max_pv_short_circuit_current_a: maxPvShortCircuitCurrentA,
+            max_charge_current: maxChargeCurrent,
+            nominal_battery_voltage: nominalBatteryVoltage,
+            notes,
+          });
+
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+        });
+
+        sendJson(response, updated.status, updated.body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 500, { error: message });
+      }
+    })();
+    return true;
+  }
+
+  if (method === 'DELETE' && url.pathname.startsWith('/api/mppt-types/')) {
+    void (async () => {
+      try {
+        const mpptTypeId = decodeURIComponent(url.pathname.slice('/api/mppt-types/'.length));
+        if (!mpptTypeId) {
+          sendJson(response, 400, { error: 'MPPT type id is required.' });
+          return;
+        }
+
+        const updated = withDb(databasePath, (db) => {
+          const existing = getMpptType(db, mpptTypeId);
+          if (!existing) {
+            return { status: 404 as const, body: { error: `MPPT type "${mpptTypeId}" not found.` } };
+          }
+
+          const usedInFaceConfiguration = listRoofFaceConfigurations(db).some((configuration) => configuration.selected_mppt_type_id === mpptTypeId);
+          if (usedInFaceConfiguration) {
+            return { status: 400 as const, body: { error: `MPPT type "${mpptTypeId}" is still referenced by roof-face configurations.` } };
+          }
+
+          db.prepare('DELETE FROM mppt_types WHERE mppt_type_id = ?').run(mpptTypeId);
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+        });
+
+        sendJson(response, updated.status, updated.body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 500, { error: message });
+      }
+    })();
+    return true;
+  }
+
+  if (method === 'GET' && url.pathname === '/api/inverter-types') {
+    try {
+      const payload = withDb(databasePath, (db) => listInverterTypes(db));
+      sendJson(response, 200, payload);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown server error';
+      sendJson(response, 500, { error: message });
+    }
+    return true;
+  }
+
+  if (method === 'POST' && url.pathname === '/api/inverter-types') {
+    void (async () => {
+      try {
+        const payload = await readJsonBody<{
+          inverter_id?: unknown;
+          model?: unknown;
+          input_voltage_v?: unknown;
+          output_voltage_v?: unknown;
+          continuous_power_w?: unknown;
+          peak_power_va?: unknown;
+          max_charge_current_a?: unknown;
+          efficiency_pct?: unknown;
+          price?: unknown;
+          notes?: unknown;
+        }>(request);
+
+        const inverterId = typeof payload.inverter_id === 'string' ? payload.inverter_id.trim() : '';
+        const model = typeof payload.model === 'string' ? payload.model.trim() : '';
+        const inputVoltageV = typeof payload.input_voltage_v === 'number' ? payload.input_voltage_v : Number(payload.input_voltage_v);
+        const outputVoltageV = typeof payload.output_voltage_v === 'number' ? payload.output_voltage_v : Number(payload.output_voltage_v);
+        const continuousPowerW = typeof payload.continuous_power_w === 'number' ? payload.continuous_power_w : Number(payload.continuous_power_w);
+        const peakPowerVA = typeof payload.peak_power_va === 'number' ? payload.peak_power_va : Number(payload.peak_power_va);
+        const maxChargeCurrentA = typeof payload.max_charge_current_a === 'number' ? payload.max_charge_current_a : Number(payload.max_charge_current_a);
+        const efficiencyPct = payload.efficiency_pct == null || payload.efficiency_pct === ''
+          ? null
+          : (typeof payload.efficiency_pct === 'number' ? payload.efficiency_pct : Number(payload.efficiency_pct));
+        const price = payload.price == null || payload.price === ''
+          ? null
+          : (typeof payload.price === 'number' ? payload.price : Number(payload.price));
+        const notes = isValidNonEmptyText(payload.notes) ? payload.notes.trim() : undefined;
+
+        if (!inverterId || !model || !Number.isFinite(inputVoltageV) || inputVoltageV <= 0 || !Number.isFinite(outputVoltageV) || outputVoltageV <= 0 || !Number.isFinite(continuousPowerW) || continuousPowerW <= 0 || !Number.isFinite(peakPowerVA) || peakPowerVA <= 0 || !Number.isFinite(maxChargeCurrentA) || maxChargeCurrentA <= 0) {
+          sendJson(response, 400, {
+            error: 'Invalid inverter type payload. Provide a unique inverter_id, model, input_voltage_v, output_voltage_v, continuous_power_w, peak_power_va, and max_charge_current_a.',
+          });
+          return;
+        }
+
+        if ((efficiencyPct != null && !Number.isFinite(efficiencyPct)) || (price != null && !Number.isFinite(price))) {
+          sendJson(response, 400, { error: 'Invalid inverter type payload. Optional numeric fields must be valid numbers when provided.' });
+          return;
+        }
+
+        const updated = withDb(databasePath, (db) => {
+          if (getInverterType(db, inverterId)) {
+            return { status: 409 as const, body: { error: `Inverter type "${inverterId}" already exists.` } };
+          }
+
+          insertInverterType(db, {
+            inverter_id: inverterId,
+            model,
+            input_voltage_v: inputVoltageV,
+            output_voltage_v: outputVoltageV,
+            continuous_power_w: continuousPowerW,
+            peak_power_va: peakPowerVA,
+            max_charge_current_a: maxChargeCurrentA,
+            efficiency_pct: efficiencyPct,
+            price,
+            notes,
+          });
+
+          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath) };
+        });
+
+        sendJson(response, updated.status, updated.body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 500, { error: message });
+      }
+    })();
+    return true;
+  }
+
+  if (method === 'PUT' && url.pathname.startsWith('/api/inverter-types/')) {
+    void (async () => {
+      try {
+        const inverterId = decodeURIComponent(url.pathname.slice('/api/inverter-types/'.length));
+        if (!inverterId) {
+          sendJson(response, 400, { error: 'Inverter type id is required.' });
+          return;
+        }
+
+        const payload = await readJsonBody<{
+          inverter_id?: unknown;
+          model?: unknown;
+          input_voltage_v?: unknown;
+          output_voltage_v?: unknown;
+          continuous_power_w?: unknown;
+          peak_power_va?: unknown;
+          max_charge_current_a?: unknown;
+          efficiency_pct?: unknown;
+          price?: unknown;
+          notes?: unknown;
+        }>(request);
+
+        const bodyInverterId = typeof payload.inverter_id === 'string' ? payload.inverter_id.trim() : inverterId;
+        const model = typeof payload.model === 'string' ? payload.model.trim() : '';
+        const inputVoltageV = typeof payload.input_voltage_v === 'number' ? payload.input_voltage_v : Number(payload.input_voltage_v);
+        const outputVoltageV = typeof payload.output_voltage_v === 'number' ? payload.output_voltage_v : Number(payload.output_voltage_v);
+        const continuousPowerW = typeof payload.continuous_power_w === 'number' ? payload.continuous_power_w : Number(payload.continuous_power_w);
+        const peakPowerVA = typeof payload.peak_power_va === 'number' ? payload.peak_power_va : Number(payload.peak_power_va);
+        const maxChargeCurrentA = typeof payload.max_charge_current_a === 'number' ? payload.max_charge_current_a : Number(payload.max_charge_current_a);
+        const efficiencyPct = payload.efficiency_pct == null || payload.efficiency_pct === ''
+          ? null
+          : (typeof payload.efficiency_pct === 'number' ? payload.efficiency_pct : Number(payload.efficiency_pct));
+        const price = payload.price == null || payload.price === ''
+          ? null
+          : (typeof payload.price === 'number' ? payload.price : Number(payload.price));
+        const notes = isValidNonEmptyText(payload.notes) ? payload.notes.trim() : undefined;
+
+        if (bodyInverterId !== inverterId) {
+          sendJson(response, 400, { error: 'Inverter type id in the URL must match the inverter_id in the payload.' });
+          return;
+        }
+
+        if (!model || !Number.isFinite(inputVoltageV) || inputVoltageV <= 0 || !Number.isFinite(outputVoltageV) || outputVoltageV <= 0 || !Number.isFinite(continuousPowerW) || continuousPowerW <= 0 || !Number.isFinite(peakPowerVA) || peakPowerVA <= 0 || !Number.isFinite(maxChargeCurrentA) || maxChargeCurrentA <= 0) {
+          sendJson(response, 400, {
+            error: 'Invalid inverter type payload. Provide model, input_voltage_v, output_voltage_v, continuous_power_w, peak_power_va, and max_charge_current_a.',
+          });
+          return;
+        }
+
+        if ((efficiencyPct != null && !Number.isFinite(efficiencyPct)) || (price != null && !Number.isFinite(price))) {
+          sendJson(response, 400, { error: 'Invalid inverter type payload. Optional numeric fields must be valid numbers when provided.' });
+          return;
+        }
+
+        const updated = withDb(databasePath, (db) => {
+          const existing = getInverterType(db, inverterId);
+          if (!existing) {
+            return { status: 404 as const, body: { error: `Inverter type "${inverterId}" not found.` } };
+          }
+
+          updateInverterType(db, {
+            inverter_id: inverterId,
+            model,
+            input_voltage_v: inputVoltageV,
+            output_voltage_v: outputVoltageV,
+            continuous_power_w: continuousPowerW,
+            peak_power_va: peakPowerVA,
+            max_charge_current_a: maxChargeCurrentA,
+            efficiency_pct: efficiencyPct,
+            price,
+            notes,
+          });
+
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+        });
+
+        sendJson(response, updated.status, updated.body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 500, { error: message });
+      }
+    })();
+    return true;
+  }
+
+  if (method === 'DELETE' && url.pathname.startsWith('/api/inverter-types/')) {
+    void (async () => {
+      try {
+        const inverterId = decodeURIComponent(url.pathname.slice('/api/inverter-types/'.length));
+        if (!inverterId) {
+          sendJson(response, 400, { error: 'Inverter type id is required.' });
+          return;
+        }
+
+        const updated = withDb(databasePath, (db) => {
+          const existing = getInverterType(db, inverterId);
+          if (!existing) {
+            return { status: 404 as const, body: { error: `Inverter type "${inverterId}" not found.` } };
+          }
+
+          const usedInConfiguration = listInverterConfigurations(db).some((configuration) => configuration.selected_inverter_type_id === inverterId);
+          if (usedInConfiguration) {
+            return { status: 400 as const, body: { error: `Inverter type "${inverterId}" is still referenced by the current project configuration.` } };
+          }
+
+          db.prepare('DELETE FROM inverter_types WHERE inverter_id = ?').run(inverterId);
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+        });
+
+        sendJson(response, updated.status, updated.body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 500, { error: message });
+      }
+    })();
     return true;
   }
 

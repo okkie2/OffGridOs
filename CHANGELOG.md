@@ -2,6 +2,8 @@
 
 ## 2026-04-20
 
+- Grouped the reusable panel, MPPT, battery, and inverter CRUD screens under a shared `Catalogs` section in the web app, and added the missing panel, MPPT, and inverter catalog API routes so all four catalogues can now be managed from one place.
+- Added a battery catalog editor in the web app and matching battery-type API routes so the reusable battery catalog can now be created, edited, listed, and deleted from the browser.
 - Completed the target deploy smoke test by starting the production server against persistent SQLite storage, saving a location change, restarting, and confirming the change survived the restart.
 - Added a publish-rehearsal test that writes representative project state to a fresh SQLite database, restarts it, and verifies the saved location, PV, battery, and inverter configuration survive the round trip.
 - Reframed `TODO.md` as the concrete publish-blocker queue and `ROADMAP.md` as the higher-level post-MVP theme queue, then mirrored that distinction in `README.md` and `AGENTS.md`.

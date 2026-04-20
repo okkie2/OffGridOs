@@ -445,8 +445,10 @@ export function insertBatteryType(db: Database.Database, data: Omit<BatteryType,
     ...data,
     price_per_kwh: pricePerKwh,
     cooling: data.cooling ?? 'passive',
+    victron_can: data.victron_can ? 1 : 0,
     source: data.source ?? data.url ?? null,
     url: data.url ?? data.source ?? null,
+    notes: data.notes ?? null,
   });
 }
 
@@ -465,8 +467,10 @@ export function updateBatteryType(db: Database.Database, data: Omit<BatteryType,
     ...data,
     price_per_kwh: pricePerKwh,
     cooling: data.cooling ?? 'passive',
+    victron_can: data.victron_can ? 1 : 0,
     source: data.source ?? data.url ?? null,
     url: data.url ?? data.source ?? null,
+    notes: data.notes ?? null,
   });
 }
 
@@ -482,6 +486,65 @@ export function listInverterTypes(db: Database.Database): InverterType[] {
 
 export function getInverterType(db: Database.Database, inverter_id: string): InverterType | null {
   return (db.prepare('SELECT * FROM inverter_types WHERE inverter_id = ?').get(inverter_id) as InverterType) ?? null;
+}
+
+export function insertInverterType(db: Database.Database, data: Omit<InverterType, 'id'>): void {
+  db.prepare(`
+    INSERT INTO inverter_types (
+      inverter_id,
+      model,
+      input_voltage_v,
+      output_voltage_v,
+      continuous_power_w,
+      peak_power_va,
+      max_charge_current_a,
+      efficiency_pct,
+      price,
+      notes
+    )
+    VALUES (
+      @inverter_id,
+      @model,
+      @input_voltage_v,
+      @output_voltage_v,
+      @continuous_power_w,
+      @peak_power_va,
+      @max_charge_current_a,
+      @efficiency_pct,
+      @price,
+      @notes
+    )
+  `).run({
+    ...data,
+    efficiency_pct: data.efficiency_pct ?? null,
+    price: data.price ?? null,
+    notes: data.notes ?? null,
+  });
+}
+
+export function updateInverterType(db: Database.Database, data: Omit<InverterType, 'id'>): void {
+  db.prepare(`
+    UPDATE inverter_types
+    SET model=@model,
+        input_voltage_v=@input_voltage_v,
+        output_voltage_v=@output_voltage_v,
+        continuous_power_w=@continuous_power_w,
+        peak_power_va=@peak_power_va,
+        max_charge_current_a=@max_charge_current_a,
+        efficiency_pct=@efficiency_pct,
+        price=@price,
+        notes=@notes
+    WHERE inverter_id=@inverter_id
+  `).run({
+    ...data,
+    efficiency_pct: data.efficiency_pct ?? null,
+    price: data.price ?? null,
+    notes: data.notes ?? null,
+  });
+}
+
+export function deleteInverterType(db: Database.Database, inverter_id: string): void {
+  db.prepare('DELETE FROM inverter_types WHERE inverter_id = ?').run(inverter_id);
 }
 
 // ── Inverter configuration state ────────────────────────────────────────────

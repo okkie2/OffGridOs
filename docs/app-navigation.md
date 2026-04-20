@@ -31,10 +31,11 @@ That means:
 Recommended top-level sections:
 
 1. `Overview`
-2. `Roof faces`
-3. `Battery and inverter`
-4. `Branch circuits`
-5. `Monthly balance`
+2. `Catalogs`
+3. `Roof faces`
+4. `Battery and inverter`
+5. `Branch circuits`
+6. `Monthly balance`
 
 These should be visible in the main app navigation.
 
@@ -67,6 +68,17 @@ Primary destinations from here:
 - MPPT fit
 - battery/inverter detail
 - monthly balance
+
+### Catalogs
+
+Purpose:
+
+- manage the reusable panel, MPPT, battery, and inverter catalogues
+- keep all CRUD actions for shared product definitions in one place
+
+Main screen:
+
+- shared catalog landing page plus per-catalog CRUD screens
 
 ### Roof faces
 

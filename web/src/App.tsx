@@ -54,6 +54,61 @@ interface BatteryType {
   notes?: string;
 }
 
+interface BatteryTypeDraft {
+  battery_type_id: string;
+  model: string;
+  chemistry: string;
+  nominal_voltage: string;
+  capacity_ah: string;
+  capacity_kwh: string;
+  max_charge_rate: string;
+  max_discharge_rate: string;
+  victron_can: boolean;
+  cooling: 'active' | 'passive';
+  price: string;
+  source: string;
+  notes: string;
+}
+
+interface PanelTypeDraft {
+  panel_type_id: string;
+  model: string;
+  wp: string;
+  voc: string;
+  vmp: string;
+  isc: string;
+  imp: string;
+  length_mm: string;
+  width_mm: string;
+  notes: string;
+}
+
+interface MpptTypeDraft {
+  mppt_type_id: string;
+  model: string;
+  tracker_count: string;
+  max_voc: string;
+  max_pv_power: string;
+  max_pv_input_current_a: string;
+  max_pv_short_circuit_current_a: string;
+  max_charge_current: string;
+  nominal_battery_voltage: string;
+  notes: string;
+}
+
+interface InverterTypeDraft {
+  inverter_id: string;
+  model: string;
+  input_voltage_v: string;
+  output_voltage_v: string;
+  continuous_power_w: string;
+  peak_power_va: string;
+  max_charge_current_a: string;
+  efficiency_pct: string;
+  price: string;
+  notes: string;
+}
+
 interface BatteryBankConfiguration {
   battery_bank_id: string;
   selected_battery_type_id?: string | null;
@@ -404,9 +459,21 @@ type Route =
   | { kind: 'overview' }
   | { kind: 'location' }
   | { kind: 'faces' }
+  | { kind: 'catalogs' }
+  | { kind: 'catalog'; catalog: 'panel-types' | 'mppt-types' | 'battery-types' | 'inverter-types' }
   | { kind: 'battery-array' }
   | { kind: 'inverter-array' }
   | { kind: 'face'; roofFaceId: string };
+
+const CATALOG_ROUTES: Array<{
+  catalog: 'panel-types' | 'mppt-types' | 'battery-types' | 'inverter-types';
+  label: string;
+}> = [
+  { catalog: 'panel-types', label: 'Panel types' },
+  { catalog: 'mppt-types', label: 'MPPT types' },
+  { catalog: 'battery-types', label: 'Battery types' },
+  { catalog: 'inverter-types', label: 'Inverter types' },
+];
 
 const MONTH_LABELS: Record<string, string> = {
   january: 'Jan',
@@ -520,6 +587,140 @@ function formatVolts(volts: number): string {
 
 function formatDailyYield(kwh: number): string {
   return kwh.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
+
+function emptyBatteryDraft(): BatteryTypeDraft {
+  return {
+    battery_type_id: '',
+    model: '',
+    chemistry: 'LiFePO4',
+    nominal_voltage: '48',
+    capacity_ah: '100',
+    capacity_kwh: '5.12',
+    max_charge_rate: '',
+    max_discharge_rate: '',
+    victron_can: true,
+    cooling: 'passive',
+    price: '',
+    source: '',
+    notes: '',
+  };
+}
+
+function batteryDraftFromType(battery: BatteryType | null): BatteryTypeDraft {
+  if (!battery) return emptyBatteryDraft();
+
+  return {
+    battery_type_id: battery.battery_type_id,
+    model: battery.model,
+    chemistry: battery.chemistry,
+    nominal_voltage: String(battery.nominal_voltage),
+    capacity_ah: String(battery.capacity_ah),
+    capacity_kwh: String(battery.capacity_kwh),
+    max_charge_rate: battery.max_charge_rate != null ? String(battery.max_charge_rate) : '',
+    max_discharge_rate: battery.max_discharge_rate != null ? String(battery.max_discharge_rate) : '',
+    victron_can: battery.victron_can,
+    cooling: battery.cooling,
+    price: battery.price != null ? String(battery.price) : '',
+    source: battery.source ?? battery.url ?? '',
+    notes: battery.notes ?? '',
+  };
+}
+
+function emptyPanelDraft(): PanelTypeDraft {
+  return {
+    panel_type_id: '',
+    model: '',
+    wp: '450',
+    voc: '40',
+    vmp: '34',
+    isc: '14',
+    imp: '13',
+    length_mm: '',
+    width_mm: '',
+    notes: '',
+  };
+}
+
+function panelDraftFromType(panel: PanelType | null): PanelTypeDraft {
+  if (!panel) return emptyPanelDraft();
+
+  return {
+    panel_type_id: panel.panel_type_id,
+    model: panel.model,
+    wp: String(panel.wp),
+    voc: String(panel.voc),
+    vmp: String(panel.vmp),
+    isc: String(panel.isc),
+    imp: String(panel.imp),
+    length_mm: panel.length_mm != null ? String(panel.length_mm) : '',
+    width_mm: panel.width_mm != null ? String(panel.width_mm) : '',
+    notes: panel.notes ?? '',
+  };
+}
+
+function emptyMpptDraft(): MpptTypeDraft {
+  return {
+    mppt_type_id: '',
+    model: '',
+    tracker_count: '2',
+    max_voc: '250',
+    max_pv_power: '6000',
+    max_pv_input_current_a: '',
+    max_pv_short_circuit_current_a: '',
+    max_charge_current: '120',
+    nominal_battery_voltage: '48',
+    notes: '',
+  };
+}
+
+function mpptDraftFromType(mppt: MpptType | null): MpptTypeDraft {
+  if (!mppt) return emptyMpptDraft();
+
+  return {
+    mppt_type_id: mppt.mppt_type_id,
+    model: mppt.model,
+    tracker_count: String(mppt.tracker_count),
+    max_voc: String(mppt.max_voc),
+    max_pv_power: String(mppt.max_pv_power),
+    max_pv_input_current_a: mppt.max_pv_input_current_a != null ? String(mppt.max_pv_input_current_a) : '',
+    max_pv_short_circuit_current_a: mppt.max_pv_short_circuit_current_a != null ? String(mppt.max_pv_short_circuit_current_a) : '',
+    max_charge_current: String(mppt.max_charge_current),
+    nominal_battery_voltage: String(mppt.nominal_battery_voltage),
+    notes: mppt.notes ?? '',
+  };
+}
+
+function emptyInverterDraft(): InverterTypeDraft {
+  return {
+    inverter_id: '',
+    model: '',
+    input_voltage_v: '48',
+    output_voltage_v: '230',
+    continuous_power_w: '5000',
+    peak_power_va: '8000',
+    max_charge_current_a: '100',
+    efficiency_pct: '',
+    price: '',
+    notes: '',
+  };
+}
+
+function inverterDraftFromType(inverter: InverterType | null): InverterTypeDraft {
+  if (!inverter) return emptyInverterDraft();
+
+  return {
+    inverter_id: inverter.inverter_id,
+    model: inverter.model,
+    input_voltage_v: String(inverter.input_voltage_v),
+    output_voltage_v: String(inverter.output_voltage_v),
+    continuous_power_w: String(inverter.continuous_power_w),
+    peak_power_va: String(inverter.peak_power_va),
+    max_charge_current_a: String(inverter.max_charge_current_a),
+    efficiency_pct: inverter.efficiency_pct != null ? String(inverter.efficiency_pct) : '',
+    price: inverter.price != null ? String(inverter.price) : '',
+    notes: inverter.notes ?? '',
+  };
 }
 
 function angularDifferenceDeg(left: number, right: number): number {
@@ -1048,6 +1249,21 @@ function getRoute(): Route {
   if (hash === '/faces' || hash === '/panel-arrays' || hash === '/mppts') {
     return { kind: 'faces' };
   }
+  if (hash === '/catalogs') {
+    return { kind: 'catalogs' };
+  }
+  if (hash === '/panel-types') {
+    return { kind: 'catalog', catalog: 'panel-types' };
+  }
+  if (hash === '/mppt-types') {
+    return { kind: 'catalog', catalog: 'mppt-types' };
+  }
+  if (hash === '/battery-types') {
+    return { kind: 'catalog', catalog: 'battery-types' };
+  }
+  if (hash === '/inverter-types') {
+    return { kind: 'catalog', catalog: 'inverter-types' };
+  }
   if (hash === '/battery-array') {
     return { kind: 'battery-array' };
   }
@@ -1082,6 +1298,14 @@ function navigateTo(route: Route): void {
     window.location.hash = '/faces';
     return;
   }
+  if (route.kind === 'catalogs') {
+    window.location.hash = '/catalogs';
+    return;
+  }
+  if (route.kind === 'catalog') {
+    window.location.hash = `/${route.catalog}`;
+    return;
+  }
   if (route.kind === 'battery-array') {
     window.location.hash = '/battery-array';
     return;
@@ -1097,6 +1321,8 @@ function routeHref(route: Route): string {
   if (route.kind === 'overview') return '#/';
   if (route.kind === 'location') return '#/location';
   if (route.kind === 'faces') return '#/faces';
+  if (route.kind === 'catalogs') return '#/catalogs';
+  if (route.kind === 'catalog') return `#/${route.catalog}`;
   if (route.kind === 'battery-array') return '#/battery-array';
   if (route.kind === 'inverter-array') return '#/inverter-array';
   return `#/faces/${route.roofFaceId}`;
@@ -1146,6 +1372,23 @@ function Sidebar({ route, data }: { route: Route; data: DigitalTwinExport | null
         </a>
         <span className="sidebar-nav-item sidebar-nav-disabled">Loads</span>
         <span className="sidebar-nav-item sidebar-nav-disabled">Alerts</span>
+        <a href={routeHref({ kind: 'catalogs' })} onClick={go({ kind: 'catalogs' })} className={`sidebar-nav-item ${route.kind === 'catalogs' || route.kind === 'catalog' ? 'active' : ''}`}>
+          Catalogs
+        </a>
+        {data && (route.kind === 'catalogs' || route.kind === 'catalog') ? (
+          <div className="sidebar-subnav">
+            {CATALOG_ROUTES.map((catalog) => (
+              <a
+                key={catalog.catalog}
+                href={routeHref({ kind: 'catalog', catalog: catalog.catalog })}
+                onClick={go({ kind: 'catalog', catalog: catalog.catalog })}
+                className={`sidebar-subnav-item ${route.kind === 'catalog' && route.catalog === catalog.catalog ? 'active' : ''}`}
+              >
+                {catalog.label}
+              </a>
+            ))}
+          </div>
+        ) : null}
       </nav>
       <div className="sidebar-footer">
         <span className="sidebar-footer-btn">New project</span>
@@ -3403,6 +3646,1127 @@ function InverterArrayPage({
   );
 }
 
+function BatteryCatalogPage({
+  data,
+  refreshProjectData,
+}: {
+  data: DigitalTwinExport;
+  refreshProjectData: () => Promise<void>;
+}) {
+  const [selectedBatteryTypeId, setSelectedBatteryTypeId] = useState(() => data.entities.battery_types[0]?.battery_type_id ?? '');
+  const [draft, setDraft] = useState<BatteryTypeDraft>(() => batteryDraftFromType(data.entities.battery_types[0] ?? null));
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const selectedBattery = selectedBatteryTypeId
+    ? data.entities.battery_types.find((item) => item.battery_type_id === selectedBatteryTypeId) ?? null
+    : null;
+
+  useEffect(() => {
+    if (selectedBatteryTypeId) {
+      const current = data.entities.battery_types.find((item) => item.battery_type_id === selectedBatteryTypeId) ?? null;
+      setDraft(batteryDraftFromType(current));
+    } else {
+      setDraft(emptyBatteryDraft());
+    }
+  }, [data, selectedBatteryTypeId]);
+
+  function startAddNew() {
+    setSelectedBatteryTypeId('');
+    setSaveError(null);
+    setSaveMessage(null);
+    setDraft(emptyBatteryDraft());
+  }
+
+  async function handleSave() {
+    const batteryTypeId = draft.battery_type_id.trim();
+    const model = draft.model.trim();
+    const chemistry = draft.chemistry.trim();
+    const nominalVoltage = Number(draft.nominal_voltage);
+    const capacityAh = Number(draft.capacity_ah);
+    const capacityKwh = Number(draft.capacity_kwh);
+    const maxChargeRate = draft.max_charge_rate.trim() === '' ? null : Number(draft.max_charge_rate);
+    const maxDischargeRate = draft.max_discharge_rate.trim() === '' ? null : Number(draft.max_discharge_rate);
+    const price = draft.price.trim() === '' ? null : Number(draft.price);
+    const source = draft.source.trim() === '' ? null : draft.source.trim();
+    const notes = draft.notes.trim() === '' ? null : draft.notes.trim();
+
+    if (!batteryTypeId || !model || !chemistry || !Number.isFinite(nominalVoltage) || nominalVoltage <= 0 || !Number.isFinite(capacityAh) || capacityAh <= 0 || !Number.isFinite(capacityKwh) || capacityKwh <= 0) {
+      setSaveError('Fill in the battery ID, model, chemistry, nominal voltage, capacity Ah, and capacity kWh.');
+      return;
+    }
+
+    if ((maxChargeRate != null && !Number.isFinite(maxChargeRate)) || (maxDischargeRate != null && !Number.isFinite(maxDischargeRate)) || (price != null && !Number.isFinite(price))) {
+      setSaveError('Optional numeric fields must be valid numbers when provided.');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+      setSaveMessage(null);
+
+      const isEdit = Boolean(selectedBattery);
+      const response = await fetch(isEdit ? `/api/battery-types/${encodeURIComponent(selectedBatteryTypeId)}` : '/api/battery-types', {
+        method: isEdit ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          battery_type_id: batteryTypeId,
+          model,
+          chemistry,
+          nominal_voltage: nominalVoltage,
+          capacity_ah: capacityAh,
+          capacity_kwh: capacityKwh,
+          max_charge_rate: maxChargeRate,
+          max_discharge_rate: maxDischargeRate,
+          victron_can: draft.victron_can,
+          cooling: draft.cooling,
+          price,
+          source,
+          notes,
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? `Failed to save battery type (${response.status})`);
+      }
+
+      await refreshProjectData();
+      setSelectedBatteryTypeId(batteryTypeId);
+      setDraft(batteryDraftFromType({
+        battery_type_id: batteryTypeId,
+        model,
+        chemistry,
+        nominal_voltage: nominalVoltage,
+        capacity_ah: capacityAh,
+        capacity_kwh: capacityKwh,
+        max_charge_rate: maxChargeRate,
+        max_discharge_rate: maxDischargeRate,
+        victron_can: draft.victron_can,
+        cooling: draft.cooling,
+        price,
+        price_per_kwh: null,
+        source,
+        url: source,
+        notes,
+      }));
+      setSaveMessage(`Battery type "${batteryTypeId}" saved.`);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Failed to save battery type.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!selectedBattery) return;
+
+    const confirmed = window.confirm(`Delete battery type "${selectedBattery.battery_type_id}"?`);
+    if (!confirmed) return;
+
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+      setSaveMessage(null);
+
+      const response = await fetch(`/api/battery-types/${encodeURIComponent(selectedBattery.battery_type_id)}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? `Failed to delete battery type (${response.status})`);
+      }
+
+      await refreshProjectData();
+      const nextBattery = data.entities.battery_types.find((item) => item.battery_type_id !== selectedBattery.battery_type_id) ?? null;
+      setSelectedBatteryTypeId(nextBattery?.battery_type_id ?? '');
+      setDraft(batteryDraftFromType(nextBattery));
+      setSaveMessage(`Battery type "${selectedBattery.battery_type_id}" deleted.`);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Failed to delete battery type.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <>
+      <section className="hero">
+        <div>
+          <p className="eyebrow">Configuration data</p>
+          <h1>Battery catalog</h1>
+          <p className="hero-copy">
+            Edit the reusable battery catalog that the battery-array flow and export use for project configuration.
+          </p>
+        </div>
+      </section>
+
+      <section className="detail-grid">
+        <section className="panel">
+          <div className="section-head">
+            <h2>Catalog entries</h2>
+            <p>Select a battery type to edit, or create a new catalog entry.</p>
+          </div>
+          <div className="stack" style={{ gap: 8 }}>
+            <button type="button" onClick={startAddNew}>Add battery type</button>
+            <div className="catalog-list">
+              {data.entities.battery_types.map((battery) => (
+                <button
+                  key={battery.battery_type_id}
+                  type="button"
+                  className={`catalog-card ${selectedBatteryTypeId === battery.battery_type_id ? 'active' : ''}`}
+                  onClick={() => {
+                    setSelectedBatteryTypeId(battery.battery_type_id);
+                    setSaveError(null);
+                    setSaveMessage(null);
+                  }}
+                >
+                  <strong>{battery.model}</strong>
+                  <span>{battery.battery_type_id}</span>
+                  <span>{battery.capacity_kwh} kWh · {battery.nominal_voltage} V · {battery.cooling}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="section-head">
+            <h2>{selectedBattery ? 'Edit battery type' : 'Add battery type'}</h2>
+            <p>Changes update the SQLite catalog and are available after refresh.</p>
+          </div>
+          <div className="stack" style={{ gap: 16 }}>
+            <label className="field">
+              <span>Battery type ID</span>
+              <input
+                value={draft.battery_type_id}
+                onChange={(event) => setDraft((current) => ({ ...current, battery_type_id: event.target.value }))}
+                placeholder="pylontech-us5000-1c"
+                disabled={Boolean(selectedBattery)}
+              />
+            </label>
+            <label className="field">
+              <span>Model</span>
+              <input
+                value={draft.model}
+                onChange={(event) => setDraft((current) => ({ ...current, model: event.target.value }))}
+                placeholder="Pylontech US5000-1C"
+              />
+            </label>
+            <div className="detail-grid two-col">
+              <label className="field">
+                <span>Chemistry</span>
+                <input
+                  value={draft.chemistry}
+                  onChange={(event) => setDraft((current) => ({ ...current, chemistry: event.target.value }))}
+                  placeholder="LiFePO4"
+                />
+              </label>
+              <label className="field">
+                <span>Cooling</span>
+                <select
+                  value={draft.cooling}
+                  onChange={(event) => setDraft((current) => ({ ...current, cooling: event.target.value as 'active' | 'passive' }))}
+                >
+                  <option value="passive">passive</option>
+                  <option value="active">active</option>
+                </select>
+              </label>
+            </div>
+            <div className="detail-grid two-col">
+              <label className="field">
+                <span>Nominal voltage</span>
+                <input
+                  type="number"
+                  value={draft.nominal_voltage}
+                  onChange={(event) => setDraft((current) => ({ ...current, nominal_voltage: event.target.value }))}
+                />
+              </label>
+              <label className="field">
+                <span>Capacity (kWh)</span>
+                <input
+                  type="number"
+                  value={draft.capacity_kwh}
+                  onChange={(event) => setDraft((current) => ({ ...current, capacity_kwh: event.target.value }))}
+                />
+              </label>
+            </div>
+            <div className="detail-grid two-col">
+              <label className="field">
+                <span>Capacity (Ah)</span>
+                <input
+                  type="number"
+                  value={draft.capacity_ah}
+                  onChange={(event) => setDraft((current) => ({ ...current, capacity_ah: event.target.value }))}
+                />
+              </label>
+              <label className="field">
+                <span>Victron CAN</span>
+                <input
+                  type="checkbox"
+                  checked={draft.victron_can}
+                  onChange={(event) => setDraft((current) => ({ ...current, victron_can: event.target.checked }))}
+                />
+              </label>
+            </div>
+            <div className="detail-grid two-col">
+              <label className="field">
+                <span>Max charge rate</span>
+                <input
+                  type="number"
+                  value={draft.max_charge_rate}
+                  onChange={(event) => setDraft((current) => ({ ...current, max_charge_rate: event.target.value }))}
+                />
+              </label>
+              <label className="field">
+                <span>Max discharge rate</span>
+                <input
+                  type="number"
+                  value={draft.max_discharge_rate}
+                  onChange={(event) => setDraft((current) => ({ ...current, max_discharge_rate: event.target.value }))}
+                />
+              </label>
+            </div>
+            <div className="detail-grid two-col">
+              <label className="field">
+                <span>Price</span>
+                <input
+                  type="number"
+                  value={draft.price}
+                  onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))}
+                />
+              </label>
+              <label className="field">
+                <span>Source URL</span>
+                <input
+                  value={draft.source}
+                  onChange={(event) => setDraft((current) => ({ ...current, source: event.target.value }))}
+                  placeholder="https://..."
+                />
+              </label>
+            </div>
+            <label className="field">
+              <span>Notes</span>
+              <textarea
+                value={draft.notes}
+                onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))}
+                rows={4}
+              />
+            </label>
+            <div className="stack" style={{ gap: 8 }}>
+              <button type="button" onClick={() => void handleSave()} disabled={isSaving || !draft.battery_type_id.trim()}>
+                {isSaving ? 'Saving…' : selectedBattery ? 'Save battery type' : 'Create battery type'}
+              </button>
+              {selectedBattery ? (
+                <button type="button" className="secondary" onClick={() => void handleDelete()} disabled={isSaving}>
+                  Delete battery type
+                </button>
+              ) : null}
+              {saveError ? <p className="save-error">{saveError}</p> : null}
+              {saveMessage ? <p className="save-message">{saveMessage}</p> : null}
+            </div>
+          </div>
+          {selectedBattery ? (
+            <dl className="detail-stats panel-spec-grid" style={{ marginTop: 16 }}>
+              <div>
+                <dt>Capacity</dt>
+                <dd>{selectedBattery.capacity_kwh} kWh</dd>
+              </div>
+              <div>
+                <dt>Voltage</dt>
+                <dd>{selectedBattery.nominal_voltage} V</dd>
+              </div>
+              <div>
+                <dt>Charge rate</dt>
+                <dd>{selectedBattery.max_charge_rate != null ? `${selectedBattery.max_charge_rate} A` : 'n/a'}</dd>
+              </div>
+              <div>
+                <dt>Discharge rate</dt>
+                <dd>{selectedBattery.max_discharge_rate != null ? `${selectedBattery.max_discharge_rate} A` : 'n/a'}</dd>
+              </div>
+              <div>
+                <dt>Price</dt>
+                <dd>{selectedBattery.price != null ? `€${selectedBattery.price.toLocaleString('en-US')}` : 'n/a'}</dd>
+              </div>
+              <div>
+                <dt>Price / kWh</dt>
+                <dd>{selectedBattery.price_per_kwh != null ? `€${selectedBattery.price_per_kwh}` : 'n/a'}</dd>
+              </div>
+            </dl>
+          ) : null}
+        </section>
+      </section>
+    </>
+  );
+}
+
+function CatalogsPage() {
+  return (
+    <>
+      <section className="hero">
+        <div>
+          <p className="eyebrow">Configuration data</p>
+          <h1>Catalogs</h1>
+          <p className="hero-copy">
+            Manage the reusable product catalogs used by the project configuration: panels, MPPTs, batteries, and inverters.
+          </p>
+        </div>
+      </section>
+      <section className="detail-grid two-col">
+        {CATALOG_ROUTES.map((catalog) => (
+          <section className="panel" key={catalog.catalog}>
+            <div className="section-head">
+              <h2>{catalog.label}</h2>
+              <p>Open the CRUD screen for {catalog.label.toLowerCase()}.</p>
+            </div>
+            <div className="stack" style={{ gap: 12 }}>
+              <button type="button" onClick={() => navigateTo({ kind: 'catalog', catalog: catalog.catalog })}>
+                Open {catalog.label}
+              </button>
+            </div>
+          </section>
+        ))}
+      </section>
+    </>
+  );
+}
+
+function PanelCatalogPage({
+  data,
+  refreshProjectData,
+}: {
+  data: DigitalTwinExport;
+  refreshProjectData: () => Promise<void>;
+}) {
+  const [selectedPanelTypeId, setSelectedPanelTypeId] = useState(() => data.entities.panel_types[0]?.panel_type_id ?? '');
+  const [draft, setDraft] = useState<PanelTypeDraft>(() => panelDraftFromType(data.entities.panel_types[0] ?? null));
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const selectedPanel = selectedPanelTypeId
+    ? data.entities.panel_types.find((item) => item.panel_type_id === selectedPanelTypeId) ?? null
+    : null;
+
+  useEffect(() => {
+    if (selectedPanelTypeId) {
+      const current = data.entities.panel_types.find((item) => item.panel_type_id === selectedPanelTypeId) ?? null;
+      setDraft(panelDraftFromType(current));
+    } else {
+      setDraft(emptyPanelDraft());
+    }
+  }, [data, selectedPanelTypeId]);
+
+  function startAddNew() {
+    setSelectedPanelTypeId('');
+    setSaveError(null);
+    setSaveMessage(null);
+    setDraft(emptyPanelDraft());
+  }
+
+  async function handleSave() {
+    const panelTypeId = draft.panel_type_id.trim();
+    const model = draft.model.trim();
+    const wp = Number(draft.wp);
+    const voc = Number(draft.voc);
+    const vmp = Number(draft.vmp);
+    const isc = Number(draft.isc);
+    const imp = Number(draft.imp);
+    const lengthMm = Number(draft.length_mm);
+    const widthMm = Number(draft.width_mm);
+    const notes = draft.notes.trim() === '' ? null : draft.notes.trim();
+
+    if (!panelTypeId || !model || !Number.isFinite(wp) || wp <= 0 || !Number.isFinite(voc) || voc <= 0 || !Number.isFinite(vmp) || vmp <= 0 || !Number.isFinite(isc) || isc <= 0 || !Number.isFinite(imp) || imp <= 0 || !Number.isFinite(lengthMm) || lengthMm <= 0 || !Number.isFinite(widthMm) || widthMm <= 0) {
+      setSaveError('Fill in the panel ID, model, WP, Voc, Vmp, Isc, Imp, length, and width.');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+      setSaveMessage(null);
+
+      const isEdit = Boolean(selectedPanel);
+      const response = await fetch(isEdit ? `/api/panel-types/${encodeURIComponent(selectedPanelTypeId)}` : '/api/panel-types', {
+        method: isEdit ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          panel_type_id: panelTypeId,
+          model,
+          wp,
+          voc,
+          vmp,
+          isc,
+          imp,
+          length_mm: lengthMm,
+          width_mm: widthMm,
+          notes,
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? `Failed to save panel type (${response.status})`);
+      }
+
+      await refreshProjectData();
+      setSelectedPanelTypeId(panelTypeId);
+      setDraft(panelDraftFromType({
+        panel_type_id: panelTypeId,
+        model,
+        wp,
+        voc,
+        vmp,
+        isc,
+        imp,
+        length_mm: lengthMm,
+        width_mm: widthMm,
+        notes,
+      } as PanelType));
+      setSaveMessage(`Panel type "${panelTypeId}" saved.`);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Failed to save panel type.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!selectedPanel) return;
+
+    const confirmed = window.confirm(`Delete panel type "${selectedPanel.panel_type_id}"?`);
+    if (!confirmed) return;
+
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+      setSaveMessage(null);
+
+      const response = await fetch(`/api/panel-types/${encodeURIComponent(selectedPanel.panel_type_id)}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? `Failed to delete panel type (${response.status})`);
+      }
+
+      await refreshProjectData();
+      const nextPanel = data.entities.panel_types.find((item) => item.panel_type_id !== selectedPanel.panel_type_id) ?? null;
+      setSelectedPanelTypeId(nextPanel?.panel_type_id ?? '');
+      setDraft(panelDraftFromType(nextPanel));
+      setSaveMessage(`Panel type "${selectedPanel.panel_type_id}" deleted.`);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Failed to delete panel type.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <>
+      <section className="hero">
+        <div>
+          <p className="eyebrow">Configuration data</p>
+          <h1>Panel types</h1>
+          <p className="hero-copy">
+            Edit the reusable panel catalog used by the roof-face configuration and export flow.
+          </p>
+        </div>
+      </section>
+
+      <section className="detail-grid">
+        <section className="panel">
+          <div className="section-head">
+            <h2>Catalog entries</h2>
+            <p>Select a panel type to edit, or create a new catalog entry.</p>
+          </div>
+          <div className="stack" style={{ gap: 8 }}>
+            <button type="button" onClick={startAddNew}>Add panel type</button>
+            <div className="catalog-list">
+              {data.entities.panel_types.map((panel) => (
+                <button
+                  key={panel.panel_type_id}
+                  type="button"
+                  className={`catalog-card ${selectedPanelTypeId === panel.panel_type_id ? 'active' : ''}`}
+                  onClick={() => {
+                    setSelectedPanelTypeId(panel.panel_type_id);
+                    setSaveError(null);
+                    setSaveMessage(null);
+                  }}
+                >
+                  <strong>{panel.model}</strong>
+                  <span>{panel.panel_type_id}</span>
+                  <span>{panel.wp} Wp · {panel.voc} V</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="section-head">
+            <h2>{selectedPanel ? 'Edit panel type' : 'Add panel type'}</h2>
+            <p>Changes update the SQLite catalog and are available after refresh.</p>
+          </div>
+          <div className="stack" style={{ gap: 16 }}>
+            <label className="field">
+              <span>Panel type ID</span>
+              <input
+                value={draft.panel_type_id}
+                onChange={(event) => setDraft((current) => ({ ...current, panel_type_id: event.target.value }))}
+                placeholder="aiko-475-all-black"
+                disabled={Boolean(selectedPanel)}
+              />
+            </label>
+            <label className="field">
+              <span>Model</span>
+              <input
+                value={draft.model}
+                onChange={(event) => setDraft((current) => ({ ...current, model: event.target.value }))}
+                placeholder="AIKO 475 Wp All Black"
+              />
+            </label>
+            <div className="detail-grid two-col">
+              <label className="field"><span>Wp</span><input type="number" value={draft.wp} onChange={(event) => setDraft((current) => ({ ...current, wp: event.target.value }))} /></label>
+              <label className="field"><span>Voc</span><input type="number" value={draft.voc} onChange={(event) => setDraft((current) => ({ ...current, voc: event.target.value }))} /></label>
+            </div>
+            <div className="detail-grid two-col">
+              <label className="field"><span>Vmp</span><input type="number" value={draft.vmp} onChange={(event) => setDraft((current) => ({ ...current, vmp: event.target.value }))} /></label>
+              <label className="field"><span>Isc</span><input type="number" value={draft.isc} onChange={(event) => setDraft((current) => ({ ...current, isc: event.target.value }))} /></label>
+            </div>
+            <div className="detail-grid two-col">
+              <label className="field"><span>Imp</span><input type="number" value={draft.imp} onChange={(event) => setDraft((current) => ({ ...current, imp: event.target.value }))} /></label>
+              <label className="field"><span>Length (mm)</span><input type="number" value={draft.length_mm} onChange={(event) => setDraft((current) => ({ ...current, length_mm: event.target.value }))} /></label>
+            </div>
+            <div className="detail-grid two-col">
+              <label className="field"><span>Width (mm)</span><input type="number" value={draft.width_mm} onChange={(event) => setDraft((current) => ({ ...current, width_mm: event.target.value }))} /></label>
+              <span />
+            </div>
+            <label className="field">
+              <span>Notes</span>
+              <textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={4} />
+            </label>
+            <div className="stack" style={{ gap: 8 }}>
+              <button type="button" onClick={() => void handleSave()} disabled={isSaving || !draft.panel_type_id.trim()}>
+                {isSaving ? 'Saving…' : selectedPanel ? 'Save panel type' : 'Create panel type'}
+              </button>
+              {selectedPanel ? (
+                <button type="button" className="secondary" onClick={() => void handleDelete()} disabled={isSaving}>
+                  Delete panel type
+                </button>
+              ) : null}
+              {saveError ? <p className="save-error">{saveError}</p> : null}
+              {saveMessage ? <p className="save-message">{saveMessage}</p> : null}
+            </div>
+          </div>
+          {selectedPanel ? (
+            <dl className="detail-stats panel-spec-grid" style={{ marginTop: 16 }}>
+              <div><dt>Power</dt><dd>{selectedPanel.wp} Wp</dd></div>
+              <div><dt>Voc</dt><dd>{selectedPanel.voc} V</dd></div>
+              <div><dt>Vmp</dt><dd>{selectedPanel.vmp} V</dd></div>
+              <div><dt>Isc</dt><dd>{selectedPanel.isc} A</dd></div>
+              <div><dt>Imp</dt><dd>{selectedPanel.imp} A</dd></div>
+              <div><dt>Size</dt><dd>{selectedPanel.length_mm != null && selectedPanel.width_mm != null ? `${selectedPanel.length_mm} × ${selectedPanel.width_mm} mm` : 'n/a'}</dd></div>
+            </dl>
+          ) : null}
+        </section>
+      </section>
+    </>
+  );
+}
+
+function MpptCatalogPage({
+  data,
+  refreshProjectData,
+}: {
+  data: DigitalTwinExport;
+  refreshProjectData: () => Promise<void>;
+}) {
+  const [selectedMpptTypeId, setSelectedMpptTypeId] = useState(() => data.entities.mppt_types[0]?.mppt_type_id ?? '');
+  const [draft, setDraft] = useState<MpptTypeDraft>(() => mpptDraftFromType(data.entities.mppt_types[0] ?? null));
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const selectedMppt = selectedMpptTypeId
+    ? data.entities.mppt_types.find((item) => item.mppt_type_id === selectedMpptTypeId) ?? null
+    : null;
+
+  useEffect(() => {
+    if (selectedMpptTypeId) {
+      const current = data.entities.mppt_types.find((item) => item.mppt_type_id === selectedMpptTypeId) ?? null;
+      setDraft(mpptDraftFromType(current));
+    } else {
+      setDraft(emptyMpptDraft());
+    }
+  }, [data, selectedMpptTypeId]);
+
+  function startAddNew() {
+    setSelectedMpptTypeId('');
+    setSaveError(null);
+    setSaveMessage(null);
+    setDraft(emptyMpptDraft());
+  }
+
+  async function handleSave() {
+    const mpptTypeId = draft.mppt_type_id.trim();
+    const model = draft.model.trim();
+    const trackerCount = Number(draft.tracker_count);
+    const maxVoc = Number(draft.max_voc);
+    const maxPvPower = Number(draft.max_pv_power);
+    const maxPvInputCurrentA = draft.max_pv_input_current_a.trim() === '' ? null : Number(draft.max_pv_input_current_a);
+    const maxPvShortCircuitCurrentA = draft.max_pv_short_circuit_current_a.trim() === '' ? null : Number(draft.max_pv_short_circuit_current_a);
+    const maxChargeCurrent = Number(draft.max_charge_current);
+    const nominalBatteryVoltage = Number(draft.nominal_battery_voltage);
+    const notes = draft.notes.trim() === '' ? null : draft.notes.trim();
+
+    if (!mpptTypeId || !model || !Number.isInteger(trackerCount) || trackerCount < 1 || !Number.isFinite(maxVoc) || maxVoc <= 0 || !Number.isFinite(maxPvPower) || maxPvPower <= 0 || !Number.isFinite(maxChargeCurrent) || maxChargeCurrent <= 0 || !Number.isFinite(nominalBatteryVoltage) || nominalBatteryVoltage <= 0) {
+      setSaveError('Fill in the MPPT ID, model, tracker count, max Voc, max PV power, max charge current, and nominal battery voltage.');
+      return;
+    }
+
+    if ((maxPvInputCurrentA != null && !Number.isFinite(maxPvInputCurrentA)) || (maxPvShortCircuitCurrentA != null && !Number.isFinite(maxPvShortCircuitCurrentA))) {
+      setSaveError('Optional PV current fields must be valid numbers when provided.');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+      setSaveMessage(null);
+
+      const isEdit = Boolean(selectedMppt);
+      const response = await fetch(isEdit ? `/api/mppt-types/${encodeURIComponent(selectedMpptTypeId)}` : '/api/mppt-types', {
+        method: isEdit ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mppt_type_id: mpptTypeId,
+          model,
+          tracker_count: trackerCount,
+          max_voc: maxVoc,
+          max_pv_power: maxPvPower,
+          max_pv_input_current_a: maxPvInputCurrentA,
+          max_pv_short_circuit_current_a: maxPvShortCircuitCurrentA,
+          max_charge_current: maxChargeCurrent,
+          nominal_battery_voltage: nominalBatteryVoltage,
+          notes,
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? `Failed to save MPPT type (${response.status})`);
+      }
+
+      await refreshProjectData();
+      setSelectedMpptTypeId(mpptTypeId);
+      setDraft(mpptDraftFromType({
+        mppt_type_id: mpptTypeId,
+        model,
+        tracker_count: trackerCount,
+        max_voc: maxVoc,
+        max_pv_power: maxPvPower,
+        max_pv_input_current_a: maxPvInputCurrentA,
+        max_pv_short_circuit_current_a: maxPvShortCircuitCurrentA,
+        max_charge_current: maxChargeCurrent,
+        nominal_battery_voltage: nominalBatteryVoltage,
+        notes,
+      } as MpptType));
+      setSaveMessage(`MPPT type "${mpptTypeId}" saved.`);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Failed to save MPPT type.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!selectedMppt) return;
+
+    const confirmed = window.confirm(`Delete MPPT type "${selectedMppt.mppt_type_id}"?`);
+    if (!confirmed) return;
+
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+      setSaveMessage(null);
+
+      const response = await fetch(`/api/mppt-types/${encodeURIComponent(selectedMppt.mppt_type_id)}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? `Failed to delete MPPT type (${response.status})`);
+      }
+
+      await refreshProjectData();
+      const nextMppt = data.entities.mppt_types.find((item) => item.mppt_type_id !== selectedMppt.mppt_type_id) ?? null;
+      setSelectedMpptTypeId(nextMppt?.mppt_type_id ?? '');
+      setDraft(mpptDraftFromType(nextMppt));
+      setSaveMessage(`MPPT type "${selectedMppt.mppt_type_id}" deleted.`);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Failed to delete MPPT type.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <>
+      <section className="hero">
+        <div>
+          <p className="eyebrow">Configuration data</p>
+          <h1>MPPT types</h1>
+          <p className="hero-copy">
+            Edit the reusable MPPT catalog used by the face configuration and charging checks.
+          </p>
+        </div>
+      </section>
+
+      <section className="detail-grid">
+        <section className="panel">
+          <div className="section-head">
+            <h2>Catalog entries</h2>
+            <p>Select an MPPT type to edit, or create a new catalog entry.</p>
+          </div>
+          <div className="stack" style={{ gap: 8 }}>
+            <button type="button" onClick={startAddNew}>Add MPPT type</button>
+            <div className="catalog-list">
+              {data.entities.mppt_types.map((mppt) => (
+                <button
+                  key={mppt.mppt_type_id}
+                  type="button"
+                  className={`catalog-card ${selectedMpptTypeId === mppt.mppt_type_id ? 'active' : ''}`}
+                  onClick={() => {
+                    setSelectedMpptTypeId(mppt.mppt_type_id);
+                    setSaveError(null);
+                    setSaveMessage(null);
+                  }}
+                >
+                  <strong>{mppt.model}</strong>
+                  <span>{mppt.mppt_type_id}</span>
+                  <span>{mppt.tracker_count} trackers · {mppt.max_voc} V max</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="section-head">
+            <h2>{selectedMppt ? 'Edit MPPT type' : 'Add MPPT type'}</h2>
+            <p>Changes update the SQLite catalog and are available after refresh.</p>
+          </div>
+          <div className="stack" style={{ gap: 16 }}>
+            <label className="field">
+              <span>MPPT type ID</span>
+              <input
+                value={draft.mppt_type_id}
+                onChange={(event) => setDraft((current) => ({ ...current, mppt_type_id: event.target.value }))}
+                placeholder="victron-smartsolar-250"
+                disabled={Boolean(selectedMppt)}
+              />
+            </label>
+            <label className="field">
+              <span>Model</span>
+              <input
+                value={draft.model}
+                onChange={(event) => setDraft((current) => ({ ...current, model: event.target.value }))}
+                placeholder="Victron SmartSolar 250/100"
+              />
+            </label>
+            <div className="detail-grid two-col">
+              <label className="field"><span>Tracker count</span><input type="number" value={draft.tracker_count} onChange={(event) => setDraft((current) => ({ ...current, tracker_count: event.target.value }))} /></label>
+              <label className="field"><span>Max Voc</span><input type="number" value={draft.max_voc} onChange={(event) => setDraft((current) => ({ ...current, max_voc: event.target.value }))} /></label>
+            </div>
+            <div className="detail-grid two-col">
+              <label className="field"><span>Max PV power</span><input type="number" value={draft.max_pv_power} onChange={(event) => setDraft((current) => ({ ...current, max_pv_power: event.target.value }))} /></label>
+              <label className="field"><span>Max charge current</span><input type="number" value={draft.max_charge_current} onChange={(event) => setDraft((current) => ({ ...current, max_charge_current: event.target.value }))} /></label>
+            </div>
+            <div className="detail-grid two-col">
+              <label className="field"><span>Max PV input current</span><input type="number" value={draft.max_pv_input_current_a} onChange={(event) => setDraft((current) => ({ ...current, max_pv_input_current_a: event.target.value }))} /></label>
+              <label className="field"><span>Max PV short-circuit current</span><input type="number" value={draft.max_pv_short_circuit_current_a} onChange={(event) => setDraft((current) => ({ ...current, max_pv_short_circuit_current_a: event.target.value }))} /></label>
+            </div>
+            <div className="detail-grid two-col">
+              <label className="field"><span>Nominal battery voltage</span><input type="number" value={draft.nominal_battery_voltage} onChange={(event) => setDraft((current) => ({ ...current, nominal_battery_voltage: event.target.value }))} /></label>
+              <span />
+            </div>
+            <label className="field">
+              <span>Notes</span>
+              <textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={4} />
+            </label>
+            <div className="stack" style={{ gap: 8 }}>
+              <button type="button" onClick={() => void handleSave()} disabled={isSaving || !draft.mppt_type_id.trim()}>
+                {isSaving ? 'Saving…' : selectedMppt ? 'Save MPPT type' : 'Create MPPT type'}
+              </button>
+              {selectedMppt ? (
+                <button type="button" className="secondary" onClick={() => void handleDelete()} disabled={isSaving}>
+                  Delete MPPT type
+                </button>
+              ) : null}
+              {saveError ? <p className="save-error">{saveError}</p> : null}
+              {saveMessage ? <p className="save-message">{saveMessage}</p> : null}
+            </div>
+          </div>
+          {selectedMppt ? (
+            <dl className="detail-stats panel-spec-grid" style={{ marginTop: 16 }}>
+              <div><dt>Tracker count</dt><dd>{selectedMppt.tracker_count}</dd></div>
+              <div><dt>Max Voc</dt><dd>{selectedMppt.max_voc} V</dd></div>
+              <div><dt>Max PV power</dt><dd>{selectedMppt.max_pv_power} W</dd></div>
+              <div><dt>Max charge current</dt><dd>{selectedMppt.max_charge_current} A</dd></div>
+              <div><dt>Nominal battery voltage</dt><dd>{selectedMppt.nominal_battery_voltage} V</dd></div>
+              <div><dt>PV input current</dt><dd>{selectedMppt.max_pv_input_current_a != null ? `${selectedMppt.max_pv_input_current_a} A` : 'n/a'}</dd></div>
+            </dl>
+          ) : null}
+        </section>
+      </section>
+    </>
+  );
+}
+
+function InverterCatalogPage({
+  data,
+  refreshProjectData,
+}: {
+  data: DigitalTwinExport;
+  refreshProjectData: () => Promise<void>;
+}) {
+  const [selectedInverterTypeId, setSelectedInverterTypeId] = useState(() => data.entities.inverter_types[0]?.inverter_id ?? '');
+  const [draft, setDraft] = useState<InverterTypeDraft>(() => inverterDraftFromType(data.entities.inverter_types[0] ?? null));
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const selectedInverter = selectedInverterTypeId
+    ? data.entities.inverter_types.find((item) => item.inverter_id === selectedInverterTypeId) ?? null
+    : null;
+
+  useEffect(() => {
+    if (selectedInverterTypeId) {
+      const current = data.entities.inverter_types.find((item) => item.inverter_id === selectedInverterTypeId) ?? null;
+      setDraft(inverterDraftFromType(current));
+    } else {
+      setDraft(emptyInverterDraft());
+    }
+  }, [data, selectedInverterTypeId]);
+
+  function startAddNew() {
+    setSelectedInverterTypeId('');
+    setSaveError(null);
+    setSaveMessage(null);
+    setDraft(emptyInverterDraft());
+  }
+
+  async function handleSave() {
+    const inverterId = draft.inverter_id.trim();
+    const model = draft.model.trim();
+    const inputVoltageV = Number(draft.input_voltage_v);
+    const outputVoltageV = Number(draft.output_voltage_v);
+    const continuousPowerW = Number(draft.continuous_power_w);
+    const peakPowerVA = Number(draft.peak_power_va);
+    const maxChargeCurrentA = Number(draft.max_charge_current_a);
+    const efficiencyPct = draft.efficiency_pct.trim() === '' ? null : Number(draft.efficiency_pct);
+    const price = draft.price.trim() === '' ? null : Number(draft.price);
+    const notes = draft.notes.trim() === '' ? null : draft.notes.trim();
+
+    if (!inverterId || !model || !Number.isFinite(inputVoltageV) || inputVoltageV <= 0 || !Number.isFinite(outputVoltageV) || outputVoltageV <= 0 || !Number.isFinite(continuousPowerW) || continuousPowerW <= 0 || !Number.isFinite(peakPowerVA) || peakPowerVA <= 0 || !Number.isFinite(maxChargeCurrentA) || maxChargeCurrentA <= 0) {
+      setSaveError('Fill in the inverter ID, model, input voltage, output voltage, continuous power, peak power, and max charge current.');
+      return;
+    }
+
+    if ((efficiencyPct != null && !Number.isFinite(efficiencyPct)) || (price != null && !Number.isFinite(price))) {
+      setSaveError('Optional numeric fields must be valid numbers when provided.');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+      setSaveMessage(null);
+
+      const isEdit = Boolean(selectedInverter);
+      const response = await fetch(isEdit ? `/api/inverter-types/${encodeURIComponent(selectedInverterTypeId)}` : '/api/inverter-types', {
+        method: isEdit ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inverter_id: inverterId,
+          model,
+          input_voltage_v: inputVoltageV,
+          output_voltage_v: outputVoltageV,
+          continuous_power_w: continuousPowerW,
+          peak_power_va: peakPowerVA,
+          max_charge_current_a: maxChargeCurrentA,
+          efficiency_pct: efficiencyPct,
+          price,
+          notes,
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? `Failed to save inverter type (${response.status})`);
+      }
+
+      await refreshProjectData();
+      setSelectedInverterTypeId(inverterId);
+      setDraft(inverterDraftFromType({
+        inverter_id: inverterId,
+        model,
+        input_voltage_v: inputVoltageV,
+        output_voltage_v: outputVoltageV,
+        continuous_power_w: continuousPowerW,
+        peak_power_va: peakPowerVA,
+        max_charge_current_a: maxChargeCurrentA,
+        efficiency_pct: efficiencyPct,
+        price,
+        notes,
+      } as InverterType));
+      setSaveMessage(`Inverter type "${inverterId}" saved.`);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Failed to save inverter type.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!selectedInverter) return;
+
+    const confirmed = window.confirm(`Delete inverter type "${selectedInverter.inverter_id}"?`);
+    if (!confirmed) return;
+
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+      setSaveMessage(null);
+
+      const response = await fetch(`/api/inverter-types/${encodeURIComponent(selectedInverter.inverter_id)}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? `Failed to delete inverter type (${response.status})`);
+      }
+
+      await refreshProjectData();
+      const nextInverter = data.entities.inverter_types.find((item) => item.inverter_id !== selectedInverter.inverter_id) ?? null;
+      setSelectedInverterTypeId(nextInverter?.inverter_id ?? '');
+      setDraft(inverterDraftFromType(nextInverter));
+      setSaveMessage(`Inverter type "${selectedInverter.inverter_id}" deleted.`);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Failed to delete inverter type.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <>
+      <section className="hero">
+        <div>
+          <p className="eyebrow">Configuration data</p>
+          <h1>Inverter types</h1>
+          <p className="hero-copy">
+            Edit the reusable inverter catalog used by the battery and inverter configuration flow.
+          </p>
+        </div>
+      </section>
+
+      <section className="detail-grid">
+        <section className="panel">
+          <div className="section-head">
+            <h2>Catalog entries</h2>
+            <p>Select an inverter type to edit, or create a new catalog entry.</p>
+          </div>
+          <div className="stack" style={{ gap: 8 }}>
+            <button type="button" onClick={startAddNew}>Add inverter type</button>
+            <div className="catalog-list">
+              {data.entities.inverter_types.map((inverter) => (
+                <button
+                  key={inverter.inverter_id}
+                  type="button"
+                  className={`catalog-card ${selectedInverterTypeId === inverter.inverter_id ? 'active' : ''}`}
+                  onClick={() => {
+                    setSelectedInverterTypeId(inverter.inverter_id);
+                    setSaveError(null);
+                    setSaveMessage(null);
+                  }}
+                >
+                  <strong>{inverter.model}</strong>
+                  <span>{inverter.inverter_id}</span>
+                  <span>{inverter.input_voltage_v} V · {inverter.continuous_power_w} W</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="section-head">
+            <h2>{selectedInverter ? 'Edit inverter type' : 'Add inverter type'}</h2>
+            <p>Changes update the SQLite catalog and are available after refresh.</p>
+          </div>
+          <div className="stack" style={{ gap: 16 }}>
+            <label className="field">
+              <span>Inverter ID</span>
+              <input
+                value={draft.inverter_id}
+                onChange={(event) => setDraft((current) => ({ ...current, inverter_id: event.target.value }))}
+                placeholder="victron-mp2-48-10000"
+                disabled={Boolean(selectedInverter)}
+              />
+            </label>
+            <label className="field">
+              <span>Model</span>
+              <input
+                value={draft.model}
+                onChange={(event) => setDraft((current) => ({ ...current, model: event.target.value }))}
+                placeholder="Victron MultiPlus-II 48/10000/140-100"
+              />
+            </label>
+            <div className="detail-grid two-col">
+              <label className="field"><span>Input voltage</span><input type="number" value={draft.input_voltage_v} onChange={(event) => setDraft((current) => ({ ...current, input_voltage_v: event.target.value }))} /></label>
+              <label className="field"><span>Output voltage</span><input type="number" value={draft.output_voltage_v} onChange={(event) => setDraft((current) => ({ ...current, output_voltage_v: event.target.value }))} /></label>
+            </div>
+            <div className="detail-grid two-col">
+              <label className="field"><span>Continuous power</span><input type="number" value={draft.continuous_power_w} onChange={(event) => setDraft((current) => ({ ...current, continuous_power_w: event.target.value }))} /></label>
+              <label className="field"><span>Peak power</span><input type="number" value={draft.peak_power_va} onChange={(event) => setDraft((current) => ({ ...current, peak_power_va: event.target.value }))} /></label>
+            </div>
+            <div className="detail-grid two-col">
+              <label className="field"><span>Max charge current</span><input type="number" value={draft.max_charge_current_a} onChange={(event) => setDraft((current) => ({ ...current, max_charge_current_a: event.target.value }))} /></label>
+              <label className="field"><span>Efficiency %</span><input type="number" value={draft.efficiency_pct} onChange={(event) => setDraft((current) => ({ ...current, efficiency_pct: event.target.value }))} /></label>
+            </div>
+            <div className="detail-grid two-col">
+              <label className="field"><span>Price</span><input type="number" value={draft.price} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} /></label>
+              <span />
+            </div>
+            <label className="field">
+              <span>Notes</span>
+              <textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={4} />
+            </label>
+            <div className="stack" style={{ gap: 8 }}>
+              <button type="button" onClick={() => void handleSave()} disabled={isSaving || !draft.inverter_id.trim()}>
+                {isSaving ? 'Saving…' : selectedInverter ? 'Save inverter type' : 'Create inverter type'}
+              </button>
+              {selectedInverter ? (
+                <button type="button" className="secondary" onClick={() => void handleDelete()} disabled={isSaving}>
+                  Delete inverter type
+                </button>
+              ) : null}
+              {saveError ? <p className="save-error">{saveError}</p> : null}
+              {saveMessage ? <p className="save-message">{saveMessage}</p> : null}
+            </div>
+          </div>
+          {selectedInverter ? (
+            <dl className="detail-stats panel-spec-grid" style={{ marginTop: 16 }}>
+              <div><dt>Input voltage</dt><dd>{selectedInverter.input_voltage_v} V</dd></div>
+              <div><dt>Output voltage</dt><dd>{selectedInverter.output_voltage_v} V</dd></div>
+              <div><dt>Continuous power</dt><dd>{selectedInverter.continuous_power_w} W</dd></div>
+              <div><dt>Peak power</dt><dd>{selectedInverter.peak_power_va} VA</dd></div>
+              <div><dt>Max current</dt><dd>{selectedInverter.max_charge_current_a} A</dd></div>
+              <div><dt>Efficiency</dt><dd>{selectedInverter.efficiency_pct != null ? `${selectedInverter.efficiency_pct}%` : 'n/a'}</dd></div>
+            </dl>
+          ) : null}
+        </section>
+      </section>
+    </>
+  );
+}
+
 export function App() {
   const [data, setData] = useState<DigitalTwinExport | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -3519,6 +4883,16 @@ export function App() {
           <LocationPage {...context} />
         ) : route.kind === 'faces' ? (
           <FacesPage {...context} />
+        ) : route.kind === 'catalogs' ? (
+          <CatalogsPage />
+        ) : route.kind === 'catalog' && route.catalog === 'panel-types' ? (
+          <PanelCatalogPage data={data} refreshProjectData={refreshProjectData} />
+        ) : route.kind === 'catalog' && route.catalog === 'mppt-types' ? (
+          <MpptCatalogPage data={data} refreshProjectData={refreshProjectData} />
+        ) : route.kind === 'catalog' && route.catalog === 'battery-types' ? (
+          <BatteryCatalogPage data={data} refreshProjectData={refreshProjectData} />
+        ) : route.kind === 'catalog' && route.catalog === 'inverter-types' ? (
+          <InverterCatalogPage data={data} refreshProjectData={refreshProjectData} />
         ) : route.kind === 'battery-array' ? (
           <BatteryArrayPage {...context} />
         ) : route.kind === 'inverter-array' ? (

@@ -783,6 +783,79 @@ h1, h2, h3, p, dl, dd, dt {
   font: inherit;
 }
 
+.stack {
+  display: grid;
+}
+
+.two-col {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field span {
+  font-size: 0.72rem;
+  font-family: 'Space Grotesk', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-low);
+  color: var(--text);
+  font: inherit;
+}
+
+.field textarea {
+  resize: vertical;
+}
+
+.secondary {
+  background: var(--surface-low);
+  border: 1px solid var(--border);
+}
+
+.catalog-list {
+  display: grid;
+  gap: 10px;
+}
+
+.catalog-card {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  background: var(--surface-low);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.catalog-card.active {
+  border-color: var(--primary);
+  background: var(--cool-bg);
+}
+
+.catalog-card strong {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.92rem;
+}
+
+.catalog-card span {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
 .fit-head {
   display: flex;
   justify-content: space-between;

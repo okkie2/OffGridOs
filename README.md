@@ -3,7 +3,7 @@
 
 OffGridOS is a single-project, single-user off-grid system planning tool built around a small SQLite project database, a Node server, and a React web app.
 
-The core flow — location, faces, battery array, inverter array — is server-backed and persists to SQLite. The next work targets replacing provisional derived configurations with explicit persisted project data and stabilising the schema.
+The core flow - location, faces, battery array, inverter array - is server-backed and persists to SQLite. Reusable panel, MPPT, battery, and inverter catalogs now live under a shared `Catalogs` section. The next work targets replacing provisional derived configurations with explicit persisted project data and stabilising the schema.
 
 For planning, treat `TODO.md` as the concrete publish-blocker queue and `ROADMAP.md` as the post-MVP theme queue.
 

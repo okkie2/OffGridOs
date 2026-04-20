@@ -5,7 +5,6 @@
 
 ## NEXT
 
-- Add the remaining input flows and CRUD coverage for any schema tables that are still read-only from the CLI or web app.
 - Review the new PV-topology persistence layer in the UI and calculation flow, then decide whether direct editing is the next slice.
 
 ## LATER
