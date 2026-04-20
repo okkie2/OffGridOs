@@ -1,7 +1,22 @@
 # CHANGELOG
 
+## 2026-04-20
+
+- Completed the target deploy smoke test by starting the production server against persistent SQLite storage, saving a location change, restarting, and confirming the change survived the restart.
+- Added a publish-rehearsal test that writes representative project state to a fresh SQLite database, restarts it, and verifies the saved location, PV, battery, and inverter configuration survive the round trip.
+- Reframed `TODO.md` as the concrete publish-blocker queue and `ROADMAP.md` as the higher-level post-MVP theme queue, then mirrored that distinction in `README.md` and `AGENTS.md`.
+- Added persisted PV topology tables for arrays, strings, and array-to-MPPT mappings so the export now reads the wiring layer from SQLite instead of rebuilding it only from roof-face data.
+- Added a persisted inverter-configuration table so the UI and export now read the selected inverter from explicit project data instead of deriving it from project preferences.
+- Added a deployment-path regression test that verifies the app can bootstrap a SQLite database inside a nested persistent-storage path and stay repeatable across restarts.
+- Added a schema repeatability regression test for fresh databases and legacy-table migration, and fixed the bootstrap order so old configuration rows migrate safely after their parent catalog tables are seeded.
+
 ## 2026-04-19
 
+- Added a short header note to `ROADMAP.md` so it now explains itself as the higher-level theme queue alongside the task-oriented `TODO.md`.
+- Applied the TODO-vs-roadmap planning split to the repo docs so `TODO.md` now explains itself as the task queue and `README.md` explains how `TODO.md` and `ROADMAP.md` differ.
+- Clarified the repo-local agent guidance so `TODO.md` is the concrete task queue and `ROADMAP.md` is the higher-level theme queue.
+- Moved the immediate planning emphasis into `ROADMAP.md` so the current reliability, deployment, and PV-topology work now appears in `NOW`.
+- Re-centered the TODO and roadmap on the next implementation slice: durable PV-topology persistence for strings, arrays, and array-to-MPPT mappings.
 - Cleaned up the remaining screen-spec and digital-twin docs so the inverter-side wording now consistently says inverter configuration instead of project inverter.
 - Normalized the remaining inverter and MPPT configuration naming so the live schema, TypeScript types, export shape, sample JSON, and canonical docs now use `inverter_types`, `mppt_configurations`, and `inverter_configurations` consistently.
 - Added a local production-rehearsal path by making the server host configurable, then verified the build, server boot, API, and SQLite persistence on a clean throwaway database.

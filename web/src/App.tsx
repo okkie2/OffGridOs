@@ -3155,7 +3155,7 @@ function InverterArrayPage({
   const storagePrefix = `${data.project.project_id}:inverter-array`;
   const [selectedInverterTypeId, setSelectedInverterTypeId] = usePersistentState(
     `${storagePrefix}:inverter-type`,
-    data.project.preferences?.preferred_inverter_type_id ?? data.entities.inverter_types[0]?.inverter_id ?? '',
+    data.entities.inverter_configurations[0]?.inverter_id ?? data.entities.inverter_types[0]?.inverter_id ?? '',
   );
   const [isSavingInverterDesign, setIsSavingInverterDesign] = useState(false);
   const [inverterDesignSaveMessage, setInverterDesignSaveMessage] = useState<string | null>(null);

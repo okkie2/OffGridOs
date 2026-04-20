@@ -48,6 +48,36 @@ erDiagram
         INTEGER count
     }
 
+    ARRAYS {
+        INTEGER id PK
+        TEXT array_id UK
+        TEXT roof_face_id UK, FK
+        TEXT name
+        TEXT panel_type_id FK
+        INTEGER panel_count
+        INTEGER panels_per_string
+        INTEGER parallel_strings
+        REAL installed_wp
+        TEXT notes
+    }
+
+    STRINGS {
+        INTEGER id PK
+        TEXT string_id UK
+        TEXT array_id FK
+        TEXT roof_face_id FK
+        INTEGER string_index
+        TEXT panel_type_id FK
+        INTEGER panel_count
+    }
+
+    ARRAY_TO_MPPT_MAPPINGS {
+        INTEGER id PK
+        TEXT mapping_id UK
+        TEXT array_id UK, FK
+        TEXT selected_mppt_type_id FK
+    }
+
     ROOF_FACE_CONFIGURATIONS {
         INTEGER id PK
         TEXT roof_face_id UK, FK
@@ -96,7 +126,7 @@ erDiagram
         INTEGER parallel_strings
     }
 
-    INVERTERS {
+    INVERTER_TYPES {
         INTEGER id PK
         TEXT inverter_id UK
         TEXT model
@@ -110,18 +140,28 @@ erDiagram
         TEXT notes
     }
 
+    INVERTER_CONFIGURATIONS {
+        INTEGER id PK
+        TEXT inverter_configuration_id UK
+        TEXT selected_inverter_type_id FK
+    }
+
     PREFERENCES {
         INTEGER id PK
-        TEXT preferred_inverter_type_id FK
+        TEXT key UK
+        TEXT value
     }
 
     LOCATION ||--o| PREFERENCES : "shared project context"
     ROOF_FACES ||--o{ ROOF_PANELS : "has"
     PANEL_TYPES ||--o{ ROOF_PANELS : "used by"
+    ROOF_FACES ||--o| ARRAYS : "has"
+    ARRAYS ||--o{ STRINGS : "has"
+    ARRAYS ||--o| ARRAY_TO_MPPT_MAPPINGS : "selected for"
     ROOF_FACES ||--o| ROOF_FACE_CONFIGURATIONS : "has"
     MPPT_TYPES ||--o{ ROOF_FACE_CONFIGURATIONS : "selected for"
     BATTERY_TYPES ||--o{ BATTERY_BANK_CONFIGURATIONS : "selected for"
-    INVERTER_TYPES ||--o{ PREFERENCES : "preferred"
+    INVERTER_TYPES ||--o{ INVERTER_CONFIGURATIONS : "selected for"
 ```
 
 ## Notes
@@ -129,10 +169,12 @@ erDiagram
 - `location` holds the shared project site coordinates.
 - `roof_faces` defines the roof geometry that the current project uses.
 - `roof_panels` stores the current panel assignment per roof face.
+- `arrays`, `strings`, and `array_to_mppt_mappings` persist the current PV topology layer and stay synchronized with the roof-face configuration.
 - `roof_face_configurations` stores per-face string layout and MPPT choice.
 - `battery_bank_configurations` stores the current battery-bank sizing choice.
 - `mppt_types`, `battery_types`, and `inverter_types` are catalog tables.
-- `preferences` currently stores the preferred inverter configuration.
+- `inverter_configurations` stores the selected inverter setup.
+- `preferences` currently stores the remaining project preferences.
 - monthly solar output by roof face is currently derived at export time rather than stored as a base table.
 - the project-level monthly solar total is the sum of those derived roof-face monthly outputs.
 

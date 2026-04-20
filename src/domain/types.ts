@@ -40,6 +40,36 @@ export interface RoofPanelAssignment {
   count: number;
 }
 
+export interface PvArray {
+  id: number;
+  array_id: string;
+  roof_face_id: string;
+  name: string;
+  panel_type_id?: string | null;
+  panel_count: number;
+  panels_per_string?: number | null;
+  parallel_strings?: number | null;
+  installed_wp: number;
+  notes?: string | null;
+}
+
+export interface PvString {
+  id: number;
+  string_id: string;
+  array_id: string;
+  roof_face_id: string;
+  string_index: number;
+  panel_type_id?: string | null;
+  panel_count: number;
+}
+
+export interface ArrayToMpptMapping {
+  id: number;
+  mapping_id: string;
+  array_id: string;
+  selected_mppt_type_id?: string | null;
+}
+
 export interface RoofFaceConfiguration {
   id: number;
   roof_face_id: string;
@@ -102,6 +132,12 @@ export interface InverterType {
   efficiency_pct?: number | null;
   price?: number | null;
   notes?: string;
+}
+
+export interface InverterConfiguration {
+  id: number;
+  inverter_configuration_id: string;
+  selected_inverter_type_id?: string | null;
 }
 
 export interface Preferences {

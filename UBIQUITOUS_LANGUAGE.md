@@ -11,6 +11,9 @@ Every concept must be referred to by its canonical name across the database sche
 | Roof face | `roof_faces` | `RoofFace` | Roof face |
 | Panel type | `panel_types` | `PanelType` | Panel type |
 | Roof panel assignment | `roof_panels` | `RoofPanelAssignment` | Panel count |
+| PV array | `arrays` | `PvArray` | Array |
+| String | `strings` | `PvString` | String |
+| Array-to-MPPT mapping | `array_to_mppt_mappings` | `ArrayToMpptMapping` | Array-to-MPPT mapping |
 | MPPT type | `mppt_types` | `MpptType` | MPPT |
 | Battery type | `battery_types` | `BatteryType` | Battery |
 | Inverter type | `inverter_types` | `InverterType` | Inverter |
@@ -139,8 +142,9 @@ The field is named `orientation_deg` in both the DB column and the TypeScript mo
 - Use `battery_bank_configuration` language for the selected battery-bank setup.
 - Use `mppt_configuration` language for the selected MPPT setup.
 - Use `inverter_configuration` language for the selected inverter setup.
+- Use `array` for the persisted PV grouping connected to one roof face and one MPPT input.
 - Use `string` only for series-connected panels.
-- Use `array` for the full PV grouping connected to one MPPT input.
+- Use `array_to_mppt_mapping` language for the persisted array-to-MPPT selection row.
 - Use `MPPT input fit` to describe whether a selected array is a good or poor match for a selected MPPT.
 - Evaluate component relationships with both `electrical_status` and `fit_status` when the distinction matters.
 - Do not introduce near-synonyms for core concepts without a deliberate reason.

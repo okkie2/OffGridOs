@@ -11,19 +11,24 @@ import type {
   Preferences,
   RoofFace,
   RoofFaceConfiguration,
-  RoofPanelAssignment,
+  PvArray,
+  PvString,
+  ArrayToMpptMapping,
 } from '../domain/types.js';
 import {
   getLocation,
   getPreferences,
   listBatteryTypes,
+  listArrayToMpptMappings,
+  listInverterConfigurations,
   listInverterTypes,
   listMpptTypes,
   listPanelTypes,
   listBatteryBankConfigurations,
+  listPvArrays,
+  listPvStrings,
   listRoofFaceConfigurations,
   listRoofFaces,
-  listRoofPanels,
 } from '../db/queries.js';
 import {
   evaluateArrayToMpptFit,
@@ -38,6 +43,8 @@ interface ExportArray {
   panel_assignment_ids: string[];
   panel_type_id?: string;
   panel_count: number;
+  panels_per_string: number | null;
+  parallel_strings: number | null;
   installed_wp: number;
   notes?: string;
 }
@@ -78,6 +85,15 @@ interface ExportProjectMonthlySolarOutput {
   average_daily_kwh: number;
   monthly_kwh: number;
   notes: string;
+}
+
+interface ExportString {
+  string_id: string;
+  array_id: string;
+  roof_face_id: string;
+  string_index: number;
+  panel_type_id?: string | null;
+  panel_count: number;
 }
 
 interface ExportInverterConfiguration {
@@ -129,7 +145,7 @@ interface DigitalTwinExport {
     roof_face_configurations: ExportRoofFaceConfiguration[];
     battery_bank_configurations: ExportBatteryBankConfiguration[];
     panel_types: PanelType[];
-    strings: [];
+    strings: ExportString[];
     arrays: ExportArray[];
     mppt_types: MpptType[];
     mppt_configurations: ExportMpptConfiguration[];
@@ -423,73 +439,62 @@ function toProject(location: Location | null, preferences: Preferences): ExportP
 }
 
 function buildArrays(
-  roofFaces: RoofFace[],
-  roofFaceConfigurations: RoofFaceConfiguration[],
-  roofPanels: RoofPanelAssignment[],
+  pvArrays: PvArray[],
+  strings: PvString[],
   panelTypes: PanelType[],
 ): { arrays: ExportArray[]; arrayStates: DigitalTwinExport['derived']['array_states']; totalInstalledWp: number } {
   const panelTypeById = new Map(panelTypes.map((panelType) => [panelType.panel_type_id, panelType]));
-  const designByFaceId = new Map(roofFaceConfigurations.map((design) => [design.roof_face_id, design]));
-  const assignmentsByFace = new Map<string, RoofPanelAssignment[]>();
-
-  for (const assignment of roofPanels) {
-    const assignments = assignmentsByFace.get(assignment.roof_face_id) ?? [];
-    assignments.push(assignment);
-    assignmentsByFace.set(assignment.roof_face_id, assignments);
+  const stringsByArrayId = new Map<string, PvString[]>();
+  for (const string of strings) {
+    const existing = stringsByArrayId.get(string.array_id) ?? [];
+    existing.push(string);
+    stringsByArrayId.set(string.array_id, existing);
   }
 
   const arrays: ExportArray[] = [];
   const arrayStates: DigitalTwinExport['derived']['array_states'] = [];
   let totalInstalledWp = 0;
 
-  for (const roofFace of roofFaces) {
-    const assignments = assignmentsByFace.get(roofFace.roof_face_id) ?? [];
-    const installedWp = assignments.reduce((sum, assignment) => {
-      const panelType = panelTypeById.get(assignment.panel_type_id);
-      return sum + (panelType ? panelType.wp * assignment.count : 0);
-    }, 0);
-    const panelCount = assignments.reduce((sum, assignment) => sum + assignment.count, 0);
-    const primaryAssignment = assignments[0];
-    const primaryPanelType = primaryAssignment ? panelTypeById.get(primaryAssignment.panel_type_id) : undefined;
-    const design = designByFaceId.get(roofFace.roof_face_id);
-    const panelsPerString = design?.panels_per_string && design.panels_per_string > 0
-      ? design.panels_per_string
-      : panelCount > 0
-        ? panelCount
+  for (const pvArray of pvArrays) {
+    const stringRows = stringsByArrayId.get(pvArray.array_id) ?? [];
+    const primaryPanelType = pvArray.panel_type_id ? panelTypeById.get(pvArray.panel_type_id) : undefined;
+    const panelsPerString = pvArray.panels_per_string && pvArray.panels_per_string > 0
+      ? pvArray.panels_per_string
+      : pvArray.panel_count > 0
+        ? pvArray.panel_count
         : null;
-    const parallelStrings = design?.parallel_strings && design.parallel_strings > 0
-      ? design.parallel_strings
-      : panelCount > 0
+    const parallelStrings = pvArray.parallel_strings && pvArray.parallel_strings > 0
+      ? pvArray.parallel_strings
+      : pvArray.panel_count > 0
         ? 1
         : null;
     const inputVoltage = panelsPerString && primaryPanelType ? panelsPerString * primaryPanelType.vmp : null;
     const inputCurrent = parallelStrings && primaryPanelType ? primaryPanelType.imp * parallelStrings : null;
-    const arrayId = `array-${roofFace.roof_face_id}`;
 
     arrays.push({
-      array_id: arrayId,
-      roof_face_id: roofFace.roof_face_id,
-      name: roofFace.name,
-      string_ids: [],
-      panel_assignment_ids: assignments.map((assignment) => `roof-panel-${assignment.id}`),
-      panel_type_id: primaryAssignment?.panel_type_id,
-      panel_count: panelCount,
-      installed_wp: installedWp,
-      notes: assignments.length === 0
-        ? 'No panel assignment currently present for this roof face.'
-        : 'Provisional assumption: current export treats each roof-face assignment as one series string for first MPPT-fit estimation.',
+      array_id: pvArray.array_id,
+      roof_face_id: pvArray.roof_face_id,
+      name: pvArray.name,
+      string_ids: stringRows.map((stringRow) => stringRow.string_id),
+      panel_assignment_ids: [],
+      panel_type_id: pvArray.panel_type_id ?? undefined,
+      panel_count: pvArray.panel_count,
+      panels_per_string: panelsPerString,
+      parallel_strings: parallelStrings,
+      installed_wp: pvArray.installed_wp,
+      notes: pvArray.notes ?? undefined,
     });
 
     arrayStates.push({
-      array_id: arrayId,
-      installed_wp: installedWp,
-      roof_face_id: roofFace.roof_face_id,
-      panel_count: panelCount,
+      array_id: pvArray.array_id,
+      installed_wp: pvArray.installed_wp,
+      roof_face_id: pvArray.roof_face_id,
+      panel_count: pvArray.panel_count,
       input_voltage_v: inputVoltage,
       input_current_a: inputCurrent,
     });
 
-    totalInstalledWp += installedWp;
+    totalInstalledWp += pvArray.installed_wp;
   }
 
   return { arrays, arrayStates, totalInstalledWp };
@@ -497,20 +502,20 @@ function buildArrays(
 
 function buildMpptConfigurations(
   arrays: ExportArray[],
-  roofFaceConfigurations: RoofFaceConfiguration[],
+  arrayToMpptMappings: ArrayToMpptMapping[],
   panelTypes: PanelType[],
   mpptTypes: MpptType[],
 ): ExportMpptConfiguration[] {
   const panelTypesById = new Map(panelTypes.map((panelType) => [panelType.panel_type_id, panelType]));
-  const designByFaceId = new Map(roofFaceConfigurations.map((design) => [design.roof_face_id, design]));
+  const mappingByArrayId = new Map(arrayToMpptMappings.map((mapping) => [mapping.array_id, mapping]));
   return arrays.map((array) => {
-    const design = designByFaceId.get(array.roof_face_id);
     const panelType = array.panel_type_id ? panelTypesById.get(array.panel_type_id) : undefined;
-    const selectedMpptType = design?.selected_mppt_type_id
-      ? mpptTypes.find((mpptType) => mpptType.mppt_type_id === design.selected_mppt_type_id)
+    const mapping = mappingByArrayId.get(array.array_id);
+    const selectedMpptType = mapping?.selected_mppt_type_id
+      ? mpptTypes.find((mpptType) => mpptType.mppt_type_id === mapping.selected_mppt_type_id)
       : undefined;
-    const panelsPerString = design?.panels_per_string && design.panels_per_string > 0 ? design.panels_per_string : array.panel_count;
-    const parallelStrings = design?.parallel_strings && design.parallel_strings > 0 ? design.parallel_strings : (array.panel_count > 0 ? 1 : 0);
+    const panelsPerString = array.panels_per_string && array.panels_per_string > 0 ? array.panels_per_string : array.panel_count;
+    const parallelStrings = array.parallel_strings && array.parallel_strings > 0 ? array.parallel_strings : (array.panel_count > 0 ? 1 : 0);
     const derivedMpptType = panelType
       ? pickDerivedMpptType(panelType, array.panel_count, array.installed_wp, mpptTypes, 48, panelsPerString, parallelStrings)
       : undefined;
@@ -523,9 +528,9 @@ function buildMpptConfigurations(
       name: mpptType ? `${array.name} ${mpptType.model}` : `${array.name} MPPT`,
       provisional: !selectedMpptType,
       notes: selectedMpptType
-        ? 'Uses the saved face-level MPPT choice.'
+        ? 'Uses the saved array-to-MPPT mapping from the project database.'
         : derivedMpptType
-          ? 'Derived provisional MPPT choice based on the current saved or assumed face layout.'
+          ? 'Derived provisional MPPT choice based on the current saved array layout.'
           : 'No provisional MPPT could be derived from the current array assumptions.',
     };
   });
@@ -533,22 +538,20 @@ function buildMpptConfigurations(
 
 function buildArrayToMpptRelationships(
   arrays: ExportArray[],
-  roofFaceConfigurations: RoofFaceConfiguration[],
+  arrayToMpptMappings: ArrayToMpptMapping[],
   mpptConfigurations: ExportMpptConfiguration[],
   panelTypes: PanelType[],
   mpptTypes: MpptType[],
 ): DigitalTwinExport['relationships']['array_to_mppt'] {
   const panelTypesById = new Map(panelTypes.map((panelType) => [panelType.panel_type_id, panelType]));
   const mpptTypesById = new Map(mpptTypes.map((mpptType) => [mpptType.mppt_type_id, mpptType]));
-  const designByFaceId = new Map(roofFaceConfigurations.map((design) => [design.roof_face_id, design]));
 
   return mpptConfigurations.map((mpptConfiguration) => {
     const array = arrays.find((item) => item.array_id === mpptConfiguration.array_id)!;
-    const design = designByFaceId.get(array.roof_face_id);
     const panelType = array.panel_type_id ? panelTypesById.get(array.panel_type_id) : undefined;
     const mpptType = mpptConfiguration.mppt_type_id ? mpptTypesById.get(mpptConfiguration.mppt_type_id) : undefined;
-    const panelsPerString = design?.panels_per_string && design.panels_per_string > 0 ? design.panels_per_string : array.panel_count;
-    const parallelStrings = design?.parallel_strings && design.parallel_strings > 0 ? design.parallel_strings : (array.panel_count > 0 ? 1 : 0);
+    const panelsPerString = array.panels_per_string && array.panels_per_string > 0 ? array.panels_per_string : array.panel_count;
+    const parallelStrings = array.parallel_strings && array.parallel_strings > 0 ? array.parallel_strings : (array.panel_count > 0 ? 1 : 0);
 
     if (!panelType || !mpptType || array.panel_count <= 0) {
       return {
@@ -649,23 +652,30 @@ function pickDerivedInverter(inverterTypes: InverterType[]): InverterType | unde
   return [...inverterTypes].sort((left, right) => left.continuous_power_w - right.continuous_power_w)[0];
 }
 
-function buildInverterConfigurations(inverterTypes: InverterType[], preferences: Preferences): ExportInverterConfiguration[] {
-  const preferredInverter = preferences.preferred_inverter_type_id
-    ? inverterTypes.find((inverter) => inverter.inverter_id === preferences.preferred_inverter_type_id)
-    : undefined;
-  const derivedInverter = preferredInverter ?? pickDerivedInverter(inverterTypes);
+function buildInverterConfigurations(
+  inverterConfigurations: Array<{ inverter_configuration_id: string; selected_inverter_type_id?: string | null }>,
+  inverterTypes: InverterType[],
+): ExportInverterConfiguration[] {
+  const inverterTypesById = new Map(inverterTypes.map((inverterType) => [inverterType.inverter_id, inverterType]));
 
-  return [{
-    inverter_configuration_id: 'inverter-configuration-main',
-    inverter_id: derivedInverter?.inverter_id,
-    name: derivedInverter ? derivedInverter.model : 'Main inverter',
-    provisional: !preferredInverter,
-    notes: preferredInverter
-      ? 'Uses the saved inverter preference from the project settings.'
-      : derivedInverter
-        ? 'Derived provisional inverter choice currently uses the smallest catalog inverter until load-side configuration is modeled.'
-        : 'No provisional inverter choice could be derived from the current inverter catalog.',
-  }];
+  return inverterConfigurations.map((configuration) => {
+    const selectedInverter = configuration.selected_inverter_type_id
+      ? inverterTypesById.get(configuration.selected_inverter_type_id)
+      : undefined;
+    const derivedInverter = selectedInverter ?? pickDerivedInverter(inverterTypes);
+
+    return {
+      inverter_configuration_id: configuration.inverter_configuration_id,
+      inverter_id: selectedInverter?.inverter_id ?? derivedInverter?.inverter_id,
+      name: selectedInverter?.model ?? derivedInverter?.model ?? 'Main inverter',
+      provisional: !selectedInverter,
+      notes: selectedInverter
+        ? 'Uses the saved inverter configuration from the project database.'
+        : derivedInverter
+          ? 'Derived provisional inverter choice currently uses the smallest catalog inverter until load-side configuration is modeled.'
+          : 'No provisional inverter choice could be derived from the current inverter catalog.',
+    };
+  });
 }
 
 function buildMpptToBatteryBankRelationships(
@@ -805,20 +815,23 @@ export function buildDigitalTwinExport(db: Database.Database, dbPath: string): D
   const roofFaceConfigurations = listRoofFaceConfigurations(db);
   const batteryBankConfigurations = listBatteryBankConfigurations(db);
   const panelTypes = listPanelTypes(db);
-  const roofPanels = listRoofPanels(db);
   const mpptTypes = listMpptTypes(db);
   const batteryTypes = listBatteryTypes(db);
   const inverterTypes = listInverterTypes(db);
+  const inverterConfigurations = listInverterConfigurations(db);
+  const pvArrays = listPvArrays(db);
+  const pvStrings = listPvStrings(db);
+  const arrayToMpptMappings = listArrayToMpptMappings(db);
 
-  const { arrays, arrayStates, totalInstalledWp } = buildArrays(roofFaces, roofFaceConfigurations, roofPanels, panelTypes);
+  const { arrays, arrayStates, totalInstalledWp } = buildArrays(pvArrays, pvStrings, panelTypes);
   const { solarMonthlyProfiles, projectMonthlySolarOutput } = buildSolarMonthlyProfiles(roofFaces, arrays, location);
-  const mpptConfigurations = buildMpptConfigurations(arrays, roofFaceConfigurations, panelTypes, mpptTypes);
-  const arrayToMppt = buildArrayToMpptRelationships(arrays, roofFaceConfigurations, mpptConfigurations, panelTypes, mpptTypes);
+  const mpptConfigurations = buildMpptConfigurations(arrays, arrayToMpptMappings, panelTypes, mpptTypes);
+  const arrayToMppt = buildArrayToMpptRelationships(arrays, arrayToMpptMappings, mpptConfigurations, panelTypes, mpptTypes);
   const batteryBanks = buildBatteryBanks(batteryTypes, preferences, batteryBankConfigurations);
-  const inverterConfigurations = buildInverterConfigurations(inverterTypes, preferences);
+  const derivedInverterConfigurations = buildInverterConfigurations(inverterConfigurations, inverterTypes);
   const mpptToBatteryBank = buildMpptToBatteryBankRelationships(mpptConfigurations, batteryBanks, mpptTypes, batteryTypes);
   const batteryBankStates = buildBatteryBankStates(batteryBanks, mpptToBatteryBank);
-  const batteryBankToInverter = buildBatteryBankToInverterRelationships(batteryBanks, inverterConfigurations, inverterTypes);
+  const batteryBankToInverter = buildBatteryBankToInverterRelationships(batteryBanks, derivedInverterConfigurations, inverterTypes);
   const hasOutsideLimits = [
     ...arrayToMppt.map((relationship) => relationship.evaluation.electrical_status),
     ...mpptToBatteryBank.map((relationship) => relationship.evaluation.electrical_status),
@@ -843,14 +856,21 @@ export function buildDigitalTwinExport(db: Database.Database, dbPath: string): D
         parallel_strings: design.parallel_strings,
       })),
       panel_types: panelTypes,
-      strings: [],
+      strings: pvStrings.map((string) => ({
+        string_id: string.string_id,
+        array_id: string.array_id,
+        roof_face_id: string.roof_face_id,
+        string_index: string.string_index,
+        panel_type_id: string.panel_type_id ?? null,
+        panel_count: string.panel_count,
+      })),
       arrays,
       mppt_types: mpptTypes,
       mppt_configurations: mpptConfigurations,
       battery_types: batteryTypes,
       battery_banks: batteryBanks,
       inverter_types: inverterTypes,
-      inverter_configurations: inverterConfigurations,
+      inverter_configurations: derivedInverterConfigurations,
       solar_monthly_profiles: solarMonthlyProfiles,
       branch_circuits: [],
       consumers: [],
@@ -875,7 +895,7 @@ export function buildDigitalTwinExport(db: Database.Database, dbPath: string): D
         {
           severity: 'info',
           scope: 'export',
-          message: 'Arrays and project MPPTs are currently derived from roof-face assignments and are not yet persisted explicitly.',
+          message: 'Arrays, strings, and array-to-MPPT mappings are persisted in SQLite and synchronized from the current roof-face configuration.',
           related_ids: arrays.map((array) => array.array_id),
         },
         {
@@ -883,7 +903,7 @@ export function buildDigitalTwinExport(db: Database.Database, dbPath: string): D
           scope: 'array_to_mppt',
           message: hasOutsideLimits
             ? 'At least one provisional array-to-MPPT fit is outside limits under the current single-string assumption.'
-            : 'Provisional array-to-MPPT fit has been derived from the current roof-face panel assignments.',
+            : 'Array-to-MPPT fit has been evaluated from the persisted array topology and current MPPT catalog.',
           related_ids: arrayToMppt.map((relationship) => relationship.from_array_id),
         },
         {

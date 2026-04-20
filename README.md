@@ -1,8 +1,11 @@
+
 # OffGridOS
 
 OffGridOS is a single-project, single-user off-grid system planning tool built around a small SQLite project database, a Node server, and a React web app.
 
 The core flow — location, faces, battery array, inverter array — is server-backed and persists to SQLite. The next work targets replacing provisional derived configurations with explicit persisted project data and stabilising the schema.
+
+For planning, treat `TODO.md` as the concrete publish-blocker queue and `ROADMAP.md` as the post-MVP theme queue.
 
 ## Quick Start
 
@@ -44,9 +47,11 @@ For deployment and persistent-storage requirements, see [deployment.md](./docs/d
 
 - [AGENTS.md](./AGENTS.md): repository-specific working conventions and durable guidance.
 - [UBIQUITOUS_LANGUAGE.md](./UBIQUITOUS_LANGUAGE.md): canonical terminology for domain concepts, PV topology, and naming rules.
-- [TODO.md](./TODO.md): concrete near-term work queue, organized as `NOW`, `NEXT`, and `LATER`.
-- [ROADMAP.md](./ROADMAP.md): higher-level direction and deferred work, also organized as `NOW`, `NEXT`, and `LATER`.
+- [TODO.md](./TODO.md): concrete near-term task queue, organized as `NOW`, `NEXT`, and `LATER`.
+- [ROADMAP.md](./ROADMAP.md): higher-level theme queue, also organized as `NOW`, `NEXT`, and `LATER`.
 - [CHANGELOG.md](./CHANGELOG.md): reverse-chronological log of notable repository changes.
+
+`TODO.md` answers "what do I do next to get the MVP online?" while `ROADMAP.md` answers "what bigger post-MVP theme are we moving toward?" Use the roadmap for direction and the TODO for actionable publish-blocker work items.
 
 ### Operations
 

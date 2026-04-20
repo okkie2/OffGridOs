@@ -1,16 +1,12 @@
 
+`TODO.md` is the concrete publish checklist. Use `NOW` for the blockers to clear before the MVP goes online, `NEXT` for the first post-publish tasks, and `LATER` for worthwhile work that should wait. If `NOW` is empty, the MVP publish blockers are done.
 
 ## NOW
 
-- Replace provisional derived selections with explicit persisted project data for arrays, MPPT configurations, battery-bank configuration, and inverter configuration.
-- Tighten seed data and schema migration checks so database setup stays repeatable across fresh and existing projects.
-- Verify Railway deployment with the persistent-storage database path so production behaves the same as local.
-
 ## NEXT
 
-- Normalize the remaining project configuration table names to the `*_configurations` pattern once the schema migration plan is ready.
-- Define and implement the first durable schema slice for PV-side topology and battery-bank linkage when the current configuration is stable enough to encode.
 - Add the remaining input flows and CRUD coverage for any schema tables that are still read-only from the CLI or web app.
+- Review the new PV-topology persistence layer in the UI and calculation flow, then decide whether direct editing is the next slice.
 
 ## LATER
 

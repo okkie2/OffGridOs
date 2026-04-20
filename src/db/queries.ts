@@ -5,10 +5,14 @@ import type {
   RoofFaceConfiguration,
   PanelType,
   RoofPanelAssignment,
+  PvArray,
+  PvString,
+  ArrayToMpptMapping,
   MpptType,
   BatteryType,
   BatteryBankConfiguration,
   InverterType,
+  InverterConfiguration,
   Preferences,
 } from '../domain/types.js';
 
@@ -57,6 +61,7 @@ export function updateRoofFace(db: Database.Database, data: Omit<RoofFace, 'id'>
 
 export function deleteRoofFace(db: Database.Database, roof_face_id: string): void {
   db.prepare('DELETE FROM roof_panels WHERE roof_face_id = ?').run(roof_face_id);
+  deletePvArrayForRoofFace(db, roof_face_id);
   db.prepare('DELETE FROM roof_faces WHERE roof_face_id = ?').run(roof_face_id);
 }
 
@@ -110,14 +115,194 @@ export function upsertRoofPanel(db: Database.Database, data: Omit<RoofPanelAssig
     db.prepare('INSERT INTO roof_panels (roof_face_id, panel_type_id, count) VALUES (?,?,?)')
       .run(data.roof_face_id, data.panel_type_id, data.count);
   }
+  syncPvTopologyForRoofFace(db, data.roof_face_id);
 }
 
 export function deleteRoofPanel(db: Database.Database, id: number): void {
+  const row = db.prepare('SELECT roof_face_id FROM roof_panels WHERE id = ?').get(id) as { roof_face_id?: string } | undefined;
   db.prepare('DELETE FROM roof_panels WHERE id = ?').run(id);
+  if (row?.roof_face_id) {
+    syncPvTopologyForRoofFace(db, row.roof_face_id);
+  }
 }
 
 export function deleteRoofPanelsForFace(db: Database.Database, roof_face_id: string): void {
   db.prepare('DELETE FROM roof_panels WHERE roof_face_id = ?').run(roof_face_id);
+  syncPvTopologyForRoofFace(db, roof_face_id);
+}
+
+// ── PV topology persistence ─────────────────────────────────────────────────
+
+export function listPvArrays(db: Database.Database): PvArray[] {
+  return db.prepare('SELECT * FROM arrays ORDER BY roof_face_id').all() as PvArray[];
+}
+
+export function getPvArrayByRoofFace(db: Database.Database, roof_face_id: string): PvArray | null {
+  return (db.prepare('SELECT * FROM arrays WHERE roof_face_id = ?').get(roof_face_id) as PvArray) ?? null;
+}
+
+export function upsertPvArray(db: Database.Database, data: Omit<PvArray, 'id'>): void {
+  db.prepare(`
+    INSERT INTO arrays (
+      array_id,
+      roof_face_id,
+      name,
+      panel_type_id,
+      panel_count,
+      panels_per_string,
+      parallel_strings,
+      installed_wp,
+      notes
+    )
+    VALUES (
+      @array_id,
+      @roof_face_id,
+      @name,
+      @panel_type_id,
+      @panel_count,
+      @panels_per_string,
+      @parallel_strings,
+      @installed_wp,
+      @notes
+    )
+    ON CONFLICT(roof_face_id) DO UPDATE SET
+      name = excluded.name,
+      panel_type_id = excluded.panel_type_id,
+      panel_count = excluded.panel_count,
+      panels_per_string = excluded.panels_per_string,
+      parallel_strings = excluded.parallel_strings,
+      installed_wp = excluded.installed_wp,
+      notes = excluded.notes
+  `).run(data);
+}
+
+export function deletePvArrayForRoofFace(db: Database.Database, roof_face_id: string): void {
+  const array = getPvArrayByRoofFace(db, roof_face_id);
+  if (!array) return;
+  db.prepare('DELETE FROM strings WHERE array_id = ?').run(array.array_id);
+  db.prepare('DELETE FROM array_to_mppt_mappings WHERE array_id = ?').run(array.array_id);
+  db.prepare('DELETE FROM arrays WHERE roof_face_id = ?').run(roof_face_id);
+}
+
+export function listPvStrings(db: Database.Database): PvString[] {
+  return db.prepare('SELECT * FROM strings ORDER BY roof_face_id, string_index').all() as PvString[];
+}
+
+export function deletePvStringsForArray(db: Database.Database, array_id: string): void {
+  db.prepare('DELETE FROM strings WHERE array_id = ?').run(array_id);
+}
+
+export function upsertPvString(db: Database.Database, data: Omit<PvString, 'id'>): void {
+  db.prepare(`
+    INSERT INTO strings (
+      string_id,
+      array_id,
+      roof_face_id,
+      string_index,
+      panel_type_id,
+      panel_count
+    )
+    VALUES (
+      @string_id,
+      @array_id,
+      @roof_face_id,
+      @string_index,
+      @panel_type_id,
+      @panel_count
+    )
+    ON CONFLICT(string_id) DO UPDATE SET
+      array_id = excluded.array_id,
+      roof_face_id = excluded.roof_face_id,
+      string_index = excluded.string_index,
+      panel_type_id = excluded.panel_type_id,
+      panel_count = excluded.panel_count
+  `).run(data);
+}
+
+export function listArrayToMpptMappings(db: Database.Database): ArrayToMpptMapping[] {
+  return db.prepare('SELECT * FROM array_to_mppt_mappings ORDER BY array_id').all() as ArrayToMpptMapping[];
+}
+
+export function getArrayToMpptMapping(db: Database.Database, array_id: string): ArrayToMpptMapping | null {
+  return (db.prepare('SELECT * FROM array_to_mppt_mappings WHERE array_id = ?').get(array_id) as ArrayToMpptMapping) ?? null;
+}
+
+export function upsertArrayToMpptMapping(db: Database.Database, data: Omit<ArrayToMpptMapping, 'id'>): void {
+  db.prepare(`
+    INSERT INTO array_to_mppt_mappings (mapping_id, array_id, selected_mppt_type_id)
+    VALUES (@mapping_id, @array_id, @selected_mppt_type_id)
+    ON CONFLICT(array_id) DO UPDATE SET
+      selected_mppt_type_id = excluded.selected_mppt_type_id
+  `).run(data);
+}
+
+export function syncPvTopologyForRoofFace(db: Database.Database, roof_face_id: string): void {
+  const roofFace = getRoofFace(db, roof_face_id);
+  if (!roofFace) return;
+
+  const assignments = db.prepare('SELECT * FROM roof_panels WHERE roof_face_id = ? ORDER BY id').all(roof_face_id) as RoofPanelAssignment[];
+  const configuration = getRoofFaceConfiguration(db, roof_face_id);
+  const primaryAssignment = assignments[0] ?? null;
+  const panelCount = assignments.reduce((sum, assignment) => sum + assignment.count, 0);
+  const primaryPanelType = primaryAssignment ? getPanelType(db, primaryAssignment.panel_type_id) : null;
+  const arrayId = `array-${roof_face_id}`;
+  const panelsPerString = configuration?.panels_per_string ?? (panelCount > 0 ? panelCount : null);
+  const parallelStrings = configuration?.parallel_strings ?? (panelCount > 0 ? 1 : null);
+  const installedWp = assignments.reduce((sum, assignment) => {
+    const panelType = getPanelType(db, assignment.panel_type_id);
+    return sum + (panelType ? panelType.wp * assignment.count : 0);
+  }, 0);
+
+  upsertPvArray(db, {
+    array_id: arrayId,
+    roof_face_id,
+    name: roofFace.name,
+    panel_type_id: primaryAssignment?.panel_type_id ?? null,
+    panel_count: panelCount,
+    panels_per_string: panelsPerString,
+    parallel_strings: parallelStrings,
+    installed_wp: installedWp,
+    notes: panelCount === 0
+      ? 'No panel assignment currently present for this roof face.'
+      : 'Persisted PV array for the current roof-face panel assignment.',
+  });
+
+  deletePvStringsForArray(db, arrayId);
+  if (panelCount > 0) {
+    const stringCount = Math.max(1, parallelStrings ?? 1);
+    const panelsPerStringValue = Math.max(1, panelsPerString ?? panelCount);
+    for (let index = 1; index <= stringCount; index += 1) {
+      upsertPvString(db, {
+        string_id: `string-${roof_face_id}-${index}`,
+        array_id: arrayId,
+        roof_face_id,
+        string_index: index,
+        panel_type_id: primaryPanelType?.panel_type_id ?? primaryAssignment?.panel_type_id ?? null,
+        panel_count: panelsPerStringValue,
+      });
+    }
+  }
+
+  upsertArrayToMpptMapping(db, {
+    mapping_id: `array-mppt-${roof_face_id}`,
+    array_id: arrayId,
+    selected_mppt_type_id: configuration?.selected_mppt_type_id ?? null,
+  });
+}
+
+export function syncPvTopology(db: Database.Database): void {
+  const roofFaces = db.prepare('SELECT roof_face_id FROM roof_faces ORDER BY roof_face_id').all() as { roof_face_id: string }[];
+  const activeFaceIds = new Set(roofFaces.map((face) => face.roof_face_id));
+
+  for (const { roof_face_id } of roofFaces) {
+    syncPvTopologyForRoofFace(db, roof_face_id);
+  }
+
+  for (const array of listPvArrays(db)) {
+    if (!activeFaceIds.has(array.roof_face_id)) {
+      deletePvArrayForRoofFace(db, array.roof_face_id);
+    }
+  }
 }
 
 // ── Roof-face configuration state ────────────────────────────────────────────
@@ -139,6 +324,7 @@ export function upsertRoofFaceConfiguration(db: Database.Database, data: Omit<Ro
       parallel_strings = excluded.parallel_strings,
       selected_mppt_type_id = excluded.selected_mppt_type_id
   `).run(data);
+  syncPvTopologyForRoofFace(db, data.roof_face_id);
 }
 
 // ── Battery-bank configuration state ─────────────────────────────────────────
@@ -296,6 +482,25 @@ export function listInverterTypes(db: Database.Database): InverterType[] {
 
 export function getInverterType(db: Database.Database, inverter_id: string): InverterType | null {
   return (db.prepare('SELECT * FROM inverter_types WHERE inverter_id = ?').get(inverter_id) as InverterType) ?? null;
+}
+
+// ── Inverter configuration state ────────────────────────────────────────────
+
+export function listInverterConfigurations(db: Database.Database): InverterConfiguration[] {
+  return db.prepare('SELECT * FROM inverter_configurations ORDER BY inverter_configuration_id').all() as InverterConfiguration[];
+}
+
+export function getInverterConfiguration(db: Database.Database, inverter_configuration_id: string): InverterConfiguration | null {
+  return (db.prepare('SELECT * FROM inverter_configurations WHERE inverter_configuration_id = ?').get(inverter_configuration_id) as InverterConfiguration) ?? null;
+}
+
+export function upsertInverterConfiguration(db: Database.Database, data: Omit<InverterConfiguration, 'id'>): void {
+  db.prepare(`
+    INSERT INTO inverter_configurations (inverter_configuration_id, selected_inverter_type_id)
+    VALUES (@inverter_configuration_id, @selected_inverter_type_id)
+    ON CONFLICT(inverter_configuration_id) DO UPDATE SET
+      selected_inverter_type_id = excluded.selected_inverter_type_id
+  `).run(data);
 }
 
 // ── Preferences ───────────────────────────────────────────────────────────────

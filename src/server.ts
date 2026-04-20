@@ -1,36 +1,15 @@
 import fs from 'fs';
 import path from 'path';
 import http, { type IncomingMessage, type ServerResponse } from 'http';
-import type Database from 'better-sqlite3';
-import { openDb } from './db/connection.js';
-import { initSchema } from './db/schema.js';
-import { deleteRoofPanelsForFace, getBatteryBankConfiguration, getRoofFace, getPanelType, listRoofPanels, setPref, upsertBatteryBankConfiguration, upsertRoofFaceConfiguration, updateRoofFace, upsertLocation, upsertRoofPanel } from './db/queries.js';
+import { deleteRoofPanelsForFace, getBatteryBankConfiguration, getRoofFace, getPanelType, listRoofPanels, setPref, upsertBatteryBankConfiguration, upsertInverterConfiguration, upsertRoofFaceConfiguration, updateRoofFace, upsertLocation, upsertRoofPanel } from './db/queries.js';
 import { buildDigitalTwinExport } from './output/exportDigitalTwin.js';
 import { resolveDatabasePath, resolveServerHost, resolveServerPort, resolveWebDistPath } from './config/runtime.js';
+import { ensureDatabaseReady, withDb } from './server/bootstrap.js';
 
 const databasePath = resolveDatabasePath();
 const webDistPath = resolveWebDistPath();
 const serverHost = resolveServerHost();
 const serverPort = resolveServerPort();
-
-function ensureDatabaseReady(dbPath: string): void {
-  fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-  const db = openDb(dbPath);
-  try {
-    initSchema(db);
-  } finally {
-    db.close();
-  }
-}
-
-function withDb<T>(dbPath: string, fn: (db: Database.Database) => T): T {
-  const db = openDb(dbPath);
-  try {
-    return fn(db);
-  } finally {
-    db.close();
-  }
-}
 
 function sendJson(response: ServerResponse, statusCode: number, payload: unknown): void {
   response.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -470,6 +449,10 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             return { status: 400 as const, body: { error: 'Choose an inverter type before saving the inverter configuration.' } };
           }
 
+          upsertInverterConfiguration(db, {
+            inverter_configuration_id: 'inverter-configuration-main',
+            selected_inverter_type_id: selectedInverterTypeId,
+          });
           setPref(db, 'preferred_inverter_type_id', selectedInverterTypeId);
 
           return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };

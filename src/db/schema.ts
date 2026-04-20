@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
-import { seedMpptTypes, seedBatteryTypes, seedInverterTypes, seedLocation, seedPanelTypes, seedRoofFaces, seedRoofPanels } from './seeds.js';
+import { seedMpptTypes, seedBatteryTypes, seedInverterTypes, seedInverterConfigurations, seedLocation, seedPanelTypes, seedRoofFaces, seedRoofPanels } from './seeds.js';
+import { syncPvTopology } from './queries.js';
 
 function hasTable(db: Database.Database, tableName: string): boolean {
   const row = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?").get(tableName) as { name?: string } | undefined;
@@ -132,6 +133,36 @@ export function initSchema(db: Database.Database): void {
       count         INTEGER NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS arrays (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      array_id         TEXT UNIQUE NOT NULL,
+      roof_face_id     TEXT UNIQUE NOT NULL REFERENCES roof_faces(roof_face_id),
+      name             TEXT NOT NULL,
+      panel_type_id    TEXT REFERENCES panel_types(panel_type_id),
+      panel_count      INTEGER NOT NULL DEFAULT 0,
+      panels_per_string INTEGER,
+      parallel_strings INTEGER,
+      installed_wp     REAL NOT NULL DEFAULT 0,
+      notes            TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS strings (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      string_id      TEXT UNIQUE NOT NULL,
+      array_id       TEXT NOT NULL REFERENCES arrays(array_id),
+      roof_face_id   TEXT NOT NULL REFERENCES roof_faces(roof_face_id),
+      string_index   INTEGER NOT NULL,
+      panel_type_id  TEXT REFERENCES panel_types(panel_type_id),
+      panel_count    INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS array_to_mppt_mappings (
+      id                        INTEGER PRIMARY KEY AUTOINCREMENT,
+      mapping_id                TEXT UNIQUE NOT NULL,
+      array_id                  TEXT UNIQUE NOT NULL REFERENCES arrays(array_id),
+      selected_mppt_type_id     TEXT REFERENCES mppt_types(mppt_type_id)
+    );
+
     CREATE TABLE IF NOT EXISTS roof_face_configurations (
       id                    INTEGER PRIMARY KEY AUTOINCREMENT,
       roof_face_id          TEXT UNIQUE NOT NULL REFERENCES roof_faces(roof_face_id),
@@ -201,11 +232,22 @@ export function initSchema(db: Database.Database): void {
       notes                TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS inverter_configurations (
+      id                        INTEGER PRIMARY KEY AUTOINCREMENT,
+      inverter_configuration_id TEXT UNIQUE NOT NULL,
+      selected_inverter_type_id  TEXT REFERENCES inverter_types(inverter_id)
+    );
+
   `);
 
   ensureLocationColumns(db);
   ensureBatteryTypesColumns(db);
   ensureMpptTypesColumns(db);
+  seedLocation(db);
+  seedRoofFaces(db);
+  seedPanelTypes(db);
+  seedMpptTypes(db);
+  seedBatteryTypes(db);
   migrateLegacyTableRows(
     db,
     'roof_face_designs',
@@ -227,11 +269,8 @@ export function initSchema(db: Database.Database): void {
     ['inverter_id', 'model', 'input_voltage_v', 'output_voltage_v', 'continuous_power_w', 'peak_power_va', 'max_charge_current_a', 'efficiency_pct', 'price', 'notes'],
     'inverter_id',
   );
-  seedLocation(db);
-  seedRoofFaces(db);
-  seedPanelTypes(db);
   seedRoofPanels(db);
-  seedMpptTypes(db);
-  seedBatteryTypes(db);
   seedInverterTypes(db);
+  seedInverterConfigurations(db);
+  syncPvTopology(db);
 }

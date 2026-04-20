@@ -541,6 +541,26 @@ export function seedInverterTypes(db: Database.Database): void {
   insertAll(INVERTER_TYPES);
 }
 
+export function seedInverterConfigurations(db: Database.Database): void {
+  const existing = db.prepare('SELECT COUNT(*) as count FROM inverter_configurations').get() as { count: number } | undefined;
+  if (!existing || existing.count === 0) {
+    const preferredRow = db.prepare("SELECT value FROM preferences WHERE key = 'preferred_inverter_type_id'").get() as { value?: string } | undefined;
+    const preferredInverterId = typeof preferredRow?.value === 'string' && preferredRow.value.trim() ? preferredRow.value.trim() : null;
+    const preferredInverter = preferredInverterId
+      ? db.prepare('SELECT inverter_id FROM inverter_types WHERE inverter_id = ?').get(preferredInverterId) as { inverter_id?: string } | undefined
+      : null;
+    const fallbackInverter = db.prepare('SELECT inverter_id FROM inverter_types ORDER BY continuous_power_w, peak_power_va LIMIT 1').get() as { inverter_id?: string } | undefined;
+
+    db.prepare(`
+      INSERT INTO inverter_configurations (inverter_configuration_id, selected_inverter_type_id)
+      VALUES (@inverter_configuration_id, @selected_inverter_type_id)
+    `).run({
+      inverter_configuration_id: 'inverter-configuration-main',
+      selected_inverter_type_id: preferredInverter?.inverter_id ?? fallbackInverter?.inverter_id ?? null,
+    });
+  }
+}
+
 export function seedLocation(db: Database.Database): void {
   const existing = db.prepare('SELECT COUNT(*) as count FROM location').get() as { count: number } | undefined;
   if (!existing || existing.count === 0) {
