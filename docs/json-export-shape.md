@@ -1,6 +1,6 @@
 # JSON Export Shape
 
-This note defines the first detailed JSON export contract for the OffGridOS digital twin.
+This note defines the first detailed JSON export contract for the OffGridOS digital twin and the current `OffGridOS - 18Mad Boerderij` project baseline.
 
 Terminology in this note must follow [UBIQUITOUS_LANGUAGE.md](../UBIQUITOUS_LANGUAGE.md).
 
@@ -44,7 +44,7 @@ Example:
 ```json
 {
   "project_id": "offgridos-project",
-  "name": "OffGridOS Baseline",
+  "name": "OffGridOS - 18Mad Boerderij",
   "location": {
     "country": "NL",
     "place_name": "Example",

@@ -36,7 +36,7 @@ export function upsertLocation(db: Database.Database, data: Omit<Location, 'id'>
 // ── Roof faces ────────────────────────────────────────────────────────────────
 
 export function listRoofFaces(db: Database.Database): RoofFace[] {
-  return db.prepare('SELECT * FROM roof_faces ORDER BY roof_face_id').all() as RoofFace[];
+  return db.prepare('SELECT * FROM roof_faces ORDER BY sort_order, id').all() as RoofFace[];
 }
 
 export function getRoofFace(db: Database.Database, roof_face_id: string): RoofFace | null {
@@ -45,9 +45,18 @@ export function getRoofFace(db: Database.Database, roof_face_id: string): RoofFa
 
 export function insertRoofFace(db: Database.Database, data: Omit<RoofFace, 'id'>): void {
   db.prepare(`
-    INSERT INTO roof_faces (roof_face_id, name, orientation_deg, tilt_deg, usable_area_m2, notes)
-    VALUES (@roof_face_id, @name, @orientation_deg, @tilt_deg, @usable_area_m2, @notes)
+    INSERT INTO roof_faces (roof_face_id, name, sort_order, orientation_deg, tilt_deg, usable_area_m2, notes)
+    VALUES (@roof_face_id, @name, @sort_order, @orientation_deg, @tilt_deg, @usable_area_m2, @notes)
   `).run(data);
+}
+
+export function createRoofFace(db: Database.Database, data: Omit<RoofFace, 'id'>): void {
+  const nextSortOrderRow = db.prepare('SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_sort_order FROM roof_faces').get() as { next_sort_order: number } | undefined;
+  insertRoofFace(db, {
+    ...data,
+    sort_order: data.sort_order ?? (nextSortOrderRow?.next_sort_order ?? 1),
+  });
+  syncPvTopologyForRoofFace(db, data.roof_face_id);
 }
 
 export function updateRoofFace(db: Database.Database, data: Omit<RoofFace, 'id'>): void {
@@ -62,6 +71,7 @@ export function updateRoofFace(db: Database.Database, data: Omit<RoofFace, 'id'>
 export function deleteRoofFace(db: Database.Database, roof_face_id: string): void {
   db.prepare('DELETE FROM roof_panels WHERE roof_face_id = ?').run(roof_face_id);
   deletePvArrayForRoofFace(db, roof_face_id);
+  db.prepare('DELETE FROM roof_face_configurations WHERE roof_face_id = ?').run(roof_face_id);
   db.prepare('DELETE FROM roof_faces WHERE roof_face_id = ?').run(roof_face_id);
 }
 

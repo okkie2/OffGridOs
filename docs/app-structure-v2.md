@@ -18,6 +18,35 @@ This keeps the app consistent. Each page should help the user understand:
 - what the resulting configuration is
 - what the judgment is for the relationship being modeled
 
+## Control Placement Rule
+
+Primary actions should live inside the same visual block as the data they affect.
+
+Prefer:
+
+- a short verb label such as `Save`, `Edit`, or `Delete`
+- the action button aligned to the bottom edge of the block
+- the action area placed inside the block it controls, below the content it saves or edits, not floating above or outside it
+
+This helps the user see:
+
+- what the action affects
+- which data is already in scope
+- where the primary action belongs in the layout hierarchy
+
+## Collection Mutation Rule
+
+When a page is showing a collection, keep mutations in the collection view.
+
+Prefer:
+
+- create actions that keep the user on the same page
+- scrolling or highlighting the newly created item instead of routing away
+- delete actions that return the user to a valid collection state
+- an explicit empty state when the collection becomes empty
+
+This keeps list editing predictable and avoids dead-end pages after create or delete.
+
 ## Core Rule
 
 Judgment and fit language only make sense when describing a relationship between two things.
@@ -35,17 +64,17 @@ So:
 - broad entity pages should avoid vague standalone labels like `Within limits`
 - relationship pages may use qualifiers like `optimal`, `acceptable`, `underutilized`, or `outside limits`
 
-## Face Model
+## Surface Model
 
-Use `face` as the broader concept.
+Use `surface` as the broader concept.
 
-A `face` may be:
+A `surface` may be:
 
 - a roof face
 - a wall face
 - a flat face
 
-`Roof face` is therefore a subtype or common case, not the only type of face.
+`Roof face` is therefore a subtype or common case, not the only type of surface.
 
 ## Inverter Model
 
@@ -70,27 +99,27 @@ Start information:
 Selection / configuration:
 
 - shared site inputs
-- multiple faces
+- multiple surfaces
 
 Result:
 
-- face set / site setup
+- surface set / site setup
 
 Feedback:
 
 - completeness
-- number of configured faces
+- number of configured surfaces
 
 Notes:
 
 - this page owns shared location information
-- face coordinates and site context should live here, not on individual face pages
+- surface coordinates and site context should live here, not on individual surface pages
 
-### 2. Panel Array / Face
+### 2. Panel Array / Surface
 
 Start information:
 
-- face summary
+- surface summary
 
 Configuration:
 
@@ -99,18 +128,18 @@ Configuration:
 
 Result:
 
-- configured panel array for that face
+- configured panel array for that surface
 
 Feedback:
 
-- solar output per face
+- solar output per surface
 
 Notes:
 
-- this page is about the face and its array
+- this page is about the surface and its array
 - it should not drift into MPPT judgment language unless the user moves to the next page
 
-### 3. MPPT Configuration / Face
+### 3. MPPT Configuration / Surface
 
 Start information:
 
@@ -138,7 +167,7 @@ Notes:
 Start information:
 
 - MPPT array summary
-- all upstream MPPT outputs coming in from the configured faces
+- all upstream MPPT outputs coming in from the configured surfaces
 
 Configuration:
 

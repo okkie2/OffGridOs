@@ -8,7 +8,7 @@ The core flow - location, faces, battery array, inverter array - is server-backe
 For planning, treat `TODO.md` as the concrete publish-blocker queue and `ROADMAP.md` as the post-MVP theme queue.
 
 ## Quick Start
-
+roje
 Install dependencies:
 
 ```bash

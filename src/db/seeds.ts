@@ -184,14 +184,25 @@ const BASELINE_LOCATION = {
 const BASELINE_ROOF_FACES: Array<{
   roof_face_id: string;
   name: string;
+  sort_order: number;
   orientation_deg: number;
   tilt_deg: number;
   usable_area_m2: number | null;
   notes: string | null;
 }> = [
   {
+    roof_face_id: 'dakkapellen',
+    name: 'Dakkapellen',
+    sort_order: 1,
+    orientation_deg: 231,
+    tilt_deg: 15,
+    usable_area_m2: null,
+    notes: null,
+  },
+  {
     roof_face_id: 'flat-ne',
     name: 'Flat NE',
+    sort_order: 2,
     orientation_deg: 51,
     tilt_deg: 15,
     usable_area_m2: null,
@@ -200,6 +211,7 @@ const BASELINE_ROOF_FACES: Array<{
   {
     roof_face_id: 'ne',
     name: 'North-East',
+    sort_order: 3,
     orientation_deg: 51,
     tilt_deg: 60,
     usable_area_m2: null,
@@ -208,6 +220,7 @@ const BASELINE_ROOF_FACES: Array<{
   {
     roof_face_id: 'nw',
     name: 'North-West',
+    sort_order: 4,
     orientation_deg: 321,
     tilt_deg: 45,
     usable_area_m2: null,
@@ -216,6 +229,7 @@ const BASELINE_ROOF_FACES: Array<{
   {
     roof_face_id: 'se',
     name: 'South-East',
+    sort_order: 5,
     orientation_deg: 141,
     tilt_deg: 45,
     usable_area_m2: null,
@@ -224,6 +238,7 @@ const BASELINE_ROOF_FACES: Array<{
   {
     roof_face_id: 'sw',
     name: 'South-West',
+    sort_order: 6,
     orientation_deg: 231,
     tilt_deg: 60,
     usable_area_m2: null,
@@ -573,8 +588,8 @@ export function seedRoofFaces(db: Database.Database): void {
   const existing = db.prepare('SELECT COUNT(*) as count FROM roof_faces').get() as { count: number } | undefined;
   if (!existing || existing.count === 0) {
     const insert = db.prepare(`
-      INSERT INTO roof_faces (roof_face_id, name, orientation_deg, tilt_deg, usable_area_m2, notes)
-      VALUES (@roof_face_id, @name, @orientation_deg, @tilt_deg, @usable_area_m2, @notes)
+      INSERT INTO roof_faces (roof_face_id, name, sort_order, orientation_deg, tilt_deg, usable_area_m2, notes)
+      VALUES (@roof_face_id, @name, @sort_order, @orientation_deg, @tilt_deg, @usable_area_m2, @notes)
     `);
     const insertAll = db.transaction((rows: typeof BASELINE_ROOF_FACES) => {
       for (const row of rows) insert.run(row);

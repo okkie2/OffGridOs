@@ -108,6 +108,18 @@ When using Railway specifically:
 - mount a volume at `/data`
 - keep the app scaled to one running instance while SQLite remains the primary database
 
+## Current custom-domain notes
+
+For the current Vimexx setup:
+
+- use an `ALIAS` record on the root domain `@`
+- point `@` to `gctmtjxx.up.railway.app.`
+- use a `CNAME` record for `www`
+- point `www` to `offgridos.eu.`
+- keep the existing mail and NS records in place
+
+If Vimexx refuses the root `ALIAS` again, fall back to `www.offgridos.eu` as the live app URL and redirect the apex domain to it.
+
 ## Deployment assumptions
 
 This setup is a good fit while OffGridOS remains:

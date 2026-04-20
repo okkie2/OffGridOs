@@ -8,7 +8,7 @@ Every concept must be referred to by its canonical name across the database sche
 | Domain concept | DB table (plural snake_case) | TS interface (singular PascalCase) | Preferred label |
 |---|---|---|---|
 | Location | `location` | `Location` | Location |
-| Roof face | `roof_faces` | `RoofFace` | Roof face |
+| Surface | `roof_faces` | `RoofFace` | Surface |
 | Panel type | `panel_types` | `PanelType` | Panel type |
 | Roof panel assignment | `roof_panels` | `RoofPanelAssignment` | Panel count |
 | PV array | `arrays` | `PvArray` | Array |
@@ -26,7 +26,7 @@ Use `configuration` for project-selected or project-configured records when you 
 
 | Domain concept | DB table (plural snake_case) | TS interface (singular PascalCase) | Preferred label |
 |---|---|---|---|
-| Roof face configuration | `roof_face_configurations` | `RoofFaceConfiguration` | Roof face configuration |
+| Surface configuration | `roof_face_configurations` | `RoofFaceConfiguration` | Surface configuration |
 | Battery bank configuration | `battery_bank_configurations` | `BatteryBankConfiguration` | Battery bank configuration |
 | MPPT configuration | `mppt_configurations` | `MpptConfiguration` | MPPT configuration |
 | Inverter configuration | `inverter_configurations` | `InverterConfiguration` | Inverter configuration |
@@ -73,9 +73,9 @@ Use the following terms consistently in the digital twin and future schema work.
 
 ## Current configuration assumptions
 
-- A roof face may feed one or more arrays.
+- A surface may feed one or more arrays.
 - Each array feeds exactly one MPPT.
-- In this project's current setup, each roof face maps `1:1` to one array and one MPPT.
+- In this project's current setup, each surface maps `1:1` to one array and one MPPT.
 
 ## Relationship evaluation
 
@@ -118,7 +118,7 @@ This allows the model to distinguish:
 
 ## Orientation
 
-Roof face orientation is stored as an azimuth in degrees from `0` to `360`:
+Surface orientation is stored as an azimuth in degrees from `0` to `360`:
 
 | Direction | Azimuth |
 |---|---|
@@ -138,7 +138,7 @@ The field is named `orientation_deg` in both the DB column and the TypeScript mo
 - CLI prompts, UI labels, and output text should match the canonical domain concept name.
 - Use `*_types` for catalog tables.
 - Use `*_configurations` for project-selected or project-configured records when the noun needs to cover the whole selected setup.
-- Use `roof_face_configuration` language for the selected per-face PV setup, including panel choice, count, string layout, and MPPT choice.
+- Use `surface configuration` language for the selected per-surface PV setup, including panel choice, count, string layout, and MPPT choice.
 - Use `battery_bank_configuration` language for the selected battery-bank setup.
 - Use `mppt_configuration` language for the selected MPPT setup.
 - Use `inverter_configuration` language for the selected inverter setup.

@@ -12,6 +12,7 @@ export interface RoofFace {
   id: number;
   roof_face_id: string;
   name: string;
+  sort_order?: number | null;
   /** Azimuth in degrees: 0 = North, 90 = East, 180 = South, 270 = West */
   orientation_deg: number;
   tilt_deg: number;

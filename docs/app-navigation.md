@@ -31,8 +31,8 @@ That means:
 Recommended top-level sections:
 
 1. `Overview`
-2. `Catalogs`
-3. `Roof faces`
+2. `Location`
+3. `Catalogs`
 4. `Battery and inverter`
 5. `Branch circuits`
 6. `Monthly balance`
@@ -80,17 +80,20 @@ Main screen:
 
 - shared catalog landing page plus per-catalog CRUD screens
 
-### Roof faces
+### Location
 
 Purpose:
 
-- show all roof faces
-- compare arrays
-- drill into one roof face and its selected MPPT
+- capture shared site context
+- list and manage surfaces
+- review yield after surface configuration is in place
 
 Main screen:
 
-- [roof-face-array-screen.md](./roof-face-array-screen.md)
+- start information
+- site photo
+- surfaces
+- yield
 
 ### Battery and inverter
 
@@ -131,7 +134,7 @@ Main screen:
 
 Recommended flow from left to right through the system:
 
-`Overview -> Roof face -> Array -> MPPT -> Battery bank -> Inverter -> Branch circuit -> Consumer`
+`Overview -> Location -> Surface -> Array -> MPPT -> Battery bank -> Inverter -> Branch circuit -> Consumer`
 
 The app does not need one page per node at first, but this should remain the conceptual navigation path.
 
@@ -154,7 +157,7 @@ This should be reflected in:
 
 Recommended breadcrumb pattern:
 
-- `Overview / Roof faces / South-East`
+- `Overview / Location / South-East`
 - `Overview / Battery and inverter`
 - `Overview / Branch circuits / Living room sockets`
 
@@ -165,7 +168,7 @@ This helps the user stay oriented in a technical system.
 Examples:
 
 - `/`
-- `/roof-faces`
+- `/location`
 - `/roof-faces/se`
 - `/battery`
 - `/branch-circuits`
@@ -197,7 +200,7 @@ The first React implementation should prioritize:
 
 1. top navigation
 2. overview landing page
-3. roof-face drill-down
+3. location and surface setup
 4. battery/inverter drill-down
 5. monthly balance
 

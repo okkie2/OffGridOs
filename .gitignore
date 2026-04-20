@@ -3,3 +3,4 @@ project.db
 .DS_Store
 dist/
 *.js.map
+report.md

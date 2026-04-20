@@ -1,3 +1,4 @@
+import React from 'react';
 import { useEffect, useState, type ChangeEvent, type MouseEvent } from 'react';
 
 type Status = 'within_limits' | 'outside_limits';
@@ -382,7 +383,7 @@ type LocalFaceSummary = {
   panel_count: number;
   installed_wp: number;
   mppt_name: string;
-  status: Status;
+  status: Status | null;
   fit?: FitStatus;
 };
 
@@ -422,7 +423,7 @@ function buildLocalFaceSummaries(data: DigitalTwinExport): LocalFaceSummary[] {
     );
     const selectedMpptTypeId = readPersistentState<string>(
       `${storagePrefix}:mppt-type`,
-      persistedConfiguration?.selected_mppt_type_id ?? projectMppt?.mppt_type_id ?? data.entities.mppt_types[0]?.mppt_type_id ?? '',
+      persistedConfiguration?.selected_mppt_type_id ?? projectMppt?.mppt_type_id ?? '',
     );
     const selectedMpptType = selectedMpptTypeId
       ? data.entities.mppt_types.find((item) => item.mppt_type_id === selectedMpptTypeId) ?? null
@@ -435,7 +436,7 @@ function buildLocalFaceSummaries(data: DigitalTwinExport): LocalFaceSummary[] {
         Math.max(parallelStrings, 0),
       )
       : null;
-    const mpptCompatibility = arrayConfig && arrayConfig.configuredPanelCount > 0
+    const mpptCompatibility = arrayConfig && arrayConfig.configuredPanelCount > 0 && selectedMpptType
       ? evaluateMpptCompatibility(arrayConfig, selectedMpptType)
       : null;
     const localFaceName = readStoredFaceLabel(projectId, roofFace);
@@ -448,9 +449,9 @@ function buildLocalFaceSummaries(data: DigitalTwinExport): LocalFaceSummary[] {
       array_name: localFaceName,
       panel_count: arrayConfig?.configuredPanelCount ?? Math.max(configuredPanelCount, 0),
       installed_wp: arrayConfig?.arrayPower ?? 0,
-      mppt_name: selectedMpptType?.model ?? projectMppt?.name ?? 'Pending',
-      status: mpptCompatibility?.status ?? relation?.evaluation.electrical_status ?? 'within_limits',
-      fit: mpptCompatibility?.fit ?? relation?.evaluation.fit_status,
+      mppt_name: selectedMpptType?.model ?? '',
+      status: mpptCompatibility?.status ?? null,
+      fit: mpptCompatibility?.fit ?? null,
     };
   });
 }
@@ -458,7 +459,6 @@ function buildLocalFaceSummaries(data: DigitalTwinExport): LocalFaceSummary[] {
 type Route =
   | { kind: 'overview' }
   | { kind: 'location' }
-  | { kind: 'faces' }
   | { kind: 'catalogs' }
   | { kind: 'catalog'; catalog: 'panel-types' | 'mppt-types' | 'battery-types' | 'inverter-types' }
   | { kind: 'battery-array' }
@@ -585,8 +585,20 @@ function formatVolts(volts: number): string {
   return `${volts.toLocaleString('en-US', { maximumFractionDigits: 1 })} V`;
 }
 
-function formatDailyYield(kwh: number): string {
+function formatDailyYield(kwh: number | null | undefined): string {
+  if (typeof kwh !== 'number' || !Number.isFinite(kwh)) {
+    return '';
+  }
+
   return kwh.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
+
+function formatWholeKwh(kwh: number | null | undefined): string {
+  if (typeof kwh !== 'number' || !Number.isFinite(kwh)) {
+    return '';
+  }
+
+  return kwh.toLocaleString('en-US', { maximumFractionDigits: 0 });
 }
 
 function emptyBatteryDraft(): BatteryTypeDraft {
@@ -783,7 +795,11 @@ function statusTone(status: Status, fit?: FitStatus): string {
   return 'good';
 }
 
-function StatusBadge({ status, fit }: { status: Status; fit?: FitStatus }) {
+function StatusBadge({ status, fit }: { status: Status | null; fit?: FitStatus }) {
+  if (!status) {
+    return <span className="status" aria-hidden="true" />;
+  }
+
   const tone = statusTone(status, fit);
   const text = status === 'outside_limits'
     ? 'Outside limits'
@@ -1140,7 +1156,7 @@ function evaluateBatteryRefillRule(input: {
       tone: 'danger',
       requiredRefillKwh,
       refillRatio: 0,
-      reasons: ['The current configured faces do not produce usable daily solar yield in the best month estimate.'],
+      reasons: ['The current configured surfaces do not produce usable daily solar yield in the best month estimate.'],
     };
   }
 
@@ -1247,7 +1263,7 @@ function getRoute(): Route {
     return { kind: 'location' };
   }
   if (hash === '/faces' || hash === '/panel-arrays' || hash === '/mppts') {
-    return { kind: 'faces' };
+    return { kind: 'location' };
   }
   if (hash === '/catalogs') {
     return { kind: 'catalogs' };
@@ -1294,10 +1310,6 @@ function navigateTo(route: Route): void {
     window.location.hash = '/location';
     return;
   }
-  if (route.kind === 'faces') {
-    window.location.hash = '/faces';
-    return;
-  }
   if (route.kind === 'catalogs') {
     window.location.hash = '/catalogs';
     return;
@@ -1320,7 +1332,6 @@ function navigateTo(route: Route): void {
 function routeHref(route: Route): string {
   if (route.kind === 'overview') return '#/';
   if (route.kind === 'location') return '#/location';
-  if (route.kind === 'faces') return '#/faces';
   if (route.kind === 'catalogs') return '#/catalogs';
   if (route.kind === 'catalog') return `#/${route.catalog}`;
   if (route.kind === 'battery-array') return '#/battery-array';
@@ -1344,13 +1355,10 @@ function Sidebar({ route, data }: { route: Route; data: DigitalTwinExport | null
         <a href={routeHref({ kind: 'overview' })} onClick={go({ kind: 'overview' })} className={`sidebar-nav-item ${route.kind === 'overview' ? 'active' : ''}`}>
           Dashboard
         </a>
-        <a href={routeHref({ kind: 'location' })} onClick={go({ kind: 'location' })} className={`sidebar-nav-item ${route.kind === 'location' ? 'active' : ''}`}>
+        <a href={routeHref({ kind: 'location' })} onClick={go({ kind: 'location' })} className={`sidebar-nav-item ${route.kind === 'location' || route.kind === 'face' ? 'active' : ''}`}>
           Location
         </a>
-        <a href={routeHref({ kind: 'faces' })} onClick={go({ kind: 'faces' })} className={`sidebar-nav-item ${route.kind === 'faces' || route.kind === 'face' ? 'active' : ''}`}>
-          Faces
-        </a>
-        {data ? (
+        {data && (route.kind === 'location' || route.kind === 'face') ? (
           <div className="sidebar-subnav">
             {data.entities.roof_faces.map((roofFace) => (
               <a
@@ -1406,7 +1414,9 @@ function Breadcrumbs({ route, roofFaceName }: { route: Route; roofFaceName?: str
       {route.kind === 'face' ? (
         <>
           <span className="crumb-sep">/</span>
-          <span className="crumb">Faces</span>
+          <button type="button" className="crumb crumb-link" onClick={() => navigateTo({ kind: 'location' })}>
+            Location
+          </button>
           <span className="crumb-sep">/</span>
           <span className="crumb crumb-current">{roofFaceName ?? route.roofFaceId}</span>
         </>
@@ -1427,8 +1437,9 @@ function RoofFaceDetail({
   const roofFace = data.entities.roof_faces.find((item) => item.roof_face_id === roofFaceId);
   const persistedConfiguration = data.entities.roof_face_configurations.find((item) => item.roof_face_id === roofFaceId) ?? null;
   const array = data.entities.arrays.find((item) => item.roof_face_id === roofFaceId);
+  const arrayId = array?.array_id ?? `array-${roofFaceId}`;
   const arrayState = data.derived.array_states.find((item) => item.roof_face_id === roofFaceId);
-    const projectMppt = array ? data.entities.mppt_configurations.find((item) => item.array_id === array.array_id) : null;
+  const projectMppt = array ? data.entities.mppt_configurations.find((item) => item.array_id === array.array_id) : null;
   const relation = array ? data.relationships.array_to_mppt.find((item) => item.from_array_id === array.array_id) : null;
   const mpptType = projectMppt?.mppt_type_id
     ? data.entities.mppt_types.find((item) => item.mppt_type_id === projectMppt.mppt_type_id) ?? null
@@ -1456,8 +1467,10 @@ function RoofFaceDetail({
   );
   const [selectedMpptTypeId, setSelectedMpptTypeId] = usePersistentState(
     `${storagePrefix}:mppt-type`,
-    persistedConfiguration?.selected_mppt_type_id ?? projectMppt?.mppt_type_id ?? data.entities.mppt_types[0]?.mppt_type_id ?? '',
+    persistedConfiguration?.selected_mppt_type_id ?? projectMppt?.mppt_type_id ?? '',
   );
+  const [photo, setPhoto] = usePersistentState<string | null>(`${storagePrefix}:photo`, null);
+  const [surfaceNotes, setSurfaceNotes] = usePersistentState(`${storagePrefix}:notes`, '');
   const [isSavingFace, setIsSavingFace] = useState(false);
   const [faceSaveMessage, setFaceSaveMessage] = useState<string | null>(null);
   const [faceSaveError, setFaceSaveError] = useState<string | null>(null);
@@ -1491,12 +1504,12 @@ function RoofFaceDetail({
     }
   }, [configuredPanelCount, panelsPerString, parallelStrings, panelsPerStringOptions]);
 
-  if (!roofFace || !array) {
+  if (!roofFace) {
     return (
       <section className="panel error-panel">
         <Breadcrumbs route={{ kind: 'face', roofFaceId }} roofFaceName={roofFaceId} />
-        <h1>Roof face not found</h1>
-        <p>No roof-face detail is available for `{roofFaceId}` in the current export.</p>
+        <h1>Surface not found</h1>
+        <p>No surface detail is available for `{roofFaceId}` in the current export.</p>
       </section>
     );
   }
@@ -1544,7 +1557,7 @@ function RoofFaceDetail({
     const trimmedName = roofNameDraft.trim();
 
     if (!trimmedName) {
-      setFaceSaveError('Roof face name is required before saving.');
+      setFaceSaveError('Surface name is required before saving.');
       setFaceSaveMessage(null);
       return;
     }
@@ -1581,7 +1594,7 @@ function RoofFaceDetail({
         // Keep the save successful even if local draft syncing fails.
       }
 
-      setFaceSaveMessage('Face details saved to the project database.');
+      setFaceSaveMessage('Surface details saved to the project database.');
       await refreshProjectData();
     } catch (error) {
       setFaceSaveError(error instanceof Error ? error.message : 'Failed to save face details.');
@@ -1645,7 +1658,7 @@ function RoofFaceDetail({
   async function handleSaveFaceDesign() {
     if (configuredPanelCount === 0) {
       if (panelsPerString !== 0 || parallelStrings !== 0) {
-        setFaceDesignSaveError('Faces with 0 panels must also use 0 panels per string and 0 parallel strings.');
+        setFaceDesignSaveError('Surfaces with 0 panels must also use 0 panels per string and 0 parallel strings.');
         setFaceDesignSaveMessage(null);
         return;
       }
@@ -1675,7 +1688,7 @@ function RoofFaceDetail({
       const payload = await response.json() as { error?: string };
 
       if (!response.ok) {
-        throw new Error(payload.error ?? `Failed to save face configuration (${response.status})`);
+        throw new Error(payload.error ?? `Failed to save surface configuration (${response.status})`);
       }
 
       try {
@@ -1690,362 +1703,385 @@ function RoofFaceDetail({
       setFaceDesignSaveMessage('String layout and MPPT choice saved to the project database.');
       await refreshProjectData();
     } catch (error) {
-      setFaceDesignSaveError(error instanceof Error ? error.message : 'Failed to save face configuration.');
+      setFaceDesignSaveError(error instanceof Error ? error.message : 'Failed to save surface configuration.');
       setFaceDesignSaveMessage(null);
     } finally {
       setIsSavingFaceDesign(false);
     }
   }
 
+  function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => setPhoto(e.target?.result as string);
+    reader.readAsDataURL(file);
+  }
+
   return (
     <section className="detail-shell">
-      <section className="panel detail-hero">
-        <Breadcrumbs route={{ kind: 'face', roofFaceId }} roofFaceName={roofNameDraft || roofFace.name} />
-        <div className="detail-hero-grid">
-          <div>
-            <div className="eyebrow">Face</div>
-            <h1>{roofNameDraft || roofFace.name}</h1>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-              <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.86rem' }}>
-                Face name, azimuth, and tilt now save to SQLite. Panel configuration, panel type, and MPPT configuration still stay local for now.
-              </p>
-              <button type="button" className="cta-button" onClick={() => void handleSaveFaceDetails()} disabled={isSavingFace}>
-                {isSavingFace ? 'Saving...' : 'Save face configuration'}
-              </button>
-            </div>
-            {faceSaveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{faceSaveError}</p> : null}
-            {faceSaveMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{faceSaveMessage}</p> : null}
-            <div className="roof-config-inline">
-              <label className="config-field">
-                <span>Roof face name</span>
-                <input
-                  type="text"
-                  value={roofNameDraft}
-                  onChange={(event) => setRoofNameDraft(event.target.value)}
-                />
-              </label>
-              <label className="config-field">
-                <span>Azimuth</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={360}
-                  step={1}
-                  value={roofAzimuthDraft}
-                  onChange={(event) => setRoofAzimuthDraft(Math.max(0, Math.min(360, Number(event.target.value) || 0)))}
-                />
-              </label>
-              <label className="config-field">
-                <span>Tilt</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={90}
-                  step={1}
-                  value={roofTiltDraft}
-                  onChange={(event) => setRoofTiltDraft(Math.max(0, Math.min(90, Number(event.target.value) || 0)))}
-                />
-              </label>
-            </div>
-            <p className="roof-config-note">
-              Northing/easting coordinates inherit from the shared location and are configured on the Location page.
-            </p>
-          </div>
-          <div className="hero-grid">
-            <SummaryCard label="Array" value={liveArrayName} />
-            <SummaryCard label="Configured PV" value={formatWp(liveInstalledWp)} />
-            <SummaryCard label="Panel count" value={String(livePanelCount)} />
-            <SummaryCard label="Selected MPPT" value={selectedMpptType?.model ?? projectMppt?.name ?? 'Pending'} detail="Currently provisional" />
-          </div>
-        </div>
-      </section>
-
-      <section className="detail-grid storage-detail-grid">
-        <section className="panel">
+      <div className="detail-grid detail-intro-grid">
+        <section className="panel panel-span-2 panel-with-actions">
+          <Breadcrumbs route={{ kind: 'face', roofFaceId }} roofFaceName={roofNameDraft || roofFace.name} />
           <div className="section-head">
-            <h2>Panel configuration</h2>
+            <h2>Surface information</h2>
+            <p>Surface name, azimuth, and tilt save to SQLite. Shared site inputs are configured on the Location page.</p>
           </div>
-          <div className="panel-selector">
+          <h1 className="detail-page-title">{roofNameDraft || roofFace.name}</h1>
+          {faceSaveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{faceSaveError}</p> : null}
+          {faceSaveMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{faceSaveMessage}</p> : null}
+          <div className="roof-config-inline">
             <label className="config-field">
-              <span>Configured panel</span>
-              <select
-                value={selectedPanelTypeId}
-                onChange={(event) => setSelectedPanelTypeId(event.target.value)}
-              >
-                {data.entities.panel_types.map((option) => (
-                  <option key={option.panel_type_id} value={option.panel_type_id}>
-                    {option.model} · {formatWp(option.wp)}
-                  </option>
-                ))}
-              </select>
+              <span>Surface name</span>
+              <input
+                type="text"
+                value={roofNameDraft}
+                onChange={(event) => setRoofNameDraft(event.target.value)}
+              />
+            </label>
+            <label className="config-field">
+              <span>Azimuth</span>
+              <input
+                type="number"
+                min={0}
+                max={360}
+                step={1}
+                value={roofAzimuthDraft}
+                onChange={(event) => setRoofAzimuthDraft(Math.max(0, Math.min(360, Number(event.target.value) || 0)))}
+              />
+            </label>
+            <label className="config-field">
+              <span>Tilt</span>
+              <input
+                type="number"
+                min={0}
+                max={90}
+                step={1}
+                value={roofTiltDraft}
+                onChange={(event) => setRoofTiltDraft(Math.max(0, Math.min(90, Number(event.target.value) || 0)))}
+              />
             </label>
           </div>
-          {panelType ? (
-            <dl className="detail-stats panel-spec-grid">
-              <div>
-                <dt>Wp</dt>
-                <dd>{formatWp(panelType.wp)}</dd>
-              </div>
-              <div>
-                <dt>Voc</dt>
-                <dd>{formatVolts(panelType.voc)}</dd>
-              </div>
-              <div>
-                <dt>Vmp</dt>
-                <dd>{formatVolts(panelType.vmp)}</dd>
-              </div>
-              <div>
-                <dt>Isc</dt>
-                <dd>{formatAmps(panelType.isc)}</dd>
-              </div>
-              <div>
-                <dt>Imp</dt>
-                <dd>{formatAmps(panelType.imp)}</dd>
-              </div>
-              <div>
-                <dt>Height</dt>
-                <dd>{panelType.length_mm != null ? `${panelType.length_mm} mm` : 'n/a'}</dd>
-              </div>
-              <div>
-                <dt>Width</dt>
-                <dd>{panelType.width_mm != null ? `${panelType.width_mm} mm` : 'n/a'}</dd>
-              </div>
-              <div>
-                <dt>Wp/m²</dt>
-                <dd>{panelType.wp_per_m2 != null ? `${panelType.wp_per_m2} W/m²` : 'n/a'}</dd>
-              </div>
-            </dl>
-          ) : null}
+          <div className="button-row button-row-end">
+            <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveFaceDetails()} disabled={isSavingFace}>
+              {isSavingFace ? 'Saving...' : 'Save'}
+            </button>
+          </div>
         </section>
 
-        <section className="panel">
+        <section className="panel panel-with-actions">
           <div className="section-head">
-            <h2>Array configuration</h2>
+            <h2>Surface photo</h2>
+            <p>Optional visual reference for this surface. The photo stays local to this browser.</p>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-            <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.86rem' }}>
-              Selected panel type and panel count now save to SQLite. String layout still stays local for now.
-            </p>
-            <button type="button" className="cta-button" onClick={() => void handleSavePanelSetup()} disabled={isSavingPanels}>
-              {isSavingPanels ? 'Saving...' : 'Save panel configuration'}
-            </button>
+          {photo ? (
+            <div className="photo-frame">
+              <img src={photo} alt={`${roofNameDraft || roofFace.name} surface`} className="photo-image" />
+              <button
+                type="button"
+                className="button button-secondary button-sm photo-remove"
+                onClick={() => setPhoto(null)}
+              >
+                Remove
+              </button>
+            </div>
+          ) : (
+            <label className="upload-dropzone">
+              <span>Click to upload a photo</span>
+              <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoChange} />
+            </label>
+          )}
+        </section>
+      </div>
+
+      <section className="detail-grid storage-detail-grid">
+        <section className="panel panel-with-actions">
+          <div className="section-head">
+            <h2>Panel</h2>
+            <p>Choose panel type and count.</p>
           </div>
           {panelSaveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{panelSaveError}</p> : null}
           {panelSaveMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{panelSaveMessage}</p> : null}
-          <dl className="detail-stats">
-            <div>
-              <dt>Array ID</dt>
-              <dd>{array.array_id}</dd>
+          <div className="fit-card">
+            <div className="panel-config-grid config-control-row">
+              <label className="config-field config-field-span-2">
+                <span>Selected panel</span>
+                <select
+                  value={selectedPanelTypeId}
+                  onChange={(event) => setSelectedPanelTypeId(event.target.value)}
+                >
+                  {data.entities.panel_types.map((option) => (
+                    <option key={option.panel_type_id} value={option.panel_type_id}>
+                      {option.model} · {formatWp(option.wp)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="config-field">
+                <span>Panel count</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={configuredPanelCount}
+                  onChange={(event) => setConfiguredPanelCount(Math.max(0, Number(event.target.value) || 0))}
+                />
+              </label>
             </div>
-            <div>
-              <dt>Installed Wp</dt>
-              <dd>{formatWp(liveInstalledWp)}</dd>
-            </div>
-          </dl>
-          {panelType ? (
-            <div className="fit-card">
-              <div className="config-grid">
-                <label className="config-field">
-                  <span>Panel count</span>
-                  <input
-                    type="number"
-                    min={0}
-                    value={configuredPanelCount}
-                    onChange={(event) => setConfiguredPanelCount(Math.max(0, Number(event.target.value) || 0))}
-                  />
-                </label>
-                <label className="config-field">
-                  <span>Panels per string</span>
-                  <select
-                    value={panelsPerString}
-                    onChange={(event) => {
-                      const nextPanelsPerString = Math.max(0, Number(event.target.value) || 0);
-                      setPanelsPerString(nextPanelsPerString);
-                      setParallelStrings(nextPanelsPerString > 0 ? Math.max(1, configuredPanelCount / nextPanelsPerString) : 0);
-                    }}
-                  >
-                    {panelsPerStringOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="config-field">
-                  <span>Parallel strings</span>
-                  <select
-                    value={parallelStrings}
-                    onChange={(event) => {
-                      const nextParallelStrings = Math.max(0, Number(event.target.value) || 0);
-                      setParallelStrings(nextParallelStrings);
-                      setPanelsPerString(nextParallelStrings > 0 ? Math.max(1, configuredPanelCount / nextParallelStrings) : 0);
-                    }}
-                  >
-                    {parallelStringOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
+            {panelType ? (
+              <dl className="detail-stats panel-spec-grid">
+                <div>
+                  <dt>Wp</dt>
+                  <dd>{formatWp(panelType.wp)}</dd>
+                </div>
+                <div>
+                  <dt>Voc</dt>
+                  <dd>{formatVolts(panelType.voc)}</dd>
+                </div>
+                <div>
+                  <dt>Vmp</dt>
+                  <dd>{formatVolts(panelType.vmp)}</dd>
+                </div>
+                <div>
+                  <dt>Isc</dt>
+                  <dd>{formatAmps(panelType.isc)}</dd>
+                </div>
+                <div>
+                  <dt>Imp</dt>
+                  <dd>{formatAmps(panelType.imp)}</dd>
+                </div>
+                <div>
+                  <dt>Height</dt>
+                  <dd>{panelType.length_mm != null ? `${panelType.length_mm} mm` : 'n/a'}</dd>
+                </div>
+                <div>
+                  <dt>Width</dt>
+                  <dd>{panelType.width_mm != null ? `${panelType.width_mm} mm` : 'n/a'}</dd>
+                </div>
+                <div>
+                  <dt>Wp/m²</dt>
+                  <dd>{panelType.wp_per_m2 != null ? `${panelType.wp_per_m2} W/m²` : 'n/a'}</dd>
+                </div>
+              </dl>
+            ) : (
+              <p className="fit-note">Choose a panel type to see its panel attributes.</p>
+            )}
+          </div>
+          <div className="button-row button-row-end">
+            <button type="button" className="button button-secondary button-sm" onClick={() => void handleSavePanelSetup()} disabled={isSavingPanels}>
+              {isSavingPanels ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        </section>
 
-              {arrayConfig ? (
-                <>
-                  <div className="fit-head">
-                    <div>
-                      <p>
-                        {arrayConfig.configuredPanelCount} panel(s) used from {configuredPanelCount} currently assigned in this local scenario
-                      </p>
-                    </div>
+        <section className="panel panel-with-actions">
+          <div className="section-head">
+            <h2>String</h2>
+            <p>Set the string layout.</p>
+          </div>
+          {faceDesignSaveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{faceDesignSaveError}</p> : null}
+          {faceDesignSaveMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{faceDesignSaveMessage}</p> : null}
+          {arrayConfig?.configuredPanelCount ? (
+            <>
+              <div className="fit-card">
+                <div className="config-grid config-control-row">
+                  <label className="config-field">
+                    <span>Panels per string</span>
+                    <select
+                      value={panelsPerString}
+                      onChange={(event) => {
+                        const nextPanelsPerString = Math.max(0, Number(event.target.value) || 0);
+                        setPanelsPerString(nextPanelsPerString);
+                        setParallelStrings(nextPanelsPerString > 0 ? Math.max(1, configuredPanelCount / nextPanelsPerString) : 0);
+                      }}
+                    >
+                      {panelsPerStringOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="config-field">
+                    <span>Parallel strings</span>
+                    <select
+                      value={parallelStrings}
+                      onChange={(event) => {
+                        const nextParallelStrings = Math.max(0, Number(event.target.value) || 0);
+                        setParallelStrings(nextParallelStrings);
+                        setPanelsPerString(nextParallelStrings > 0 ? Math.max(1, configuredPanelCount / nextParallelStrings) : 0);
+                      }}
+                    >
+                      {parallelStringOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <dl className="detail-stats compact-stats">
+                  <div>
+                    <dt>Array Voc</dt>
+                    <dd>{formatVolts(arrayConfig.stringVoc)}</dd>
                   </div>
-                  <dl className="detail-stats compact-stats">
-                    <div>
-                      <dt>Array Voc</dt>
-                      <dd>{formatVolts(arrayConfig.stringVoc)}</dd>
-                    </div>
-                    <div>
-                      <dt>Array voltage</dt>
-                      <dd>{formatVolts(arrayConfig.stringVmp)}</dd>
-                    </div>
-                    <div>
-                      <dt>Array Isc</dt>
-                      <dd>{formatAmps(arrayConfig.arrayIsc)}</dd>
-                    </div>
-                    <div>
-                      <dt>Array power</dt>
-                      <dd>{formatWp(arrayConfig.arrayPower)}</dd>
-                    </div>
-                  </dl>
-                  {arrayConfig.configuredPanelCount === 0 ? (
-                    <p className="fit-note">
-                      This face is currently discounted. No panels are assigned in the local scenario.
-                    </p>
-                  ) : !arrayConfig.usesConfiguredPanelsExactly ? (
-                    <p className="fit-note">
-                      Panels per string × parallel strings = {arrayConfig.configuredPanelCount}, but {configuredPanelCount} are assigned. Adjust to match exactly.
-                    </p>
-                  ) : null}
-                </>
-              ) : null}
-            </div>
+                  <div>
+                    <dt>Array voltage</dt>
+                    <dd>{formatVolts(arrayConfig.stringVmp)}</dd>
+                  </div>
+                  <div>
+                    <dt>Array Isc</dt>
+                    <dd>{formatAmps(arrayConfig.arrayIsc)}</dd>
+                  </div>
+                  <div>
+                    <dt>Array power</dt>
+                    <dd>{formatWp(arrayConfig.arrayPower)}</dd>
+                  </div>
+                </dl>
+              </div>
+              <div className="button-row button-row-end">
+                <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveFaceDesign()} disabled={isSavingFaceDesign}>
+                  {isSavingFaceDesign ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </>
           ) : (
-            <p>No panel type is available yet for this roof face.</p>
+            <p className="fit-note">
+              Configure and save at least one panel before configuring string layout.
+            </p>
           )}
         </section>
 
-        {arrayConfig?.configuredPanelCount ? (
-          <section className="panel">
-            <div className="section-head">
-            <h2>MPPT configuration and fit</h2>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-              <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.86rem' }}>
-                String layout and selected MPPT now save to SQLite and feed the server-backed face evaluation.
-              </p>
-              <button type="button" className="cta-button" onClick={() => void handleSaveFaceDesign()} disabled={isSavingFaceDesign}>
-                {isSavingFaceDesign ? 'Saving...' : 'Save face configuration'}
-              </button>
-            </div>
-            {faceDesignSaveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{faceDesignSaveError}</p> : null}
-            {faceDesignSaveMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{faceDesignSaveMessage}</p> : null}
-            <label className="config-field">
-              <span>Configured MPPT</span>
-              <select
-                value={selectedMpptTypeId}
-                onChange={(event) => setSelectedMpptTypeId(event.target.value)}
-              >
-                {data.entities.mppt_types.map((option) => (
-                  <option key={option.mppt_type_id} value={option.mppt_type_id}>
-                    {option.model}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {selectedMpptType ? (
-              <dl className="detail-stats mppt-limits">
-                <div>
-                  <dt>Max Voc</dt>
-                  <dd>{formatVolts(selectedMpptType.max_voc)}</dd>
+        <section className="panel panel-with-actions">
+          <div className="section-head">
+            <h2>MPPT</h2>
+            <p>Choose the MPPT.</p>
+          </div>
+          {arrayConfig?.configuredPanelCount ? (
+            <>
+              <div className="fit-card">
+                <div className="config-grid config-control-row mppt-config-row">
+                  <label className="config-field config-field-span-2">
+                    <span>Selected MPPT</span>
+                    <select
+                      value={selectedMpptTypeId}
+                      onChange={(event) => setSelectedMpptTypeId(event.target.value)}
+                    >
+                      {data.entities.mppt_types.map((option) => (
+                        <option key={option.mppt_type_id} value={option.mppt_type_id}>
+                          {option.model}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
-                <div>
-                  <dt>Trackers</dt>
-                  <dd>{selectedMpptType.tracker_count}</dd>
-                </div>
-                <div>
-                  <dt>PV power / tracker</dt>
-                  <dd>{formatWp(selectedMpptType.max_pv_power / Math.max(selectedMpptType.tracker_count, 1))}</dd>
-                </div>
-                <div>
-                  <dt>Max PV power</dt>
-                  <dd>{formatWp(selectedMpptType.max_pv_power)}</dd>
-                </div>
-                <div>
-                  <dt>PV input current / tracker</dt>
-                  <dd>{selectedMpptType.max_pv_input_current_a != null ? formatAmps(selectedMpptType.max_pv_input_current_a) : 'n/a'}</dd>
-                </div>
-                <div>
-                  <dt>PV short-circuit current / tracker</dt>
-                  <dd>{selectedMpptType.max_pv_short_circuit_current_a != null ? formatAmps(selectedMpptType.max_pv_short_circuit_current_a) : 'n/a'}</dd>
-                </div>
-                <div>
-                  <dt>Max charge current</dt>
-                  <dd>{formatAmps(selectedMpptType.max_charge_current)}</dd>
-                </div>
-              </dl>
-            ) : null}
-            {selectedMpptTypeId !== (projectMppt?.mppt_type_id ?? '') ? (
-              <p className="fit-note">Local comparison — export keeps the original provisional MPPT configuration until persisted.</p>
-            ) : null}
-            <div className="mppt-panel-right">
-              <div className="mppt-result-head">
-                <div>
-                  <strong>{selectedMpptType?.model ?? 'No MPPT selected'}</strong>
-                  <p className="mppt-result-sub">{projectMppt?.name ?? 'Provisional'}</p>
-                </div>
-                <StatusBadge status={mpptCompatibility?.status ?? 'outside_limits'} fit={mpptCompatibility?.fit} />
+                {selectedMpptType ? (
+                  <dl className="detail-stats mppt-limits">
+                    <div>
+                      <dt>Max Voc</dt>
+                      <dd>{formatVolts(selectedMpptType.max_voc)}</dd>
+                    </div>
+                    <div>
+                      <dt>Trackers</dt>
+                      <dd>{selectedMpptType.tracker_count}</dd>
+                    </div>
+                    <div>
+                      <dt>PV power / tracker</dt>
+                      <dd>{formatWp(selectedMpptType.max_pv_power / Math.max(selectedMpptType.tracker_count, 1))}</dd>
+                    </div>
+                    <div>
+                      <dt>Max PV power</dt>
+                      <dd>{formatWp(selectedMpptType.max_pv_power)}</dd>
+                    </div>
+                    <div>
+                      <dt>Max charge current</dt>
+                      <dd>{formatAmps(selectedMpptType.max_charge_current)}</dd>
+                    </div>
+                  </dl>
+                ) : (
+                  <p className="fit-note">Choose an MPPT to see its MPPT attributes.</p>
+                )}
               </div>
-              {mpptCompatibility && selectedMpptType ? (
-                <dl className="detail-stats mppt-checks">
-                  <div className={arrayConfig.stringVoc > selectedMpptType.max_voc ? 'check-fail' : 'check-pass'}>
-                    <dt>Voltage check</dt>
-                    <dd>{formatVolts(arrayConfig.stringVoc)} / {formatVolts(selectedMpptType.max_voc)}</dd>
-                  </div>
-                  <div className={selectedMpptType.max_pv_input_current_a != null && arrayConfig.arrayCurrent > selectedMpptType.max_pv_input_current_a ? 'check-fail' : 'check-pass'}>
-                    <dt>PV input current / tracker</dt>
-                    <dd>{formatAmps(arrayConfig.arrayCurrent)} / {selectedMpptType.max_pv_input_current_a != null ? formatAmps(selectedMpptType.max_pv_input_current_a) : 'n/a'}</dd>
-                  </div>
-                  <div className={selectedMpptType.max_pv_short_circuit_current_a != null && arrayConfig.arrayIsc > selectedMpptType.max_pv_short_circuit_current_a ? 'check-fail' : 'check-pass'}>
-                    <dt>PV short-circuit current / tracker</dt>
-                    <dd>{formatAmps(arrayConfig.arrayIsc)} / {selectedMpptType.max_pv_short_circuit_current_a != null ? formatAmps(selectedMpptType.max_pv_short_circuit_current_a) : 'n/a'}</dd>
-                  </div>
-                  <div className={arrayConfig.arrayPower > selectedMpptType.max_pv_power / Math.max(selectedMpptType.tracker_count, 1) * 1.1 ? 'check-fail' : 'check-pass'}>
-                    <dt>Power check / tracker</dt>
-                    <dd>{formatWp(arrayConfig.arrayPower)} / {formatWp(selectedMpptType.max_pv_power / Math.max(selectedMpptType.tracker_count, 1))}</dd>
-                  </div>
-                  <div>
-                    <dt>Battery charge current</dt>
-                    <dd>{formatAmps(mpptCompatibility.chargeCurrent)}</dd>
-                  </div>
-                </dl>
-              ) : null}
-              <ul className="reason-list">
-                {mpptCompatibility?.reasons.map((reason) => (
-                  <li key={reason}>{reason.replaceAll('_', ' ')}</li>
-                )) ?? null}
-              </ul>
-            </div>
-          </section>
-        ) : (
-          <section className="panel">
-            <div className="section-head">
-            <h2>MPPT configuration and fit</h2>
-            </div>
+              <div className="button-row button-row-end">
+                <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveFaceDesign()} disabled={isSavingFaceDesign}>
+                  {isSavingFaceDesign ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </>
+          ) : (
             <p className="fit-note">
-              No MPPT judgment for this face right now because the local panel count is `0`.
+              Configure and save at least one panel before selecting an MPPT.
             </p>
-          </section>
-        )}
+          )}
+        </section>
+
+        <section className="panel panel-span-2 balanced-row-panel summary-panel">
+          <div className="section-head">
+            <h2>Outcome</h2>
+            <p>Read-only fit checks.</p>
+          </div>
+          {panelType ? (
+            <div className="fit-card">
+              {arrayConfig ? (
+                <div className="evaluation-section">
+                  <div className="outcome-panel">
+                    <div className="outcome-summary">
+                      <div className="outcome-status-line">
+                        <p className="result-label">Outcome</p>
+                        <StatusBadge status={mpptCompatibility?.status ?? 'outside_limits'} fit={mpptCompatibility?.fit} />
+                      </div>
+                      <ul className="reason-list">
+                        {mpptCompatibility?.reasons.map((reason) => (
+                          <li key={reason}>{reason.replaceAll('_', ' ')}</li>
+                        )) ?? null}
+                      </ul>
+                    </div>
+                    {mpptCompatibility && selectedMpptType ? (
+                      <dl className="detail-stats outcome-checks">
+                        <div className={arrayConfig.stringVoc > selectedMpptType.max_voc ? 'check-fail' : 'check-pass'}>
+                          <dt>Voltage check</dt>
+                          <dd>{formatVolts(arrayConfig.stringVoc)} / {formatVolts(selectedMpptType.max_voc)}</dd>
+                        </div>
+                        <div className={arrayConfig.arrayPower > selectedMpptType.max_pv_power / Math.max(selectedMpptType.tracker_count, 1) * 1.1 ? 'check-fail' : 'check-pass'}>
+                          <dt>Power check / tracker</dt>
+                          <dd>{formatWp(arrayConfig.arrayPower)} / {formatWp(selectedMpptType.max_pv_power / Math.max(selectedMpptType.tracker_count, 1))}</dd>
+                        </div>
+                        <div className={selectedMpptType.max_pv_input_current_a != null && arrayConfig.arrayCurrent > selectedMpptType.max_pv_input_current_a ? 'check-fail' : 'check-pass'}>
+                          <dt>PV input current / tracker</dt>
+                          <dd>{formatAmps(arrayConfig.arrayCurrent)} / {selectedMpptType.max_pv_input_current_a != null ? formatAmps(selectedMpptType.max_pv_input_current_a) : 'n/a'}</dd>
+                        </div>
+                        <div className={selectedMpptType.max_pv_short_circuit_current_a != null && arrayConfig.arrayIsc > selectedMpptType.max_pv_short_circuit_current_a ? 'check-fail' : 'check-pass'}>
+                          <dt>PV short-circuit current / tracker</dt>
+                          <dd>{formatAmps(arrayConfig.arrayIsc)} / {selectedMpptType.max_pv_short_circuit_current_a != null ? formatAmps(selectedMpptType.max_pv_short_circuit_current_a) : 'n/a'}</dd>
+                        </div>
+                        <div>
+                          <dt>Battery charge current</dt>
+                          <dd>{formatAmps(mpptCompatibility.chargeCurrent)}</dd>
+                        </div>
+                      </dl>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <p className="fit-note">Choose a panel type before the technical summary can be calculated.</p>
+          )}
+        </section>
+        <section className="panel balanced-row-panel notes-panel">
+          <div className="section-head">
+            <h2>Notes</h2>
+            <p>Local notes for this surface.</p>
+          </div>
+          <label className="field">
+            <span>Notes</span>
+            <textarea
+              value={surfaceNotes}
+              onChange={(event) => setSurfaceNotes(event.target.value)}
+              rows={8}
+              placeholder="Add installation notes, shading observations, access constraints, or design intent here."
+            />
+          </label>
+        </section>
       </section>
 
       <section className="panel">
@@ -2141,7 +2177,7 @@ function OverviewPage({
       <header className="hero panel">
         <div className="hero-strip">
           <SummaryCard label="Installed PV" value={formatWp(localTotalInstalledWp)} />
-          <SummaryCard label="Faces" value={String(localFaceSummaries.length)} />
+      <SummaryCard label="Surfaces" value={String(localFaceSummaries.length)} />
           <SummaryCard label="Arrays" value={String(localFaceSummaries.length)} />
           <SummaryCard label="MPPTs" value={String(localFaceSummaries.length)} />
           <SummaryCard
@@ -2161,7 +2197,7 @@ function OverviewPage({
         </div>
         <div className="chain-row">
           <div className="chain-node">
-            <div className="chain-node-label">Faces</div>
+            <div className="chain-node-label">Surfaces</div>
             <div className="chain-node-metric">{localFaceSummaries.length}</div>
           </div>
           <div className="chain-arrow">→</div>
@@ -2213,23 +2249,22 @@ function OverviewPage({
       </section>
 
       <section className="overview-grid">
-        <section className="panel">
+        <section className="panel panel-with-actions">
           <div className="section-head">
-          <h2>Faces</h2>
+          <h2>Surfaces</h2>
+          <p>Surface summary, array setup, and MPPT judgment together on one page.</p>
           </div>
-          <div className="roof-grid">
+          <div className="surface-grid">
             {localFaceSummaries.map((face) => {
               return (
-                <button
+                <div
                   key={face.roof_face_id}
-                  type="button"
-                  className="roof-card roof-card-button"
-                  onClick={() => navigateTo({ kind: 'face', roofFaceId: face.roof_face_id })}
+                  className="surface-card"
                 >
-                  <div className="roof-card-top">
+                  <div className="surface-card-top">
                     <div>
                       <h3>{face.name}</h3>
-                      <p>{face.orientation_deg}° · {face.tilt_deg}° tilt</p>
+                      <p className="surface-card-meta">{face.orientation_deg}° · {face.tilt_deg}° tilt</p>
                     </div>
                     <StatusBadge status={face.status} fit={face.fit} />
                   </div>
@@ -2251,7 +2286,16 @@ function OverviewPage({
                       <dd>{face.mppt_name}</dd>
                     </div>
                   </dl>
-                </button>
+                  <div className="button-row">
+                    <button
+                      type="button"
+                      className="button button-secondary button-sm"
+                      onClick={() => navigateTo({ kind: 'face', roofFaceId: face.roof_face_id })}
+                    >
+                      Detail
+                    </button>
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -2324,7 +2368,7 @@ function OverviewPage({
         </div>
         <div className="section-head">
           <h3>Project solar output</h3>
-          <p>Summed average daily and monthly solar output across all roof-face configurations.</p>
+          <p>Summed average daily and monthly solar output across all surface configurations.</p>
         </div>
         <div className="yield-table-wrap">
           <table className="yield-table">
@@ -2377,15 +2421,6 @@ function OverviewPage({
   );
 }
 
-const OBJECT_TYPES = [
-  'Residential',
-  'Commercial',
-  'Industrial',
-  'Agricultural',
-  'Public / Municipal',
-  'Other',
-];
-
 function LocationPage({ data, localFaceSummaries, refreshProjectData }: PageContext) {
   const storagePrefix = `${data.project.project_id}:location`;
   const [address, setAddress] = usePersistentState(`${storagePrefix}:address`, data.project.location?.place_name ?? '');
@@ -2398,20 +2433,14 @@ function LocationPage({ data, localFaceSummaries, refreshProjectData }: PageCont
     `${storagePrefix}:longitude`,
     data.project.location?.longitude != null ? String(data.project.location.longitude) : '',
   );
-  const [northing, setNorthing] = usePersistentState(
-    `${storagePrefix}:northing`,
-    data.project.location?.northing != null ? String(data.project.location.northing) : '',
-  );
-  const [easting, setEasting] = usePersistentState(
-    `${storagePrefix}:easting`,
-    data.project.location?.easting != null ? String(data.project.location.easting) : '',
-  );
-  const [objectType, setObjectType] = usePersistentState(`${storagePrefix}:object-type`, 'Residential');
-  const [sunshineHours, setSunshineHours] = usePersistentState(`${storagePrefix}:sunshine-hours`, '');
   const [photo, setPhoto] = usePersistentState<string | null>(`${storagePrefix}:photo`, null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isCreatingSurface, setIsCreatingSurface] = useState(false);
+  const [focusedSurfaceId, setFocusedSurfaceId] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [surfaceMessage, setSurfaceMessage] = useState<string | null>(null);
+  const [surfaceError, setSurfaceError] = useState<string | null>(null);
 
   async function handleSaveLocation() {
     const numericLatitude = Number(latitude);
@@ -2435,20 +2464,6 @@ function LocationPage({ data, localFaceSummaries, refreshProjectData }: PageCont
       return;
     }
 
-    const numericNorthing = northing.trim() === '' ? null : Number(northing);
-    const numericEasting = easting.trim() === '' ? null : Number(easting);
-    if (northing.trim() !== '' && !Number.isFinite(numericNorthing)) {
-      setSaveError('Northing must be a valid number or blank.');
-      setSaveMessage(null);
-      return;
-    }
-
-    if (easting.trim() !== '' && !Number.isFinite(numericEasting)) {
-      setSaveError('Easting must be a valid number or blank.');
-      setSaveMessage(null);
-      return;
-    }
-
     setIsSaving(true);
     setSaveError(null);
     setSaveMessage(null);
@@ -2464,8 +2479,6 @@ function LocationPage({ data, localFaceSummaries, refreshProjectData }: PageCont
             country: country.trim(),
             latitude: numericLatitude,
             longitude: numericLongitude,
-            northing: numericNorthing,
-            easting: numericEasting,
           }),
         });
 
@@ -2486,6 +2499,76 @@ function LocationPage({ data, localFaceSummaries, refreshProjectData }: PageCont
     }
   }
 
+  function buildSurfaceId(): string {
+    return `surface-${Date.now()}`;
+  }
+
+  async function handleCreateSurface() {
+    setIsCreatingSurface(true);
+    setSurfaceError(null);
+    setSurfaceMessage(null);
+
+    const roofFaceId = buildSurfaceId();
+
+    try {
+      const response = await fetch('/api/roof-faces', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          roof_face_id: roofFaceId,
+          name: 'Unnamed surface',
+          orientation_deg: 0,
+          tilt_deg: 30,
+        }),
+      });
+
+      const payload = await response.json() as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? `Failed to create surface (${response.status})`);
+      }
+
+      setSurfaceMessage('Surface created in the project database.');
+      setSurfaceError(null);
+      setFocusedSurfaceId(roofFaceId);
+      await refreshProjectData();
+    } catch (error) {
+      setSurfaceError(error instanceof Error ? error.message : 'Failed to create surface.');
+      setSurfaceMessage(null);
+    } finally {
+      setIsCreatingSurface(false);
+    }
+  }
+
+  async function handleDeleteSurface(roofFaceId: string, surfaceLabel: string) {
+    const confirmed = window.confirm(`Delete surface "${surfaceLabel}"? This will remove its panels, topology, and configuration.`);
+    if (!confirmed) {
+      return;
+    }
+
+    setSurfaceError(null);
+    setSurfaceMessage(null);
+
+    try {
+      const response = await fetch(`/api/roof-faces/${encodeURIComponent(roofFaceId)}`, {
+        method: 'DELETE',
+      });
+
+      const payload = await response.json() as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? `Failed to delete surface (${response.status})`);
+      }
+
+      setSurfaceMessage('Surface deleted from the project database.');
+      await refreshProjectData();
+    } catch (error) {
+      setSurfaceError(error instanceof Error ? error.message : 'Failed to delete surface.');
+    }
+  }
+
   function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -2493,6 +2576,21 @@ function LocationPage({ data, localFaceSummaries, refreshProjectData }: PageCont
     reader.onload = (e) => setPhoto(e.target?.result as string);
     reader.readAsDataURL(file);
   }
+
+  useEffect(() => {
+    if (!focusedSurfaceId) return;
+
+    const element = document.getElementById(`surface-card-${focusedSurfaceId}`);
+    element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    const clearTimer = window.setTimeout(() => {
+      setFocusedSurfaceId(null);
+    }, 2200);
+
+    return () => {
+      window.clearTimeout(clearTimer);
+    };
+  }, [focusedSurfaceId, localFaceSummaries.length]);
 
   return (
     <>
@@ -2505,16 +2603,11 @@ function LocationPage({ data, localFaceSummaries, refreshProjectData }: PageCont
         <section className="panel" style={{ gridColumn: 'span 2' }}>
           <div className="section-head">
             <h2>Start information</h2>
-            <p>Shared location inputs for the whole site and all configured faces.</p>
+            <p>Shared location inputs for the whole site and all configured surfaces.</p>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-            <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.86rem' }}>
-              Location, country, latitude, longitude, northing, and easting save to SQLite. Site type, sunshine hours, and photo still stay local for now.
-            </p>
-            <button type="button" className="cta-button" onClick={() => void handleSaveLocation()} disabled={isSaving}>
-              {isSaving ? 'Saving...' : 'Save shared location'}
-            </button>
-          </div>
+          <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--muted)', fontSize: '0.86rem' }}>
+            Location, country, latitude, and longitude save to SQLite. The photo stays local too.
+          </p>
           {saveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{saveError}</p> : null}
           {saveMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{saveMessage}</p> : null}
           <div className="roof-config-inline">
@@ -2546,66 +2639,33 @@ function LocationPage({ data, localFaceSummaries, refreshProjectData }: PageCont
                 placeholder="e.g. 4.8952"
               />
             </label>
-            <label className="config-field">
-              <span>Northing</span>
-              <input
-                type="number"
-                step="0.01"
-                value={northing}
-                onChange={(e) => setNorthing(e.target.value)}
-                placeholder="Optional shared northing"
-              />
-            </label>
-            <label className="config-field">
-              <span>Easting</span>
-              <input
-                type="number"
-                step="0.01"
-                value={easting}
-                onChange={(e) => setEasting(e.target.value)}
-                placeholder="Optional shared easting"
-              />
-            </label>
-            <label className="config-field">
-              <span>Site type</span>
-              <select value={objectType} onChange={(e) => setObjectType(e.target.value)}>
-                {OBJECT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </label>
-            <label className="config-field">
-              <span>Sunshine hours / year</span>
-              <input
-                type="number"
-                min={0}
-                max={5000}
-                step={10}
-                value={sunshineHours}
-                onChange={(e) => setSunshineHours(e.target.value)}
-                placeholder="e.g. 1750"
-              />
-            </label>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+            <button type="button" className="button button-primary" onClick={() => void handleSaveLocation()} disabled={isSaving}>
+              {isSaving ? 'Saving...' : 'Save'}
+            </button>
           </div>
         </section>
 
         <section className="panel">
           <div className="section-head">
             <h2>Site photo</h2>
-            <p>Optional visual reference for the location and configured faces.</p>
+            <p>Optional visual reference for the location and configured surfaces.</p>
           </div>
           {photo ? (
-            <div style={{ position: 'relative' }}>
-              <img src={photo} alt="Location" style={{ width: '100%', display: 'block', maxHeight: 260, objectFit: 'cover' }} />
+            <div className="photo-frame">
+              <img src={photo} alt="Location" className="photo-image" />
               <button
                 type="button"
+                className="button button-secondary button-sm photo-remove"
                 onClick={() => setPhoto(null)}
-                style={{ position: 'absolute', top: 8, right: 8, background: 'var(--surface)', border: '1px solid var(--border)', padding: '4px 10px', cursor: 'pointer', fontSize: '0.8rem' }}
               >
                 Remove
               </button>
             </div>
           ) : (
-            <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, minHeight: 180, background: 'var(--surface-low)', cursor: 'pointer', border: '2px dashed var(--border)' }}>
-              <span style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>Click to upload a photo</span>
+            <label className="upload-dropzone">
+              <span>Click to upload a photo</span>
               <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoChange} />
             </label>
           )}
@@ -2614,45 +2674,86 @@ function LocationPage({ data, localFaceSummaries, refreshProjectData }: PageCont
 
       <section className="panel">
         <div className="section-head">
-          <h2>Result</h2>
-          <p>{localFaceSummaries.length} configured faces</p>
+          <h2>Surfaces</h2>
+          <p>{localFaceSummaries.length} configured surfaces</p>
         </div>
-        <div className="roof-grid">
+        {surfaceError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{surfaceError}</p> : null}
+        {surfaceMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{surfaceMessage}</p> : null}
+        <div className="surface-grid">
+          {localFaceSummaries.length === 0 ? (
+            <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
+              <p style={{ marginTop: 0, marginBottom: 0 }}>No surfaces yet. Add the first one below.</p>
+            </div>
+          ) : null}
           {localFaceSummaries.map((face) => {
             return (
-              <button
+              <div
                 key={face.roof_face_id}
-                type="button"
-                className="roof-card roof-card-button"
-                onClick={() => navigateTo({ kind: 'face', roofFaceId: face.roof_face_id })}
+                id={`surface-card-${face.roof_face_id}`}
+                className={`surface-card-stack ${focusedSurfaceId === face.roof_face_id ? 'surface-card-highlight' : ''}`}
               >
-                <div className="roof-card-top">
-                  <div>
-                    <h3>{face.name}</h3>
-                    <p>{face.orientation_deg}° · {face.tilt_deg}° tilt</p>
+                <div className="surface-card">
+                  <div className="surface-card-top">
+                    <div>
+                      <h3>{face.name}</h3>
+                      <p className="surface-card-meta">{face.orientation_deg}° · {face.tilt_deg}° tilt</p>
+                    </div>
+                    <StatusBadge status={face.status} fit={face.fit} />
                   </div>
-                  <StatusBadge status={face.status} fit={face.fit} />
+                  <dl className="mini-stats">
+                    <div><dt>Panels</dt><dd>{face.panel_count}</dd></div>
+                    <div><dt>Installed</dt><dd>{formatWp(face.installed_wp)}</dd></div>
+                    <div><dt>MPPT</dt><dd>{face.mppt_name}</dd></div>
+                  </dl>
+                  <div className="button-row">
+                    <button
+                      type="button"
+                      className="button button-secondary button-sm"
+                      onClick={() => {
+                        navigateTo({ kind: 'face', roofFaceId: face.roof_face_id });
+                      }}
+                    >
+                      Detail
+                    </button>
+                    <button
+                      type="button"
+                      className="button button-danger button-sm"
+                      onClick={() => {
+                        void handleDeleteSurface(face.roof_face_id, face.name);
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
-                <dl className="mini-stats">
-                  <div><dt>Array</dt><dd>{face.array_name}</dd></div>
-                  <div><dt>Panels</dt><dd>{face.panel_count}</dd></div>
-                  <div><dt>Installed</dt><dd>{formatWp(face.installed_wp)}</dd></div>
-                  <div><dt>MPPT</dt><dd>{face.mppt_name}</dd></div>
-                </dl>
-              </button>
+              </div>
             );
           })}
         </div>
+        <div className="roof-config-inline" style={{ marginTop: 16 }}>
+          <div className="config-field" style={{ alignSelf: 'end' }}>
+            <span>&nbsp;</span>
+            <button type="button" className="button button-primary" onClick={() => void handleCreateSurface()} disabled={isCreatingSurface}>
+              {isCreatingSurface ? 'Creating...' : 'Add surface'}
+            </button>
+          </div>
+        </div>
       </section>
+
+      <YieldSection
+        data={data}
+        localFaceSummaries={localFaceSummaries}
+        localTotalInstalledWp={localFaceSummaries.reduce((sum, face) => sum + face.installed_wp, 0)}
+      />
     </>
   );
 }
 
-function FacesPage({
+function YieldSection({
   data,
   localFaceSummaries,
   localTotalInstalledWp,
-}: PageContext) {
+}: Pick<PageContext, 'data' | 'localFaceSummaries' | 'localTotalInstalledWp'>) {
   const projectStorageKey = getProjectStorageKey(data);
   const storedLatitude = readPersistentState<string>(
     `${projectStorageKey}:location:latitude`,
@@ -2673,113 +2774,52 @@ function FacesPage({
   }));
   const monthlyTotals = data.derived.project_monthly_solar_output;
   return (
-    <>
-      <div className="topbar">
-        <h1 className="topbar-title">{data.project.name}</h1>
-        <span className="topbar-meta">
-          {data.project.location
-            ? `${data.project.location.place_name}, ${data.project.location.country}`
-            : 'Location not set'}
-        </span>
+    <section className="panel" id="yield">
+      <div className="section-head">
+        <h2>Yield</h2>
+        <p>Computed output after location, surface geometry, panel configuration, and MPPT choices are in place.</p>
       </div>
-
-      <header className="hero panel">
-        <div className="hero-strip">
-          <SummaryCard label="Installed PV" value={formatWp(localTotalInstalledWp)} />
-          <SummaryCard label="Faces" value={String(localFaceSummaries.length)} />
-          <SummaryCard label="Arrays" value={String(localFaceSummaries.length)} />
-          <SummaryCard label="MPPTs" value={String(localFaceSummaries.length)} />
-        </div>
-      </header>
-
-      <section className="overview-grid">
-        <section className="panel">
-          <div className="section-head">
-            <h2>Faces</h2>
-            <p>Face summary, array setup, and MPPT judgment together on one page.</p>
-          </div>
-          <div className="roof-grid">
-            {localFaceSummaries.map((face) => {
+      <div className="hero-strip" style={{ marginBottom: 16 }}>
+        <SummaryCard label="Installed PV" value={formatWp(localTotalInstalledWp)} />
+        <SummaryCard label="Surfaces" value={String(localFaceSummaries.length)} />
+        <SummaryCard label="Arrays" value={String(localFaceSummaries.length)} />
+        <SummaryCard label="MPPTs" value={String(localFaceSummaries.length)} />
+      </div>
+      <div className="yield-table-wrap">
+        <table className="yield-table">
+          <thead>
+            <tr>
+              <th>Surface</th>
+              {MONTH_KEYS.map((month) => (
+                <th key={month}>{MONTH_LABELS[month]}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {faceYieldRows.map(({ face, yieldRows }) => {
               return (
-                <button
-                  key={face.roof_face_id}
-                  type="button"
-                  className="roof-card roof-card-button"
-                  onClick={() => navigateTo({ kind: 'face', roofFaceId: face.roof_face_id })}
-                >
-                  <div className="roof-card-top">
-                    <div>
-                      <h3>{face.name}</h3>
-                      <p>{face.orientation_deg}° · {face.tilt_deg}° tilt</p>
-                    </div>
-                    <StatusBadge status={face.status} fit={face.fit} />
-                  </div>
-                  <dl className="mini-stats">
-                    <div>
-                      <dt>Array</dt>
-                      <dd>{face.array_name}</dd>
-                    </div>
-                    <div>
-                      <dt>Panels</dt>
-                      <dd>{face.panel_count}</dd>
-                    </div>
-                    <div>
-                      <dt>Installed</dt>
-                      <dd>{formatWp(face.installed_wp)}</dd>
-                    </div>
-                    <div>
-                      <dt>MPPT</dt>
-                      <dd>{face.mppt_name}</dd>
-                    </div>
-                  </dl>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="section-head">
-            <h2>Expected yield by face</h2>
-            <p>Estimated `kWh/day` and `kWh/month` for each face based on installed PV, azimuth, tilt, and location latitude.</p>
-          </div>
-          <div className="yield-table-wrap">
-            <table className="yield-table">
-              <thead>
-                <tr>
-                  <th>Face</th>
-                  {MONTH_KEYS.map((month) => (
-                    <th key={month}>{MONTH_LABELS[month]}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {faceYieldRows.map(({ face, yieldRows }) => {
-                  return (
-                    <tr key={face.roof_face_id}>
-                      <th>{face.name}</th>
-                      {yieldRows.map((row) => (
-                        <td key={`${face.roof_face_id}-${row.month}`}>
-                          {formatDailyYield(row.averageDailyKwh)} / {row.monthlyKwh.toLocaleString('en-US', { maximumFractionDigits: 0 })}
-                        </td>
-                      ))}
-                    </tr>
-                  );
-                })}
-                <tr>
-                  <th>Total</th>
-                  {monthlyTotals.map((row) => (
-                    <td key={`total-${row.month}`}>
-                      {formatDailyYield(row.averageDailyKwh)} / {row.monthlyKwh.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                <tr key={face.roof_face_id}>
+                  <th>{face.name}</th>
+                  {yieldRows.map((row) => (
+                    <td key={`${face.roof_face_id}-${row.month}`}>
+                      {formatDailyYield(row.averageDailyKwh)} / {formatWholeKwh(row.monthlyKwh)}
                     </td>
                   ))}
                 </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </section>
-    </>
+              );
+            })}
+            <tr>
+              <th>Total</th>
+              {monthlyTotals.map((row) => (
+                <td key={`total-${row.month}`}>
+                  {formatDailyYield(row.average_daily_kwh)} / {formatWholeKwh(row.monthly_kwh)}
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
@@ -3020,7 +3060,7 @@ function BatteryArrayPage({
       <section className="panel">
         <div className="section-head">
           <h2>Solar available</h2>
-          <p>Monthly total solar available for charging across all configured faces.</p>
+          <p>Monthly total solar available for charging across all configured surfaces.</p>
         </div>
         <div className="yield-table-wrap">
           <table className="yield-table">
@@ -3053,7 +3093,7 @@ function BatteryArrayPage({
       <section className="panel storage-panel">
         <details className="disclosure" open={false}>
           <summary className="disclosure-summary">Upstream MPPT inputs</summary>
-          <p className="disclosure-copy">Read-only MPPT inputs from all faces, shown at the current target battery voltage.</p>
+          <p className="disclosure-copy">Read-only MPPT inputs from all surfaces, shown at the current target battery voltage.</p>
           <div className="status-list">
             {data.relationships.array_to_mppt.map((relation) => {
               const array = data.entities.arrays.find((item) => item.array_id === relation.from_array_id);
@@ -3134,7 +3174,7 @@ function BatteryArrayPage({
             </dl>
           ) : null}
           <div style={{ marginTop: 16 }}>
-            <button type="button" onClick={() => void handleSaveBatteryDesign()} disabled={isSavingBatteryDesign}>
+            <button type="button" className="button button-primary" onClick={() => void handleSaveBatteryDesign()} disabled={isSavingBatteryDesign}>
               {isSavingBatteryDesign ? 'Saving…' : 'Save battery configuration'}
             </button>
             {batteryDesignSaveError ? <p className="save-error">{batteryDesignSaveError}</p> : null}
@@ -3577,6 +3617,7 @@ function InverterArrayPage({
           <div style={{ marginTop: 16 }}>
             <button
               type="button"
+              className="button button-primary"
               onClick={() => void handleSaveInverterDesign()}
               disabled={isSavingInverterDesign || data.entities.inverter_types.length === 0}
             >
@@ -3808,23 +3849,30 @@ function BatteryCatalogPage({
             <p>Select a battery type to edit, or create a new catalog entry.</p>
           </div>
           <div className="stack" style={{ gap: 8 }}>
-            <button type="button" onClick={startAddNew}>Add battery type</button>
+            <button type="button" className="button button-secondary" onClick={startAddNew}>Add battery type</button>
             <div className="catalog-list">
               {data.entities.battery_types.map((battery) => (
-                <button
+                <div
                   key={battery.battery_type_id}
-                  type="button"
                   className={`catalog-card ${selectedBatteryTypeId === battery.battery_type_id ? 'active' : ''}`}
-                  onClick={() => {
-                    setSelectedBatteryTypeId(battery.battery_type_id);
-                    setSaveError(null);
-                    setSaveMessage(null);
-                  }}
                 >
                   <strong>{battery.model}</strong>
                   <span>{battery.battery_type_id}</span>
                   <span>{battery.capacity_kwh} kWh · {battery.nominal_voltage} V · {battery.cooling}</span>
-                </button>
+                  <div className="button-row button-row-start">
+                    <button
+                      type="button"
+                      className="button button-secondary button-sm"
+                      onClick={() => {
+                        setSelectedBatteryTypeId(battery.battery_type_id);
+                        setSaveError(null);
+                        setSaveMessage(null);
+                      }}
+                    >
+                      Edit
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
@@ -3954,11 +4002,11 @@ function BatteryCatalogPage({
               />
             </label>
             <div className="stack" style={{ gap: 8 }}>
-              <button type="button" onClick={() => void handleSave()} disabled={isSaving || !draft.battery_type_id.trim()}>
+              <button type="button" className="button button-primary" onClick={() => void handleSave()} disabled={isSaving || !draft.battery_type_id.trim()}>
                 {isSaving ? 'Saving…' : selectedBattery ? 'Save battery type' : 'Create battery type'}
               </button>
               {selectedBattery ? (
-                <button type="button" className="secondary" onClick={() => void handleDelete()} disabled={isSaving}>
+                <button type="button" className="button button-danger" onClick={() => void handleDelete()} disabled={isSaving}>
                   Delete battery type
                 </button>
               ) : null}
@@ -4020,7 +4068,7 @@ function CatalogsPage() {
               <p>Open the CRUD screen for {catalog.label.toLowerCase()}.</p>
             </div>
             <div className="stack" style={{ gap: 12 }}>
-              <button type="button" onClick={() => navigateTo({ kind: 'catalog', catalog: catalog.catalog })}>
+              <button type="button" className="button button-secondary" onClick={() => navigateTo({ kind: 'catalog', catalog: catalog.catalog })}>
                 Open {catalog.label}
               </button>
             </div>
@@ -4167,7 +4215,7 @@ function PanelCatalogPage({
           <p className="eyebrow">Configuration data</p>
           <h1>Panel types</h1>
           <p className="hero-copy">
-            Edit the reusable panel catalog used by the roof-face configuration and export flow.
+            Edit the reusable panel catalog used by the surface configuration and export flow.
           </p>
         </div>
       </section>
@@ -4179,23 +4227,30 @@ function PanelCatalogPage({
             <p>Select a panel type to edit, or create a new catalog entry.</p>
           </div>
           <div className="stack" style={{ gap: 8 }}>
-            <button type="button" onClick={startAddNew}>Add panel type</button>
+            <button type="button" className="button button-secondary" onClick={startAddNew}>Add panel type</button>
             <div className="catalog-list">
               {data.entities.panel_types.map((panel) => (
-                <button
+                <div
                   key={panel.panel_type_id}
-                  type="button"
                   className={`catalog-card ${selectedPanelTypeId === panel.panel_type_id ? 'active' : ''}`}
-                  onClick={() => {
-                    setSelectedPanelTypeId(panel.panel_type_id);
-                    setSaveError(null);
-                    setSaveMessage(null);
-                  }}
                 >
                   <strong>{panel.model}</strong>
                   <span>{panel.panel_type_id}</span>
                   <span>{panel.wp} Wp · {panel.voc} V</span>
-                </button>
+                  <div className="button-row button-row-start">
+                    <button
+                      type="button"
+                      className="button button-secondary button-sm"
+                      onClick={() => {
+                        setSelectedPanelTypeId(panel.panel_type_id);
+                        setSaveError(null);
+                        setSaveMessage(null);
+                      }}
+                    >
+                      Edit
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
@@ -4245,11 +4300,11 @@ function PanelCatalogPage({
               <textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={4} />
             </label>
             <div className="stack" style={{ gap: 8 }}>
-              <button type="button" onClick={() => void handleSave()} disabled={isSaving || !draft.panel_type_id.trim()}>
+              <button type="button" className="button button-primary" onClick={() => void handleSave()} disabled={isSaving || !draft.panel_type_id.trim()}>
                 {isSaving ? 'Saving…' : selectedPanel ? 'Save panel type' : 'Create panel type'}
               </button>
               {selectedPanel ? (
-                <button type="button" className="secondary" onClick={() => void handleDelete()} disabled={isSaving}>
+                <button type="button" className="button button-danger" onClick={() => void handleDelete()} disabled={isSaving}>
                   Delete panel type
                 </button>
               ) : null}
@@ -4414,7 +4469,7 @@ function MpptCatalogPage({
           <p className="eyebrow">Configuration data</p>
           <h1>MPPT types</h1>
           <p className="hero-copy">
-            Edit the reusable MPPT catalog used by the face configuration and charging checks.
+            Edit the reusable MPPT catalog used by the surface configuration and charging checks.
           </p>
         </div>
       </section>
@@ -4426,23 +4481,30 @@ function MpptCatalogPage({
             <p>Select an MPPT type to edit, or create a new catalog entry.</p>
           </div>
           <div className="stack" style={{ gap: 8 }}>
-            <button type="button" onClick={startAddNew}>Add MPPT type</button>
+            <button type="button" className="button button-secondary" onClick={startAddNew}>Add MPPT type</button>
             <div className="catalog-list">
               {data.entities.mppt_types.map((mppt) => (
-                <button
+                <div
                   key={mppt.mppt_type_id}
-                  type="button"
                   className={`catalog-card ${selectedMpptTypeId === mppt.mppt_type_id ? 'active' : ''}`}
-                  onClick={() => {
-                    setSelectedMpptTypeId(mppt.mppt_type_id);
-                    setSaveError(null);
-                    setSaveMessage(null);
-                  }}
                 >
                   <strong>{mppt.model}</strong>
                   <span>{mppt.mppt_type_id}</span>
                   <span>{mppt.tracker_count} trackers · {mppt.max_voc} V max</span>
-                </button>
+                  <div className="button-row button-row-start">
+                    <button
+                      type="button"
+                      className="button button-secondary button-sm"
+                      onClick={() => {
+                        setSelectedMpptTypeId(mppt.mppt_type_id);
+                        setSaveError(null);
+                        setSaveMessage(null);
+                      }}
+                    >
+                      Edit
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
@@ -4492,11 +4554,11 @@ function MpptCatalogPage({
               <textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={4} />
             </label>
             <div className="stack" style={{ gap: 8 }}>
-              <button type="button" onClick={() => void handleSave()} disabled={isSaving || !draft.mppt_type_id.trim()}>
+              <button type="button" className="button button-primary" onClick={() => void handleSave()} disabled={isSaving || !draft.mppt_type_id.trim()}>
                 {isSaving ? 'Saving…' : selectedMppt ? 'Save MPPT type' : 'Create MPPT type'}
               </button>
               {selectedMppt ? (
-                <button type="button" className="secondary" onClick={() => void handleDelete()} disabled={isSaving}>
+                <button type="button" className="button button-danger" onClick={() => void handleDelete()} disabled={isSaving}>
                   Delete MPPT type
                 </button>
               ) : null}
@@ -4673,23 +4735,30 @@ function InverterCatalogPage({
             <p>Select an inverter type to edit, or create a new catalog entry.</p>
           </div>
           <div className="stack" style={{ gap: 8 }}>
-            <button type="button" onClick={startAddNew}>Add inverter type</button>
+            <button type="button" className="button button-secondary" onClick={startAddNew}>Add inverter type</button>
             <div className="catalog-list">
               {data.entities.inverter_types.map((inverter) => (
-                <button
+                <div
                   key={inverter.inverter_id}
-                  type="button"
                   className={`catalog-card ${selectedInverterTypeId === inverter.inverter_id ? 'active' : ''}`}
-                  onClick={() => {
-                    setSelectedInverterTypeId(inverter.inverter_id);
-                    setSaveError(null);
-                    setSaveMessage(null);
-                  }}
                 >
                   <strong>{inverter.model}</strong>
                   <span>{inverter.inverter_id}</span>
                   <span>{inverter.input_voltage_v} V · {inverter.continuous_power_w} W</span>
-                </button>
+                  <div className="button-row button-row-start">
+                    <button
+                      type="button"
+                      className="button button-secondary button-sm"
+                      onClick={() => {
+                        setSelectedInverterTypeId(inverter.inverter_id);
+                        setSaveError(null);
+                        setSaveMessage(null);
+                      }}
+                    >
+                      Edit
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
@@ -4739,11 +4808,11 @@ function InverterCatalogPage({
               <textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={4} />
             </label>
             <div className="stack" style={{ gap: 8 }}>
-              <button type="button" onClick={() => void handleSave()} disabled={isSaving || !draft.inverter_id.trim()}>
+              <button type="button" className="button button-primary" onClick={() => void handleSave()} disabled={isSaving || !draft.inverter_id.trim()}>
                 {isSaving ? 'Saving…' : selectedInverter ? 'Save inverter type' : 'Create inverter type'}
               </button>
               {selectedInverter ? (
-                <button type="button" className="secondary" onClick={() => void handleDelete()} disabled={isSaving}>
+                <button type="button" className="button button-danger" onClick={() => void handleDelete()} disabled={isSaving}>
                   Delete inverter type
                 </button>
               ) : null}
@@ -4881,8 +4950,6 @@ export function App() {
       <main className="app-shell">
         {route.kind === 'location' ? (
           <LocationPage {...context} />
-        ) : route.kind === 'faces' ? (
-          <FacesPage {...context} />
         ) : route.kind === 'catalogs' ? (
           <CatalogsPage />
         ) : route.kind === 'catalog' && route.catalog === 'panel-types' ? (

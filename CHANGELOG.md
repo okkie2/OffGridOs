@@ -2,6 +2,39 @@
 
 ## 2026-04-20
 
+- Tightened the surface detail page by moving `Panel count` beside `Selected panel`, shortening the section guidance copy, switching MPPT limits to a two-column layout, stopping the top-row cards from stretching taller than their content, narrowing the lower summary/notes blocks, and removing the extra `Fit result` heading.
+- Widened the surface `Summary and evaluation` block to two columns and moved `Notes` alongside it so the lower part of the surface page reads with more breathing room.
+- Reorganized the surface `Evaluation` pane into dependency-based sections (`Selected panel`, `Current array`, `Selected MPPT`, `Fit result`) so it is clearer which outputs change when configuration inputs change.
+- Reworked the surface detail page into three clearer panes: `Configuration` for editable choices, `Evaluation` for derived technical consequences, and `Notes` for local human context.
+- Added a third `Notes` pane to the surface page so human observations, constraints, and design intent can be captured alongside configuration and evaluation without duplicating technical summary content.
+- Removed the stale provisional-MPPT comparison note from the surface page and made the save sections true action-bearing panels so their bottom-right `Save` buttons sit with consistent card padding.
+- Simplified the surface-page save pattern so each editable section now owns one quieter bottom-right `Save` action, with panel and MPPT helper text explaining the dependency order between sections.
+- Renamed the surface tile UI primitives from `roof-*` to `surface-*` and tightened the surface-card styling so card separation now reads more clearly on the Location page.
+- Reworked the top of the surface detail page so `Surface information` and `Surface photo` now follow the same left-main / right-photo structure and control placement as the Location page.
+- Added an optional local photo panel to each surface detail page so every surface can now carry its own browser-local visual reference just like the Location page.
+- Polished the shared UI primitives with subtle rounding, bottom-aligned card action rows, a cleaned-up photo remove button, and non-wrapping surface meta lines for azimuth/tilt.
+- Introduced a shared button system (`button`, `button-primary`, `button-secondary`, `button-danger`, `button-sm`) and moved surface and catalog interactions onto explicit buttons instead of clickable cards.
+- Made panel spacing consistent by giving `.panel` its own default inner padding, which fixes edge-hugging content on Location and Yield, and renamed the Location section heading from `Surface` to `Surfaces`.
+- Merged the old top-level Surfaces page into Location by moving Yield below the surface list, removing Surfaces from the main menu, and changing surface-detail breadcrumbs to `Overview / Location / Surface`.
+- Added Cucumber navigation coverage for the remaining main menu pages, including Catalogs, Battery array, and Inverter array.
+- Added a Cucumber navigation regression for the Catalogs menu cluster so menu-to-page navigation and menu-back behavior are now covered there too.
+- Added a Cucumber navigation regression suite that covers menu-to-page navigation, breadcrumb navigation between surface pages, and the blank-surface case without crashing the surfaces view.
+- Changed the surface-card judgement badge to stay blank until there is enough information to evaluate the tile.
+- Added an explicit `sort_order` for roof faces so the baseline surfaces keep their intended order and newly created surfaces always append last.
+- Added a surface regression test that checks newly created surfaces are appended last in the list and start without any MPPT assignment.
+- Renamed the surface-card action from `Edit` to `Detail` so it clearly opens the full surface page.
+- Removed the Array stat from newly created surface cards and changed the add-surface placeholder label to `Unnamed surface` so the new block reads more like an empty editable box.
+- Removed the remaining surface-create validation from the Location page so `Add surface` now just creates a new blank-style surface card with hidden defaults.
+- Kept new surfaces on the Location page instead of navigating away, added scroll/highlight attention to the new surface card, and documented the collection-mutation rule that create/delete should stay in the list view with an explicit empty state.
+- Moved the Location `Save` button to the bottom of the Start information block and removed the Sunshine hours / year field from the page.
+- Shortened the Location and Surface action labels to `Save`, `Edit`, and `Delete`, and documented the rule that primary actions belong inside the same block they control and anchor to the bottom edge.
+- Reframed the surface-facing UI, navigation docs, and ubiquitous-language glossary so the product now speaks about surfaces instead of faces in the main user-facing copy.
+- Renamed the face-facing UI and ubiquitous-language preferred label to `Surface`, moved the add-surface form below the existing list, and added explicit edit/delete controls on each surface card.
+- Simplified the Location page by removing northing/easting and site type inputs, added a short explanation for sunshine hours, and turned the result block into a Surface section with create/delete actions for roof faces.
+- Stopped uppercasing the top-bar project title so the homepage now shows the project name in normal title case.
+- Switched the web app and design system typography to Inter everywhere and enabled tabular numerals for cleaner numeric alignment.
+- Renamed the homepage project label and export baseline name to `OffGridOS - 18Mad Boerderij` so the app now shows the current real-project identity in the project title.
+- Added a deployment note for the current Vimexx custom-domain setup so the root `ALIAS` and `www` `CNAME` records live alongside the rest of the hosting guidance.
 - Grouped the reusable panel, MPPT, battery, and inverter CRUD screens under a shared `Catalogs` section in the web app, and added the missing panel, MPPT, and inverter catalog API routes so all four catalogues can now be managed from one place.
 - Added a battery catalog editor in the web app and matching battery-type API routes so the reusable battery catalog can now be created, edited, listed, and deleted from the browser.
 - Completed the target deploy smoke test by starting the production server against persistent SQLite storage, saving a location change, restarting, and confirming the change survived the restart.

@@ -29,7 +29,9 @@
   --cool-bg: #e8f0fb;
   --danger-bg: #fdecea;
 
-  font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
   line-height: 1.5;
   font-weight: 400;
   color: var(--text);
@@ -76,7 +78,7 @@ h1, h2, h3, p, dl, dd, dt {
 }
 
 .sidebar-logo-text {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
   font-size: 0.9rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -155,26 +157,6 @@ h1, h2, h3, p, dl, dd, dt {
   border-top: 1px solid rgba(255 255 255 / 0.06);
 }
 
-.sidebar-footer-btn {
-  display: block;
-  width: 100%;
-  padding: 10px 14px;
-  background: var(--primary);
-  color: #002116;
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  border: none;
-  cursor: pointer;
-  text-align: center;
-}
-
-.sidebar-footer-btn:hover {
-  background: var(--primary-dim);
-}
-
 /* ── Main content ── */
 
 .app-shell {
@@ -194,11 +176,10 @@ h1, h2, h3, p, dl, dd, dt {
 }
 
 .topbar-title {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
   font-size: clamp(1.4rem, 2.5vw, 2rem);
   font-weight: 700;
   letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--text);
 }
 
@@ -212,6 +193,8 @@ h1, h2, h3, p, dl, dd, dt {
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);
+  padding: 24px;
+  border-radius: 10px;
 }
 
 /* ── Hero / summary ── */
@@ -222,7 +205,7 @@ h1, h2, h3, p, dl, dd, dt {
 }
 
 .eyebrow {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   font-size: 0.72rem;
@@ -231,7 +214,7 @@ h1, h2, h3, p, dl, dd, dt {
 }
 
 .hero h1 {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
   font-size: clamp(1.4rem, 3vw, 2.2rem);
   font-weight: 700;
   line-height: 1.1;
@@ -258,11 +241,12 @@ h1, h2, h3, p, dl, dd, dt {
 .summary-card {
   background: var(--surface-low);
   padding: 14px 16px;
+  border-radius: 8px;
 }
 
 .summary-label {
   font-size: 0.72rem;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--muted);
@@ -280,6 +264,92 @@ h1, h2, h3, p, dl, dd, dt {
   font-size: 0.82rem;
 }
 
+/* ── Buttons ── */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  background: var(--surface-low);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.button:hover:not(:disabled) {
+  background: var(--surface-high);
+}
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.button-primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #002116;
+}
+
+.button-primary:hover:not(:disabled) {
+  background: var(--primary-dim);
+  border-color: var(--primary-dim);
+}
+
+.button-secondary {
+  background: var(--surface-low);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.button-danger {
+  background: var(--danger-bg);
+  border-color: rgba(192 57 43 / 0.25);
+  color: var(--danger);
+}
+
+.button-danger:hover:not(:disabled) {
+  background: #f9ddd8;
+}
+
+.button-sm {
+  min-height: 32px;
+  padding: 7px 12px;
+  font-size: 0.78rem;
+}
+
+.button-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+.button-row-start {
+  justify-content: flex-start;
+}
+
+.button-row-between {
+  justify-content: space-between;
+}
+
+.button-row-end {
+  justify-content: flex-end;
+}
+
+.button-block {
+  width: 100%;
+}
+
 /* ── Sections ── */
 
 .chain,
@@ -290,7 +360,6 @@ h1, h2, h3, p, dl, dd, dt {
 
 .chain,
 .status-strip,
-.overview-grid > .panel,
 .warning-list,
 .error-panel {
   padding: 24px;
@@ -301,7 +370,32 @@ h1, h2, h3, p, dl, dd, dt {
 }
 
 .storage-detail-grid {
-  margin-top: 18px;
+  margin-top: 14px;
+}
+
+.panel-span-2 {
+  grid-column: span 2;
+}
+
+.panel-with-actions {
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-with-actions .fit-card {
+  flex: 1 1 auto;
+}
+
+.balanced-row-panel {
+  min-height: 0;
+}
+
+.summary-panel {
+  width: 100%;
+}
+
+.notes-panel {
+  width: 100%;
 }
 
 .section-head {
@@ -309,11 +403,11 @@ h1, h2, h3, p, dl, dd, dt {
   justify-content: space-between;
   gap: 16px;
   align-items: baseline;
-  margin-bottom: 18px;
+  margin-bottom: 12px;
 }
 
 .section-head h2 {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
   font-size: 0.82rem;
   font-weight: 600;
   letter-spacing: 0.1em;
@@ -339,12 +433,13 @@ h1, h2, h3, p, dl, dd, dt {
 .chain-node {
   background: var(--surface-low);
   padding: 10px 16px;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
   font-size: 0.8rem;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   border: 1px solid var(--border);
+  border-radius: 8px;
 }
 
 .chain-node-label {
@@ -399,15 +494,16 @@ h1, h2, h3, p, dl, dd, dt {
 }
 
 .status-card,
-.roof-card,
+.surface-card,
 .warning-card {
   background: var(--surface-low);
   border: 1px solid var(--border);
   padding: 16px;
+  border-radius: 10px;
 }
 
 .status-card-top,
-.roof-card-top {
+.surface-card-top {
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -426,7 +522,7 @@ h1, h2, h3, p, dl, dd, dt {
   display: inline-flex;
   align-items: center;
   padding: 4px 8px;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -468,24 +564,63 @@ h1, h2, h3, p, dl, dd, dt {
   margin-top: 16px;
 }
 
-/* ── Roof cards ── */
+/* ── Surface cards ── */
 
-.roof-grid {
+.surface-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 12px;
+  gap: 16px;
 }
 
-.roof-card h3 {
-  font-family: 'Space Grotesk', sans-serif;
+.surface-card-stack {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.surface-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface-low);
+  border-radius: 10px;
+}
+
+.surface-card-top > :first-child {
+  min-width: 0;
+}
+
+.surface-card-highlight .surface-card {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(91, 112, 255, 0.14);
+}
+
+.empty-state {
+  padding: 16px;
+  border: 1px dashed var(--border);
+  background: var(--surface-low);
+  color: var(--muted);
+  border-radius: 10px;
+}
+
+.surface-card h3 {
+  font-family: 'Inter', 'Segoe UI', sans-serif;
   font-size: 0.9rem;
   font-weight: 600;
   margin-bottom: 2px;
 }
 
-.roof-card p {
+.surface-card p {
   color: var(--muted);
   font-size: 0.82rem;
+}
+
+.surface-card-meta {
+  white-space: nowrap;
 }
 
 .mini-stats {
@@ -495,10 +630,14 @@ h1, h2, h3, p, dl, dd, dt {
   margin-top: 12px;
 }
 
+.mini-stats > div {
+  min-width: 0;
+}
+
 .mini-stats dt {
   color: var(--muted);
   font-size: 0.7rem;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -507,6 +646,7 @@ h1, h2, h3, p, dl, dd, dt {
   font-weight: 700;
   font-size: 0.88rem;
   margin-top: 2px;
+  overflow-wrap: anywhere;
 }
 
 /* ── Monthly balance ── */
@@ -524,6 +664,7 @@ h1, h2, h3, p, dl, dd, dt {
   padding: 10px 12px;
   background: var(--surface-low);
   font-size: 0.88rem;
+  border-radius: 8px;
 }
 
 .month-row span:last-child {
@@ -556,7 +697,7 @@ h1, h2, h3, p, dl, dd, dt {
 
 .yield-table thead th {
   background: var(--surface-low);
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
   font-size: 0.76rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -584,7 +725,7 @@ h1, h2, h3, p, dl, dd, dt {
 
 .warning-pill {
   padding: 4px 8px;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -609,22 +750,6 @@ h1, h2, h3, p, dl, dd, dt {
 
 /* ── Roof card button ── */
 
-.roof-card-button {
-  background: var(--surface-low);
-  border: 1px solid var(--border);
-  padding: 16px;
-  text-align: left;
-  cursor: pointer;
-  width: 100%;
-  font-family: inherit;
-  font-size: inherit;
-  color: inherit;
-}
-
-.roof-card-button:hover {
-  background: var(--surface-high);
-}
-
 /* ── Breadcrumbs ── */
 
 .breadcrumbs {
@@ -637,7 +762,7 @@ h1, h2, h3, p, dl, dd, dt {
 .crumb {
   font-size: 0.8rem;
   color: var(--muted);
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -671,33 +796,21 @@ h1, h2, h3, p, dl, dd, dt {
   gap: 16px;
 }
 
-.detail-hero {
-  padding: 24px;
-}
-
-.detail-hero-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-  align-items: start;
-}
-
-.detail-hero h1 {
-  font-family: 'Space Grotesk', sans-serif;
+.detail-page-title {
+  font-family: 'Inter', 'Segoe UI', sans-serif;
   font-size: clamp(1.2rem, 2.5vw, 1.8rem);
   font-weight: 700;
-  margin-bottom: 4px;
-}
-
-.detail-hero p {
-  color: var(--muted);
-  font-size: 0.88rem;
+  margin: 0 0 16px;
 }
 
 .detail-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 16px;
+  gap: 14px;
+}
+
+.detail-intro-grid {
+  margin-bottom: 12px;
 }
 
 .detail-grid .panel,
@@ -705,23 +818,19 @@ h1, h2, h3, p, dl, dd, dt {
   margin-top: 0;
 }
 
-.detail-grid .panel {
-  padding: 24px;
-}
-
 .detail-stats {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .panel-spec-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 14px;
 }
 
 .detail-stats dt {
   font-size: 0.72rem;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
@@ -735,7 +844,7 @@ h1, h2, h3, p, dl, dd, dt {
 
 .fit-card {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .panel-selector {
@@ -749,7 +858,21 @@ h1, h2, h3, p, dl, dd, dt {
 .config-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
+}
+
+.panel-config-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.config-control-row {
+  align-items: end;
+}
+
+.config-field-span-2 {
+  grid-column: span 2;
 }
 
 .roof-config-inline {
@@ -767,7 +890,7 @@ h1, h2, h3, p, dl, dd, dt {
 
 .config-field span {
   font-size: 0.72rem;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
@@ -776,11 +899,17 @@ h1, h2, h3, p, dl, dd, dt {
 .config-field input,
 .config-field select {
   width: 100%;
+  min-height: 54px;
   padding: 10px 12px;
   border: 1px solid var(--border);
   background: var(--surface-low);
   color: var(--text);
   font: inherit;
+  border-radius: 8px;
+}
+
+.mppt-config-row {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .stack {
@@ -799,7 +928,7 @@ h1, h2, h3, p, dl, dd, dt {
 
 .field span {
   font-size: 0.72rem;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
@@ -814,15 +943,15 @@ h1, h2, h3, p, dl, dd, dt {
   background: var(--surface-low);
   color: var(--text);
   font: inherit;
+  border-radius: 8px;
 }
 
 .field textarea {
   resize: vertical;
 }
 
-.secondary {
-  background: var(--surface-low);
-  border: 1px solid var(--border);
+.notes-panel .field textarea {
+  min-height: 98px;
 }
 
 .catalog-list {
@@ -838,7 +967,7 @@ h1, h2, h3, p, dl, dd, dt {
   border: 1px solid var(--border);
   background: var(--surface-low);
   color: var(--text);
-  cursor: pointer;
+  border-radius: 10px;
 }
 
 .catalog-card.active {
@@ -847,7 +976,7 @@ h1, h2, h3, p, dl, dd, dt {
 }
 
 .catalog-card strong {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
   font-size: 0.92rem;
 }
 
@@ -879,7 +1008,7 @@ h1, h2, h3, p, dl, dd, dt {
   color: var(--muted);
   font-size: 0.88rem;
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
 
 .fit-note {
@@ -888,6 +1017,27 @@ h1, h2, h3, p, dl, dd, dt {
   padding: 10px 12px;
   background: var(--surface-low);
   border-left: 3px solid var(--primary);
+  border-radius: 8px;
+}
+
+.evaluation-section {
+  display: grid;
+  gap: 10px;
+}
+
+.evaluation-section + .evaluation-section {
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.evaluation-section h3 {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.evaluation-section p {
+  color: var(--muted);
+  font-size: 0.84rem;
 }
 
 .roof-config-note {
@@ -898,7 +1048,7 @@ h1, h2, h3, p, dl, dd, dt {
 
 .mppt-fit-box {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   padding-top: 8px;
   border-top: 1px solid var(--border);
 }
@@ -911,29 +1061,43 @@ h1, h2, h3, p, dl, dd, dt {
 
 .mppt-limits {
   margin-top: 16px;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.mppt-panel-right {
+.mppt-panel-right,
+.outcome-panel {
   display: grid;
-  gap: 16px;
+  gap: 10px;
   align-content: start;
-  margin-top: 16px;
-  padding-top: 16px;
+  margin-top: 10px;
+  padding-top: 10px;
   border-top: 1px solid var(--border);
 }
 
 .mppt-result-head {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: start;
   gap: 12px;
 }
 
+.mppt-result-main {
+  grid-column: span 2;
+}
+
 .mppt-result-head strong {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
   font-size: 1rem;
   font-weight: 600;
+}
+
+.result-label {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 0 0 2px;
 }
 
 .mppt-result-sub {
@@ -943,7 +1107,34 @@ h1, h2, h3, p, dl, dd, dt {
 }
 
 .mppt-checks {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.outcome-summary {
+  display: grid;
+  gap: 6px;
+}
+
+.outcome-status-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.outcome-checks {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 14px;
+}
+
+.result-status-block {
+  display: grid;
+  justify-items: start;
+  align-content: start;
+  gap: 4px;
+}
+
+.result-status-block .reason-list {
+  padding-left: 18px;
 }
 
 .check-pass dt {
@@ -979,6 +1170,43 @@ h1, h2, h3, p, dl, dd, dt {
   display: block;
 }
 
+.photo-frame {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.photo-image {
+  width: 100%;
+  display: block;
+  max-height: 260px;
+  object-fit: cover;
+}
+
+.photo-remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+
+.upload-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 180px;
+  background: var(--surface-low);
+  cursor: pointer;
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+}
+
+.upload-dropzone span {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
 /* ── Responsive ── */
 
 @media (max-width: 960px) {
@@ -989,11 +1217,17 @@ h1, h2, h3, p, dl, dd, dt {
   .hero,
   .overview-grid,
   .detail-grid,
+  .panel-config-grid,
   .config-grid,
   .compact-stats,
   .mppt-checks {
     grid-template-columns: 1fr;
   }
+
+  .config-field-span-2 {
+    grid-column: auto;
+  }
+
 }
 
 @media (max-width: 700px) {

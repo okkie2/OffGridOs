@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import http, { type IncomingMessage, type ServerResponse } from 'http';
-import { deleteRoofPanelsForFace, getBatteryBankConfiguration, getBatteryType, getInverterType, getMpptType, getPreferences, getRoofFace, getPanelType, insertBatteryType, insertInverterType, insertMpptType, insertPanelType, listArrayToMpptMappings, listBatteryBankConfigurations, listBatteryTypes, listInverterConfigurations, listInverterTypes, listMpptTypes, listPanelTypes, listPvArrays, listRoofFaceConfigurations, listRoofPanels, setPref, updateBatteryType, updateInverterType, updateMpptType, updatePanelType, upsertBatteryBankConfiguration, upsertInverterConfiguration, upsertRoofFaceConfiguration, updateRoofFace, upsertLocation, upsertRoofPanel } from './db/queries.js';
+import { createRoofFace, deleteRoofFace, deleteRoofPanelsForFace, getBatteryBankConfiguration, getBatteryType, getInverterType, getMpptType, getPreferences, getRoofFace, getPanelType, insertBatteryType, insertInverterType, insertMpptType, insertPanelType, listArrayToMpptMappings, listBatteryBankConfigurations, listBatteryTypes, listInverterConfigurations, listInverterTypes, listMpptTypes, listPanelTypes, listPvArrays, listRoofFaceConfigurations, listRoofPanels, setPref, updateBatteryType, updateInverterType, updateMpptType, updatePanelType, upsertBatteryBankConfiguration, upsertInverterConfiguration, upsertRoofFaceConfiguration, updateRoofFace, upsertLocation, upsertRoofPanel, syncPvTopologyForRoofFace } from './db/queries.js';
 import { buildDigitalTwinExport } from './output/exportDigitalTwin.js';
 import { resolveDatabasePath, resolveServerHost, resolveServerPort, resolveWebDistPath } from './config/runtime.js';
 import { ensureDatabaseReady, withDb } from './server/bootstrap.js';
@@ -991,6 +991,58 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
     return true;
   }
 
+  if (method === 'POST' && url.pathname === '/api/roof-faces') {
+    void (async () => {
+      try {
+        const payload = await readJsonBody<{
+          roof_face_id?: unknown;
+          name?: unknown;
+          orientation_deg?: unknown;
+          tilt_deg?: unknown;
+        }>(request);
+
+        const roofFaceId = typeof payload.roof_face_id === 'string' ? payload.roof_face_id.trim() : '';
+        const name = typeof payload.name === 'string' && payload.name.trim() !== '' ? payload.name.trim() : 'New surface';
+        const orientationDeg = payload.orientation_deg == null || payload.orientation_deg === ''
+          ? 0
+          : (typeof payload.orientation_deg === 'number' ? payload.orientation_deg : Number(payload.orientation_deg));
+        const tiltDeg = payload.tilt_deg == null || payload.tilt_deg === ''
+          ? 30
+          : (typeof payload.tilt_deg === 'number' ? payload.tilt_deg : Number(payload.tilt_deg));
+
+        if (!roofFaceId || !Number.isFinite(orientationDeg) || orientationDeg < 0 || orientationDeg > 360 || !Number.isFinite(tiltDeg) || tiltDeg < 0 || tiltDeg > 90) {
+          sendJson(response, 400, {
+            error: 'Invalid roof-face payload. Expected roof_face_id, optional name, optional orientation_deg in 0..360, and optional tilt_deg in 0..90.',
+          });
+          return;
+        }
+
+        const updated = withDb(databasePath, (db) => {
+          const existingFace = getRoofFace(db, roofFaceId);
+          if (existingFace) {
+            return { status: 409 as const, body: { error: `Roof face "${roofFaceId}" already exists.` } };
+          }
+
+          createRoofFace(db, {
+            roof_face_id: roofFaceId,
+            name,
+            orientation_deg: orientationDeg,
+            tilt_deg: tiltDeg,
+            usable_area_m2: undefined,
+            notes: undefined,
+          });
+          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath) };
+        });
+
+        sendJson(response, updated.status, updated.body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 500, { error: message });
+      }
+    })();
+    return true;
+  }
+
   if (method === 'PUT' && url.pathname.startsWith('/api/roof-faces/')) {
     void (async () => {
       try {
@@ -1035,6 +1087,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             usable_area_m2: existingFace.usable_area_m2 ?? undefined,
             notes: existingFace.notes ?? undefined,
           });
+          syncPvTopologyForRoofFace(db, roofFaceId);
 
           return buildDigitalTwinExport(db, databasePath);
         });
@@ -1045,6 +1098,34 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         }
 
         sendJson(response, 200, updated);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 500, { error: message });
+      }
+    })();
+    return true;
+  }
+
+  if (method === 'DELETE' && url.pathname.startsWith('/api/roof-faces/')) {
+    void (async () => {
+      try {
+        const roofFaceId = decodeURIComponent(url.pathname.slice('/api/roof-faces/'.length));
+        if (!roofFaceId) {
+          sendJson(response, 400, { error: 'Roof face id is required.' });
+          return;
+        }
+
+        const updated = withDb(databasePath, (db) => {
+          const existingFace = getRoofFace(db, roofFaceId);
+          if (!existingFace) {
+            return { status: 404 as const, body: { error: `Roof face "${roofFaceId}" not found.` } };
+          }
+
+          deleteRoofFace(db, roofFaceId);
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+        });
+
+        sendJson(response, updated.status, updated.body);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown server error';
         sendJson(response, 500, { error: message });

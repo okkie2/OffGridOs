@@ -420,7 +420,7 @@ function buildSolarMonthlyProfiles(
 function toProject(location: Location | null, preferences: Preferences): ExportProject {
   return {
     project_id: 'offgridos-project',
-    name: 'OffGridOS Baseline',
+    name: 'OffGridOS - 18Mad Boerderij',
     location: location ? {
       country: location.country,
       place_name: location.place_name,

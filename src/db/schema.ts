@@ -73,6 +73,53 @@ function ensureLocationColumns(db: Database.Database): void {
   }
 }
 
+function ensureRoofFaceColumns(db: Database.Database): void {
+  const cols = new Set((db.prepare("PRAGMA table_info('roof_faces')").all() as { name: string }[]).map((row) => row.name));
+  const additions = [
+    !cols.has('sort_order') ? 'ALTER TABLE roof_faces ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;' : '',
+  ].filter(Boolean);
+
+  if (additions.length > 0) {
+    db.exec(additions.join('\n'));
+  }
+
+  db.exec(`
+    WITH ordered AS (
+      SELECT
+        id,
+        roof_face_id,
+        CASE roof_face_id
+          WHEN 'dakkapellen' THEN 1
+          WHEN 'flat-ne' THEN 2
+          WHEN 'ne' THEN 3
+          WHEN 'nw' THEN 4
+          WHEN 'se' THEN 5
+          WHEN 'sw' THEN 6
+          ELSE NULL
+        END AS base_order
+      FROM roof_faces
+    ),
+    unknowns AS (
+      SELECT
+        id,
+        ROW_NUMBER() OVER (ORDER BY id) AS unknown_order
+      FROM ordered
+      WHERE base_order IS NULL
+    ),
+    final_order AS (
+      SELECT
+        ordered.id,
+        COALESCE(ordered.base_order, 6 + unknowns.unknown_order) AS sort_order
+      FROM ordered
+      LEFT JOIN unknowns ON unknowns.id = ordered.id
+    )
+    UPDATE roof_faces
+    SET sort_order = (
+      SELECT sort_order FROM final_order WHERE final_order.id = roof_faces.id
+    );
+  `);
+}
+
 function ensureMpptTypesColumns(db: Database.Database): void {
   const cols = new Set((db.prepare("PRAGMA table_info('mppt_types')").all() as { name: string }[]).map((row) => row.name));
   const additions = [
@@ -241,6 +288,7 @@ export function initSchema(db: Database.Database): void {
   `);
 
   ensureLocationColumns(db);
+  ensureRoofFaceColumns(db);
   ensureBatteryTypesColumns(db);
   ensureMpptTypesColumns(db);
   seedLocation(db);

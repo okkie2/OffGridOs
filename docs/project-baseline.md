@@ -1,6 +1,6 @@
 # Project Baseline
 
-This note captures the current project-specific baseline for the OffGridOS digital twin.
+This note captures the current project-specific baseline for the `OffGridOS - 18Mad Boerderij` project within the OffGridOS digital twin.
 
 Terminology in this note must follow [UBIQUITOUS_LANGUAGE.md](../UBIQUITOUS_LANGUAGE.md).
 
@@ -9,7 +9,7 @@ Terminology in this note must follow [UBIQUITOUS_LANGUAGE.md](../UBIQUITOUS_LANG
 The repository now contains both:
 
 - a general digital twin architecture direction
-- a specific real-world project baseline
+- a specific real-world project baseline for `OffGridOS - 18Mad Boerderij`
 
 This note records the current project baseline so later configuration and implementation work can distinguish:
 
