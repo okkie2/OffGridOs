@@ -1568,10 +1568,12 @@ function SurfaceDetail({
     latitudeDeg: effectiveLatitude,
   });
 
-  async function handleSaveSurfaceDetails() {
+  async function handleSaveSurfaceDetails(options?: { photoOverride?: string | null }) {
     const trimmedName = surfaceNameDraft.trim();
+    const nameToPersist = trimmedName || surface.name;
+    const photoToPersist = options?.photoOverride === undefined ? photo : options.photoOverride;
 
-    if (!trimmedName) {
+    if (!nameToPersist) {
       setSurfaceSaveError('Surface name is required before saving.');
       setSurfaceSaveMessage(null);
       return;
@@ -1588,11 +1590,11 @@ function SurfaceDetail({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name: trimmedName,
+          name: nameToPersist,
           orientation_deg: surfaceAzimuthDraft,
           tilt_deg: surfaceTiltDraft,
           notes: surfaceNotes.trim(),
-          photo_data_url: photo,
+          photo_data_url: photoToPersist,
         }),
       });
 
@@ -1603,7 +1605,7 @@ function SurfaceDetail({
       }
 
       try {
-        window.localStorage.setItem(`${storagePrefix}:name`, JSON.stringify(trimmedName));
+        window.localStorage.setItem(`${storagePrefix}:name`, JSON.stringify(nameToPersist));
         window.localStorage.setItem(`${storagePrefix}:azimuth`, JSON.stringify(surfaceAzimuthDraft));
         window.localStorage.setItem(`${storagePrefix}:tilt`, JSON.stringify(surfaceTiltDraft));
         window.dispatchEvent(new Event('offgridos-local-storage-change'));
@@ -1731,7 +1733,11 @@ function SurfaceDetail({
     const file = event.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (e) => setPhoto(e.target?.result as string);
+    reader.onload = (e) => {
+      const nextPhoto = e.target?.result as string;
+      setPhoto(nextPhoto);
+      void handleSaveSurfaceDetails({ photoOverride: nextPhoto });
+    };
     reader.readAsDataURL(file);
   }
 
@@ -1789,7 +1795,7 @@ function SurfaceDetail({
         <section className="panel panel-with-actions">
           <div className="section-head">
             <h2>Surface photo</h2>
-            <p>Optional visual reference for this surface, saved in the project database.</p>
+            <p>Optional visual reference for this surface, saved in the project database when you click Save.</p>
           </div>
           {photo ? (
             <div className="photo-frame">
@@ -1797,7 +1803,10 @@ function SurfaceDetail({
               <button
                 type="button"
                 className="button button-secondary button-sm photo-remove"
-                onClick={() => setPhoto(null)}
+                onClick={() => {
+                  setPhoto(null);
+                  void handleSaveSurfaceDetails({ photoOverride: null });
+                }}
               >
                 Remove
               </button>
@@ -1808,6 +1817,11 @@ function SurfaceDetail({
               <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoChange} />
             </label>
           )}
+          <div className="button-row button-row-end">
+            <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveSurfaceDetails()} disabled={isSavingSurface}>
+              {isSavingSurface ? 'Saving...' : 'Save'}
+            </button>
+          </div>
         </section>
       </div>
 
@@ -2087,7 +2101,7 @@ function SurfaceDetail({
         <section className="panel balanced-row-panel notes-panel">
           <div className="section-head">
             <h2>Notes</h2>
-            <p>Notes for this surface, saved in the project database.</p>
+            <p>Notes for this surface, saved in the project database when you click Save.</p>
           </div>
           <label className="field">
             <span>Notes</span>
@@ -2098,6 +2112,11 @@ function SurfaceDetail({
               placeholder="Add installation notes, shading observations, access constraints, or design intent here."
             />
           </label>
+          <div className="button-row button-row-end">
+            <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveSurfaceDetails()} disabled={isSavingSurface}>
+              {isSavingSurface ? 'Saving...' : 'Save'}
+            </button>
+          </div>
         </section>
       </section>
 

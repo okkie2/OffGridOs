@@ -6,6 +6,8 @@
 - Reviewed the persisted PV-topology flow and documented the decision to keep arrays/strings derived for now, postponing direct topology row editing until after downstream AC-side modeling.
 - Added BDD coverage for surface notes/photo CRUD persistence so the test suite now verifies create/read/update/delete behavior against the project SQLite flow.
 - Fixed BDD regressions by correcting the Battery array monthly-yield variable reference and updating the surface-detail navigation assertion to match the current `Evaluation` heading.
+- Added surface-photo autosave so upload and remove actions persist immediately without requiring a manual Save click.
+- Improved the photo/notes BDD path to use a more realistic UI save interaction while keeping a jsdom-safe notes fallback.
 
 ## 2026-04-20
 

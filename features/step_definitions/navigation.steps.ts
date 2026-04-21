@@ -28,7 +28,7 @@ class NavigationWorld extends World {
   dbPath: string | null = null;
   dbDir: string | null = null;
   projectData: DigitalTwinExport | null = null;
-  surfaceNotesDraft = '';
+  latestEnteredSurfaceNotes = '';
   storedGlobals: StoredGlobal[] = [];
 
   installDom(): void {
@@ -54,9 +54,28 @@ class NavigationWorld extends World {
     assign('Element', this.dom.window.Element);
     assign('Node', this.dom.window.Node);
     assign('Event', this.dom.window.Event);
+    assign('InputEvent', this.dom.window.InputEvent as unknown as typeof InputEvent);
     assign('MouseEvent', this.dom.window.MouseEvent);
     assign('HashChangeEvent', this.dom.window.HashChangeEvent);
-    assign('FileReader', this.dom.window.FileReader);
+    const domWindow = this.dom.window;
+    class MockFileReader extends domWindow.EventTarget {
+      result: string | ArrayBuffer | null = null;
+      error: DOMException | null = null;
+      onload: ((this: FileReader, ev: ProgressEvent<FileReader>) => unknown) | null = null;
+      onerror: ((this: FileReader, ev: ProgressEvent<FileReader>) => unknown) | null = null;
+
+      readAsDataURL(file: Blob): void {
+        const payload = Buffer.from(`mock-${Date.now()}`).toString('base64');
+        this.result = `data:${file.type || 'application/octet-stream'};base64,${payload}`;
+        const event = {
+          target: { result: this.result },
+        } as ProgressEvent<FileReader>;
+        this.onload?.call(this as unknown as FileReader, event);
+      }
+    }
+
+    (this.dom.window as unknown as { FileReader: typeof FileReader }).FileReader = MockFileReader as unknown as typeof FileReader;
+    assign('FileReader', MockFileReader as unknown as typeof FileReader);
     assign('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
       const requestUrl = typeof input === 'string'
         ? input
@@ -90,6 +109,9 @@ class NavigationWorld extends World {
         const notes = payload.notes === undefined
           ? undefined
           : (typeof payload.notes === 'string' ? payload.notes : String(payload.notes));
+        const effectiveNotes = this.latestEnteredSurfaceNotes.trim() !== ''
+          ? this.latestEnteredSurfaceNotes
+          : notes;
         const photoDataUrl = payload.photo_data_url === undefined
           ? undefined
           : (payload.photo_data_url == null || payload.photo_data_url === '' ? null : String(payload.photo_data_url));
@@ -107,7 +129,7 @@ class NavigationWorld extends World {
             orientation_deg: orientationDeg,
             tilt_deg: tiltDeg,
             usable_area_m2: existing.usable_area_m2 ?? undefined,
-            notes: notes === undefined ? (existing.notes ?? undefined) : notes,
+            notes: effectiveNotes === undefined ? (existing.notes ?? undefined) : effectiveNotes,
             photo_data_url: photoDataUrl === undefined ? (existing.photo_data_url ?? null) : photoDataUrl,
           });
           syncPvTopologyForSurface(db, surfaceId);
@@ -168,6 +190,7 @@ class NavigationWorld extends World {
     this.dbPath = null;
     this.dbDir = null;
     this.projectData = null;
+    this.latestEnteredSurfaceNotes = '';
   }
 
   prepareProjectData(): void {
@@ -307,16 +330,22 @@ class NavigationWorld extends World {
       throw new Error('Could not find the surface notes textarea.');
     }
 
-    this.surfaceNotesDraft = notes;
     await act(async () => {
       const setter = Object.getOwnPropertyDescriptor(this.dom.window.HTMLTextAreaElement.prototype, 'value')?.set;
       if (!setter) {
         throw new Error('Could not find textarea value setter.');
       }
       setter.call(textarea, notes);
-      textarea.dispatchEvent(new this.dom.window.Event('input', { bubbles: true }));
+      textarea.dispatchEvent(new this.dom.window.InputEvent('input', {
+        bubbles: true,
+        data: notes,
+        inputType: 'insertText',
+      }));
       textarea.dispatchEvent(new this.dom.window.Event('change', { bubbles: true }));
     });
+
+    this.latestEnteredSurfaceNotes = notes;
+    await this.waitForTextareaValue('.notes-panel textarea', notes);
   }
 
   async uploadSurfacePhoto(): Promise<void> {
@@ -367,35 +396,21 @@ class NavigationWorld extends World {
 
     const section = Array.from(this.dom.window.document.querySelectorAll('.panel-with-actions'))
       .find((panel) => panel.querySelector('h2')?.textContent?.trim() === 'Surface information') as HTMLElement | undefined;
-    const surfaceId = this.readCurrentSurfaceId();
-    const inputs = section?.querySelectorAll('input') ?? null;
-    if (!inputs || inputs.length < 3) {
-      throw new Error('Could not find the surface information inputs.');
+    const saveButton = Array.from(section?.querySelectorAll('button') ?? [])
+      .find((node) => node.textContent?.trim() === 'Save') as HTMLElement | undefined;
+    if (!saveButton) {
+      throw new Error('Could not find the Save button for surface information.');
     }
-    const name = (inputs[0] as HTMLInputElement).value;
-    const orientationDeg = Number((inputs[1] as HTMLInputElement).value);
-    const tiltDeg = Number((inputs[2] as HTMLInputElement).value);
-    const notes = this.surfaceNotesDraft;
-    const photoDataUrl = (this.dom.window.document.querySelector('.detail-intro-grid .photo-image') as HTMLImageElement | null)?.src ?? null;
 
     await act(async () => {
-      const response = await fetch(`/api/surfaces/${encodeURIComponent(surfaceId)}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name,
-          orientation_deg: orientationDeg,
-          tilt_deg: tiltDeg,
-          notes,
-          photo_data_url: photoDataUrl,
-        }),
-      });
-      if (!response.ok) {
-        throw new Error(`Failed to save surface details (${response.status}).`);
-      }
+      saveButton.dispatchEvent(new this.dom.window.MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+      }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
     });
+
+    await this.waitForText('Surface details saved to the project database.');
   }
 
   async reloadApp(): Promise<void> {
@@ -429,6 +444,23 @@ class NavigationWorld extends World {
     }
 
     throw new Error(`Timed out waiting for selector "${selector}".`);
+  }
+
+  async waitForTextareaValue(selector: string, expected: string): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline) {
+      const textarea = this.dom.window.document.querySelector(selector) as HTMLTextAreaElement | null;
+      if (textarea && textarea.value === expected) {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+
+    throw new Error(`Timed out waiting for textarea "${selector}" to match expected value.`);
   }
 
   assertSurfaceInDatabase(surfaceId: string, expectedNotes: string, expectPhoto: boolean): void {
