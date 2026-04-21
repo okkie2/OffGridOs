@@ -10,6 +10,7 @@ import { JSDOM } from 'jsdom';
 import { openDb } from '../../src/db/connection.js';
 import { ensureDatabaseReady } from '../../src/server/bootstrap.js';
 import { buildDigitalTwinExport } from '../../src/output/exportDigitalTwin.js';
+import { getSurface, syncPvTopologyForSurface, updateSurface } from '../../src/db/queries.js';
 import { App } from '../../web/src/App.tsx';
 import type { DigitalTwinExport } from '../../web/src/App.tsx';
 
@@ -27,6 +28,7 @@ class NavigationWorld extends World {
   dbPath: string | null = null;
   dbDir: string | null = null;
   projectData: DigitalTwinExport | null = null;
+  surfaceNotesDraft = '';
   storedGlobals: StoredGlobal[] = [];
 
   installDom(): void {
@@ -54,13 +56,75 @@ class NavigationWorld extends World {
     assign('Event', this.dom.window.Event);
     assign('MouseEvent', this.dom.window.MouseEvent);
     assign('HashChangeEvent', this.dom.window.HashChangeEvent);
-    assign('fetch', async () => {
-      if (!this.projectData) {
-        throw new Error('Project data was not prepared before rendering the app.');
+    assign('FileReader', this.dom.window.FileReader);
+    assign('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+      const requestUrl = typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+      const url = new URL(requestUrl, 'http://127.0.0.1/');
+      const method = (init?.method ?? 'GET').toUpperCase();
+
+      if (url.pathname === '/api/digital-twin' && method === 'GET') {
+        return new Response(JSON.stringify(this.readProjectData()), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
       }
 
-      return new Response(JSON.stringify(this.projectData), {
-        status: 200,
+      if (url.pathname.startsWith('/api/surfaces/') && method === 'PUT') {
+        const surfaceId = decodeURIComponent(url.pathname.slice('/api/surfaces/'.length));
+        const rawBody = typeof init?.body === 'string' ? init.body : '{}';
+        const payload = JSON.parse(rawBody) as {
+          name?: unknown;
+          orientation_deg?: unknown;
+          tilt_deg?: unknown;
+          notes?: unknown;
+          photo_data_url?: unknown;
+        };
+
+        const name = typeof payload.name === 'string' ? payload.name.trim() : '';
+        const orientationDeg = typeof payload.orientation_deg === 'number' ? payload.orientation_deg : Number(payload.orientation_deg);
+        const tiltDeg = typeof payload.tilt_deg === 'number' ? payload.tilt_deg : Number(payload.tilt_deg);
+        const notes = payload.notes === undefined
+          ? undefined
+          : (typeof payload.notes === 'string' ? payload.notes : String(payload.notes));
+        const photoDataUrl = payload.photo_data_url === undefined
+          ? undefined
+          : (payload.photo_data_url == null || payload.photo_data_url === '' ? null : String(payload.photo_data_url));
+
+        const db = openDb(this.requireDbPath());
+        try {
+          const existing = getSurface(db, surfaceId);
+          if (!existing) {
+            return new Response(JSON.stringify({ error: `Surface "${surfaceId}" not found.` }), { status: 404 });
+          }
+
+          updateSurface(db, {
+            surface_id: surfaceId,
+            name,
+            orientation_deg: orientationDeg,
+            tilt_deg: tiltDeg,
+            usable_area_m2: existing.usable_area_m2 ?? undefined,
+            notes: notes === undefined ? (existing.notes ?? undefined) : notes,
+            photo_data_url: photoDataUrl === undefined ? (existing.photo_data_url ?? null) : photoDataUrl,
+          });
+          syncPvTopologyForSurface(db, surfaceId);
+
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
+        } finally {
+          db.close();
+        }
+
+        return new Response(JSON.stringify(this.projectData), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      return new Response(JSON.stringify({ error: `Unhandled fetch in BDD world: ${method} ${url.pathname}` }), {
+        status: 500,
         headers: { 'Content-Type': 'application/json' },
       });
     });
@@ -114,6 +178,24 @@ class NavigationWorld extends World {
     const db = openDb(this.dbPath);
     try {
       this.projectData = buildDigitalTwinExport(db, this.dbPath);
+    } finally {
+      db.close();
+    }
+  }
+
+  requireDbPath(): string {
+    if (!this.dbPath) {
+      throw new Error('Test database path is not available.');
+    }
+    return this.dbPath;
+  }
+
+  readProjectData(): DigitalTwinExport {
+    const dbPath = this.requireDbPath();
+    const db = openDb(dbPath);
+    try {
+      this.projectData = buildDigitalTwinExport(db, dbPath);
+      return this.projectData;
     } finally {
       db.close();
     }
@@ -213,6 +295,174 @@ class NavigationWorld extends World {
       );
       this.dom.window.dispatchEvent(new this.dom.window.HashChangeEvent('hashchange'));
     });
+  }
+
+  async setSurfaceNotes(notes: string): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const textarea = this.dom.window.document.querySelector('.notes-panel textarea') as HTMLTextAreaElement | null;
+    if (!textarea) {
+      throw new Error('Could not find the surface notes textarea.');
+    }
+
+    this.surfaceNotesDraft = notes;
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(this.dom.window.HTMLTextAreaElement.prototype, 'value')?.set;
+      if (!setter) {
+        throw new Error('Could not find textarea value setter.');
+      }
+      setter.call(textarea, notes);
+      textarea.dispatchEvent(new this.dom.window.Event('input', { bubbles: true }));
+      textarea.dispatchEvent(new this.dom.window.Event('change', { bubbles: true }));
+    });
+  }
+
+  async uploadSurfacePhoto(): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const input = this.dom.window.document.querySelector('.detail-intro-grid input[type="file"]') as HTMLInputElement | null;
+    if (!input) {
+      throw new Error('Could not find the surface photo upload input.');
+    }
+
+    const file = new this.dom.window.File(['surface-photo'], 'surface-photo.txt', { type: 'text/plain' });
+    Object.defineProperty(input, 'files', {
+      configurable: true,
+      value: [file],
+    });
+
+    await act(async () => {
+      input.dispatchEvent(new this.dom.window.Event('change', { bubbles: true }));
+    });
+
+    await this.waitForSelector('.detail-intro-grid .photo-image');
+  }
+
+  async removeSurfacePhoto(): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const button = this.dom.window.document.querySelector('.detail-intro-grid .photo-remove') as HTMLElement | null;
+    if (!button) {
+      throw new Error('Could not find the surface photo remove button.');
+    }
+
+    await act(async () => {
+      button.dispatchEvent(new this.dom.window.MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+      }));
+    });
+  }
+
+  async saveSurfaceDetails(): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const section = Array.from(this.dom.window.document.querySelectorAll('.panel-with-actions'))
+      .find((panel) => panel.querySelector('h2')?.textContent?.trim() === 'Surface information') as HTMLElement | undefined;
+    const surfaceId = this.readCurrentSurfaceId();
+    const inputs = section?.querySelectorAll('input') ?? null;
+    if (!inputs || inputs.length < 3) {
+      throw new Error('Could not find the surface information inputs.');
+    }
+    const name = (inputs[0] as HTMLInputElement).value;
+    const orientationDeg = Number((inputs[1] as HTMLInputElement).value);
+    const tiltDeg = Number((inputs[2] as HTMLInputElement).value);
+    const notes = this.surfaceNotesDraft;
+    const photoDataUrl = (this.dom.window.document.querySelector('.detail-intro-grid .photo-image') as HTMLImageElement | null)?.src ?? null;
+
+    await act(async () => {
+      const response = await fetch(`/api/surfaces/${encodeURIComponent(surfaceId)}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name,
+          orientation_deg: orientationDeg,
+          tilt_deg: tiltDeg,
+          notes,
+          photo_data_url: photoDataUrl,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to save surface details (${response.status}).`);
+      }
+    });
+  }
+
+  async reloadApp(): Promise<void> {
+    this.readProjectData();
+    if (!this.container) {
+      throw new Error('Navigation test container is not ready.');
+    }
+
+    if (this.root) {
+      await act(async () => {
+        this.root?.unmount();
+      });
+    }
+    this.root = createRoot(this.container);
+    await act(async () => {
+      this.root!.render(React.createElement(App));
+    });
+  }
+
+  async waitForSelector(selector: string): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline) {
+      if (this.dom.window.document.querySelector(selector)) {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+
+    throw new Error(`Timed out waiting for selector "${selector}".`);
+  }
+
+  assertSurfaceInDatabase(surfaceId: string, expectedNotes: string, expectPhoto: boolean): void {
+    const db = openDb(this.requireDbPath());
+    try {
+      const row = db.prepare('SELECT notes, photo_data_url FROM surfaces WHERE surface_id = ?').get(surfaceId) as {
+        notes: string | null;
+        photo_data_url: string | null;
+      } | undefined;
+      if (!row) {
+        throw new Error(`Surface "${surfaceId}" not found in database.`);
+      }
+
+      assert.equal(row.notes ?? '', expectedNotes);
+      if (expectPhoto) {
+        assert.ok(row.photo_data_url && row.photo_data_url.length > 0);
+      } else {
+        assert.equal(row.photo_data_url, null);
+      }
+    } finally {
+      db.close();
+    }
+  }
+
+  readCurrentSurfaceId(): string {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const hash = this.dom.window.location.hash;
+    if (!hash.startsWith('#/surfaces/')) {
+      throw new Error(`Expected current route to be a surface detail, got "${hash}".`);
+    }
+    return decodeURIComponent(hash.slice('#/surfaces/'.length));
   }
 }
 
@@ -316,4 +566,35 @@ Then('I should see the Surface detail page', async function () {
   assert.ok(this.dom?.window.document.body.textContent?.includes('String'));
   assert.ok(this.dom?.window.document.body.textContent?.includes('MPPT'));
   assert.ok(this.dom?.window.document.body.textContent?.includes('Summary and evaluation'));
+});
+
+When('I enter surface notes {string}', async function (notes: string) {
+  await this.setSurfaceNotes(notes);
+});
+
+When('I upload a surface photo', async function () {
+  await this.uploadSurfacePhoto();
+});
+
+When('I remove the surface photo', async function () {
+  await this.removeSurfacePhoto();
+});
+
+When('I save the surface information', async function () {
+  await this.saveSurfaceDetails();
+});
+
+When('I reload OffGridOS', async function () {
+  await this.reloadApp();
+  await this.waitForText('Dashboard');
+});
+
+Then('the active surface should persist notes {string} with a stored photo', function (notes: string) {
+  const surfaceId = this.readCurrentSurfaceId();
+  this.assertSurfaceInDatabase(surfaceId, notes, true);
+});
+
+Then('the active surface should persist notes {string} without a stored photo', function (notes: string) {
+  const surfaceId = this.readCurrentSurfaceId();
+  this.assertSurfaceInDatabase(surfaceId, notes, false);
 });
