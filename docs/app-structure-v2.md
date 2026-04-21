@@ -70,7 +70,7 @@ Use `surface` as the broader concept.
 
 A `surface` may be:
 
-- a roof face
+- a surface
 - a wall face
 - a flat face
 

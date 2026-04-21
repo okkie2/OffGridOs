@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import http, { type IncomingMessage, type ServerResponse } from 'http';
-import { createRoofFace, deleteRoofFace, deleteRoofPanelsForFace, getBatteryBankConfiguration, getBatteryType, getInverterType, getMpptType, getPreferences, getRoofFace, getPanelType, insertBatteryType, insertInverterType, insertMpptType, insertPanelType, listArrayToMpptMappings, listBatteryBankConfigurations, listBatteryTypes, listInverterConfigurations, listInverterTypes, listMpptTypes, listPanelTypes, listPvArrays, listRoofFaceConfigurations, listRoofPanels, setPref, updateBatteryType, updateInverterType, updateMpptType, updatePanelType, upsertBatteryBankConfiguration, upsertInverterConfiguration, upsertRoofFaceConfiguration, updateRoofFace, upsertLocation, upsertRoofPanel, syncPvTopologyForRoofFace } from './db/queries.js';
+import { createSurface, deleteSurface, deleteSurfacePanelAssignmentsForSurface, getBatteryBankConfiguration, getBatteryType, getInverterType, getMpptType, getPreferences, getPanelType, getSurface, getSurfaceConfiguration, insertBatteryType, insertInverterType, insertMpptType, insertPanelType, listArrayToMpptMappings, listBatteryBankConfigurations, listBatteryTypes, listInverterConfigurations, listInverterTypes, listMpptTypes, listPanelTypes, listPvArrays, listSurfaceConfigurations, listSurfacePanelAssignments, setPref, updateBatteryType, updateInverterType, updateMpptType, updatePanelType, updateSurface, upsertBatteryBankConfiguration, upsertInverterConfiguration, upsertLocation, upsertSurfaceConfiguration, upsertSurfacePanelAssignment, syncPvTopologyForSurface } from './db/queries.js';
 import { buildDigitalTwinExport } from './output/exportDigitalTwin.js';
 import { resolveDatabasePath, resolveServerHost, resolveServerPort, resolveWebDistPath } from './config/runtime.js';
 import { ensureDatabaseReady, withDb } from './server/bootstrap.js';
@@ -511,7 +511,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             return { status: 404 as const, body: { error: `Panel type "${panelTypeId}" not found.` } };
           }
 
-          const usedInRoofPanel = listRoofPanels(db).some((assignment) => assignment.panel_type_id === panelTypeId);
+          const usedInRoofPanel = listSurfacePanelAssignments(db).some((assignment) => assignment.panel_type_id === panelTypeId);
           if (usedInRoofPanel) {
             return { status: 400 as const, body: { error: `Panel type "${panelTypeId}" is still referenced by roof panel assignments.` } };
           }
@@ -713,9 +713,9 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             return { status: 404 as const, body: { error: `MPPT type "${mpptTypeId}" not found.` } };
           }
 
-          const usedInFaceConfiguration = listRoofFaceConfigurations(db).some((configuration) => configuration.selected_mppt_type_id === mpptTypeId);
+          const usedInFaceConfiguration = listSurfaceConfigurations(db).some((configuration) => configuration.selected_mppt_type_id === mpptTypeId);
           if (usedInFaceConfiguration) {
-            return { status: 400 as const, body: { error: `MPPT type "${mpptTypeId}" is still referenced by roof-face configurations.` } };
+            return { status: 400 as const, body: { error: `MPPT type "${mpptTypeId}" is still referenced by surface configurations.` } };
           }
 
           db.prepare('DELETE FROM mppt_types WHERE mppt_type_id = ?').run(mpptTypeId);
@@ -991,17 +991,17 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
     return true;
   }
 
-  if (method === 'POST' && url.pathname === '/api/roof-faces') {
+  if (method === 'POST' && url.pathname === '/api/surfaces') {
     void (async () => {
       try {
         const payload = await readJsonBody<{
-          roof_face_id?: unknown;
+          surface_id?: unknown;
           name?: unknown;
           orientation_deg?: unknown;
           tilt_deg?: unknown;
         }>(request);
 
-        const roofFaceId = typeof payload.roof_face_id === 'string' ? payload.roof_face_id.trim() : '';
+        const roofFaceId = typeof payload.surface_id === 'string' ? payload.surface_id.trim() : '';
         const name = typeof payload.name === 'string' && payload.name.trim() !== '' ? payload.name.trim() : 'New surface';
         const orientationDeg = payload.orientation_deg == null || payload.orientation_deg === ''
           ? 0
@@ -1012,19 +1012,19 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
         if (!roofFaceId || !Number.isFinite(orientationDeg) || orientationDeg < 0 || orientationDeg > 360 || !Number.isFinite(tiltDeg) || tiltDeg < 0 || tiltDeg > 90) {
           sendJson(response, 400, {
-            error: 'Invalid roof-face payload. Expected roof_face_id, optional name, optional orientation_deg in 0..360, and optional tilt_deg in 0..90.',
+            error: 'Invalid surface payload. Expected surface_id, optional name, optional orientation_deg in 0..360, and optional tilt_deg in 0..90.',
           });
           return;
         }
 
         const updated = withDb(databasePath, (db) => {
-          const existingFace = getRoofFace(db, roofFaceId);
+          const existingFace = getSurface(db, roofFaceId);
           if (existingFace) {
-            return { status: 409 as const, body: { error: `Roof face "${roofFaceId}" already exists.` } };
+            return { status: 409 as const, body: { error: `Surface "${roofFaceId}" already exists.` } };
           }
 
-          createRoofFace(db, {
-            roof_face_id: roofFaceId,
+          createSurface(db, {
+            surface_id: roofFaceId,
             name,
             orientation_deg: orientationDeg,
             tilt_deg: tiltDeg,
@@ -1043,10 +1043,10 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
     return true;
   }
 
-  if (method === 'PUT' && url.pathname.startsWith('/api/roof-faces/')) {
+  if (method === 'PUT' && url.pathname.startsWith('/api/surfaces/')) {
     void (async () => {
       try {
-        const roofFaceId = decodeURIComponent(url.pathname.slice('/api/roof-faces/'.length));
+        const roofFaceId = decodeURIComponent(url.pathname.slice('/api/surfaces/'.length));
         if (!roofFaceId) {
           sendJson(response, 400, { error: 'Roof face id is required.' });
           return;
@@ -1068,32 +1068,32 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
         if (!name || !Number.isFinite(orientationDeg) || orientationDeg < 0 || orientationDeg > 360 || !Number.isFinite(tiltDeg) || tiltDeg < 0 || tiltDeg > 90) {
           sendJson(response, 400, {
-            error: 'Invalid roof-face payload. Expected non-empty name, orientation_deg in 0..360, and tilt_deg in 0..90.',
+            error: 'Invalid surface payload. Expected non-empty name, orientation_deg in 0..360, and tilt_deg in 0..90.',
           });
           return;
         }
 
         const updated = withDb(databasePath, (db) => {
-          const existingFace = getRoofFace(db, roofFaceId);
+          const existingFace = getSurface(db, roofFaceId);
           if (!existingFace) {
             return null;
           }
 
-          updateRoofFace(db, {
-            roof_face_id: roofFaceId,
+          updateSurface(db, {
+            surface_id: roofFaceId,
             name,
             orientation_deg: orientationDeg,
             tilt_deg: tiltDeg,
             usable_area_m2: existingFace.usable_area_m2 ?? undefined,
             notes: existingFace.notes ?? undefined,
           });
-          syncPvTopologyForRoofFace(db, roofFaceId);
+          syncPvTopologyForSurface(db, roofFaceId);
 
           return buildDigitalTwinExport(db, databasePath);
         });
 
         if (!updated) {
-          sendJson(response, 404, { error: `Roof face "${roofFaceId}" not found.` });
+          sendJson(response, 404, { error: `Surface "${roofFaceId}" not found.` });
           return;
         }
 
@@ -1106,22 +1106,22 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
     return true;
   }
 
-  if (method === 'DELETE' && url.pathname.startsWith('/api/roof-faces/')) {
+  if (method === 'DELETE' && url.pathname.startsWith('/api/surfaces/')) {
     void (async () => {
       try {
-        const roofFaceId = decodeURIComponent(url.pathname.slice('/api/roof-faces/'.length));
+        const roofFaceId = decodeURIComponent(url.pathname.slice('/api/surfaces/'.length));
         if (!roofFaceId) {
           sendJson(response, 400, { error: 'Roof face id is required.' });
           return;
         }
 
         const updated = withDb(databasePath, (db) => {
-          const existingFace = getRoofFace(db, roofFaceId);
+          const existingFace = getSurface(db, roofFaceId);
           if (!existingFace) {
-            return { status: 404 as const, body: { error: `Roof face "${roofFaceId}" not found.` } };
+            return { status: 404 as const, body: { error: `Surface "${roofFaceId}" not found.` } };
           }
 
-          deleteRoofFace(db, roofFaceId);
+          deleteSurface(db, roofFaceId);
           return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
         });
 
@@ -1134,10 +1134,10 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
     return true;
   }
 
-  if (method === 'PUT' && url.pathname.startsWith('/api/roof-panels/')) {
+  if (method === 'PUT' && url.pathname.startsWith('/api/surface-panel-assignments/')) {
     void (async () => {
       try {
-        const roofFaceId = decodeURIComponent(url.pathname.slice('/api/roof-panels/'.length));
+        const roofFaceId = decodeURIComponent(url.pathname.slice('/api/surface-panel-assignments/'.length));
         if (!roofFaceId) {
           sendJson(response, 400, { error: 'Roof face id is required.' });
           return;
@@ -1157,12 +1157,12 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         }
 
         const updated = withDb(databasePath, (db) => {
-          const existingFace = getRoofFace(db, roofFaceId);
+          const existingFace = getSurface(db, roofFaceId);
           if (!existingFace) {
-            return { status: 404 as const, body: { error: `Roof face "${roofFaceId}" not found.` } };
+            return { status: 404 as const, body: { error: `Surface "${roofFaceId}" not found.` } };
           }
 
-          deleteRoofPanelsForFace(db, roofFaceId);
+          deleteSurfacePanelAssignmentsForSurface(db, roofFaceId);
 
           if (count > 0) {
             if (!panelTypeId) {
@@ -1174,8 +1174,8 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
               return { status: 400 as const, body: { error: `Panel type "${panelTypeId}" not found.` } };
             }
 
-            upsertRoofPanel(db, {
-              roof_face_id: roofFaceId,
+            upsertSurfacePanelAssignment(db, {
+              surface_id: roofFaceId,
               panel_type_id: panelTypeId,
               count,
             });
@@ -1193,10 +1193,10 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
     return true;
   }
 
-  if (method === 'PUT' && url.pathname.startsWith('/api/roof-face-configurations/')) {
+  if (method === 'PUT' && url.pathname.startsWith('/api/surface-configurations/')) {
     void (async () => {
       try {
-        const roofFaceId = decodeURIComponent(url.pathname.slice('/api/roof-face-configurations/'.length));
+        const roofFaceId = decodeURIComponent(url.pathname.slice('/api/surface-configurations/'.length));
         if (!roofFaceId) {
           sendJson(response, 400, { error: 'Roof face id is required.' });
           return;
@@ -1226,13 +1226,13 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         }
 
         const updated = withDb(databasePath, (db) => {
-          const existingFace = getRoofFace(db, roofFaceId);
+          const existingFace = getSurface(db, roofFaceId);
           if (!existingFace) {
-            return { status: 404 as const, body: { error: `Roof face "${roofFaceId}" not found.` } };
+            return { status: 404 as const, body: { error: `Surface "${roofFaceId}" not found.` } };
           }
 
-          const persistedPanelCount = listRoofPanels(db)
-            .filter((assignment) => assignment.roof_face_id === roofFaceId)
+          const persistedPanelCount = listSurfacePanelAssignments(db)
+            .filter((assignment) => assignment.surface_id === roofFaceId)
             .reduce((sum, assignment) => sum + assignment.count, 0);
 
           if (persistedPanelCount === 0) {
@@ -1253,8 +1253,8 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             }
           }
 
-          upsertRoofFaceConfiguration(db, {
-            roof_face_id: roofFaceId,
+          upsertSurfaceConfiguration(db, {
+            surface_id: roofFaceId,
             panels_per_string: panelsPerString === 0 ? null : panelsPerString,
             parallel_strings: parallelStrings === 0 ? null : parallelStrings,
             selected_mppt_type_id: selectedMpptTypeId || null,

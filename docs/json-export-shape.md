@@ -52,7 +52,7 @@ Example:
     "longitude": 5.0
   },
   "current_assumptions": {
-    "roof_face_to_array_default": "1:1",
+    "surface_to_array_default": "1:1",
     "array_to_mppt_default": "1:1"
   }
 }
@@ -66,10 +66,10 @@ Suggested shape:
 
 ```json
 {
-  "roof_faces": [],
+  "surfaces": [],
   "panel_types": [],
-  "strings": [],
-  "arrays": [],
+  "pv_strings": [],
+  "pv_arrays": [],
   "mppt_types": [],
   "mppt_configurations": [],
   "battery_types": [],
@@ -173,7 +173,7 @@ Suggested fields:
 
 ### `project_monthly_solar_output`
 
-One row per calendar month with the sum of the roof-face solar output estimates.
+One row per calendar month with the sum of the surface solar output estimates.
 
 Suggested fields:
 
@@ -262,7 +262,7 @@ The React app should be able to assume:
 
 For the first exported version, prioritize:
 
-1. `roof_faces`
+1. `surfaces`
 2. `panel_types`
 3. `arrays`
 4. `mppt_configurations`

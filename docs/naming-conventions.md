@@ -23,7 +23,7 @@ These hold reusable product definitions:
 
 These hold the selected or configured items for one project:
 
-- `roof_face_configurations`
+- `surface_configurations`
 - `battery_bank_configurations`
 - `mppt_configurations`
 - `inverter_configurations`
@@ -32,9 +32,9 @@ These hold the selected or configured items for one project:
 
 Use these terms consistently in UI labels, docs, and future schema work:
 
-- roof face configuration
+- surface configuration
 - battery bank configuration
 - MPPT configuration
 - inverter configuration
 
-Keep `roof face`, `battery bank`, `MPPT`, and `inverter` as the entity nouns. Use `configuration` when the row represents the chosen project-specific setup.
+Keep `surface`, `battery bank`, `MPPT`, and `inverter` as the entity nouns. Use `configuration` when the row represents the chosen project-specific setup.

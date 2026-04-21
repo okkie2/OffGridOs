@@ -1,16 +1,16 @@
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 import Database from 'better-sqlite3';
-import { listRoofFaces, getRoofFace, insertRoofFace, updateRoofFace, deleteRoofFace } from '../../db/queries.js';
-import type { RoofFace } from '../../domain/types.js';
+import { listSurfaces, getSurface, insertSurface, updateSurface, deleteSurface } from '../../db/queries.js';
+import type { Surface } from '../../domain/types.js';
 
-async function promptFace(existing?: RoofFace): Promise<Omit<RoofFace, 'id'>> {
+async function promptSurface(existing?: Surface): Promise<Omit<Surface, 'id'>> {
   const ans = await inquirer.prompt([
     {
       type: 'input',
-      name: 'roof_face_id',
-      message: 'Face ID (unique key, e.g. south-1):',
-      default: existing?.roof_face_id,
+      name: 'surface_id',
+      message: 'Surface ID (unique key, e.g. south-1):',
+      default: existing?.surface_id,
       when: !existing,
       validate: (v: string) => v.trim().length > 0 || 'Required',
     },
@@ -68,7 +68,7 @@ async function promptFace(existing?: RoofFace): Promise<Omit<RoofFace, 'id'>> {
   ]);
 
   return {
-    roof_face_id: existing?.roof_face_id ?? ans.roof_face_id,
+    surface_id: existing?.surface_id ?? ans.surface_id,
     name: ans.name,
     orientation_deg: ans.orientation_deg,
     tilt_deg: ans.tilt_deg,
@@ -77,15 +77,15 @@ async function promptFace(existing?: RoofFace): Promise<Omit<RoofFace, 'id'>> {
   };
 }
 
-export async function roofFacesFlow(db: Database.Database): Promise<void> {
+export async function surfacesFlow(db: Database.Database): Promise<void> {
   while (true) {
-    const faces = listRoofFaces(db);
+    const surfaces = listSurfaces(db);
     const choices = [
-      { name: 'Add face', value: 'add' },
-      ...(faces.length > 0 ? [
-        { name: 'Edit face', value: 'edit' },
-        { name: 'Delete face', value: 'delete' },
-        { name: 'List faces', value: 'list' },
+      { name: 'Add surface', value: 'add' },
+      ...(surfaces.length > 0 ? [
+        { name: 'Edit surface', value: 'edit' },
+        { name: 'Delete surface', value: 'delete' },
+        { name: 'List surfaces', value: 'list' },
       ] : []),
       new inquirer.Separator(),
       { name: '← Back', value: 'back' },
@@ -94,7 +94,7 @@ export async function roofFacesFlow(db: Database.Database): Promise<void> {
     const { action } = await inquirer.prompt([{
       type: 'list',
       name: 'action',
-      message: 'Face',
+      message: 'Surface',
       choices,
     }]);
 
@@ -102,20 +102,20 @@ export async function roofFacesFlow(db: Database.Database): Promise<void> {
 
     if (action === 'list') {
       console.log('');
-      for (const f of faces) {
-        const area = f.usable_area_m2 != null ? `  ${f.usable_area_m2} m²` : '';
-        console.log(chalk.cyan(`  ${f.roof_face_id}`) + `  ${f.name}  |  ${f.orientation_deg}°  tilt ${f.tilt_deg}°${area}`);
+      for (const surface of surfaces) {
+        const area = surface.usable_area_m2 != null ? `  ${surface.usable_area_m2} m²` : '';
+        console.log(chalk.cyan(`  ${surface.surface_id}`) + `  ${surface.name}  |  ${surface.orientation_deg}°  tilt ${surface.tilt_deg}°${area}`);
       }
       continue;
     }
 
     if (action === 'add') {
-      const data = await promptFace();
-      if (getRoofFace(db, data.roof_face_id)) {
-        console.log(chalk.red(`Face ID "${data.roof_face_id}" already exists.`));
+      const data = await promptSurface();
+      if (getSurface(db, data.surface_id)) {
+        console.log(chalk.red(`Surface ID "${data.surface_id}" already exists.`));
       } else {
-        insertRoofFace(db, data);
-        console.log(chalk.green('Face saved.'));
+        insertSurface(db, data);
+        console.log(chalk.green('Surface saved.'));
       }
       continue;
     }
@@ -124,26 +124,26 @@ export async function roofFacesFlow(db: Database.Database): Promise<void> {
       const { id } = await inquirer.prompt([{
         type: 'list',
         name: 'id',
-        message: action === 'edit' ? 'Select face to edit:' : 'Select face to delete:',
-        choices: faces.map((f) => ({ name: `${f.roof_face_id}  —  ${f.name}`, value: f.roof_face_id })),
+        message: action === 'edit' ? 'Select surface to edit:' : 'Select surface to delete:',
+        choices: surfaces.map((surface) => ({ name: `${surface.surface_id}  —  ${surface.name}`, value: surface.surface_id })),
       }]);
 
       if (action === 'delete') {
         const { confirm } = await inquirer.prompt([{
           type: 'confirm',
           name: 'confirm',
-          message: `Delete face "${id}" and all its panel count assignments?`,
+          message: `Delete surface "${id}" and all its panel count assignments?`,
           default: false,
         }]);
         if (confirm) {
-          deleteRoofFace(db, id);
-          console.log(chalk.green('Face deleted.'));
+          deleteSurface(db, id);
+          console.log(chalk.green('Surface deleted.'));
         }
       } else {
-        const existing = getRoofFace(db, id)!;
-        const data = await promptFace(existing);
-        updateRoofFace(db, data);
-        console.log(chalk.green('Face updated.'));
+        const existing = getSurface(db, id)!;
+        const data = await promptSurface(existing);
+        updateSurface(db, data);
+        console.log(chalk.green('Surface updated.'));
       }
     }
   }

@@ -2,20 +2,20 @@ import inquirer from 'inquirer';
 import chalk from 'chalk';
 import Database from 'better-sqlite3';
 import {
-  listRoofFaces,
+  listSurfaces,
   listPanelTypes,
-  listRoofPanels,
-  upsertRoofPanel,
-  deleteRoofPanel,
+  listSurfacePanelAssignments,
+  upsertSurfacePanelAssignment,
+  deleteSurfacePanelAssignment,
 } from '../../db/queries.js';
 
-export async function roofPanelsFlow(db: Database.Database): Promise<void> {
+export async function surfacePanelAssignmentsFlow(db: Database.Database): Promise<void> {
   while (true) {
-    const faces = listRoofFaces(db);
+    const surfaces = listSurfaces(db);
     const panelTypes = listPanelTypes(db);
 
-    if (faces.length === 0) {
-      console.log(chalk.yellow('No faces defined. Add a face first.'));
+    if (surfaces.length === 0) {
+      console.log(chalk.yellow('No surfaces defined. Add a surface first.'));
       return;
     }
     if (panelTypes.length === 0) {
@@ -23,7 +23,7 @@ export async function roofPanelsFlow(db: Database.Database): Promise<void> {
       return;
     }
 
-    const assignments = listRoofPanels(db);
+    const assignments = listSurfacePanelAssignments(db);
 
     const choices = [
       { name: 'Set panel count', value: 'set' },
@@ -47,23 +47,23 @@ export async function roofPanelsFlow(db: Database.Database): Promise<void> {
     if (action === 'list') {
       console.log('');
       for (const a of assignments) {
-        const face = faces.find((f) => f.roof_face_id === a.roof_face_id);
+        const surface = surfaces.find((item) => item.surface_id === a.surface_id);
         const panel = panelTypes.find((p) => p.panel_type_id === a.panel_type_id);
         console.log(
-          chalk.cyan(`  ${a.roof_face_id}`) +
+          chalk.cyan(`  ${a.surface_id}`) +
           `  ×${a.count}  ${panel?.model ?? a.panel_type_id}` +
-          chalk.gray(`  (on ${face?.name ?? a.roof_face_id})`)
+          chalk.gray(`  (on ${surface?.name ?? a.surface_id})`)
         );
       }
       continue;
     }
 
     if (action === 'set') {
-      const { roof_face_id } = await inquirer.prompt([{
+      const { surface_id } = await inquirer.prompt([{
         type: 'list',
-        name: 'roof_face_id',
-        message: 'Face:',
-        choices: faces.map((f) => ({ name: `${f.roof_face_id}  —  ${f.name}`, value: f.roof_face_id })),
+        name: 'surface_id',
+        message: 'Surface:',
+        choices: surfaces.map((surface) => ({ name: `${surface.surface_id}  —  ${surface.name}`, value: surface.surface_id })),
       }]);
 
       const { panel_type_id } = await inquirer.prompt([{
@@ -74,7 +74,7 @@ export async function roofPanelsFlow(db: Database.Database): Promise<void> {
       }]);
 
       const existing = assignments.find(
-        (a) => a.roof_face_id === roof_face_id && a.panel_type_id === panel_type_id
+        (assignment) => assignment.surface_id === surface_id && assignment.panel_type_id === panel_type_id
       );
 
       const { count } = await inquirer.prompt([{
@@ -90,7 +90,7 @@ export async function roofPanelsFlow(db: Database.Database): Promise<void> {
         filter: (v: string) => parseInt(v, 10),
       }]);
 
-      upsertRoofPanel(db, { roof_face_id, panel_type_id, count });
+      upsertSurfacePanelAssignment(db, { surface_id, panel_type_id, count });
       console.log(chalk.green('Panel count saved.'));
     }
 
@@ -102,12 +102,12 @@ export async function roofPanelsFlow(db: Database.Database): Promise<void> {
         choices: assignments.map((a) => {
           const panel = panelTypes.find((p) => p.panel_type_id === a.panel_type_id);
           return {
-            name: `${a.roof_face_id}  ×${a.count}  ${panel?.model ?? a.panel_type_id}`,
+            name: `${a.surface_id}  ×${a.count}  ${panel?.model ?? a.panel_type_id}`,
             value: a.id,
           };
         }),
       }]);
-      deleteRoofPanel(db, id);
+      deleteSurfacePanelAssignment(db, id);
       console.log(chalk.green('Assignment removed.'));
     }
   }

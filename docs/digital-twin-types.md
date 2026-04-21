@@ -53,8 +53,8 @@ Rules:
 ## Core entities
 
 ```ts
-interface RoofFace {
-  roof_face_id: string;
+interface Surface {
+  surface_id: string;
   name: string;
   orientation_deg: number;
   tilt_deg: number;
@@ -78,7 +78,7 @@ interface PanelType {
 
 interface String {
   string_id: string;
-  roof_face_id: string;
+  surface_id: string;
   panel_type_id: string;
   panel_count: number;
   name?: string;
@@ -87,7 +87,7 @@ interface String {
 
 interface Array {
   array_id: string;
-  roof_face_id: string;
+  surface_id: string;
   name: string;
   string_ids: string[];
   notes?: string;
@@ -205,7 +205,7 @@ interface GeneratorMonthlyProfile {
 }
 
 interface SolarMonthlyProfile {
-  roof_face_id?: string;
+  surface_id?: string;
   array_id?: string;
   month: number;
   solar_factor: number;
@@ -297,7 +297,7 @@ interface BranchCircuitToConsumerRelationship {
 
 ```ts
 interface DigitalTwin {
-  roof_faces: RoofFace[];
+  surfaces: Surface[];
   panel_types: PanelType[];
   strings: String[];
   arrays: Array[];
@@ -330,7 +330,7 @@ interface DigitalTwin {
 
 For the current project phase:
 
-- one roof face will usually map to one array
+- one surface will usually map to one array
 - one array will usually map to one project MPPT
 - one battery bank is enough
 - one inverter configuration is enough

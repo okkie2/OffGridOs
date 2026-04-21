@@ -3,18 +3,16 @@
 
 OffGridOS is a single-project, single-user off-grid system planning tool built around a small SQLite project database, a Node server, and a React web app.
 
-The core flow - location, faces, battery array, inverter array - is server-backed and persists to SQLite. Reusable panel, MPPT, battery, and inverter catalogs now live under a shared `Catalogs` section. The next work targets replacing provisional derived configurations with explicit persisted project data and stabilising the schema.
+The core flow - location, surfaces, battery array, inverter array - is server-backed and persists to SQLite. Reusable panel, MPPT, battery, and inverter catalogs now live under a shared `Catalogs` section. The next work targets replacing provisional derived configurations with explicit persisted project data and stabilising the schema.
 
 For planning, treat `TODO.md` as the concrete publish-blocker queue and `ROADMAP.md` as the post-MVP theme queue.
 
 ## Quick Start
-roje
 Install dependencies:
 
 ```bash
 npm install
 ```
-
 Create or verify the local database:
 
 ```bash
@@ -78,7 +76,7 @@ For deployment and persistent-storage requirements, see [deployment.md](./docs/d
 ### Screen specs
 
 - [first-screen-layout.md](./docs/first-screen-layout.md): overview screen layout and what it should show on load.
-- [roof-face-array-screen.md](./docs/roof-face-array-screen.md): detailed screen for one roof face, its array, and MPPT fit evaluation.
+- [roof-face-array-screen.md](./docs/roof-face-array-screen.md): detailed screen for one surface, its array, and MPPT fit evaluation.
 - [battery-inverter-screen.md](./docs/battery-inverter-screen.md): detailed screen for the battery bank, inverter, and their evaluated relationships.
 - [monthly-balance-screen.md](./docs/monthly-balance-screen.md): seasonal system screen for monthly surplus, deficit, battery pressure, and generator dependence.
 - [branch-circuit-consumer-screen.md](./docs/branch-circuit-consumer-screen.md): future screen for downstream branch circuits, consumers, and AC-side distribution.

@@ -3,9 +3,9 @@ import chalk from 'chalk';
 import { openDb } from '../db/connection.js';
 import { initSchema } from '../db/schema.js';
 import { locationFlow } from './flows/location.js';
-import { roofFacesFlow } from './flows/roofFaces.js';
+import { surfacesFlow } from './flows/roofFaces.js';
 import { panelTypesFlow } from './flows/panelTypes.js';
-import { roofPanelsFlow } from './flows/roofPanels.js';
+import { surfacePanelAssignmentsFlow } from './flows/roofPanels.js';
 import { mpptTypesFlow } from './flows/mpptTypes.js';
 import { batteryTypesFlow } from './flows/batteryTypes.js';
 import { preferencesFlow } from './flows/preferences.js';
@@ -81,9 +81,9 @@ async function inputMenu(): Promise<void> {
         message: 'Input',
         choices: [
           { name: 'Location', value: 'location' },
-          { name: 'Face', value: 'roof_faces' },
+          { name: 'Surface', value: 'surfaces' },
           { name: 'Panel type', value: 'panel_types' },
-          { name: 'Panel count', value: 'roof_panels' },
+          { name: 'Panel count', value: 'surface_panel_assignments' },
           { name: 'MPPT', value: 'mppt_types' },
           { name: 'Battery', value: 'battery_types' },
           { name: 'Preferences', value: 'preferences' },
@@ -100,9 +100,9 @@ async function inputMenu(): Promise<void> {
 
     try {
       if (choice === 'location') await locationFlow(db);
-      if (choice === 'roof_faces') await roofFacesFlow(db);
+      if (choice === 'surfaces') await surfacesFlow(db);
       if (choice === 'panel_types') await panelTypesFlow(db);
-      if (choice === 'roof_panels') await roofPanelsFlow(db);
+      if (choice === 'surface_panel_assignments') await surfacePanelAssignmentsFlow(db);
       if (choice === 'mppt_types') await mpptTypesFlow(db);
       if (choice === 'battery_types') await batteryTypesFlow(db);
       if (choice === 'preferences') await preferencesFlow(db);

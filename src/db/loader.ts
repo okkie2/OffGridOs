@@ -2,22 +2,22 @@ import Database from 'better-sqlite3';
 import type { ProjectInput } from '../domain/types.js';
 import {
   getLocation,
-  listRoofFaces,
+  listSurfaces,
   listPanelTypes,
-  listRoofPanels,
+  listSurfacePanelAssignments,
   listMpptTypes,
   listBatteryTypes,
-  getPreferences,
+  getProjectPreferences,
 } from './queries.js';
 
 export function loadProjectInput(db: Database.Database): ProjectInput {
   return {
     location: getLocation(db)!,
-    roofFaces: listRoofFaces(db),
+    surfaces: listSurfaces(db),
     panelTypes: listPanelTypes(db),
-    roofPanels: listRoofPanels(db),
+    surfacePanelAssignments: listSurfacePanelAssignments(db),
     mpptTypes: listMpptTypes(db),
     batteryTypes: listBatteryTypes(db),
-    preferences: getPreferences(db),
+    projectPreferences: getProjectPreferences(db),
   };
 }

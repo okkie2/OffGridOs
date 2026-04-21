@@ -29,13 +29,13 @@ It should make the component graph explicit and keep a clean distinction between
 
 ## Entities
 
-### Roof face
+### Surface
 
-Represents one physical roof face.
+Represents one physical surface.
 
 Key fields:
 
-- `roof_face_id`
+- `surface_id`
 - `name`
 - `orientation_deg`
 - `tilt_deg`
@@ -67,7 +67,7 @@ Represents one series-connected set of panels.
 Key fields:
 
 - `string_id`
-- `roof_face_id`
+- `surface_id`
 - `panel_type_id`
 - `panel_count`
 - `derived_voltage_v`
@@ -81,7 +81,7 @@ Represents one PV grouping connected to one MPPT.
 Key fields:
 
 - `array_id`
-- `roof_face_id`
+- `surface_id`
 - `name`
 - `string_ids`
 - `derived_voltage_v`
@@ -91,12 +91,12 @@ Key fields:
 
 Current project assumption:
 
-- each roof face has one array
+- each surface has one array
 - each array feeds one MPPT
 
 General model allowance:
 
-- a roof face may have more than one array later
+- a surface may have more than one array later
 
 ### MPPT
 
@@ -340,7 +340,7 @@ Allowed values:
 
 ### Typically user inputs
 
-- roof face geometry and orientation
+- surface geometry and orientation
 - panel type
 - panel count
 - battery type
@@ -366,7 +366,7 @@ Allowed values:
 
 The general model should remain flexible, but the current project can start with:
 
-- one array per roof face
+- one array per surface
 - one MPPT per array
 - one battery bank
 - one inverter
@@ -383,7 +383,7 @@ Suggested top-level shape:
 {
   "project": {},
   "entities": {
-    "roof_faces": [],
+    "surfaces": [],
     "panel_types": [],
     "strings": [],
     "arrays": [],

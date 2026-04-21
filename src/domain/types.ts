@@ -8,9 +8,9 @@ export interface Location {
   easting?: number | null;
 }
 
-export interface RoofFace {
+export interface Surface {
   id: number;
-  roof_face_id: string;
+  surface_id: string;
   name: string;
   sort_order?: number | null;
   /** Azimuth in degrees: 0 = North, 90 = East, 180 = South, 270 = West */
@@ -34,9 +34,9 @@ export interface PanelType {
   notes?: string;
 }
 
-export interface RoofPanelAssignment {
+export interface SurfacePanelAssignment {
   id: number;
-  roof_face_id: string;
+  surface_id: string;
   panel_type_id: string;
   count: number;
 }
@@ -44,7 +44,7 @@ export interface RoofPanelAssignment {
 export interface PvArray {
   id: number;
   array_id: string;
-  roof_face_id: string;
+  surface_id: string;
   name: string;
   panel_type_id?: string | null;
   panel_count: number;
@@ -58,7 +58,7 @@ export interface PvString {
   id: number;
   string_id: string;
   array_id: string;
-  roof_face_id: string;
+  surface_id: string;
   string_index: number;
   panel_type_id?: string | null;
   panel_count: number;
@@ -71,9 +71,9 @@ export interface ArrayToMpptMapping {
   selected_mppt_type_id?: string | null;
 }
 
-export interface RoofFaceConfiguration {
+export interface SurfaceConfiguration {
   id: number;
-  roof_face_id: string;
+  surface_id: string;
   panels_per_string?: number | null;
   parallel_strings?: number | null;
   selected_mppt_type_id?: string | null;
@@ -141,7 +141,7 @@ export interface InverterConfiguration {
   selected_inverter_type_id?: string | null;
 }
 
-export interface Preferences {
+export interface ProjectPreferences {
   target_battery_voltage?: number;
   autonomy_days?: number;
   daily_consumption_kwh?: number;
@@ -153,16 +153,16 @@ export interface Preferences {
 
 export interface ProjectInput {
   location: Location;
-  roofFaces: RoofFace[];
+  surfaces: Surface[];
   panelTypes: PanelType[];
-  roofPanels: RoofPanelAssignment[];
+  surfacePanelAssignments: SurfacePanelAssignment[];
   mpptTypes: MpptType[];
   batteryTypes: BatteryType[];
-  preferences: Preferences;
+  projectPreferences: ProjectPreferences;
 }
 
 export interface YieldEstimate {
-  roof_face_id: string;
+  surface_id: string;
   name: string;
   installed_wp: number;
   monthly_kwh: number[];
@@ -170,7 +170,7 @@ export interface YieldEstimate {
 }
 
 export interface StringSuggestion {
-  roof_face_id: string;
+  surface_id: string;
   panel_type_id: string;
   count: number;
   max_series: number;
@@ -180,7 +180,7 @@ export interface StringSuggestion {
 }
 
 export interface MpptSuggestion {
-  roof_face_id: string;
+  surface_id: string;
   mppt_type_id: string;
   model: string;
   count: number;
@@ -199,7 +199,7 @@ export interface BatteryRecommendation {
 }
 
 export interface CableSuggestion {
-  roof_face_id: string;
+  surface_id: string;
   max_current_a: number;
   cable_length_m: number;
   min_cross_section_mm2: number;

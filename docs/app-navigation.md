@@ -64,7 +64,7 @@ Purpose:
 
 Primary destinations from here:
 
-- one roof face
+- one surface
 - MPPT fit
 - battery/inverter detail
 - monthly balance
@@ -142,7 +142,7 @@ The app does not need one page per node at first, but this should remain the con
 
 When the user drills down, the app should preserve context such as:
 
-- currently selected roof face
+- currently selected surface
 - currently selected month
 - currently selected array
 - currently selected MPPT
@@ -169,7 +169,7 @@ Examples:
 
 - `/`
 - `/location`
-- `/roof-faces/se`
+- `/surfaces/se`
 - `/battery`
 - `/branch-circuits`
 - `/branch-circuits/living-room`
@@ -192,7 +192,7 @@ This is important because some users will think:
 
 while others will think:
 
-- “show me the South-East roof face”
+- “show me the South-East surface”
 
 ## Recommendation
 

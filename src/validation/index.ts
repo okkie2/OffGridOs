@@ -25,23 +25,23 @@ export function validate(input: Partial<ProjectInput>): ValidationMessage[] {
     }
   }
 
-  // ── Roof faces ──────────────────────────────────────────────────────────────
+  // ── Surfaces ────────────────────────────────────────────────────────────────
 
-  const faces = input.roofFaces ?? [];
-  if (faces.length === 0) {
-    err('No faces defined. Add at least one roof face.');
+  const surfaces = input.surfaces ?? [];
+  if (surfaces.length === 0) {
+    err('No surfaces defined. Add at least one surface.');
   } else {
-    for (const f of faces) {
+    for (const f of surfaces) {
       if (typeof f.orientation_deg !== 'number' || f.orientation_deg < 0 || f.orientation_deg > 360) {
-        err(`Face "${f.roof_face_id}": orientation ${f.orientation_deg}° is invalid. Must be 0–360.`);
+        err(`Surface "${f.surface_id}": orientation ${f.orientation_deg}° is invalid. Must be 0–360.`);
       }
       if (typeof f.tilt_deg !== 'number' || f.tilt_deg < 0 || f.tilt_deg > 90) {
-        err(`Face "${f.roof_face_id}": tilt ${f.tilt_deg}° is invalid. Must be 0–90.`);
+        err(`Surface "${f.surface_id}": tilt ${f.tilt_deg}° is invalid. Must be 0–90.`);
       } else if (f.tilt_deg > 75) {
-        warn(`Face "${f.roof_face_id}": tilt ${f.tilt_deg}° is very steep. Yield estimates may be lower than expected.`);
+        warn(`Surface "${f.surface_id}": tilt ${f.tilt_deg}° is very steep. Yield estimates may be lower than expected.`);
       }
       if (f.usable_area_m2 !== undefined && f.usable_area_m2 !== null && f.usable_area_m2 <= 0) {
-        err(`Face "${f.roof_face_id}": usable area must be > 0 if provided.`);
+        err(`Surface "${f.surface_id}": usable area must be > 0 if provided.`);
       }
     }
   }
@@ -49,7 +49,7 @@ export function validate(input: Partial<ProjectInput>): ValidationMessage[] {
   // ── Panel types ─────────────────────────────────────────────────────────────
 
   const panelTypes = input.panelTypes ?? [];
-  const roofPanels = input.roofPanels ?? [];
+  const surfacePanelAssignments = input.surfacePanelAssignments ?? [];
 
   if (panelTypes.length === 0) {
     err('No panel types defined. Add at least one panel type.');
@@ -66,25 +66,25 @@ export function validate(input: Partial<ProjectInput>): ValidationMessage[] {
     }
   }
 
-  // ── Roof panel assignments (panel counts) ────────────────────────────────────
+  // ── Surface panel assignments (panel counts) ───────────────────────────────
 
-  if (roofPanels.length === 0) {
-    err('No panel count assignments. Assign panels to at least one face.');
+  if (surfacePanelAssignments.length === 0) {
+    err('No panel count assignments. Assign panels to at least one surface.');
   } else {
-    const faceIds = new Set(faces.map((f) => f.roof_face_id));
+    const surfaceIds = new Set(surfaces.map((surface) => surface.surface_id));
     const panelTypeIds = new Set(panelTypes.map((p) => p.panel_type_id));
 
-    for (const rp of roofPanels) {
-      if (!faceIds.has(rp.roof_face_id)) {
-        err(`Panel count references unknown face "${rp.roof_face_id}".`);
+    for (const assignment of surfacePanelAssignments) {
+      if (!surfaceIds.has(assignment.surface_id)) {
+        err(`Panel count references unknown surface "${assignment.surface_id}".`);
       }
-      if (!panelTypeIds.has(rp.panel_type_id)) {
-        err(`Panel count references unknown panel type "${rp.panel_type_id}".`);
+      if (!panelTypeIds.has(assignment.panel_type_id)) {
+        err(`Panel count references unknown panel type "${assignment.panel_type_id}".`);
       }
-      if (!Number.isInteger(rp.count) || rp.count <= 0) {
-        err(`Panel count for face "${rp.roof_face_id}" / panel "${rp.panel_type_id}": count must be a positive integer.`);
-      } else if (rp.count > 50) {
-        warn(`Panel count for face "${rp.roof_face_id}": ${rp.count} panels is unusually high (> 50).`);
+      if (!Number.isInteger(assignment.count) || assignment.count <= 0) {
+        err(`Panel count for surface "${assignment.surface_id}" / panel "${assignment.panel_type_id}": count must be a positive integer.`);
+      } else if (assignment.count > 50) {
+        warn(`Panel count for surface "${assignment.surface_id}": ${assignment.count} panels is unusually high (> 50).`);
       }
     }
   }
@@ -110,33 +110,33 @@ export function validate(input: Partial<ProjectInput>): ValidationMessage[] {
     if (b.capacity_kwh <= 0) err(`Battery "${b.battery_type_id}": capacity (kWh) must be > 0.`);
   }
 
-  // ── Preferences ─────────────────────────────────────────────────────────────
+  // ── Project preferences ─────────────────────────────────────────────────────
 
-  const prefs = input.preferences ?? {};
+  const preferences = input.projectPreferences ?? {};
 
-  if (!prefs.daily_consumption_kwh) {
+  if (!preferences.daily_consumption_kwh) {
     warn('Daily consumption (kWh) is not set. Battery sizing will be skipped.');
   }
-  if (!prefs.target_battery_voltage) {
+  if (!preferences.target_battery_voltage) {
     warn('Target battery voltage is not set. Battery sizing will be skipped.');
   }
-  if (!prefs.autonomy_days) {
+  if (!preferences.autonomy_days) {
     info('Autonomy days not set. Defaulting to 2 days.');
   }
-  if (!prefs.max_cable_length_m) {
+  if (!preferences.max_cable_length_m) {
     warn('Max cable length not set. Cable sizing will be skipped.');
   }
 
-  if (prefs.preferred_mppt_type_id) {
+  if (preferences.preferred_mppt_type_id) {
     const mpptIds = new Set(mpptTypes.map((m) => m.mppt_type_id));
-    if (!mpptIds.has(prefs.preferred_mppt_type_id)) {
-      err(`Preferences: preferred MPPT "${prefs.preferred_mppt_type_id}" does not exist.`);
+    if (!mpptIds.has(preferences.preferred_mppt_type_id)) {
+      err(`Project preferences: preferred MPPT "${preferences.preferred_mppt_type_id}" does not exist.`);
     }
   }
-  if (prefs.preferred_battery_type_id) {
+  if (preferences.preferred_battery_type_id) {
     const batteryIds = new Set(batteryTypes.map((b) => b.battery_type_id));
-    if (!batteryIds.has(prefs.preferred_battery_type_id)) {
-      err(`Preferences: preferred battery "${prefs.preferred_battery_type_id}" does not exist.`);
+    if (!batteryIds.has(preferences.preferred_battery_type_id)) {
+      err(`Project preferences: preferred battery "${preferences.preferred_battery_type_id}" does not exist.`);
     }
   }
 

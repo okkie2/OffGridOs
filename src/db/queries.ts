@@ -1,10 +1,10 @@
 import Database from 'better-sqlite3';
 import type {
   Location,
-  RoofFace,
-  RoofFaceConfiguration,
+  Surface,
+  SurfaceConfiguration,
   PanelType,
-  RoofPanelAssignment,
+  SurfacePanelAssignment,
   PvArray,
   PvString,
   ArrayToMpptMapping,
@@ -13,66 +13,66 @@ import type {
   BatteryBankConfiguration,
   InverterType,
   InverterConfiguration,
-  Preferences,
+  ProjectPreferences,
 } from '../domain/types.js';
 
 // ── Location ─────────────────────────────────────────────────────────────────
 
 export function getLocation(db: Database.Database): Location | null {
-  return (db.prepare('SELECT * FROM location LIMIT 1').get() as Location) ?? null;
+  return (db.prepare('SELECT * FROM locations LIMIT 1').get() as Location) ?? null;
 }
 
 export function upsertLocation(db: Database.Database, data: Omit<Location, 'id'>): void {
   const existing = getLocation(db);
   if (existing) {
-    db.prepare('UPDATE location SET country=@country, place_name=@place_name, latitude=@latitude, longitude=@longitude, northing=@northing, easting=@easting WHERE id=@id')
+    db.prepare('UPDATE locations SET country=@country, place_name=@place_name, latitude=@latitude, longitude=@longitude, northing=@northing, easting=@easting WHERE id=@id')
       .run({ ...data, id: existing.id });
   } else {
-    db.prepare('INSERT INTO location (country, place_name, latitude, longitude, northing, easting) VALUES (@country, @place_name, @latitude, @longitude, @northing, @easting)')
+    db.prepare('INSERT INTO locations (country, place_name, latitude, longitude, northing, easting) VALUES (@country, @place_name, @latitude, @longitude, @northing, @easting)')
       .run(data);
   }
 }
 
-// ── Roof faces ────────────────────────────────────────────────────────────────
+// ── Surfaces ──────────────────────────────────────────────────────────────────
 
-export function listRoofFaces(db: Database.Database): RoofFace[] {
-  return db.prepare('SELECT * FROM roof_faces ORDER BY sort_order, id').all() as RoofFace[];
+export function listSurfaces(db: Database.Database): Surface[] {
+  return db.prepare('SELECT * FROM surfaces ORDER BY sort_order, id').all() as Surface[];
 }
 
-export function getRoofFace(db: Database.Database, roof_face_id: string): RoofFace | null {
-  return (db.prepare('SELECT * FROM roof_faces WHERE roof_face_id = ?').get(roof_face_id) as RoofFace) ?? null;
+export function getSurface(db: Database.Database, surface_id: string): Surface | null {
+  return (db.prepare('SELECT * FROM surfaces WHERE surface_id = ?').get(surface_id) as Surface) ?? null;
 }
 
-export function insertRoofFace(db: Database.Database, data: Omit<RoofFace, 'id'>): void {
+export function insertSurface(db: Database.Database, data: Omit<Surface, 'id'>): void {
   db.prepare(`
-    INSERT INTO roof_faces (roof_face_id, name, sort_order, orientation_deg, tilt_deg, usable_area_m2, notes)
-    VALUES (@roof_face_id, @name, @sort_order, @orientation_deg, @tilt_deg, @usable_area_m2, @notes)
+    INSERT INTO surfaces (surface_id, name, sort_order, orientation_deg, tilt_deg, usable_area_m2, notes)
+    VALUES (@surface_id, @name, @sort_order, @orientation_deg, @tilt_deg, @usable_area_m2, @notes)
   `).run(data);
 }
 
-export function createRoofFace(db: Database.Database, data: Omit<RoofFace, 'id'>): void {
-  const nextSortOrderRow = db.prepare('SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_sort_order FROM roof_faces').get() as { next_sort_order: number } | undefined;
-  insertRoofFace(db, {
+export function createSurface(db: Database.Database, data: Omit<Surface, 'id'>): void {
+  const nextSortOrderRow = db.prepare('SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_sort_order FROM surfaces').get() as { next_sort_order: number } | undefined;
+  insertSurface(db, {
     ...data,
     sort_order: data.sort_order ?? (nextSortOrderRow?.next_sort_order ?? 1),
   });
-  syncPvTopologyForRoofFace(db, data.roof_face_id);
+  syncPvTopologyForSurface(db, data.surface_id);
 }
 
-export function updateRoofFace(db: Database.Database, data: Omit<RoofFace, 'id'>): void {
+export function updateSurface(db: Database.Database, data: Omit<Surface, 'id'>): void {
   db.prepare(`
-    UPDATE roof_faces
+    UPDATE surfaces
     SET name=@name, orientation_deg=@orientation_deg, tilt_deg=@tilt_deg,
         usable_area_m2=@usable_area_m2, notes=@notes
-    WHERE roof_face_id=@roof_face_id
+    WHERE surface_id=@surface_id
   `).run(data);
 }
 
-export function deleteRoofFace(db: Database.Database, roof_face_id: string): void {
-  db.prepare('DELETE FROM roof_panels WHERE roof_face_id = ?').run(roof_face_id);
-  deletePvArrayForRoofFace(db, roof_face_id);
-  db.prepare('DELETE FROM roof_face_configurations WHERE roof_face_id = ?').run(roof_face_id);
-  db.prepare('DELETE FROM roof_faces WHERE roof_face_id = ?').run(roof_face_id);
+export function deleteSurface(db: Database.Database, surface_id: string): void {
+  db.prepare('DELETE FROM surface_panel_assignments WHERE surface_id = ?').run(surface_id);
+  deletePvArrayForSurface(db, surface_id);
+  db.prepare('DELETE FROM surface_configurations WHERE surface_id = ?').run(surface_id);
+  db.prepare('DELETE FROM surfaces WHERE surface_id = ?').run(surface_id);
 }
 
 // ── Panel types ───────────────────────────────────────────────────────────────
@@ -102,60 +102,60 @@ export function updatePanelType(db: Database.Database, data: Omit<PanelType, 'id
 }
 
 export function deletePanelType(db: Database.Database, panel_type_id: string): void {
-  db.prepare('DELETE FROM roof_panels WHERE panel_type_id = ?').run(panel_type_id);
+  db.prepare('DELETE FROM surface_panel_assignments WHERE panel_type_id = ?').run(panel_type_id);
   db.prepare('DELETE FROM panel_types WHERE panel_type_id = ?').run(panel_type_id);
 }
 
-// ── Roof panels (panel count assignments) ─────────────────────────────────────
+// ── Surface panel assignments ─────────────────────────────────────────────────
 
-export function listRoofPanels(db: Database.Database): RoofPanelAssignment[] {
-  return db.prepare('SELECT * FROM roof_panels ORDER BY roof_face_id, panel_type_id').all() as RoofPanelAssignment[];
+export function listSurfacePanelAssignments(db: Database.Database): SurfacePanelAssignment[] {
+  return db.prepare('SELECT * FROM surface_panel_assignments ORDER BY surface_id, panel_type_id').all() as SurfacePanelAssignment[];
 }
 
-export function getRoofPanel(db: Database.Database, roof_face_id: string, panel_type_id: string): RoofPanelAssignment | null {
-  return (db.prepare('SELECT * FROM roof_panels WHERE roof_face_id=? AND panel_type_id=?').get(roof_face_id, panel_type_id) as RoofPanelAssignment) ?? null;
+export function getSurfacePanelAssignment(db: Database.Database, surface_id: string, panel_type_id: string): SurfacePanelAssignment | null {
+  return (db.prepare('SELECT * FROM surface_panel_assignments WHERE surface_id=? AND panel_type_id=?').get(surface_id, panel_type_id) as SurfacePanelAssignment) ?? null;
 }
 
-export function upsertRoofPanel(db: Database.Database, data: Omit<RoofPanelAssignment, 'id'>): void {
-  const existing = getRoofPanel(db, data.roof_face_id, data.panel_type_id);
+export function upsertSurfacePanelAssignment(db: Database.Database, data: Omit<SurfacePanelAssignment, 'id'>): void {
+  const existing = getSurfacePanelAssignment(db, data.surface_id, data.panel_type_id);
   if (existing) {
-    db.prepare('UPDATE roof_panels SET count=? WHERE roof_face_id=? AND panel_type_id=?')
-      .run(data.count, data.roof_face_id, data.panel_type_id);
+    db.prepare('UPDATE surface_panel_assignments SET count=? WHERE surface_id=? AND panel_type_id=?')
+      .run(data.count, data.surface_id, data.panel_type_id);
   } else {
-    db.prepare('INSERT INTO roof_panels (roof_face_id, panel_type_id, count) VALUES (?,?,?)')
-      .run(data.roof_face_id, data.panel_type_id, data.count);
+    db.prepare('INSERT INTO surface_panel_assignments (surface_id, panel_type_id, count) VALUES (?,?,?)')
+      .run(data.surface_id, data.panel_type_id, data.count);
   }
-  syncPvTopologyForRoofFace(db, data.roof_face_id);
+  syncPvTopologyForSurface(db, data.surface_id);
 }
 
-export function deleteRoofPanel(db: Database.Database, id: number): void {
-  const row = db.prepare('SELECT roof_face_id FROM roof_panels WHERE id = ?').get(id) as { roof_face_id?: string } | undefined;
-  db.prepare('DELETE FROM roof_panels WHERE id = ?').run(id);
-  if (row?.roof_face_id) {
-    syncPvTopologyForRoofFace(db, row.roof_face_id);
+export function deleteSurfacePanelAssignment(db: Database.Database, id: number): void {
+  const row = db.prepare('SELECT surface_id FROM surface_panel_assignments WHERE id = ?').get(id) as { surface_id?: string } | undefined;
+  db.prepare('DELETE FROM surface_panel_assignments WHERE id = ?').run(id);
+  if (row?.surface_id) {
+    syncPvTopologyForSurface(db, row.surface_id);
   }
 }
 
-export function deleteRoofPanelsForFace(db: Database.Database, roof_face_id: string): void {
-  db.prepare('DELETE FROM roof_panels WHERE roof_face_id = ?').run(roof_face_id);
-  syncPvTopologyForRoofFace(db, roof_face_id);
+export function deleteSurfacePanelAssignmentsForSurface(db: Database.Database, surface_id: string): void {
+  db.prepare('DELETE FROM surface_panel_assignments WHERE surface_id = ?').run(surface_id);
+  syncPvTopologyForSurface(db, surface_id);
 }
 
 // ── PV topology persistence ─────────────────────────────────────────────────
 
 export function listPvArrays(db: Database.Database): PvArray[] {
-  return db.prepare('SELECT * FROM arrays ORDER BY roof_face_id').all() as PvArray[];
+  return db.prepare('SELECT * FROM pv_arrays ORDER BY surface_id').all() as PvArray[];
 }
 
-export function getPvArrayByRoofFace(db: Database.Database, roof_face_id: string): PvArray | null {
-  return (db.prepare('SELECT * FROM arrays WHERE roof_face_id = ?').get(roof_face_id) as PvArray) ?? null;
+export function getPvArrayBySurface(db: Database.Database, surface_id: string): PvArray | null {
+  return (db.prepare('SELECT * FROM pv_arrays WHERE surface_id = ?').get(surface_id) as PvArray) ?? null;
 }
 
 export function upsertPvArray(db: Database.Database, data: Omit<PvArray, 'id'>): void {
   db.prepare(`
-    INSERT INTO arrays (
+    INSERT INTO pv_arrays (
       array_id,
-      roof_face_id,
+      surface_id,
       name,
       panel_type_id,
       panel_count,
@@ -166,7 +166,7 @@ export function upsertPvArray(db: Database.Database, data: Omit<PvArray, 'id'>):
     )
     VALUES (
       @array_id,
-      @roof_face_id,
+      @surface_id,
       @name,
       @panel_type_id,
       @panel_count,
@@ -175,7 +175,7 @@ export function upsertPvArray(db: Database.Database, data: Omit<PvArray, 'id'>):
       @installed_wp,
       @notes
     )
-    ON CONFLICT(roof_face_id) DO UPDATE SET
+    ON CONFLICT(surface_id) DO UPDATE SET
       name = excluded.name,
       panel_type_id = excluded.panel_type_id,
       panel_count = excluded.panel_count,
@@ -186,28 +186,28 @@ export function upsertPvArray(db: Database.Database, data: Omit<PvArray, 'id'>):
   `).run(data);
 }
 
-export function deletePvArrayForRoofFace(db: Database.Database, roof_face_id: string): void {
-  const array = getPvArrayByRoofFace(db, roof_face_id);
+export function deletePvArrayForSurface(db: Database.Database, surface_id: string): void {
+  const array = getPvArrayBySurface(db, surface_id);
   if (!array) return;
-  db.prepare('DELETE FROM strings WHERE array_id = ?').run(array.array_id);
+  db.prepare('DELETE FROM pv_strings WHERE array_id = ?').run(array.array_id);
   db.prepare('DELETE FROM array_to_mppt_mappings WHERE array_id = ?').run(array.array_id);
-  db.prepare('DELETE FROM arrays WHERE roof_face_id = ?').run(roof_face_id);
+  db.prepare('DELETE FROM pv_arrays WHERE surface_id = ?').run(surface_id);
 }
 
 export function listPvStrings(db: Database.Database): PvString[] {
-  return db.prepare('SELECT * FROM strings ORDER BY roof_face_id, string_index').all() as PvString[];
+  return db.prepare('SELECT * FROM pv_strings ORDER BY surface_id, string_index').all() as PvString[];
 }
 
 export function deletePvStringsForArray(db: Database.Database, array_id: string): void {
-  db.prepare('DELETE FROM strings WHERE array_id = ?').run(array_id);
+  db.prepare('DELETE FROM pv_strings WHERE array_id = ?').run(array_id);
 }
 
 export function upsertPvString(db: Database.Database, data: Omit<PvString, 'id'>): void {
   db.prepare(`
-    INSERT INTO strings (
+    INSERT INTO pv_strings (
       string_id,
       array_id,
-      roof_face_id,
+      surface_id,
       string_index,
       panel_type_id,
       panel_count
@@ -215,14 +215,14 @@ export function upsertPvString(db: Database.Database, data: Omit<PvString, 'id'>
     VALUES (
       @string_id,
       @array_id,
-      @roof_face_id,
+      @surface_id,
       @string_index,
       @panel_type_id,
       @panel_count
     )
     ON CONFLICT(string_id) DO UPDATE SET
       array_id = excluded.array_id,
-      roof_face_id = excluded.roof_face_id,
+      surface_id = excluded.surface_id,
       string_index = excluded.string_index,
       panel_type_id = excluded.panel_type_id,
       panel_count = excluded.panel_count
@@ -246,16 +246,16 @@ export function upsertArrayToMpptMapping(db: Database.Database, data: Omit<Array
   `).run(data);
 }
 
-export function syncPvTopologyForRoofFace(db: Database.Database, roof_face_id: string): void {
-  const roofFace = getRoofFace(db, roof_face_id);
-  if (!roofFace) return;
+export function syncPvTopologyForSurface(db: Database.Database, surface_id: string): void {
+  const surface = getSurface(db, surface_id);
+  if (!surface) return;
 
-  const assignments = db.prepare('SELECT * FROM roof_panels WHERE roof_face_id = ? ORDER BY id').all(roof_face_id) as RoofPanelAssignment[];
-  const configuration = getRoofFaceConfiguration(db, roof_face_id);
+  const assignments = db.prepare('SELECT * FROM surface_panel_assignments WHERE surface_id = ? ORDER BY id').all(surface_id) as SurfacePanelAssignment[];
+  const configuration = getSurfaceConfiguration(db, surface_id);
   const primaryAssignment = assignments[0] ?? null;
   const panelCount = assignments.reduce((sum, assignment) => sum + assignment.count, 0);
   const primaryPanelType = primaryAssignment ? getPanelType(db, primaryAssignment.panel_type_id) : null;
-  const arrayId = `array-${roof_face_id}`;
+  const arrayId = `array-${surface_id}`;
   const panelsPerString = configuration?.panels_per_string ?? (panelCount > 0 ? panelCount : null);
   const parallelStrings = configuration?.parallel_strings ?? (panelCount > 0 ? 1 : null);
   const installedWp = assignments.reduce((sum, assignment) => {
@@ -265,16 +265,16 @@ export function syncPvTopologyForRoofFace(db: Database.Database, roof_face_id: s
 
   upsertPvArray(db, {
     array_id: arrayId,
-    roof_face_id,
-    name: roofFace.name,
+    surface_id,
+    name: surface.name,
     panel_type_id: primaryAssignment?.panel_type_id ?? null,
     panel_count: panelCount,
     panels_per_string: panelsPerString,
     parallel_strings: parallelStrings,
     installed_wp: installedWp,
     notes: panelCount === 0
-      ? 'No panel assignment currently present for this roof face.'
-      : 'Persisted PV array for the current roof-face panel assignment.',
+      ? 'No panel assignment currently present for this surface.'
+      : 'Persisted PV array for the current surface panel assignment.',
   });
 
   deletePvStringsForArray(db, arrayId);
@@ -283,9 +283,9 @@ export function syncPvTopologyForRoofFace(db: Database.Database, roof_face_id: s
     const panelsPerStringValue = Math.max(1, panelsPerString ?? panelCount);
     for (let index = 1; index <= stringCount; index += 1) {
       upsertPvString(db, {
-        string_id: `string-${roof_face_id}-${index}`,
+        string_id: `string-${surface_id}-${index}`,
         array_id: arrayId,
-        roof_face_id,
+        surface_id,
         string_index: index,
         panel_type_id: primaryPanelType?.panel_type_id ?? primaryAssignment?.panel_type_id ?? null,
         panel_count: panelsPerStringValue,
@@ -294,47 +294,47 @@ export function syncPvTopologyForRoofFace(db: Database.Database, roof_face_id: s
   }
 
   upsertArrayToMpptMapping(db, {
-    mapping_id: `array-mppt-${roof_face_id}`,
+    mapping_id: `array-mppt-${surface_id}`,
     array_id: arrayId,
     selected_mppt_type_id: configuration?.selected_mppt_type_id ?? null,
   });
 }
 
 export function syncPvTopology(db: Database.Database): void {
-  const roofFaces = db.prepare('SELECT roof_face_id FROM roof_faces ORDER BY roof_face_id').all() as { roof_face_id: string }[];
-  const activeFaceIds = new Set(roofFaces.map((face) => face.roof_face_id));
+  const surfaces = db.prepare('SELECT surface_id FROM surfaces ORDER BY surface_id').all() as { surface_id: string }[];
+  const activeSurfaceIds = new Set(surfaces.map((surface) => surface.surface_id));
 
-  for (const { roof_face_id } of roofFaces) {
-    syncPvTopologyForRoofFace(db, roof_face_id);
+  for (const { surface_id } of surfaces) {
+    syncPvTopologyForSurface(db, surface_id);
   }
 
   for (const array of listPvArrays(db)) {
-    if (!activeFaceIds.has(array.roof_face_id)) {
-      deletePvArrayForRoofFace(db, array.roof_face_id);
+    if (!activeSurfaceIds.has(array.surface_id)) {
+      deletePvArrayForSurface(db, array.surface_id);
     }
   }
 }
 
-// ── Roof-face configuration state ────────────────────────────────────────────
+// ── Surface configuration state ──────────────────────────────────────────────
 
-export function listRoofFaceConfigurations(db: Database.Database): RoofFaceConfiguration[] {
-  return db.prepare('SELECT * FROM roof_face_configurations ORDER BY roof_face_id').all() as RoofFaceConfiguration[];
+export function listSurfaceConfigurations(db: Database.Database): SurfaceConfiguration[] {
+  return db.prepare('SELECT * FROM surface_configurations ORDER BY surface_id').all() as SurfaceConfiguration[];
 }
 
-export function getRoofFaceConfiguration(db: Database.Database, roof_face_id: string): RoofFaceConfiguration | null {
-  return (db.prepare('SELECT * FROM roof_face_configurations WHERE roof_face_id = ?').get(roof_face_id) as RoofFaceConfiguration) ?? null;
+export function getSurfaceConfiguration(db: Database.Database, surface_id: string): SurfaceConfiguration | null {
+  return (db.prepare('SELECT * FROM surface_configurations WHERE surface_id = ?').get(surface_id) as SurfaceConfiguration) ?? null;
 }
 
-export function upsertRoofFaceConfiguration(db: Database.Database, data: Omit<RoofFaceConfiguration, 'id'>): void {
+export function upsertSurfaceConfiguration(db: Database.Database, data: Omit<SurfaceConfiguration, 'id'>): void {
   db.prepare(`
-    INSERT INTO roof_face_configurations (roof_face_id, panels_per_string, parallel_strings, selected_mppt_type_id)
-    VALUES (@roof_face_id, @panels_per_string, @parallel_strings, @selected_mppt_type_id)
-    ON CONFLICT(roof_face_id) DO UPDATE SET
+    INSERT INTO surface_configurations (surface_id, panels_per_string, parallel_strings, selected_mppt_type_id)
+    VALUES (@surface_id, @panels_per_string, @parallel_strings, @selected_mppt_type_id)
+    ON CONFLICT(surface_id) DO UPDATE SET
       panels_per_string = excluded.panels_per_string,
       parallel_strings = excluded.parallel_strings,
       selected_mppt_type_id = excluded.selected_mppt_type_id
   `).run(data);
-  syncPvTopologyForRoofFace(db, data.roof_face_id);
+  syncPvTopologyForSurface(db, data.surface_id);
 }
 
 // ── Battery-bank configuration state ─────────────────────────────────────────
@@ -576,33 +576,35 @@ export function upsertInverterConfiguration(db: Database.Database, data: Omit<In
   `).run(data);
 }
 
-// ── Preferences ───────────────────────────────────────────────────────────────
+// ── Project preferences ───────────────────────────────────────────────────────
 
-export function getPreferences(db: Database.Database): Preferences {
-  const rows = db.prepare('SELECT key, value FROM preferences').all() as { key: string; value: string }[];
-  const prefs: Preferences = {};
+export function getProjectPreferences(db: Database.Database): ProjectPreferences {
+  const rows = db.prepare('SELECT key, value FROM project_preferences').all() as { key: string; value: string }[];
+  const preferences: ProjectPreferences = {};
   for (const { key, value } of rows) {
     switch (key) {
       case 'target_battery_voltage':
-        prefs.target_battery_voltage = Number(value); break;
+        preferences.target_battery_voltage = Number(value); break;
       case 'autonomy_days':
-        prefs.autonomy_days = Number(value); break;
+        preferences.autonomy_days = Number(value); break;
       case 'daily_consumption_kwh':
-        prefs.daily_consumption_kwh = Number(value); break;
+        preferences.daily_consumption_kwh = Number(value); break;
       case 'max_cable_length_m':
-        prefs.max_cable_length_m = Number(value); break;
+        preferences.max_cable_length_m = Number(value); break;
       case 'preferred_mppt_type_id':
-        prefs.preferred_mppt_type_id = value; break;
+        preferences.preferred_mppt_type_id = value; break;
       case 'preferred_battery_type_id':
-        prefs.preferred_battery_type_id = value; break;
+        preferences.preferred_battery_type_id = value; break;
       case 'preferred_inverter_type_id':
-        prefs.preferred_inverter_type_id = value; break;
+        preferences.preferred_inverter_type_id = value; break;
     }
   }
-  return prefs;
+  return preferences;
 }
 
-export function setPref(db: Database.Database, key: string, value: string): void {
-  db.prepare('INSERT INTO preferences (key, value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value')
+export function setProjectPreference(db: Database.Database, key: string, value: string): void {
+  db.prepare('INSERT INTO project_preferences (key, value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value')
     .run(key, value);
 }
+export const getPreferences = getProjectPreferences;
+export const setPref = setProjectPreference;

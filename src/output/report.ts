@@ -76,7 +76,7 @@ function buildSummarySection(exportData: DigitalTwinExport): string {
       [
         ['Project', exportData.project.name],
         ['Location', exportData.project.location ? `${exportData.project.location.place_name}, ${exportData.project.location.country}` : 'n/a'],
-        ['Roof faces', summary.roof_face_count],
+        ['Surfaces', summary.surface_count],
         ['Arrays', summary.array_count],
         ['MPPT configurations', summary.mppt_configuration_count],
         ['Battery types', summary.battery_type_count],
@@ -113,22 +113,22 @@ function buildLocationSection(exportData: DigitalTwinExport): string {
   ].join('\n');
 }
 
-function buildRoofFacesSection(exportData: DigitalTwinExport): string {
-  const arraysByFace = new Map(exportData.entities.arrays.map((array) => [array.roof_face_id, array]));
-  const configsByFace = new Map(exportData.entities.roof_face_configurations.map((configuration) => [configuration.roof_face_id, configuration]));
+function buildSurfacesSection(exportData: DigitalTwinExport): string {
+  const arraysBySurface = new Map(exportData.entities.pv_arrays.map((pvArray) => [pvArray.surface_id, pvArray]));
+  const configsBySurface = new Map(exportData.entities.surface_configurations.map((configuration) => [configuration.surface_id, configuration]));
   const mpptByArray = new Map(exportData.entities.mppt_configurations.map((mppt) => [mppt.array_id, mppt]));
   const relationByArray = new Map(exportData.relationships.array_to_mppt.map((relation) => [relation.from_array_id, relation]));
 
-  const rows = exportData.entities.roof_faces.map((roofFace) => {
-    const array = arraysByFace.get(roofFace.roof_face_id);
-    const configuration = configsByFace.get(roofFace.roof_face_id);
-    const mppt = array ? mpptByArray.get(array.array_id) : null;
-    const relation = array ? relationByArray.get(array.array_id) : null;
+  const rows = exportData.entities.surfaces.map((surface) => {
+    const pvArray = arraysBySurface.get(surface.surface_id);
+    const configuration = configsBySurface.get(surface.surface_id);
+    const mppt = pvArray ? mpptByArray.get(pvArray.array_id) : null;
+    const relation = pvArray ? relationByArray.get(pvArray.array_id) : null;
     return [
-      roofFace.name,
-      array?.panel_type_id ?? 'n/a',
-      array?.panel_count ?? 0,
-      array?.installed_wp != null ? `${array.installed_wp.toLocaleString('en-US')} W` : 'n/a',
+      surface.name,
+      pvArray?.panel_type_id ?? 'n/a',
+      pvArray?.panel_count ?? 0,
+      pvArray?.installed_wp != null ? `${pvArray.installed_wp.toLocaleString('en-US')} W` : 'n/a',
       configuration?.panels_per_string ?? 'n/a',
       configuration?.parallel_strings ?? 'n/a',
       mppt?.name ?? 'n/a',
@@ -138,10 +138,10 @@ function buildRoofFacesSection(exportData: DigitalTwinExport): string {
   });
 
   return [
-    '## Roof Faces',
+    '## Surfaces',
     '',
     markdownTable(
-      ['Face', 'Panel type', 'Panels', 'Installed PV', 'Panels/string', 'Parallel strings', 'MPPT', 'Electrical status', 'Fit status'],
+      ['Surface', 'Panel type', 'Panels', 'Installed PV', 'Panels/string', 'Parallel strings', 'MPPT', 'Electrical status', 'Fit status'],
       rows,
     ),
   ].join('\n');
@@ -216,7 +216,7 @@ export function buildReportMarkdown(report: ReportInput): string {
     '',
     buildLocationSection(report.exportData),
     '',
-    buildRoofFacesSection(report.exportData),
+    buildSurfacesSection(report.exportData),
     '',
     buildMonthlyOutputSection(report.exportData),
     '',

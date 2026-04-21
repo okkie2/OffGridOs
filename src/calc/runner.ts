@@ -22,16 +22,16 @@ function formatFitLabel(fitStatus?: string): string {
 
 function printArrayToMpptPass(input: ReturnType<typeof loadProjectInput>): void {
   const panelTypeById = new Map(input.panelTypes.map((panelType) => [panelType.panel_type_id, panelType]));
-  const roofFaceById = new Map(input.roofFaces.map((roofFace) => [roofFace.roof_face_id, roofFace]));
+  const surfaceById = new Map(input.surfaces.map((surface) => [surface.surface_id, surface]));
 
   console.log(chalk.cyan.bold('\nPV → MPPT first pass\n'));
 
-  for (const assignment of input.roofPanels) {
-    const roofFace = roofFaceById.get(assignment.roof_face_id);
+  for (const assignment of input.surfacePanelAssignments) {
+    const surface = surfaceById.get(assignment.surface_id);
     const panelType = panelTypeById.get(assignment.panel_type_id);
 
-    if (!roofFace || !panelType) {
-      console.log(chalk.yellow(`  ⚠ Skipping ${assignment.roof_face_id}: incomplete roof-face or panel-type data.`));
+    if (!surface || !panelType) {
+      console.log(chalk.yellow(`  ⚠ Skipping ${assignment.surface_id}: incomplete surface or panel-type data.`));
       continue;
     }
 
@@ -39,7 +39,7 @@ function printArrayToMpptPass(input: ReturnType<typeof loadProjectInput>): void 
     const derivedMppt = pickDerivedMpptType(panelType, assignment.count, installedWp, input.mpptTypes);
 
     if (!derivedMppt) {
-      console.log(chalk.red(`  ✖ ${roofFace.name}: no provisional MPPT candidate found for ${assignment.count} × ${panelType.model}.`));
+      console.log(chalk.red(`  ✖ ${surface.name}: no provisional MPPT candidate found for ${assignment.count} × ${panelType.model}.`));
       continue;
     }
 
@@ -54,12 +54,12 @@ function printArrayToMpptPass(input: ReturnType<typeof loadProjectInput>): void 
       ? chalk.red
       : fit.fit_status === 'optimal'
         ? chalk.green
-        : fit.fit_status === 'acceptable'
+      : fit.fit_status === 'acceptable'
           ? chalk.yellow
           : chalk.blue;
 
     console.log(
-      `  ${statusColor('•')} ${chalk.bold(roofFace.name)} -> ${derivedMppt.model} `
+      `  ${statusColor('•')} ${chalk.bold(surface.name)} -> ${derivedMppt.model} `
       + `(${formatFitLabel(fit.fit_status)})`,
     );
     console.log(

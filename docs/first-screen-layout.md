@@ -31,7 +31,7 @@ Suggested layout blocks:
 2. system chain overview
 3. relationship status strip
 4. monthly balance panel
-5. roof-face and array panel
+5. surface and array panel
 6. next-action panel
 
 ## 1. Top summary header
@@ -42,7 +42,7 @@ Show:
 - location
 - total installed Wp
 - battery capacity
-- number of roof faces
+- number of surfaces
 - number of arrays
 - number of MPPTs
 
@@ -54,7 +54,7 @@ Purpose:
 
 Show the high-level chain as a readable visual flow:
 
-`Roof faces -> Arrays -> MPPTs -> Battery bank -> Inverter -> Branch circuits -> Consumers`
+`Surfaces -> Arrays -> MPPTs -> Battery bank -> Inverter -> Branch circuits -> Consumers`
 
 This should be compact and clickable.
 
@@ -66,7 +66,7 @@ Each node should show:
 
 Examples:
 
-- `5 roof faces`
+- `5 surfaces`
 - `5 arrays`
 - `5 MPPTs`
 - `1 battery bank`
@@ -109,13 +109,13 @@ Purpose:
 
 - make seasonal system behaviour visible immediately
 
-## 5. Roof-face and array panel
+## 5. Surface and array panel
 
-Show one compact card per roof face.
+Show one compact card per surface.
 
 Each card should include:
 
-- roof face name
+- surface name
 - panel type
 - panel count
 - array name
@@ -144,7 +144,7 @@ On first load, the screen should:
 1. show the top summary
 2. show whether any relationships are `outside_limits`
 3. show the weakest month
-4. show the roof-face cards
+4. show the surface cards
 
 That gives the user an immediate mental map.
 
@@ -152,7 +152,7 @@ That gives the user an immediate mental map.
 
 The user should be able to click from the overview into:
 
-- one roof face
+- one surface
 - one array
 - one MPPT
 - the monthly balance view
@@ -190,7 +190,6 @@ The first implemented React screen should prioritize:
 2. chain overview
 3. relationship status
 4. monthly balance
-5. roof-face cards
+5. surface cards
 
 That is enough to make the project understandable on first load.
-

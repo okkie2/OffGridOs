@@ -33,12 +33,12 @@ describe('ensureDatabaseReady', () => {
 
     let db = openDb(dbPath);
     try {
-      expect(countRows(db, 'location')).toBe(1);
-      expect(countRows(db, 'roof_faces')).toBeGreaterThan(0);
+      expect(countRows(db, 'locations')).toBe(1);
+      expect(countRows(db, 'surfaces')).toBeGreaterThan(0);
       expect(countRows(db, 'panel_types')).toBeGreaterThan(0);
-      expect(countRows(db, 'roof_panels')).toBeGreaterThan(0);
-      expect(countRows(db, 'arrays')).toBeGreaterThan(0);
-      expect(countRows(db, 'strings')).toBeGreaterThan(0);
+      expect(countRows(db, 'surface_panel_assignments')).toBeGreaterThan(0);
+      expect(countRows(db, 'pv_arrays')).toBeGreaterThan(0);
+      expect(countRows(db, 'pv_strings')).toBeGreaterThan(0);
       expect(countRows(db, 'array_to_mppt_mappings')).toBeGreaterThan(0);
       expect(countRows(db, 'inverter_configurations')).toBe(1);
     } finally {
@@ -48,12 +48,12 @@ describe('ensureDatabaseReady', () => {
     ensureDatabaseReady(dbPath);
     db = openDb(dbPath);
     try {
-      expect(countRows(db, 'location')).toBe(1);
-      expect(countRows(db, 'roof_faces')).toBeGreaterThan(0);
+      expect(countRows(db, 'locations')).toBe(1);
+      expect(countRows(db, 'surfaces')).toBeGreaterThan(0);
       expect(countRows(db, 'panel_types')).toBeGreaterThan(0);
-      expect(countRows(db, 'roof_panels')).toBeGreaterThan(0);
-      expect(countRows(db, 'arrays')).toBeGreaterThan(0);
-      expect(countRows(db, 'strings')).toBeGreaterThan(0);
+      expect(countRows(db, 'surface_panel_assignments')).toBeGreaterThan(0);
+      expect(countRows(db, 'pv_arrays')).toBeGreaterThan(0);
+      expect(countRows(db, 'pv_strings')).toBeGreaterThan(0);
       expect(countRows(db, 'array_to_mppt_mappings')).toBeGreaterThan(0);
       expect(countRows(db, 'inverter_configurations')).toBe(1);
     } finally {

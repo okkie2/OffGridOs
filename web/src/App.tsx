@@ -4,8 +4,8 @@ import { useEffect, useState, type ChangeEvent, type MouseEvent } from 'react';
 type Status = 'within_limits' | 'outside_limits';
 type FitStatus = 'optimal' | 'acceptable' | 'clipping_expected' | 'underutilized';
 
-interface RoofFace {
-  roof_face_id: string;
+interface Surface {
+  surface_id: string;
   name: string;
   orientation_deg: number;
   tilt_deg: number;
@@ -14,7 +14,7 @@ interface RoofFace {
 interface ArrayState {
   array_id: string;
   installed_wp: number;
-  roof_face_id: string;
+  surface_id: string;
   panel_count: number;
 }
 
@@ -30,8 +30,8 @@ interface PanelType {
   width_mm?: number | null;
 }
 
-interface RoofFaceConfiguration {
-  roof_face_id: string;
+interface SurfaceConfiguration {
+  surface_id: string;
   panels_per_string: number | null;
   parallel_strings: number | null;
   selected_mppt_type_id?: string | null;
@@ -145,7 +145,7 @@ interface InverterType {
 
 interface ArrayEntity {
   array_id: string;
-  roof_face_id: string;
+  surface_id: string;
   name: string;
   panel_assignment_ids: string[];
   panel_type_id?: string;
@@ -154,7 +154,7 @@ interface ArrayEntity {
 
 interface MpptConfiguration {
   mppt_configuration_id: string;
-  roof_face_id: string;
+  surface_id: string;
   array_id: string;
   mppt_type_id?: string;
   name: string;
@@ -172,8 +172,8 @@ interface BatteryBank {
 }
 
 interface SolarMonthlyProfile {
-  roof_face_id: string;
-  roof_face_name: string;
+  surface_id: string;
+  surface_name: string;
   month: string;
   average_daily_kwh: number;
   monthly_kwh: number;
@@ -264,17 +264,18 @@ interface DigitalTwinExport {
       northing?: number | null;
       easting?: number | null;
     } | null;
-    preferences: {
+    project_preferences: {
       preferred_inverter_type_id?: string | null;
     };
   };
   entities: {
-    roof_faces: RoofFace[];
-    roof_face_configurations: RoofFaceConfiguration[];
+    surfaces: Surface[];
+    surface_configurations: SurfaceConfiguration[];
     panel_types: PanelType[];
     battery_types: BatteryType[];
     battery_bank_configurations: BatteryBankConfiguration[];
-    arrays: ArrayEntity[];
+    pv_arrays: ArrayEntity[];
+    arrays?: ArrayEntity[];
     mppt_types: MpptType[];
     mppt_configurations: MpptConfiguration[];
     battery_banks: BatteryBank[];
@@ -306,7 +307,7 @@ interface DigitalTwinExport {
     }>;
     summary: {
       total_installed_wp: number;
-      roof_face_count: number;
+      surface_count: number;
       array_count: number;
       mppt_configuration_count: number;
       battery_type_count: number;
@@ -369,13 +370,13 @@ async function fetchProjectData(): Promise<DigitalTwinExport> {
   return response.json() as Promise<DigitalTwinExport>;
 }
 
-function readStoredFaceLabel(projectId: string, roofFace: RoofFace): string {
-  const stored = readPersistentState<string>(`${projectId}:roof-face:${roofFace.roof_face_id}:name`, roofFace.name);
-  return stored.trim() || roofFace.name;
+function readStoredSurfaceLabel(projectId: string, surface: Surface): string {
+  const stored = readPersistentState<string>(`${projectId}:surface:${surface.surface_id}:name`, surface.name);
+  return stored.trim() || surface.name;
 }
 
-type LocalFaceSummary = {
-  roof_face_id: string;
+type LocalSurfaceSummary = {
+  surface_id: string;
   name: string;
   orientation_deg: number;
   tilt_deg: number;
@@ -391,17 +392,17 @@ function getProjectStorageKey(data: DigitalTwinExport): string {
   return data.project.project_id ?? 'offgridos-project';
 }
 
-function buildLocalFaceSummaries(data: DigitalTwinExport): LocalFaceSummary[] {
+function buildLocalSurfaceSummaries(data: DigitalTwinExport): LocalSurfaceSummary[] {
   const projectId = getProjectStorageKey(data);
-  const configurationByFaceId = new Map(data.entities.roof_face_configurations.map((configuration) => [configuration.roof_face_id, configuration]));
+  const configurationBySurfaceId = new Map(data.entities.surface_configurations.map((configuration) => [configuration.surface_id, configuration]));
 
-  return data.entities.roof_faces.map((roofFace) => {
-    const array = data.entities.arrays.find((item) => item.roof_face_id === roofFace.roof_face_id);
-    const arrayState = data.derived.array_states.find((item) => item.roof_face_id === roofFace.roof_face_id);
+  return data.entities.surfaces.map((surface) => {
+    const array = (data.entities.pv_arrays ?? data.entities.arrays ?? []).find((item) => item.surface_id === surface.surface_id);
+    const arrayState = data.derived.array_states.find((item) => item.surface_id === surface.surface_id);
     const projectMppt = array ? data.entities.mppt_configurations.find((item) => item.array_id === array.array_id) : null;
     const relation = array ? data.relationships.array_to_mppt.find((item) => item.from_array_id === array.array_id) : null;
-    const storagePrefix = `${projectId}:roof-face:${roofFace.roof_face_id}`;
-    const persistedConfiguration = configurationByFaceId.get(roofFace.roof_face_id);
+    const storagePrefix = `${projectId}:surface:${surface.surface_id}`;
+    const persistedConfiguration = configurationBySurfaceId.get(surface.surface_id);
     const panelTypeId = readPersistentState<string>(
       `${storagePrefix}:panel-type`,
       array?.panel_type_id ?? data.entities.panel_types[0]?.panel_type_id ?? '',
@@ -439,14 +440,14 @@ function buildLocalFaceSummaries(data: DigitalTwinExport): LocalFaceSummary[] {
     const mpptCompatibility = arrayConfig && arrayConfig.configuredPanelCount > 0 && selectedMpptType
       ? evaluateMpptCompatibility(arrayConfig, selectedMpptType)
       : null;
-    const localFaceName = readStoredFaceLabel(projectId, roofFace);
+    const localSurfaceName = readStoredSurfaceLabel(projectId, surface);
 
     return {
-      roof_face_id: roofFace.roof_face_id,
-      name: localFaceName,
-      orientation_deg: readPersistentState<number>(`${storagePrefix}:azimuth`, roofFace.orientation_deg),
-      tilt_deg: readPersistentState<number>(`${storagePrefix}:tilt`, roofFace.tilt_deg),
-      array_name: localFaceName,
+      surface_id: surface.surface_id,
+      name: localSurfaceName,
+      orientation_deg: readPersistentState<number>(`${storagePrefix}:azimuth`, surface.orientation_deg),
+      tilt_deg: readPersistentState<number>(`${storagePrefix}:tilt`, surface.tilt_deg),
+      array_name: localSurfaceName,
       panel_count: arrayConfig?.configuredPanelCount ?? Math.max(configuredPanelCount, 0),
       installed_wp: arrayConfig?.arrayPower ?? 0,
       mppt_name: selectedMpptType?.model ?? '',
@@ -463,7 +464,7 @@ type Route =
   | { kind: 'catalog'; catalog: 'panel-types' | 'mppt-types' | 'battery-types' | 'inverter-types' }
   | { kind: 'battery-array' }
   | { kind: 'inverter-array' }
-  | { kind: 'face'; roofFaceId: string };
+  | { kind: 'surface'; surfaceId: string };
 
 const CATALOG_ROUTES: Array<{
   catalog: 'panel-types' | 'mppt-types' | 'battery-types' | 'inverter-types';
@@ -1262,7 +1263,7 @@ function getRoute(): Route {
   if (hash === '/location') {
     return { kind: 'location' };
   }
-  if (hash === '/faces' || hash === '/panel-arrays' || hash === '/mppts') {
+  if (hash === '/surfaces') {
     return { kind: 'location' };
   }
   if (hash === '/catalogs') {
@@ -1286,17 +1287,21 @@ function getRoute(): Route {
   if (hash === '/inverter-array') {
     return { kind: 'inverter-array' };
   }
+  if (hash.startsWith('/surfaces/')) {
+    const surfaceId = hash.slice('/surfaces/'.length);
+    if (surfaceId) return { kind: 'surface', surfaceId };
+  }
   if (hash.startsWith('/faces/')) {
-    const roofFaceId = hash.slice('/faces/'.length);
-    if (roofFaceId) return { kind: 'face', roofFaceId };
+    const surfaceId = hash.slice('/faces/'.length);
+    if (surfaceId) return { kind: 'surface', surfaceId };
   }
   if (hash.startsWith('/panel-arrays/')) {
-    const roofFaceId = hash.slice('/panel-arrays/'.length);
-    if (roofFaceId) return { kind: 'face', roofFaceId };
+    const surfaceId = hash.slice('/panel-arrays/'.length);
+    if (surfaceId) return { kind: 'surface', surfaceId };
   }
   if (hash.startsWith('/mppts/')) {
-    const roofFaceId = hash.slice('/mppts/'.length);
-    if (roofFaceId) return { kind: 'face', roofFaceId };
+    const surfaceId = hash.slice('/mppts/'.length);
+    if (surfaceId) return { kind: 'surface', surfaceId };
   }
   return { kind: 'overview' };
 }
@@ -1326,7 +1331,7 @@ function navigateTo(route: Route): void {
     window.location.hash = '/inverter-array';
     return;
   }
-  window.location.hash = `/faces/${route.roofFaceId}`;
+  window.location.hash = `/surfaces/${route.surfaceId}`;
 }
 
 function routeHref(route: Route): string {
@@ -1336,7 +1341,7 @@ function routeHref(route: Route): string {
   if (route.kind === 'catalog') return `#/${route.catalog}`;
   if (route.kind === 'battery-array') return '#/battery-array';
   if (route.kind === 'inverter-array') return '#/inverter-array';
-  return `#/faces/${route.roofFaceId}`;
+  return `#/surfaces/${route.surfaceId}`;
 }
 
 function Sidebar({ route, data }: { route: Route; data: DigitalTwinExport | null }) {
@@ -1355,19 +1360,19 @@ function Sidebar({ route, data }: { route: Route; data: DigitalTwinExport | null
         <a href={routeHref({ kind: 'overview' })} onClick={go({ kind: 'overview' })} className={`sidebar-nav-item ${route.kind === 'overview' ? 'active' : ''}`}>
           Dashboard
         </a>
-        <a href={routeHref({ kind: 'location' })} onClick={go({ kind: 'location' })} className={`sidebar-nav-item ${route.kind === 'location' || route.kind === 'face' ? 'active' : ''}`}>
+        <a href={routeHref({ kind: 'location' })} onClick={go({ kind: 'location' })} className={`sidebar-nav-item ${route.kind === 'location' || route.kind === 'surface' ? 'active' : ''}`}>
           Location
         </a>
-        {data && (route.kind === 'location' || route.kind === 'face') ? (
+        {data && (route.kind === 'location' || route.kind === 'surface') ? (
           <div className="sidebar-subnav">
-            {data.entities.roof_faces.map((roofFace) => (
+            {data.entities.surfaces.map((surface) => (
               <a
-                key={roofFace.roof_face_id}
-                href={routeHref({ kind: 'face', roofFaceId: roofFace.roof_face_id })}
-                onClick={go({ kind: 'face', roofFaceId: roofFace.roof_face_id })}
-                className={`sidebar-subnav-item ${route.kind === 'face' && route.roofFaceId === roofFace.roof_face_id ? 'active' : ''}`}
+                key={surface.surface_id}
+                href={routeHref({ kind: 'surface', surfaceId: surface.surface_id })}
+                onClick={go({ kind: 'surface', surfaceId: surface.surface_id })}
+                className={`sidebar-subnav-item ${route.kind === 'surface' && route.surfaceId === surface.surface_id ? 'active' : ''}`}
               >
-                {readStoredFaceLabel(data.project.project_id, roofFace)}
+                {readStoredSurfaceLabel(data.project.project_id, surface)}
               </a>
             ))}
           </div>
@@ -1405,50 +1410,50 @@ function Sidebar({ route, data }: { route: Route; data: DigitalTwinExport | null
   );
 }
 
-function Breadcrumbs({ route, roofFaceName }: { route: Route; roofFaceName?: string }) {
+function Breadcrumbs({ route, surfaceName }: { route: Route; surfaceName?: string }) {
   return (
     <nav className="breadcrumbs" aria-label="Breadcrumb">
       <button type="button" className="crumb crumb-link" onClick={() => navigateTo({ kind: 'overview' })}>
         Overview
       </button>
-      {route.kind === 'face' ? (
+      {route.kind === 'surface' ? (
         <>
           <span className="crumb-sep">/</span>
           <button type="button" className="crumb crumb-link" onClick={() => navigateTo({ kind: 'location' })}>
             Location
           </button>
           <span className="crumb-sep">/</span>
-          <span className="crumb crumb-current">{roofFaceName ?? route.roofFaceId}</span>
+          <span className="crumb crumb-current">{surfaceName ?? route.surfaceId}</span>
         </>
       ) : null}
     </nav>
   );
 }
 
-function RoofFaceDetail({
+function SurfaceDetail({
   data,
-  roofFaceId,
+  surfaceId,
   refreshProjectData,
 }: {
   data: DigitalTwinExport;
-  roofFaceId: string;
+  surfaceId: string;
   refreshProjectData: () => Promise<void>;
 }) {
-  const roofFace = data.entities.roof_faces.find((item) => item.roof_face_id === roofFaceId);
-  const persistedConfiguration = data.entities.roof_face_configurations.find((item) => item.roof_face_id === roofFaceId) ?? null;
-  const array = data.entities.arrays.find((item) => item.roof_face_id === roofFaceId);
-  const arrayId = array?.array_id ?? `array-${roofFaceId}`;
-  const arrayState = data.derived.array_states.find((item) => item.roof_face_id === roofFaceId);
+  const surface = data.entities.surfaces.find((item) => item.surface_id === surfaceId);
+  const persistedConfiguration = data.entities.surface_configurations.find((item) => item.surface_id === surfaceId) ?? null;
+  const array = (data.entities.pv_arrays ?? data.entities.arrays).find((item) => item.surface_id === surfaceId);
+  const arrayId = array?.array_id ?? `array-${surfaceId}`;
+  const arrayState = data.derived.array_states.find((item) => item.surface_id === surfaceId);
   const projectMppt = array ? data.entities.mppt_configurations.find((item) => item.array_id === array.array_id) : null;
   const relation = array ? data.relationships.array_to_mppt.find((item) => item.from_array_id === array.array_id) : null;
   const mpptType = projectMppt?.mppt_type_id
     ? data.entities.mppt_types.find((item) => item.mppt_type_id === projectMppt.mppt_type_id) ?? null
     : null;
   const installedPanelCount = arrayState?.panel_count ?? array?.panel_count ?? 0;
-  const storagePrefix = `${data.project.project_id}:roof-face:${roofFaceId}`;
-  const [roofNameDraft, setRoofNameDraft] = usePersistentState(`${storagePrefix}:name`, roofFace.name);
-  const [roofAzimuthDraft, setRoofAzimuthDraft] = usePersistentState(`${storagePrefix}:azimuth`, roofFace.orientation_deg);
-  const [roofTiltDraft, setRoofTiltDraft] = usePersistentState(`${storagePrefix}:tilt`, roofFace.tilt_deg);
+  const storagePrefix = `${data.project.project_id}:surface:${surfaceId}`;
+  const [surfaceNameDraft, setSurfaceNameDraft] = usePersistentState(`${storagePrefix}:name`, surface?.name ?? surfaceId);
+  const [surfaceAzimuthDraft, setSurfaceAzimuthDraft] = usePersistentState(`${storagePrefix}:azimuth`, surface?.orientation_deg ?? 0);
+  const [surfaceTiltDraft, setSurfaceTiltDraft] = usePersistentState(`${storagePrefix}:tilt`, surface?.tilt_deg ?? 0);
   const [selectedPanelTypeId, setSelectedPanelTypeId] = usePersistentState(
     `${storagePrefix}:panel-type`,
     array?.panel_type_id ?? data.entities.panel_types[0]?.panel_type_id ?? '',
@@ -1471,15 +1476,15 @@ function RoofFaceDetail({
   );
   const [photo, setPhoto] = usePersistentState<string | null>(`${storagePrefix}:photo`, null);
   const [surfaceNotes, setSurfaceNotes] = usePersistentState(`${storagePrefix}:notes`, '');
-  const [isSavingFace, setIsSavingFace] = useState(false);
-  const [faceSaveMessage, setFaceSaveMessage] = useState<string | null>(null);
-  const [faceSaveError, setFaceSaveError] = useState<string | null>(null);
+  const [isSavingSurface, setIsSavingSurface] = useState(false);
+  const [surfaceSaveMessage, setSurfaceSaveMessage] = useState<string | null>(null);
+  const [surfaceSaveError, setSurfaceSaveError] = useState<string | null>(null);
   const [isSavingPanels, setIsSavingPanels] = useState(false);
   const [panelSaveMessage, setPanelSaveMessage] = useState<string | null>(null);
   const [panelSaveError, setPanelSaveError] = useState<string | null>(null);
-  const [isSavingFaceDesign, setIsSavingFaceDesign] = useState(false);
-  const [faceDesignSaveMessage, setFaceDesignSaveMessage] = useState<string | null>(null);
-  const [faceDesignSaveError, setFaceDesignSaveError] = useState<string | null>(null);
+  const [isSavingSurfaceDesign, setIsSavingSurfaceDesign] = useState(false);
+  const [surfaceDesignSaveMessage, setSurfaceDesignSaveMessage] = useState<string | null>(null);
+  const [surfaceDesignSaveError, setSurfaceDesignSaveError] = useState<string | null>(null);
   const factorPairs = getFactorPairs(configuredPanelCount);
   const panelsPerStringOptions = factorPairs.map((pair) => pair.panelsPerString);
   const parallelStringOptions = factorPairs.map((pair) => pair.parallelStrings);
@@ -1504,12 +1509,12 @@ function RoofFaceDetail({
     }
   }, [configuredPanelCount, panelsPerString, parallelStrings, panelsPerStringOptions]);
 
-  if (!roofFace) {
+  if (!surface) {
     return (
       <section className="panel error-panel">
-        <Breadcrumbs route={{ kind: 'face', roofFaceId }} roofFaceName={roofFaceId} />
+        <Breadcrumbs route={{ kind: 'surface', surfaceId }} surfaceName={surfaceId} />
         <h1>Surface not found</h1>
-        <p>No surface detail is available for `{roofFaceId}` in the current export.</p>
+        <p>No surface detail is available for `{surfaceId}` in the current export.</p>
       </section>
     );
   }
@@ -1536,7 +1541,7 @@ function RoofFaceDetail({
     : null;
   const livePanelCount = arrayConfig?.configuredPanelCount ?? arrayState?.panel_count ?? 0;
   const liveInstalledWp = arrayConfig ? arrayConfig.arrayPower : arrayState?.installed_wp ?? 0;
-  const liveArrayName = (roofNameDraft || roofFace.name).trim() || array.name;
+  const liveArrayName = (surfaceNameDraft || surface.name).trim() || array.name;
   const projectStorageKey = getProjectStorageKey(data);
   const storedLatitude = readPersistentState<string>(
     `${projectStorageKey}:location:latitude`,
@@ -1548,34 +1553,34 @@ function RoofFaceDetail({
     : (data.project.location?.latitude ?? 52);
   const estimatedYieldRows = estimateFaceYieldTable({
     installedWp: liveInstalledWp,
-    azimuthDeg: roofAzimuthDraft,
-    tiltDeg: roofTiltDraft,
+    azimuthDeg: surfaceAzimuthDraft,
+    tiltDeg: surfaceTiltDraft,
     latitudeDeg: effectiveLatitude,
   });
 
-  async function handleSaveFaceDetails() {
-    const trimmedName = roofNameDraft.trim();
+  async function handleSaveSurfaceDetails() {
+    const trimmedName = surfaceNameDraft.trim();
 
     if (!trimmedName) {
-      setFaceSaveError('Surface name is required before saving.');
-      setFaceSaveMessage(null);
+      setSurfaceSaveError('Surface name is required before saving.');
+      setSurfaceSaveMessage(null);
       return;
     }
 
-    setIsSavingFace(true);
-    setFaceSaveError(null);
-    setFaceSaveMessage(null);
+    setIsSavingSurface(true);
+    setSurfaceSaveError(null);
+    setSurfaceSaveMessage(null);
 
     try {
-      const response = await fetch(`/api/roof-faces/${encodeURIComponent(roofFaceId)}`, {
+      const response = await fetch(`/api/surfaces/${encodeURIComponent(surfaceId)}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           name: trimmedName,
-          orientation_deg: roofAzimuthDraft,
-          tilt_deg: roofTiltDraft,
+          orientation_deg: surfaceAzimuthDraft,
+          tilt_deg: surfaceTiltDraft,
         }),
       });
 
@@ -1587,20 +1592,20 @@ function RoofFaceDetail({
 
       try {
         window.localStorage.setItem(`${storagePrefix}:name`, JSON.stringify(trimmedName));
-        window.localStorage.setItem(`${storagePrefix}:azimuth`, JSON.stringify(roofAzimuthDraft));
-        window.localStorage.setItem(`${storagePrefix}:tilt`, JSON.stringify(roofTiltDraft));
+        window.localStorage.setItem(`${storagePrefix}:azimuth`, JSON.stringify(surfaceAzimuthDraft));
+        window.localStorage.setItem(`${storagePrefix}:tilt`, JSON.stringify(surfaceTiltDraft));
         window.dispatchEvent(new Event('offgridos-local-storage-change'));
       } catch {
         // Keep the save successful even if local draft syncing fails.
       }
 
-      setFaceSaveMessage('Surface details saved to the project database.');
+      setSurfaceSaveMessage('Surface details saved to the project database.');
       await refreshProjectData();
     } catch (error) {
-      setFaceSaveError(error instanceof Error ? error.message : 'Failed to save face details.');
-      setFaceSaveMessage(null);
+      setSurfaceSaveError(error instanceof Error ? error.message : 'Failed to save surface details.');
+      setSurfaceSaveMessage(null);
     } finally {
-      setIsSavingFace(false);
+      setIsSavingSurface(false);
     }
   }
 
@@ -1616,7 +1621,7 @@ function RoofFaceDetail({
     setPanelSaveMessage(null);
 
     try {
-      const response = await fetch(`/api/roof-panels/${encodeURIComponent(roofFaceId)}`, {
+      const response = await fetch(`/api/surface-panel-assignments/${encodeURIComponent(surfaceId)}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -1644,7 +1649,7 @@ function RoofFaceDetail({
       setPanelSaveMessage(
         configuredPanelCount > 0
           ? 'Panel configuration and count saved to the project database.'
-          : 'Panels removed from this face in the project database.',
+          : 'Panels removed from this surface in the project database.',
       );
       await refreshProjectData();
     } catch (error) {
@@ -1655,25 +1660,25 @@ function RoofFaceDetail({
     }
   }
 
-  async function handleSaveFaceDesign() {
+  async function handleSaveSurfaceDesign() {
     if (configuredPanelCount === 0) {
       if (panelsPerString !== 0 || parallelStrings !== 0) {
-        setFaceDesignSaveError('Surfaces with 0 panels must also use 0 panels per string and 0 parallel strings.');
-        setFaceDesignSaveMessage(null);
+        setSurfaceDesignSaveError('Surfaces with 0 panels must also use 0 panels per string and 0 parallel strings.');
+        setSurfaceDesignSaveMessage(null);
         return;
       }
     } else if (panelsPerString <= 0 || parallelStrings <= 0 || panelsPerString * parallelStrings !== configuredPanelCount) {
-      setFaceDesignSaveError('Panels per string multiplied by parallel strings must match the configured panel count before saving.');
-      setFaceDesignSaveMessage(null);
+      setSurfaceDesignSaveError('Panels per string multiplied by parallel strings must match the configured panel count before saving.');
+      setSurfaceDesignSaveMessage(null);
       return;
     }
 
-    setIsSavingFaceDesign(true);
-    setFaceDesignSaveError(null);
-    setFaceDesignSaveMessage(null);
+    setIsSavingSurfaceDesign(true);
+    setSurfaceDesignSaveError(null);
+    setSurfaceDesignSaveMessage(null);
 
     try {
-      const response = await fetch(`/api/roof-face-configurations/${encodeURIComponent(roofFaceId)}`, {
+      const response = await fetch(`/api/surface-configurations/${encodeURIComponent(surfaceId)}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -1700,13 +1705,13 @@ function RoofFaceDetail({
         // Keep the save successful even if local draft syncing fails.
       }
 
-      setFaceDesignSaveMessage('String layout and MPPT choice saved to the project database.');
+      setSurfaceDesignSaveMessage('String layout and MPPT choice saved to the project database.');
       await refreshProjectData();
     } catch (error) {
-      setFaceDesignSaveError(error instanceof Error ? error.message : 'Failed to save surface configuration.');
-      setFaceDesignSaveMessage(null);
+      setSurfaceDesignSaveError(error instanceof Error ? error.message : 'Failed to save surface configuration.');
+      setSurfaceDesignSaveMessage(null);
     } finally {
-      setIsSavingFaceDesign(false);
+      setIsSavingSurfaceDesign(false);
     }
   }
 
@@ -1722,21 +1727,21 @@ function RoofFaceDetail({
     <section className="detail-shell">
       <div className="detail-grid detail-intro-grid">
         <section className="panel panel-span-2 panel-with-actions">
-          <Breadcrumbs route={{ kind: 'face', roofFaceId }} roofFaceName={roofNameDraft || roofFace.name} />
+          <Breadcrumbs route={{ kind: 'surface', surfaceId }} surfaceName={surfaceNameDraft || surface.name} />
           <div className="section-head">
             <h2>Surface information</h2>
             <p>Surface name, azimuth, and tilt save to SQLite. Shared site inputs are configured on the Location page.</p>
           </div>
-          <h1 className="detail-page-title">{roofNameDraft || roofFace.name}</h1>
-          {faceSaveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{faceSaveError}</p> : null}
-          {faceSaveMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{faceSaveMessage}</p> : null}
+          <h1 className="detail-page-title">{surfaceNameDraft || surface.name}</h1>
+          {surfaceSaveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{surfaceSaveError}</p> : null}
+          {surfaceSaveMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{surfaceSaveMessage}</p> : null}
           <div className="roof-config-inline">
             <label className="config-field">
               <span>Surface name</span>
               <input
                 type="text"
-                value={roofNameDraft}
-                onChange={(event) => setRoofNameDraft(event.target.value)}
+                value={surfaceNameDraft}
+                onChange={(event) => setSurfaceNameDraft(event.target.value)}
               />
             </label>
             <label className="config-field">
@@ -1746,8 +1751,8 @@ function RoofFaceDetail({
                 min={0}
                 max={360}
                 step={1}
-                value={roofAzimuthDraft}
-                onChange={(event) => setRoofAzimuthDraft(Math.max(0, Math.min(360, Number(event.target.value) || 0)))}
+                value={surfaceAzimuthDraft}
+                onChange={(event) => setSurfaceAzimuthDraft(Math.max(0, Math.min(360, Number(event.target.value) || 0)))}
               />
             </label>
             <label className="config-field">
@@ -1757,14 +1762,14 @@ function RoofFaceDetail({
                 min={0}
                 max={90}
                 step={1}
-                value={roofTiltDraft}
-                onChange={(event) => setRoofTiltDraft(Math.max(0, Math.min(90, Number(event.target.value) || 0)))}
+                value={surfaceTiltDraft}
+                onChange={(event) => setSurfaceTiltDraft(Math.max(0, Math.min(90, Number(event.target.value) || 0)))}
               />
             </label>
           </div>
           <div className="button-row button-row-end">
-            <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveFaceDetails()} disabled={isSavingFace}>
-              {isSavingFace ? 'Saving...' : 'Save'}
+            <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveSurfaceDetails()} disabled={isSavingSurface}>
+              {isSavingSurface ? 'Saving...' : 'Save'}
             </button>
           </div>
         </section>
@@ -1776,7 +1781,7 @@ function RoofFaceDetail({
           </div>
           {photo ? (
             <div className="photo-frame">
-              <img src={photo} alt={`${roofNameDraft || roofFace.name} surface`} className="photo-image" />
+              <img src={photo} alt={`${surfaceNameDraft || surface.name} surface`} className="photo-image" />
               <button
                 type="button"
                 className="button button-secondary button-sm photo-remove"
@@ -1878,8 +1883,8 @@ function RoofFaceDetail({
             <h2>String</h2>
             <p>Set the string layout.</p>
           </div>
-          {faceDesignSaveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{faceDesignSaveError}</p> : null}
-          {faceDesignSaveMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{faceDesignSaveMessage}</p> : null}
+          {surfaceDesignSaveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{surfaceDesignSaveError}</p> : null}
+          {surfaceDesignSaveMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{surfaceDesignSaveMessage}</p> : null}
           {arrayConfig?.configuredPanelCount ? (
             <>
               <div className="fit-card">
@@ -1939,8 +1944,8 @@ function RoofFaceDetail({
                 </dl>
               </div>
               <div className="button-row button-row-end">
-                <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveFaceDesign()} disabled={isSavingFaceDesign}>
-                  {isSavingFaceDesign ? 'Saving...' : 'Save'}
+                <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveSurfaceDesign()} disabled={isSavingSurfaceDesign}>
+                  {isSavingSurfaceDesign ? 'Saving...' : 'Save'}
                 </button>
               </div>
             </>
@@ -2002,8 +2007,8 @@ function RoofFaceDetail({
                 )}
               </div>
               <div className="button-row button-row-end">
-                <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveFaceDesign()} disabled={isSavingFaceDesign}>
-                  {isSavingFaceDesign ? 'Saving...' : 'Save'}
+                <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveSurfaceDesign()} disabled={isSavingSurfaceDesign}>
+                  {isSavingSurfaceDesign ? 'Saving...' : 'Save'}
                 </button>
               </div>
             </>
@@ -2125,9 +2130,9 @@ type PageContext = {
   data: DigitalTwinExport;
   route: Route;
   weakestMonth: MonthlyBalanceRow | null;
-  localFaceSummaries: LocalFaceSummary[];
+  localSurfaceSummaries: LocalSurfaceSummary[];
   localTotalInstalledWp: number;
-  arrayStateByRoofFace: Map<string, ArrayState>;
+  arrayStateBySurface: Map<string, ArrayState>;
   mpptByArray: Map<string, MpptConfiguration>;
   relationByArray: Map<string, ArrayToMpptRelationship>;
   mpptToBatteryBankByMpptId: Map<string, MpptToBatteryBankRelationship>;
@@ -2150,9 +2155,9 @@ function OverviewPage({
   data,
   route,
   weakestMonth,
-  localFaceSummaries,
+  localSurfaceSummaries,
   localTotalInstalledWp,
-  arrayStateByRoofFace,
+  arrayStateBySurface,
   mpptByArray,
   relationByArray,
   mpptToBatteryBankByMpptId,
@@ -2177,9 +2182,9 @@ function OverviewPage({
       <header className="hero panel">
         <div className="hero-strip">
           <SummaryCard label="Installed PV" value={formatWp(localTotalInstalledWp)} />
-      <SummaryCard label="Surfaces" value={String(localFaceSummaries.length)} />
-          <SummaryCard label="Arrays" value={String(localFaceSummaries.length)} />
-          <SummaryCard label="MPPTs" value={String(localFaceSummaries.length)} />
+      <SummaryCard label="Surfaces" value={String(localSurfaceSummaries.length)} />
+          <SummaryCard label="Arrays" value={String(localSurfaceSummaries.length)} />
+          <SummaryCard label="MPPTs" value={String(localSurfaceSummaries.length)} />
           <SummaryCard
             label="Battery capacity"
             value={batteryBankState?.capacity_kwh != null ? `${batteryBankState.capacity_kwh} kWh` : 'n/a'}
@@ -2198,17 +2203,17 @@ function OverviewPage({
         <div className="chain-row">
           <div className="chain-node">
             <div className="chain-node-label">Surfaces</div>
-            <div className="chain-node-metric">{localFaceSummaries.length}</div>
+            <div className="chain-node-metric">{localSurfaceSummaries.length}</div>
           </div>
           <div className="chain-arrow">→</div>
           <div className="chain-node">
             <div className="chain-node-label">Arrays</div>
-            <div className="chain-node-metric">{localFaceSummaries.length}</div>
+            <div className="chain-node-metric">{localSurfaceSummaries.length}</div>
           </div>
           <div className="chain-arrow">→</div>
           <div className="chain-node">
             <div className="chain-node-label">MPPTs</div>
-            <div className="chain-node-metric">{localFaceSummaries.length}</div>
+            <div className="chain-node-metric">{localSurfaceSummaries.length}</div>
           </div>
           <div className="chain-arrow">→</div>
           <div className="chain-node">
@@ -2251,46 +2256,46 @@ function OverviewPage({
       <section className="overview-grid">
         <section className="panel panel-with-actions">
           <div className="section-head">
-          <h2>Surfaces</h2>
-          <p>Surface summary, array setup, and MPPT judgment together on one page.</p>
+            <h2>Surfaces</h2>
+            <p>Surface summary, array setup, and MPPT judgment together on one page.</p>
           </div>
           <div className="surface-grid">
-            {localFaceSummaries.map((face) => {
+            {localSurfaceSummaries.map((surface) => {
               return (
                 <div
-                  key={face.roof_face_id}
+                  key={surface.surface_id}
                   className="surface-card"
                 >
                   <div className="surface-card-top">
                     <div>
-                      <h3>{face.name}</h3>
-                      <p className="surface-card-meta">{face.orientation_deg}° · {face.tilt_deg}° tilt</p>
+                      <h3>{surface.name}</h3>
+                      <p className="surface-card-meta">{surface.orientation_deg}° · {surface.tilt_deg}° tilt</p>
                     </div>
-                    <StatusBadge status={face.status} fit={face.fit} />
+                    <StatusBadge status={surface.status} fit={surface.fit} />
                   </div>
                   <dl className="mini-stats">
                     <div>
                       <dt>Array</dt>
-                      <dd>{face.array_name}</dd>
+                      <dd>{surface.array_name}</dd>
                     </div>
                     <div>
                       <dt>Panels</dt>
-                      <dd>{face.panel_count}</dd>
+                      <dd>{surface.panel_count}</dd>
                     </div>
                     <div>
                       <dt>Installed</dt>
-                      <dd>{formatWp(face.installed_wp)}</dd>
+                      <dd>{formatWp(surface.installed_wp)}</dd>
                     </div>
                     <div>
                       <dt>MPPT</dt>
-                      <dd>{face.mppt_name}</dd>
+                      <dd>{surface.mppt_name}</dd>
                     </div>
                   </dl>
                   <div className="button-row">
                     <button
                       type="button"
                       className="button button-secondary button-sm"
-                      onClick={() => navigateTo({ kind: 'face', roofFaceId: face.roof_face_id })}
+                      onClick={() => navigateTo({ kind: 'surface', surfaceId: surface.surface_id })}
                     >
                       Detail
                     </button>
@@ -2421,7 +2426,7 @@ function OverviewPage({
   );
 }
 
-function LocationPage({ data, localFaceSummaries, refreshProjectData }: PageContext) {
+function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageContext) {
   const storagePrefix = `${data.project.project_id}:location`;
   const [address, setAddress] = usePersistentState(`${storagePrefix}:address`, data.project.location?.place_name ?? '');
   const [country, setCountry] = usePersistentState(`${storagePrefix}:country`, data.project.location?.country ?? '');
@@ -2508,16 +2513,16 @@ function LocationPage({ data, localFaceSummaries, refreshProjectData }: PageCont
     setSurfaceError(null);
     setSurfaceMessage(null);
 
-    const roofFaceId = buildSurfaceId();
+    const surfaceId = buildSurfaceId();
 
     try {
-      const response = await fetch('/api/roof-faces', {
+      const response = await fetch('/api/surfaces', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          roof_face_id: roofFaceId,
+          surface_id: surfaceId,
           name: 'Unnamed surface',
           orientation_deg: 0,
           tilt_deg: 30,
@@ -2532,7 +2537,7 @@ function LocationPage({ data, localFaceSummaries, refreshProjectData }: PageCont
 
       setSurfaceMessage('Surface created in the project database.');
       setSurfaceError(null);
-      setFocusedSurfaceId(roofFaceId);
+      setFocusedSurfaceId(surfaceId);
       await refreshProjectData();
     } catch (error) {
       setSurfaceError(error instanceof Error ? error.message : 'Failed to create surface.');
@@ -2542,7 +2547,7 @@ function LocationPage({ data, localFaceSummaries, refreshProjectData }: PageCont
     }
   }
 
-  async function handleDeleteSurface(roofFaceId: string, surfaceLabel: string) {
+  async function handleDeleteSurface(surfaceId: string, surfaceLabel: string) {
     const confirmed = window.confirm(`Delete surface "${surfaceLabel}"? This will remove its panels, topology, and configuration.`);
     if (!confirmed) {
       return;
@@ -2552,7 +2557,7 @@ function LocationPage({ data, localFaceSummaries, refreshProjectData }: PageCont
     setSurfaceMessage(null);
 
     try {
-      const response = await fetch(`/api/roof-faces/${encodeURIComponent(roofFaceId)}`, {
+      const response = await fetch(`/api/surfaces/${encodeURIComponent(surfaceId)}`, {
         method: 'DELETE',
       });
 
@@ -2590,7 +2595,7 @@ function LocationPage({ data, localFaceSummaries, refreshProjectData }: PageCont
     return () => {
       window.clearTimeout(clearTimer);
     };
-  }, [focusedSurfaceId, localFaceSummaries.length]);
+  }, [focusedSurfaceId, localSurfaceSummaries.length]);
 
   return (
     <>
@@ -2641,7 +2646,7 @@ function LocationPage({ data, localFaceSummaries, refreshProjectData }: PageCont
             </label>
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-            <button type="button" className="button button-primary" onClick={() => void handleSaveLocation()} disabled={isSaving}>
+            <button type="button" className="button button-secondary" onClick={() => void handleSaveLocation()} disabled={isSaving}>
               {isSaving ? 'Saving...' : 'Save'}
             </button>
           </div>
@@ -2675,42 +2680,42 @@ function LocationPage({ data, localFaceSummaries, refreshProjectData }: PageCont
       <section className="panel">
         <div className="section-head">
           <h2>Surfaces</h2>
-          <p>{localFaceSummaries.length} configured surfaces</p>
+          <p>{localSurfaceSummaries.length} configured surfaces</p>
         </div>
         {surfaceError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{surfaceError}</p> : null}
         {surfaceMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{surfaceMessage}</p> : null}
         <div className="surface-grid">
-          {localFaceSummaries.length === 0 ? (
+          {localSurfaceSummaries.length === 0 ? (
             <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
               <p style={{ marginTop: 0, marginBottom: 0 }}>No surfaces yet. Add the first one below.</p>
             </div>
           ) : null}
-          {localFaceSummaries.map((face) => {
+          {localSurfaceSummaries.map((surface) => {
             return (
               <div
-                key={face.roof_face_id}
-                id={`surface-card-${face.roof_face_id}`}
-                className={`surface-card-stack ${focusedSurfaceId === face.roof_face_id ? 'surface-card-highlight' : ''}`}
+                key={surface.surface_id}
+                id={`surface-card-${surface.surface_id}`}
+                className={`surface-card-stack ${focusedSurfaceId === surface.surface_id ? 'surface-card-highlight' : ''}`}
               >
                 <div className="surface-card">
                   <div className="surface-card-top">
                     <div>
-                      <h3>{face.name}</h3>
-                      <p className="surface-card-meta">{face.orientation_deg}° · {face.tilt_deg}° tilt</p>
+                      <h3>{surface.name}</h3>
+                      <p className="surface-card-meta">{surface.orientation_deg}° · {surface.tilt_deg}° tilt</p>
                     </div>
-                    <StatusBadge status={face.status} fit={face.fit} />
+                    <StatusBadge status={surface.status} fit={surface.fit} />
                   </div>
                   <dl className="mini-stats">
-                    <div><dt>Panels</dt><dd>{face.panel_count}</dd></div>
-                    <div><dt>Installed</dt><dd>{formatWp(face.installed_wp)}</dd></div>
-                    <div><dt>MPPT</dt><dd>{face.mppt_name}</dd></div>
+                    <div><dt>Panels</dt><dd>{surface.panel_count}</dd></div>
+                    <div><dt>Installed</dt><dd>{formatWp(surface.installed_wp)}</dd></div>
+                    <div><dt>MPPT</dt><dd>{surface.mppt_name}</dd></div>
                   </dl>
                   <div className="button-row">
                     <button
                       type="button"
                       className="button button-secondary button-sm"
                       onClick={() => {
-                        navigateTo({ kind: 'face', roofFaceId: face.roof_face_id });
+                        navigateTo({ kind: 'surface', surfaceId: surface.surface_id });
                       }}
                     >
                       Detail
@@ -2719,7 +2724,7 @@ function LocationPage({ data, localFaceSummaries, refreshProjectData }: PageCont
                       type="button"
                       className="button button-danger button-sm"
                       onClick={() => {
-                        void handleDeleteSurface(face.roof_face_id, face.name);
+                        void handleDeleteSurface(surface.surface_id, surface.name);
                       }}
                     >
                       Delete
@@ -2733,7 +2738,7 @@ function LocationPage({ data, localFaceSummaries, refreshProjectData }: PageCont
         <div className="roof-config-inline" style={{ marginTop: 16 }}>
           <div className="config-field" style={{ alignSelf: 'end' }}>
             <span>&nbsp;</span>
-            <button type="button" className="button button-primary" onClick={() => void handleCreateSurface()} disabled={isCreatingSurface}>
+            <button type="button" className="button button-secondary" onClick={() => void handleCreateSurface()} disabled={isCreatingSurface}>
               {isCreatingSurface ? 'Creating...' : 'Add surface'}
             </button>
           </div>
@@ -2742,8 +2747,8 @@ function LocationPage({ data, localFaceSummaries, refreshProjectData }: PageCont
 
       <YieldSection
         data={data}
-        localFaceSummaries={localFaceSummaries}
-        localTotalInstalledWp={localFaceSummaries.reduce((sum, face) => sum + face.installed_wp, 0)}
+        localSurfaceSummaries={localSurfaceSummaries}
+        localTotalInstalledWp={localSurfaceSummaries.reduce((sum, surface) => sum + surface.installed_wp, 0)}
       />
     </>
   );
@@ -2751,9 +2756,9 @@ function LocationPage({ data, localFaceSummaries, refreshProjectData }: PageCont
 
 function YieldSection({
   data,
-  localFaceSummaries,
+  localSurfaceSummaries,
   localTotalInstalledWp,
-}: Pick<PageContext, 'data' | 'localFaceSummaries' | 'localTotalInstalledWp'>) {
+}: Pick<PageContext, 'data' | 'localSurfaceSummaries' | 'localTotalInstalledWp'>) {
   const projectStorageKey = getProjectStorageKey(data);
   const storedLatitude = readPersistentState<string>(
     `${projectStorageKey}:location:latitude`,
@@ -2763,12 +2768,12 @@ function YieldSection({
   const effectiveLatitude = Number.isFinite(numericLatitude) && storedLatitude !== ''
     ? numericLatitude
     : (data.project.location?.latitude ?? 52);
-  const faceYieldRows = localFaceSummaries.map((face) => ({
-    face,
+  const surfaceYieldRows = localSurfaceSummaries.map((surface) => ({
+    surface,
     yieldRows: estimateFaceYieldTable({
-      installedWp: face.installed_wp,
-      azimuthDeg: face.orientation_deg,
-      tiltDeg: face.tilt_deg,
+      installedWp: surface.installed_wp,
+      azimuthDeg: surface.orientation_deg,
+      tiltDeg: surface.tilt_deg,
       latitudeDeg: effectiveLatitude,
     }),
   }));
@@ -2781,9 +2786,9 @@ function YieldSection({
       </div>
       <div className="hero-strip" style={{ marginBottom: 16 }}>
         <SummaryCard label="Installed PV" value={formatWp(localTotalInstalledWp)} />
-        <SummaryCard label="Surfaces" value={String(localFaceSummaries.length)} />
-        <SummaryCard label="Arrays" value={String(localFaceSummaries.length)} />
-        <SummaryCard label="MPPTs" value={String(localFaceSummaries.length)} />
+        <SummaryCard label="Surfaces" value={String(localSurfaceSummaries.length)} />
+        <SummaryCard label="Arrays" value={String(localSurfaceSummaries.length)} />
+        <SummaryCard label="MPPTs" value={String(localSurfaceSummaries.length)} />
       </div>
       <div className="yield-table-wrap">
         <table className="yield-table">
@@ -2796,12 +2801,12 @@ function YieldSection({
             </tr>
           </thead>
           <tbody>
-            {faceYieldRows.map(({ face, yieldRows }) => {
+            {surfaceYieldRows.map(({ surface, yieldRows }) => {
               return (
-                <tr key={face.roof_face_id}>
-                  <th>{face.name}</th>
+                <tr key={surface.surface_id}>
+                  <th>{surface.name}</th>
                   {yieldRows.map((row) => (
-                    <td key={`${face.roof_face_id}-${row.month}`}>
+                    <td key={`${surface.surface_id}-${row.month}`}>
                       {formatDailyYield(row.averageDailyKwh)} / {formatWholeKwh(row.monthlyKwh)}
                     </td>
                   ))}
@@ -2825,7 +2830,7 @@ function YieldSection({
 
 function BatteryArrayPage({
   data,
-  localFaceSummaries,
+  localSurfaceSummaries,
   mpptByArray,
   mpptToBatteryBankByMpptId,
   batteryBank,
@@ -2891,23 +2896,23 @@ function BatteryArrayPage({
   const projectMonthlySolarByMonth = new Map(
     data.derived.project_monthly_solar_output.map((row) => [row.month, row] as const),
   );
-  const estimatedYieldByFace = localFaceSummaries.map((face) => ({
-    roof_face_id: face.roof_face_id,
-    name: face.name,
+  const estimatedYieldBySurface = localSurfaceSummaries.map((surface) => ({
+    surface_id: surface.surface_id,
+    name: surface.name,
     ...estimateFaceYieldForMonth({
-      installedWp: face.installed_wp,
-      azimuthDeg: face.orientation_deg,
-      tiltDeg: face.tilt_deg,
+      installedWp: surface.installed_wp,
+      azimuthDeg: surface.orientation_deg,
+      tiltDeg: surface.tilt_deg,
       latitudeDeg: effectiveLatitude,
       month: selectedMonth,
     }),
   }));
-  const faceYieldRows = localFaceSummaries.map((face) => ({
-    face,
+  const surfaceYieldRows = localSurfaceSummaries.map((surface) => ({
+    surface,
     yieldRows: estimateFaceYieldTable({
-      installedWp: face.installed_wp,
-      azimuthDeg: face.orientation_deg,
-      tiltDeg: face.tilt_deg,
+      installedWp: surface.installed_wp,
+      azimuthDeg: surface.orientation_deg,
+      tiltDeg: surface.tilt_deg,
       latitudeDeg: effectiveLatitude,
     }),
   }));
@@ -2927,8 +2932,8 @@ function BatteryArrayPage({
     ),
   }));
   const selectedProjectMonth = projectMonthlySolarByMonth.get(selectedMonth) ?? null;
-  const totalEstimatedDailyYieldKwh = selectedProjectMonth?.average_daily_kwh ?? estimatedYieldByFace.reduce((sum, face) => sum + face.averageDailyKwh, 0);
-  const totalEstimatedMonthlyYieldKwh = selectedProjectMonth?.monthly_kwh ?? estimatedYieldByFace.reduce((sum, face) => sum + face.monthlyKwh, 0);
+  const totalEstimatedDailyYieldKwh = selectedProjectMonth?.average_daily_kwh ?? estimatedYieldBySurface.reduce((sum, surface) => sum + surface.averageDailyKwh, 0);
+  const totalEstimatedMonthlyYieldKwh = selectedProjectMonth?.monthly_kwh ?? estimatedYieldBySurface.reduce((sum, surface) => sum + surface.monthlyKwh, 0);
   const bestMonth = data.derived.project_monthly_solar_output
     .map((row) => ({
       month: row.month,
@@ -3098,7 +3103,7 @@ function BatteryArrayPage({
             {data.relationships.array_to_mppt.map((relation) => {
               const array = data.entities.arrays.find((item) => item.array_id === relation.from_array_id);
               if ((array?.panel_count ?? 0) <= 0) return null;
-              const roofFace = data.entities.roof_faces.find((item) => item.roof_face_id === array?.roof_face_id);
+              const surface = data.entities.surfaces.find((item) => item.surface_id === array?.surface_id);
               const mppt = mpptByArray.get(relation.from_array_id);
               const mpptOutput = mppt ? mpptToBatteryBankByMpptId.get(mppt.mppt_configuration_id) ?? null : null;
               const outputVoltage = batteryArrayConfig?.stringVoltage ?? mpptOutput?.output_voltage_v ?? null;
@@ -3109,7 +3114,7 @@ function BatteryArrayPage({
               return (
                 <article key={relation.relationship_id} className="status-card">
                   <div className="status-card-top">
-                    <span className="status-title">{roofFace?.name ?? array?.name ?? relation.from_array_id}</span>
+                    <span className="status-title">{surface?.name ?? array?.name ?? relation.from_array_id}</span>
                   </div>
                   <p>{mppt?.name ?? relation.to_mppt_configuration_id}</p>
                   <dl className="mini-stats">
@@ -3174,7 +3179,7 @@ function BatteryArrayPage({
             </dl>
           ) : null}
           <div style={{ marginTop: 16 }}>
-            <button type="button" className="button button-primary" onClick={() => void handleSaveBatteryDesign()} disabled={isSavingBatteryDesign}>
+            <button type="button" className="button button-secondary" onClick={() => void handleSaveBatteryDesign()} disabled={isSavingBatteryDesign}>
               {isSavingBatteryDesign ? 'Saving…' : 'Save battery configuration'}
             </button>
             {batteryDesignSaveError ? <p className="save-error">{batteryDesignSaveError}</p> : null}
@@ -4002,7 +4007,7 @@ function BatteryCatalogPage({
               />
             </label>
             <div className="stack" style={{ gap: 8 }}>
-              <button type="button" className="button button-primary" onClick={() => void handleSave()} disabled={isSaving || !draft.battery_type_id.trim()}>
+              <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.battery_type_id.trim()}>
                 {isSaving ? 'Saving…' : selectedBattery ? 'Save battery type' : 'Create battery type'}
               </button>
               {selectedBattery ? (
@@ -4300,7 +4305,7 @@ function PanelCatalogPage({
               <textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={4} />
             </label>
             <div className="stack" style={{ gap: 8 }}>
-              <button type="button" className="button button-primary" onClick={() => void handleSave()} disabled={isSaving || !draft.panel_type_id.trim()}>
+              <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.panel_type_id.trim()}>
                 {isSaving ? 'Saving…' : selectedPanel ? 'Save panel type' : 'Create panel type'}
               </button>
               {selectedPanel ? (
@@ -4554,7 +4559,7 @@ function MpptCatalogPage({
               <textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={4} />
             </label>
             <div className="stack" style={{ gap: 8 }}>
-              <button type="button" className="button button-primary" onClick={() => void handleSave()} disabled={isSaving || !draft.mppt_type_id.trim()}>
+              <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.mppt_type_id.trim()}>
                 {isSaving ? 'Saving…' : selectedMppt ? 'Save MPPT type' : 'Create MPPT type'}
               </button>
               {selectedMppt ? (
@@ -4808,7 +4813,7 @@ function InverterCatalogPage({
               <textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={4} />
             </label>
             <div className="stack" style={{ gap: 8 }}>
-              <button type="button" className="button button-primary" onClick={() => void handleSave()} disabled={isSaving || !draft.inverter_id.trim()}>
+              <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.inverter_id.trim()}>
                 {isSaving ? 'Saving…' : selectedInverter ? 'Save inverter type' : 'Create inverter type'}
               </button>
               {selectedInverter ? (
@@ -4890,15 +4895,15 @@ export function App() {
   }
 
   const weakestMonth = findWeakestMonth(data.derived.monthly_balance);
-  const localFaceSummaries = buildLocalFaceSummaries(data);
-  const localTotalInstalledWp = localFaceSummaries.reduce((total, face) => total + face.installed_wp, 0);
-  const arrayStateByRoofFace = new Map(data.derived.array_states.map((state) => [state.roof_face_id, state]));
+  const localSurfaceSummaries = buildLocalSurfaceSummaries(data);
+  const localTotalInstalledWp = localSurfaceSummaries.reduce((total, surface) => total + surface.installed_wp, 0);
+  const arrayStateBySurface = new Map(data.derived.array_states.map((state) => [state.surface_id, state]));
   const mpptByArray = new Map(data.entities.mppt_configurations.map((item) => [item.array_id, item]));
   const relationByArray = new Map(data.relationships.array_to_mppt.map((item) => [item.from_array_id, item]));
   const mpptToBatteryBankByMpptId = new Map(
     data.relationships.mppt_to_battery_bank.map((item) => [item.from_mppt_configuration_id, item]),
   );
-  const arrayById = new Map(data.entities.arrays.map((item) => [item.array_id, item]));
+  const arrayById = new Map((data.entities.pv_arrays ?? data.entities.arrays).map((item) => [item.array_id, item]));
   const mpptById = new Map(data.entities.mppt_configurations.map((item) => [item.mppt_configuration_id, item]));
   const batteryBank = data.entities.battery_banks[0] ?? null;
   const batteryBankState = batteryBank
@@ -4913,9 +4918,9 @@ export function App() {
     data,
     route,
     weakestMonth,
-    localFaceSummaries,
+    localSurfaceSummaries,
     localTotalInstalledWp,
-    arrayStateByRoofFace,
+    arrayStateBySurface,
     mpptByArray,
     relationByArray,
     mpptToBatteryBankByMpptId,
@@ -4928,15 +4933,15 @@ export function App() {
     refreshProjectData,
   };
 
-  if (route.kind === 'face') {
+  if (route.kind === 'surface') {
     return (
       <div className="layout">
         <Sidebar route={route} data={data} />
         <main className="app-shell">
-          <RoofFaceDetail
-            key={`face:${route.roofFaceId}`}
+          <SurfaceDetail
+            key={`surface:${route.surfaceId}`}
             data={data}
-            roofFaceId={route.roofFaceId}
+            surfaceId={route.surfaceId}
             refreshProjectData={refreshProjectData}
           />
         </main>

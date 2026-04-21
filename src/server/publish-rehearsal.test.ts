@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, describe, expect, it } from 'vitest';
 import { buildDigitalTwinExport } from '../output/exportDigitalTwin.js';
-import { getBatteryBankConfiguration, getInverterConfiguration, getLocation, getRoofFaceConfiguration, upsertBatteryBankConfiguration, upsertInverterConfiguration, upsertLocation, upsertRoofFaceConfiguration, upsertRoofPanel } from '../db/queries.js';
+import { getBatteryBankConfiguration, getInverterConfiguration, getLocation, getSurfaceConfiguration, upsertBatteryBankConfiguration, upsertInverterConfiguration, upsertLocation, upsertSurfaceConfiguration, upsertSurfacePanelAssignment } from '../db/queries.js';
 import { openDb } from '../db/connection.js';
 import { ensureDatabaseReady, withDb } from './bootstrap.js';
 
@@ -38,14 +38,14 @@ describe('publish rehearsal', () => {
         easting: 181200.45,
       });
 
-      upsertRoofPanel(db, {
-        roof_face_id: 'flat-ne',
+      upsertSurfacePanelAssignment(db, {
+        surface_id: 'flat-ne',
         panel_type_id: 'aiko-475-all-black',
         count: 4,
       });
 
-      upsertRoofFaceConfiguration(db, {
-        roof_face_id: 'flat-ne',
+      upsertSurfaceConfiguration(db, {
+        surface_id: 'flat-ne',
         panels_per_string: 2,
         parallel_strings: 2,
         selected_mppt_type_id: 'victron-mrs-48-6000-100-450-100',
@@ -68,7 +68,7 @@ describe('publish rehearsal', () => {
     const db = openDb(dbPath);
     try {
       const location = getLocation(db);
-      const roofFaceConfiguration = getRoofFaceConfiguration(db, 'flat-ne');
+      const roofFaceConfiguration = getSurfaceConfiguration(db, 'flat-ne');
       const batteryBankConfiguration = getBatteryBankConfiguration(db, 'battery-bank-main');
       const inverterConfiguration = getInverterConfiguration(db, 'inverter-configuration-main');
       const exportData = buildDigitalTwinExport(db, dbPath);
@@ -91,17 +91,17 @@ describe('publish rehearsal', () => {
       expect(inverterConfiguration).not.toBeNull();
       expect(inverterConfiguration?.selected_inverter_type_id).toBe('victron-mp2-48-10000');
 
-      const flatNeArray = exportData.entities.arrays.find((array) => array.roof_face_id === 'flat-ne');
+      const flatNeArray = exportData.entities.pv_arrays.find((array) => array.surface_id === 'flat-ne');
       expect(flatNeArray).toBeDefined();
       expect(flatNeArray?.panel_count).toBe(4);
       expect(flatNeArray?.panels_per_string).toBe(2);
       expect(flatNeArray?.parallel_strings).toBe(2);
 
-      const flatNeStrings = exportData.entities.strings.filter((string) => string.roof_face_id === 'flat-ne');
+      const flatNeStrings = exportData.entities.pv_strings.filter((string) => string.surface_id === 'flat-ne');
       expect(flatNeStrings).toHaveLength(2);
       expect(flatNeStrings[0]?.panel_count).toBe(2);
 
-      const flatNeMppt = exportData.entities.mppt_configurations.find((mppt) => mppt.roof_face_id === 'flat-ne');
+      const flatNeMppt = exportData.entities.mppt_configurations.find((mppt) => mppt.surface_id === 'flat-ne');
       expect(flatNeMppt).toBeDefined();
       expect(flatNeMppt?.mppt_type_id).toBe('victron-mrs-48-6000-100-450-100');
       expect(flatNeMppt?.provisional).toBe(false);

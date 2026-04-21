@@ -7,17 +7,17 @@ Every concept must be referred to by its canonical name across the database sche
 
 | Domain concept | DB table (plural snake_case) | TS interface (singular PascalCase) | Preferred label |
 |---|---|---|---|
-| Location | `location` | `Location` | Location |
-| Surface | `roof_faces` | `RoofFace` | Surface |
+| Location | `locations` | `Location` | Location |
+| Surface | `surfaces` | `Surface` | Surface |
 | Panel type | `panel_types` | `PanelType` | Panel type |
-| Roof panel assignment | `roof_panels` | `RoofPanelAssignment` | Panel count |
-| PV array | `arrays` | `PvArray` | Array |
-| String | `strings` | `PvString` | String |
+| Surface panel assignment | `surface_panel_assignments` | `SurfacePanelAssignment` | Panel count |
+| PV array | `pv_arrays` | `PvArray` | Array |
+| PV string | `pv_strings` | `PvString` | String |
 | Array-to-MPPT mapping | `array_to_mppt_mappings` | `ArrayToMpptMapping` | Array-to-MPPT mapping |
 | MPPT type | `mppt_types` | `MpptType` | MPPT |
 | Battery type | `battery_types` | `BatteryType` | Battery |
 | Inverter type | `inverter_types` | `InverterType` | Inverter |
-| Preference | `preferences` | `Preferences` | Preference |
+| Project preference | `project_preferences` | `ProjectPreferences` | Preference |
 | Victron CAN | `battery_types.victron_can` | `BatteryType.victron_can` | Victron CAN |
 
 ## Project configuration concepts
@@ -26,18 +26,31 @@ Use `configuration` for project-selected or project-configured records when you 
 
 | Domain concept | DB table (plural snake_case) | TS interface (singular PascalCase) | Preferred label |
 |---|---|---|---|
-| Surface configuration | `roof_face_configurations` | `RoofFaceConfiguration` | Surface configuration |
+| Surface configuration | `surface_configurations` | `SurfaceConfiguration` | Surface configuration |
 | Battery bank configuration | `battery_bank_configurations` | `BatteryBankConfiguration` | Battery bank configuration |
 | MPPT configuration | `mppt_configurations` | `MpptConfiguration` | MPPT configuration |
 | Inverter configuration | `inverter_configurations` | `InverterConfiguration` | Inverter configuration |
+
+## Legacy terminology
+
+The following older terms are legacy implementation names and are not canonical going forward:
+
+- `roof_face` -> use `surface`
+- `roof_faces` -> use `surfaces`
+- `RoofFace` -> use `Surface`
+- `roof_face_configuration` -> use `surface_configuration`
+- `roof_panels` -> use `surface_panel_assignments`
+- `arrays` -> use `pv_arrays`
+- `strings` -> use `pv_strings`
+- `preferences` -> use `project_preferences`
 
 ## Output-only concepts
 
 | Domain concept | TS interface | Used in |
 |---|---|---|
 | Project input | `ProjectInput` | Aggregated input passed to calculations |
-| Yield estimate | `YieldEstimate` | Monthly kWh per roof face |
-| String suggestion | `StringSuggestion` | Suggested string layout per roof face |
+| Yield estimate | `YieldEstimate` | Monthly kWh per surface |
+| String suggestion | `StringSuggestion` | Suggested string layout per surface |
 | MPPT suggestion | `MpptSuggestion` | Suggested MPPT configuration and fit evaluation |
 | Battery recommendation | `BatteryRecommendation` | Capacity and unit-count recommendation |
 | Cable suggestion | `CableSuggestion` | Minimum cross-section per string |
@@ -142,7 +155,8 @@ The field is named `orientation_deg` in both the DB column and the TypeScript mo
 - Use `battery_bank_configuration` language for the selected battery-bank setup.
 - Use `mppt_configuration` language for the selected MPPT setup.
 - Use `inverter_configuration` language for the selected inverter setup.
-- Use `array` for the persisted PV grouping connected to one roof face and one MPPT input.
+- Use `surface` instead of `roof face` in domain language, UI labels, code names, and schema names.
+- Use `array` for the persisted PV grouping connected to one surface and one MPPT input.
 - Use `string` only for series-connected panels.
 - Use `array_to_mppt_mapping` language for the persisted array-to-MPPT selection row.
 - Use `MPPT input fit` to describe whether a selected array is a good or poor match for a selected MPPT.

@@ -2,6 +2,7 @@
 
 ## 2026-04-20
 
+- Added a new post-publish TODO item to persist all project information in SQLite, including surface notes and uploaded pictures, so browser-local state can be phased out for important project data.
 - Renamed the surface `Outcome` block to `Evaluation` and rewrote its helper text so it now reads as the evaluation of the panel, string, and MPPT combination.
 - Tightened the surface-detail row rhythm so the stacked sections now use one consistent vertical gap from the top config cards through the Outcome row and down to Expected yield.
 - Tightened the surface detail page by moving `Panel count` beside `Selected panel`, shortening the section guidance copy, switching MPPT limits to a two-column layout, stopping the top-row cards from stretching taller than their content, narrowing the lower summary/notes blocks, and removing the extra `Fit result` heading.

@@ -18,7 +18,7 @@ This note records the current project baseline so later configuration and implem
 
 ## Current baseline from `project.db`
 
-The current database already defines five roof faces:
+The current database already defines five surfaces:
 
 - `flat-ne`
 - `ne`
@@ -34,14 +34,14 @@ The current panel-count assignment in the database is:
 - `se`: `4`
 - `sw`: `2`
 
-The current database now uses the intended split panel types across the roof faces:
+The current database now uses the intended split panel types across the surfaces:
 
 - black: `aiko-475-all-black` on `flat-ne` and `ne`
 - red: `canadian-bihiku6-rood` on `nw`, `se`, and `sw`
 
 ## Interpretation
 
-The current `project.db` now reflects the intended panel configuration by roof face.
+The current `project.db` now reflects the intended panel configuration by surface.
 
 The current panel catalog still contains the likely candidate panel types for this split, including:
 

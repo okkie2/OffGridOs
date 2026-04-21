@@ -1,6 +1,6 @@
-# Roof Face Array Screen
+# Surface Array Screen
 
-This note defines the detailed screen for one roof face, its array, and its MPPT relationship.
+This note defines the detailed screen for one surface, its array, and its MPPT relationship.
 
 Terminology in this note must follow [UBIQUITOUS_LANGUAGE.md](../UBIQUITOUS_LANGUAGE.md).
 
@@ -10,7 +10,7 @@ After the project overview, this is likely the most important detailed screen in
 
 It should help the user answer:
 
-- what is installed on this roof face
+- what is installed on this surface
 - how is it grouped electrically
 - which MPPT is selected
 - is the `array -> MPPT` relationship sound
@@ -18,32 +18,32 @@ It should help the user answer:
 
 ## Screen scope
 
-This screen focuses on one roof face and should show:
+This screen focuses on one surface and should show:
 
-- roof face geometry
+- surface geometry
 - panel assignment
 - strings
 - array
 - selected MPPT
 - `array -> MPPT` relationship evaluation
-- month-by-month performance for this roof face or array
+- month-by-month performance for this surface or array
 
 ## Layout blocks
 
 Suggested layout:
 
-1. roof face header
+1. surface header
 2. panel and string section
 3. array summary section
 4. MPPT fit section
 5. monthly performance section
 6. adjustment options section
 
-## 1. Roof face header
+## 1. Surface header
 
 Show:
 
-- roof face name
+- surface name
 - orientation
 - tilt
 - usable area
@@ -71,7 +71,7 @@ Important values:
 - string current
 - string Wp
 
-The user should be able to understand how the roof face panels are turned into electrical strings.
+The user should be able to understand how the surface panels are turned into electrical strings.
 
 ## 3. Array summary section
 
@@ -83,7 +83,7 @@ Show:
 - derived array current
 - derived array Wp
 
-For the current project direction, this will often be one array per roof face.
+For the current project direction, this will often be one array per surface.
 
 ## 4. MPPT fit section
 
@@ -111,7 +111,7 @@ It should also clearly state why.
 
 ## 5. Monthly performance section
 
-Show a roof-face or array specific monthly view.
+Show a surface or array specific monthly view.
 
 Suggested values:
 
@@ -149,7 +149,7 @@ This is where the app supports the user’s “change upstream / inspect downstr
 
 The most important outcome of this screen is that the user can quickly answer:
 
-- Is this roof face and array well matched to its MPPT?
+- Is this surface and array well matched to its MPPT?
 
 And if not:
 
@@ -171,7 +171,7 @@ That means:
 
 The first implemented version of this screen should prioritize:
 
-1. roof face facts
+1. surface facts
 2. array electrical summary
 3. MPPT fit evaluation
 4. monthly performance

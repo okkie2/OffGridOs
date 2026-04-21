@@ -181,8 +181,8 @@ const BASELINE_LOCATION = {
   easting: null,
 };
 
-const BASELINE_ROOF_FACES: Array<{
-  roof_face_id: string;
+const BASELINE_SURFACES: Array<{
+  surface_id: string;
   name: string;
   sort_order: number;
   orientation_deg: number;
@@ -191,7 +191,7 @@ const BASELINE_ROOF_FACES: Array<{
   notes: string | null;
 }> = [
   {
-    roof_face_id: 'dakkapellen',
+    surface_id: 'dakkapellen',
     name: 'Dakkapellen',
     sort_order: 1,
     orientation_deg: 231,
@@ -200,7 +200,7 @@ const BASELINE_ROOF_FACES: Array<{
     notes: null,
   },
   {
-    roof_face_id: 'flat-ne',
+    surface_id: 'flat-ne',
     name: 'Flat NE',
     sort_order: 2,
     orientation_deg: 51,
@@ -209,7 +209,7 @@ const BASELINE_ROOF_FACES: Array<{
     notes: null,
   },
   {
-    roof_face_id: 'ne',
+    surface_id: 'ne',
     name: 'North-East',
     sort_order: 3,
     orientation_deg: 51,
@@ -218,7 +218,7 @@ const BASELINE_ROOF_FACES: Array<{
     notes: null,
   },
   {
-    roof_face_id: 'nw',
+    surface_id: 'nw',
     name: 'North-West',
     sort_order: 4,
     orientation_deg: 321,
@@ -227,7 +227,7 @@ const BASELINE_ROOF_FACES: Array<{
     notes: null,
   },
   {
-    roof_face_id: 'se',
+    surface_id: 'se',
     name: 'South-East',
     sort_order: 5,
     orientation_deg: 141,
@@ -236,7 +236,7 @@ const BASELINE_ROOF_FACES: Array<{
     notes: null,
   },
   {
-    roof_face_id: 'sw',
+    surface_id: 'sw',
     name: 'South-West',
     sort_order: 6,
     orientation_deg: 231,
@@ -430,16 +430,16 @@ const BASELINE_PANEL_TYPES: Array<{
   },
 ];
 
-const BASELINE_ROOF_PANELS: Array<{
-  roof_face_id: string;
+const BASELINE_SURFACE_PANEL_ASSIGNMENTS: Array<{
+  surface_id: string;
   panel_type_id: string;
   count: number;
 }> = [
-  { roof_face_id: 'flat-ne', panel_type_id: 'aiko-475-all-black', count: 4 },
-  { roof_face_id: 'ne', panel_type_id: 'aiko-475-all-black', count: 2 },
-  { roof_face_id: 'nw', panel_type_id: 'canadian-bihiku6-rood', count: 7 },
-  { roof_face_id: 'se', panel_type_id: 'canadian-bihiku6-rood', count: 4 },
-  { roof_face_id: 'sw', panel_type_id: 'canadian-bihiku6-rood', count: 2 },
+  { surface_id: 'flat-ne', panel_type_id: 'aiko-475-all-black', count: 4 },
+  { surface_id: 'ne', panel_type_id: 'aiko-475-all-black', count: 2 },
+  { surface_id: 'nw', panel_type_id: 'canadian-bihiku6-rood', count: 7 },
+  { surface_id: 'se', panel_type_id: 'canadian-bihiku6-rood', count: 4 },
+  { surface_id: 'sw', panel_type_id: 'canadian-bihiku6-rood', count: 2 },
 ];
 
 /**
@@ -559,7 +559,7 @@ export function seedInverterTypes(db: Database.Database): void {
 export function seedInverterConfigurations(db: Database.Database): void {
   const existing = db.prepare('SELECT COUNT(*) as count FROM inverter_configurations').get() as { count: number } | undefined;
   if (!existing || existing.count === 0) {
-    const preferredRow = db.prepare("SELECT value FROM preferences WHERE key = 'preferred_inverter_type_id'").get() as { value?: string } | undefined;
+    const preferredRow = db.prepare("SELECT value FROM project_preferences WHERE key = 'preferred_inverter_type_id'").get() as { value?: string } | undefined;
     const preferredInverterId = typeof preferredRow?.value === 'string' && preferredRow.value.trim() ? preferredRow.value.trim() : null;
     const preferredInverter = preferredInverterId
       ? db.prepare('SELECT inverter_id FROM inverter_types WHERE inverter_id = ?').get(preferredInverterId) as { inverter_id?: string } | undefined
@@ -577,24 +577,24 @@ export function seedInverterConfigurations(db: Database.Database): void {
 }
 
 export function seedLocation(db: Database.Database): void {
-  const existing = db.prepare('SELECT COUNT(*) as count FROM location').get() as { count: number } | undefined;
+  const existing = db.prepare('SELECT COUNT(*) as count FROM locations').get() as { count: number } | undefined;
   if (!existing || existing.count === 0) {
-    db.prepare('INSERT INTO location (country, place_name, latitude, longitude, northing, easting) VALUES (@country, @place_name, @latitude, @longitude, @northing, @easting)')
+    db.prepare('INSERT INTO locations (country, place_name, latitude, longitude, northing, easting) VALUES (@country, @place_name, @latitude, @longitude, @northing, @easting)')
       .run(BASELINE_LOCATION);
   }
 }
 
-export function seedRoofFaces(db: Database.Database): void {
-  const existing = db.prepare('SELECT COUNT(*) as count FROM roof_faces').get() as { count: number } | undefined;
+export function seedSurfaces(db: Database.Database): void {
+  const existing = db.prepare('SELECT COUNT(*) as count FROM surfaces').get() as { count: number } | undefined;
   if (!existing || existing.count === 0) {
     const insert = db.prepare(`
-      INSERT INTO roof_faces (roof_face_id, name, sort_order, orientation_deg, tilt_deg, usable_area_m2, notes)
-      VALUES (@roof_face_id, @name, @sort_order, @orientation_deg, @tilt_deg, @usable_area_m2, @notes)
+      INSERT INTO surfaces (surface_id, name, sort_order, orientation_deg, tilt_deg, usable_area_m2, notes)
+      VALUES (@surface_id, @name, @sort_order, @orientation_deg, @tilt_deg, @usable_area_m2, @notes)
     `);
-    const insertAll = db.transaction((rows: typeof BASELINE_ROOF_FACES) => {
+    const insertAll = db.transaction((rows: typeof BASELINE_SURFACES) => {
       for (const row of rows) insert.run(row);
     });
-    insertAll(BASELINE_ROOF_FACES);
+    insertAll(BASELINE_SURFACES);
   }
 }
 
@@ -612,16 +612,16 @@ export function seedPanelTypes(db: Database.Database): void {
   }
 }
 
-export function seedRoofPanels(db: Database.Database): void {
-  const existing = db.prepare('SELECT COUNT(*) as count FROM roof_panels').get() as { count: number } | undefined;
+export function seedSurfacePanelAssignments(db: Database.Database): void {
+  const existing = db.prepare('SELECT COUNT(*) as count FROM surface_panel_assignments').get() as { count: number } | undefined;
   if (!existing || existing.count === 0) {
     const insert = db.prepare(`
-      INSERT INTO roof_panels (roof_face_id, panel_type_id, count)
-      VALUES (@roof_face_id, @panel_type_id, @count)
+      INSERT INTO surface_panel_assignments (surface_id, panel_type_id, count)
+      VALUES (@surface_id, @panel_type_id, @count)
     `);
-    const insertAll = db.transaction((rows: typeof BASELINE_ROOF_PANELS) => {
+    const insertAll = db.transaction((rows: typeof BASELINE_SURFACE_PANEL_ASSIGNMENTS) => {
       for (const row of rows) insert.run(row);
     });
-    insertAll(BASELINE_ROOF_PANELS);
+    insertAll(BASELINE_SURFACE_PANEL_ASSIGNMENTS);
   }
 }

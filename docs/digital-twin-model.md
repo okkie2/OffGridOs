@@ -26,11 +26,11 @@ This distinction should apply wherever it helps explain both hard constraints an
 
 The graph should include:
 
-- roof faces
+- surfaces
 - panel types
-- panel count per roof face
-- strings per roof face
-- one or more arrays per roof face
+- panel count per surface
+- strings per surface
+- one or more arrays per surface
 - one MPPT per array
 - MPPTs
 - battery bank
@@ -46,9 +46,9 @@ The graph should include:
 These are user-chosen inputs, not calculated outputs:
 
 - panel type
-- panel count per roof face
-- roof face geometry
-- roof face orientation
+- panel count per surface
+- surface geometry
+- surface orientation
 - battery type
 - battery count
 - battery bank layout targets
@@ -85,7 +85,7 @@ The UI should make the two user intents explicit.
 
 The user changes a design input such as:
 
-- panel count on one roof face
+- panel count on one surface
 - battery count
 - generator availability
 
@@ -110,7 +110,7 @@ The app should not silently rewrite the whole design.
 
 Instead, it should show upstream implications such as:
 
-- more panels needed on a specific roof face
+- more panels needed on a specific surface
 - a different array layout
 - more battery units required
 - a different MPPT or inverter class
@@ -144,15 +144,15 @@ The UI should help the user inspect cause and effect, not just edit fields.
 
 For the current design direction:
 
-- the general model may allow a roof face to feed more than one array
+- the general model may allow a surface to feed more than one array
 - each array feeds one MPPT
-- this project's current setup is `1:1`: one roof face, one array, one MPPT
-- the UI should make the current mapping obvious while leaving room for a future split-per-roof-face model
+- this project's current setup is `1:1`: one surface, one array, one MPPT
+- the UI should make the current mapping obvious while leaving room for a future split-per-surface model
 
 Useful views:
 
 - system topology view
-- roof face and string view
+- surface and string view
 - monthly balance view
 - bottleneck view
 - upstream/downstream impact panel

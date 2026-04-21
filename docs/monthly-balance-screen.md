@@ -156,7 +156,7 @@ The user should quickly be able to answer:
 
 This screen should be fed by:
 
-- roof-face and array data
+- surface and array data
 - MPPT fit evaluations
 - battery-bank and inverter relationships
 - branch-circuit and consumer demand assumptions

@@ -6,7 +6,7 @@ The database is currently organized as a single-project workspace, not as a mult
 
 ```mermaid
 erDiagram
-    LOCATION {
+    LOCATIONS {
         INTEGER id PK
         TEXT country
         TEXT place_name
@@ -16,10 +16,11 @@ erDiagram
         REAL easting
     }
 
-    ROOF_FACES {
+    SURFACES {
         INTEGER id PK
-        TEXT roof_face_id UK
+        TEXT surface_id UK
         TEXT name
+        INTEGER sort_order
         REAL orientation_deg
         REAL tilt_deg
         REAL usable_area_m2
@@ -41,17 +42,17 @@ erDiagram
         REAL price
     }
 
-    ROOF_PANELS {
+    SURFACE_PANEL_ASSIGNMENTS {
         INTEGER id PK
-        TEXT roof_face_id FK
+        TEXT surface_id FK
         TEXT panel_type_id FK
         INTEGER count
     }
 
-    ARRAYS {
+    PV_ARRAYS {
         INTEGER id PK
         TEXT array_id UK
-        TEXT roof_face_id UK, FK
+        TEXT surface_id UK, FK
         TEXT name
         TEXT panel_type_id FK
         INTEGER panel_count
@@ -61,11 +62,11 @@ erDiagram
         TEXT notes
     }
 
-    STRINGS {
+    PV_STRINGS {
         INTEGER id PK
         TEXT string_id UK
         TEXT array_id FK
-        TEXT roof_face_id FK
+        TEXT surface_id FK
         INTEGER string_index
         TEXT panel_type_id FK
         INTEGER panel_count
@@ -78,9 +79,9 @@ erDiagram
         TEXT selected_mppt_type_id FK
     }
 
-    ROOF_FACE_CONFIGURATIONS {
+    SURFACE_CONFIGURATIONS {
         INTEGER id PK
-        TEXT roof_face_id UK, FK
+        TEXT surface_id UK, FK
         INTEGER panels_per_string
         INTEGER parallel_strings
         TEXT selected_mppt_type_id FK
@@ -146,36 +147,36 @@ erDiagram
         TEXT selected_inverter_type_id FK
     }
 
-    PREFERENCES {
+    PROJECT_PREFERENCES {
         INTEGER id PK
         TEXT key UK
         TEXT value
     }
 
-    LOCATION ||--o| PREFERENCES : "shared project context"
-    ROOF_FACES ||--o{ ROOF_PANELS : "has"
-    PANEL_TYPES ||--o{ ROOF_PANELS : "used by"
-    ROOF_FACES ||--o| ARRAYS : "has"
-    ARRAYS ||--o{ STRINGS : "has"
-    ARRAYS ||--o| ARRAY_TO_MPPT_MAPPINGS : "selected for"
-    ROOF_FACES ||--o| ROOF_FACE_CONFIGURATIONS : "has"
-    MPPT_TYPES ||--o{ ROOF_FACE_CONFIGURATIONS : "selected for"
+    LOCATIONS ||--o| PROJECT_PREFERENCES : "shared project context"
+    SURFACES ||--o{ SURFACE_PANEL_ASSIGNMENTS : "has"
+    PANEL_TYPES ||--o{ SURFACE_PANEL_ASSIGNMENTS : "used by"
+    SURFACES ||--o| PV_ARRAYS : "has"
+    PV_ARRAYS ||--o{ PV_STRINGS : "has"
+    PV_ARRAYS ||--o| ARRAY_TO_MPPT_MAPPINGS : "selected for"
+    SURFACES ||--o| SURFACE_CONFIGURATIONS : "has"
+    MPPT_TYPES ||--o{ SURFACE_CONFIGURATIONS : "selected for"
     BATTERY_TYPES ||--o{ BATTERY_BANK_CONFIGURATIONS : "selected for"
     INVERTER_TYPES ||--o{ INVERTER_CONFIGURATIONS : "selected for"
 ```
 
 ## Notes
 
-- `location` holds the shared project site coordinates.
-- `roof_faces` defines the roof geometry that the current project uses.
-- `roof_panels` stores the current panel assignment per roof face.
-- `arrays`, `strings`, and `array_to_mppt_mappings` persist the current PV topology layer and stay synchronized with the roof-face configuration.
-- `roof_face_configurations` stores per-face string layout and MPPT choice.
+- `locations` holds the shared project site coordinates.
+- `surfaces` defines the roof geometry that the current project uses.
+- `surface_panel_assignments` stores the current panel assignment per surface.
+- `pv_arrays`, `pv_strings`, and `array_to_mppt_mappings` persist the current PV topology layer and stay synchronized with the surface configuration.
+- `surface_configurations` stores per-surface string layout and MPPT choice.
 - `battery_bank_configurations` stores the current battery-bank sizing choice.
 - `mppt_types`, `battery_types`, and `inverter_types` are catalog tables.
 - `inverter_configurations` stores the selected inverter setup.
-- `preferences` currently stores the remaining project preferences.
-- monthly solar output by roof face is currently derived at export time rather than stored as a base table.
-- the project-level monthly solar total is the sum of those derived roof-face monthly outputs.
+- `project_preferences` currently stores the remaining project preferences.
+- monthly solar output by surface is currently derived at export time rather than stored as a base table.
+- the project-level monthly solar total is the sum of those derived surface monthly outputs.
 
 The schema is intentionally small and still aimed at one project at a time. If OffGridOS later grows into a multi-user or multi-project tool, this doc should be updated alongside the schema.

@@ -19,29 +19,29 @@ It prefers a small number of stable persisted entities over storing every derive
 
 The current database already contains:
 
-- `location`
-- `roof_faces`
+- `locations`
+- `surfaces`
 - `panel_types`
-- `roof_panels`
+- `surface_panel_assignments`
 - `mppt_types`
 - `battery_types`
-- `preferences`
+- `project_preferences`
 - `inverter_types`
 
 This gives us:
 
 - site context
-- roof-face geometry
+- surface geometry
 - panel catalog
-- panel count per roof face
+- panel count per surface
 - MPPT catalog
 - battery catalog
 - inverter catalog
 
 What is still missing for the digital twin:
 
-- strings
-- arrays
+- pv_strings
+- pv_arrays
 - configured MPPT instances
 - configured battery bank
 - configured inverter instances
@@ -71,17 +71,17 @@ Those should be derived by calculations and exported into JSON.
 
 ## Proposed new tables
 
-### `strings`
+### `pv_strings`
 
 Purpose:
 
-- store the user-defined or accepted series strings on a roof face
+- store the user-defined or accepted series strings on a surface
 
 Suggested columns:
 
 - `id INTEGER PRIMARY KEY AUTOINCREMENT`
 - `string_id TEXT UNIQUE NOT NULL`
-- `roof_face_id TEXT NOT NULL REFERENCES roof_faces(roof_face_id)`
+- `surface_id TEXT NOT NULL REFERENCES surfaces(surface_id)`
 - `panel_type_id TEXT NOT NULL REFERENCES panel_types(panel_type_id)`
 - `panel_count INTEGER NOT NULL`
 - `name TEXT`
@@ -91,7 +91,7 @@ Persist rationale:
 
 - strings are part of the intended topology, not just a momentary calculation result
 
-### `arrays`
+### `pv_arrays`
 
 Purpose:
 
@@ -101,7 +101,7 @@ Suggested columns:
 
 - `id INTEGER PRIMARY KEY AUTOINCREMENT`
 - `array_id TEXT UNIQUE NOT NULL`
-- `roof_face_id TEXT NOT NULL REFERENCES roof_faces(roof_face_id)`
+- `surface_id TEXT NOT NULL REFERENCES surfaces(surface_id)`
 - `name TEXT NOT NULL`
 - `notes TEXT`
 
@@ -118,8 +118,8 @@ Purpose:
 Suggested columns:
 
 - `id INTEGER PRIMARY KEY AUTOINCREMENT`
-- `array_id TEXT NOT NULL REFERENCES arrays(array_id)`
-- `string_id TEXT NOT NULL REFERENCES strings(string_id)`
+- `array_id TEXT NOT NULL REFERENCES pv_arrays(array_id)`
+- `string_id TEXT NOT NULL REFERENCES pv_strings(string_id)`
 - `sort_order INTEGER`
 
 Persist rationale:
@@ -153,7 +153,7 @@ Purpose:
 Suggested columns:
 
 - `id INTEGER PRIMARY KEY AUTOINCREMENT`
-- `array_id TEXT NOT NULL REFERENCES arrays(array_id)`
+- `array_id TEXT NOT NULL REFERENCES pv_arrays(array_id)`
 - `mppt_configuration_id TEXT NOT NULL REFERENCES mppt_configurations(mppt_configuration_id)`
 
 Rules:
@@ -312,21 +312,21 @@ Suggested columns:
 
 Purpose:
 
-- store month-by-month solar availability or yield assumptions per roof face or array
+- store month-by-month solar availability or yield assumptions per surface or array
 
 Suggested columns:
 
 - `id INTEGER PRIMARY KEY AUTOINCREMENT`
-- `roof_face_id TEXT REFERENCES roof_faces(roof_face_id)`
-- `array_id TEXT REFERENCES arrays(array_id)`
+- `surface_id TEXT REFERENCES surfaces(surface_id)`
+- `array_id TEXT REFERENCES pv_arrays(array_id)`
 - `month INTEGER NOT NULL`
 - `solar_factor REAL NOT NULL DEFAULT 1.0`
 - `notes TEXT`
 
 Recommendation:
 
-- start with `roof_face_id`
-- only move to `array_id` if split-per-roof-face becomes necessary
+- start with `surface_id`
+- only move to `array_id` if split-per-surface becomes necessary
 
 ## Tables not recommended yet
 
@@ -346,8 +346,8 @@ These are calculation outputs and should stay derived until the model stabilizes
 
 To keep scope manageable, the first useful database extension should only add:
 
-- `strings`
-- `arrays`
+- `pv_strings`
+- `pv_arrays`
 - `array_strings`
 - `mppt_configurations`
 - `array_mppts`
@@ -356,7 +356,7 @@ To keep scope manageable, the first useful database extension should only add:
 
 This first slice is enough to model:
 
-- roof face -> string -> array -> MPPT -> battery bank
+- surface -> string -> array -> MPPT -> battery bank
 
 That gives the digital twin a meaningful electrical backbone before adding AC-side distribution.
 

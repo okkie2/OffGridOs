@@ -1,47 +1,10 @@
 import Database from 'better-sqlite3';
-import { seedMpptTypes, seedBatteryTypes, seedInverterTypes, seedInverterConfigurations, seedLocation, seedPanelTypes, seedRoofFaces, seedRoofPanels } from './seeds.js';
+import { seedMpptTypes, seedBatteryTypes, seedInverterTypes, seedInverterConfigurations, seedLocation, seedPanelTypes, seedSurfaces, seedSurfacePanelAssignments } from './seeds.js';
 import { syncPvTopology } from './queries.js';
 
 function hasTable(db: Database.Database, tableName: string): boolean {
   const row = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?").get(tableName) as { name?: string } | undefined;
   return Boolean(row);
-}
-
-function migrateLegacyTableRows(
-  db: Database.Database,
-  oldTable: string,
-  newTable: string,
-  columns: string[],
-  uniqueKey: string,
-): void {
-  if (!hasTable(db, oldTable)) {
-    return;
-  }
-
-  if (!hasTable(db, newTable)) {
-    db.exec(`ALTER TABLE ${oldTable} RENAME TO ${newTable};`);
-    return;
-  }
-
-  const insertSql = `INSERT INTO ${newTable} (${columns.join(', ')}) VALUES (${columns.map((column) => `@${column}`).join(', ')})`;
-  const updateSql = `UPDATE ${newTable} SET ${columns.filter((column) => column !== uniqueKey).map((column) => `${column}=@${column}`).join(', ')} WHERE ${uniqueKey}=@${uniqueKey}`;
-  const insert = db.prepare(insertSql);
-  const update = db.prepare(updateSql);
-  const rows = db.prepare(`SELECT ${columns.join(', ')} FROM ${oldTable}`).all() as Record<string, unknown>[];
-
-  const transaction = db.transaction(() => {
-    for (const row of rows) {
-      const existing = db.prepare(`SELECT 1 FROM ${newTable} WHERE ${uniqueKey} = ?`).get(row[uniqueKey]);
-      if (existing) {
-        update.run(row);
-      } else {
-        insert.run(row);
-      }
-    }
-    db.exec(`DROP TABLE ${oldTable};`);
-  });
-
-  transaction();
 }
 
 function ensureBatteryTypesColumns(db: Database.Database): void {
@@ -62,10 +25,10 @@ function ensureBatteryTypesColumns(db: Database.Database): void {
 }
 
 function ensureLocationColumns(db: Database.Database): void {
-  const cols = new Set((db.prepare("PRAGMA table_info('location')").all() as { name: string }[]).map((row) => row.name));
+  const cols = new Set((db.prepare("PRAGMA table_info('locations')").all() as { name: string }[]).map((row) => row.name));
   const additions = [
-    !cols.has('northing') ? 'ALTER TABLE location ADD COLUMN northing REAL;' : '',
-    !cols.has('easting') ? 'ALTER TABLE location ADD COLUMN easting REAL;' : '',
+    !cols.has('northing') ? 'ALTER TABLE locations ADD COLUMN northing REAL;' : '',
+    !cols.has('easting') ? 'ALTER TABLE locations ADD COLUMN easting REAL;' : '',
   ].filter(Boolean);
 
   if (additions.length > 0) {
@@ -73,10 +36,10 @@ function ensureLocationColumns(db: Database.Database): void {
   }
 }
 
-function ensureRoofFaceColumns(db: Database.Database): void {
-  const cols = new Set((db.prepare("PRAGMA table_info('roof_faces')").all() as { name: string }[]).map((row) => row.name));
+function ensureSurfaceColumns(db: Database.Database): void {
+  const cols = new Set((db.prepare("PRAGMA table_info('surfaces')").all() as { name: string }[]).map((row) => row.name));
   const additions = [
-    !cols.has('sort_order') ? 'ALTER TABLE roof_faces ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;' : '',
+    !cols.has('sort_order') ? 'ALTER TABLE surfaces ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;' : '',
   ].filter(Boolean);
 
   if (additions.length > 0) {
@@ -87,8 +50,8 @@ function ensureRoofFaceColumns(db: Database.Database): void {
     WITH ordered AS (
       SELECT
         id,
-        roof_face_id,
-        CASE roof_face_id
+        surface_id,
+        CASE surface_id
           WHEN 'dakkapellen' THEN 1
           WHEN 'flat-ne' THEN 2
           WHEN 'ne' THEN 3
@@ -97,7 +60,7 @@ function ensureRoofFaceColumns(db: Database.Database): void {
           WHEN 'sw' THEN 6
           ELSE NULL
         END AS base_order
-      FROM roof_faces
+      FROM surfaces
     ),
     unknowns AS (
       SELECT
@@ -113,9 +76,9 @@ function ensureRoofFaceColumns(db: Database.Database): void {
       FROM ordered
       LEFT JOIN unknowns ON unknowns.id = ordered.id
     )
-    UPDATE roof_faces
+    UPDATE surfaces
     SET sort_order = (
-      SELECT sort_order FROM final_order WHERE final_order.id = roof_faces.id
+      SELECT sort_order FROM final_order WHERE final_order.id = surfaces.id
     );
   `);
 }
@@ -136,7 +99,7 @@ function ensureMpptTypesColumns(db: Database.Database): void {
 
 export function initSchema(db: Database.Database): void {
   db.exec(`
-    CREATE TABLE IF NOT EXISTS location (
+    CREATE TABLE IF NOT EXISTS locations (
       id        INTEGER PRIMARY KEY AUTOINCREMENT,
       country   TEXT NOT NULL,
       place_name TEXT NOT NULL,
@@ -146,10 +109,11 @@ export function initSchema(db: Database.Database): void {
       easting   REAL
     );
 
-    CREATE TABLE IF NOT EXISTS roof_faces (
+    CREATE TABLE IF NOT EXISTS surfaces (
       id             INTEGER PRIMARY KEY AUTOINCREMENT,
-      roof_face_id   TEXT UNIQUE NOT NULL,
+      surface_id     TEXT UNIQUE NOT NULL,
       name           TEXT NOT NULL,
+      sort_order     INTEGER NOT NULL DEFAULT 0,
       orientation_deg REAL NOT NULL,
       tilt_deg       REAL NOT NULL,
       usable_area_m2 REAL,
@@ -173,17 +137,17 @@ export function initSchema(db: Database.Database): void {
       price_per_wp  REAL GENERATED ALWAYS AS (CASE WHEN price IS NOT NULL THEN ROUND(price / wp, 2) ELSE NULL END) VIRTUAL
     );
 
-    CREATE TABLE IF NOT EXISTS roof_panels (
+    CREATE TABLE IF NOT EXISTS surface_panel_assignments (
       id            INTEGER PRIMARY KEY AUTOINCREMENT,
-      roof_face_id  TEXT NOT NULL REFERENCES roof_faces(roof_face_id),
+      surface_id    TEXT NOT NULL REFERENCES surfaces(surface_id),
       panel_type_id TEXT NOT NULL REFERENCES panel_types(panel_type_id),
       count         INTEGER NOT NULL
     );
 
-    CREATE TABLE IF NOT EXISTS arrays (
+    CREATE TABLE IF NOT EXISTS pv_arrays (
       id               INTEGER PRIMARY KEY AUTOINCREMENT,
       array_id         TEXT UNIQUE NOT NULL,
-      roof_face_id     TEXT UNIQUE NOT NULL REFERENCES roof_faces(roof_face_id),
+      surface_id       TEXT UNIQUE NOT NULL REFERENCES surfaces(surface_id),
       name             TEXT NOT NULL,
       panel_type_id    TEXT REFERENCES panel_types(panel_type_id),
       panel_count      INTEGER NOT NULL DEFAULT 0,
@@ -193,11 +157,11 @@ export function initSchema(db: Database.Database): void {
       notes            TEXT
     );
 
-    CREATE TABLE IF NOT EXISTS strings (
+    CREATE TABLE IF NOT EXISTS pv_strings (
       id             INTEGER PRIMARY KEY AUTOINCREMENT,
       string_id      TEXT UNIQUE NOT NULL,
-      array_id       TEXT NOT NULL REFERENCES arrays(array_id),
-      roof_face_id   TEXT NOT NULL REFERENCES roof_faces(roof_face_id),
+      array_id       TEXT NOT NULL REFERENCES pv_arrays(array_id),
+      surface_id     TEXT NOT NULL REFERENCES surfaces(surface_id),
       string_index   INTEGER NOT NULL,
       panel_type_id  TEXT REFERENCES panel_types(panel_type_id),
       panel_count    INTEGER NOT NULL
@@ -206,13 +170,13 @@ export function initSchema(db: Database.Database): void {
     CREATE TABLE IF NOT EXISTS array_to_mppt_mappings (
       id                        INTEGER PRIMARY KEY AUTOINCREMENT,
       mapping_id                TEXT UNIQUE NOT NULL,
-      array_id                  TEXT UNIQUE NOT NULL REFERENCES arrays(array_id),
+      array_id                  TEXT UNIQUE NOT NULL REFERENCES pv_arrays(array_id),
       selected_mppt_type_id     TEXT REFERENCES mppt_types(mppt_type_id)
     );
 
-    CREATE TABLE IF NOT EXISTS roof_face_configurations (
+    CREATE TABLE IF NOT EXISTS surface_configurations (
       id                    INTEGER PRIMARY KEY AUTOINCREMENT,
-      roof_face_id          TEXT UNIQUE NOT NULL REFERENCES roof_faces(roof_face_id),
+      surface_id            TEXT UNIQUE NOT NULL REFERENCES surfaces(surface_id),
       panels_per_string     INTEGER,
       parallel_strings      INTEGER,
       selected_mppt_type_id TEXT REFERENCES mppt_types(mppt_type_id)
@@ -260,7 +224,7 @@ export function initSchema(db: Database.Database): void {
       notes               TEXT
     );
 
-    CREATE TABLE IF NOT EXISTS preferences (
+    CREATE TABLE IF NOT EXISTS project_preferences (
       key   TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
@@ -288,36 +252,15 @@ export function initSchema(db: Database.Database): void {
   `);
 
   ensureLocationColumns(db);
-  ensureRoofFaceColumns(db);
+  ensureSurfaceColumns(db);
   ensureBatteryTypesColumns(db);
   ensureMpptTypesColumns(db);
   seedLocation(db);
-  seedRoofFaces(db);
+  seedSurfaces(db);
   seedPanelTypes(db);
   seedMpptTypes(db);
   seedBatteryTypes(db);
-  migrateLegacyTableRows(
-    db,
-    'roof_face_designs',
-    'roof_face_configurations',
-    ['roof_face_id', 'panels_per_string', 'parallel_strings', 'selected_mppt_type_id'],
-    'roof_face_id',
-  );
-  migrateLegacyTableRows(
-    db,
-    'battery_bank_designs',
-    'battery_bank_configurations',
-    ['battery_bank_id', 'selected_battery_type_id', 'configured_battery_count', 'batteries_per_string', 'parallel_strings'],
-    'battery_bank_id',
-  );
-  migrateLegacyTableRows(
-    db,
-    'inverters',
-    'inverter_types',
-    ['inverter_id', 'model', 'input_voltage_v', 'output_voltage_v', 'continuous_power_w', 'peak_power_va', 'max_charge_current_a', 'efficiency_pct', 'price', 'notes'],
-    'inverter_id',
-  );
-  seedRoofPanels(db);
+  seedSurfacePanelAssignments(db);
   seedInverterTypes(db);
   seedInverterConfigurations(db);
   syncPvTopology(db);
