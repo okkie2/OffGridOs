@@ -5,7 +5,7 @@
 
 ## NEXT
 
-- Review the new PV-topology persistence layer in the UI and calculation flow, then decide whether direct editing is the next slice.
+- Keep PV topology as derived data for now (from panel assignment + surface configuration), and postpone direct array/string row editing until after downstream AC-side modeling is in place.
 
 ## LATER
 

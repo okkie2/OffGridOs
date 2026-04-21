@@ -3,6 +3,7 @@
 ## 2026-04-21
 
 - Persisted surface notes, surface photos, and the location site photo in SQLite by extending the schema, API payloads, and web save flows so these no longer live only in browser-local state.
+- Reviewed the persisted PV-topology flow and documented the decision to keep arrays/strings derived for now, postponing direct topology row editing until after downstream AC-side modeling.
 
 ## 2026-04-20
 
