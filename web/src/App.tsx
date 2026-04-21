@@ -2936,13 +2936,13 @@ function BatteryArrayPage({
   const monthlyTotals = MONTH_KEYS.map((month) => ({
     month,
     averageDailyKwh: Number(
-      faceYieldRows.reduce((sum, item) => {
+      surfaceYieldRows.reduce((sum, item) => {
         const match = item.yieldRows.find((row) => row.month === month);
         return sum + (match?.averageDailyKwh ?? 0);
       }, 0).toFixed(2),
     ),
     monthlyKwh: Number(
-      faceYieldRows.reduce((sum, item) => {
+      surfaceYieldRows.reduce((sum, item) => {
         const match = item.yieldRows.find((row) => row.month === month);
         return sum + (match?.monthlyKwh ?? 0);
       }, 0).toFixed(1),

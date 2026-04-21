@@ -565,7 +565,7 @@ Then('I should see the Surface detail page', async function () {
   assert.ok(this.dom?.window.document.body.textContent?.includes('Panel'));
   assert.ok(this.dom?.window.document.body.textContent?.includes('String'));
   assert.ok(this.dom?.window.document.body.textContent?.includes('MPPT'));
-  assert.ok(this.dom?.window.document.body.textContent?.includes('Summary and evaluation'));
+  assert.ok(this.dom?.window.document.body.textContent?.includes('Evaluation'));
 });
 
 When('I enter surface notes {string}', async function (notes: string) {

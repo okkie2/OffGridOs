@@ -5,6 +5,7 @@
 - Persisted surface notes, surface photos, and the location site photo in SQLite by extending the schema, API payloads, and web save flows so these no longer live only in browser-local state.
 - Reviewed the persisted PV-topology flow and documented the decision to keep arrays/strings derived for now, postponing direct topology row editing until after downstream AC-side modeling.
 - Added BDD coverage for surface notes/photo CRUD persistence so the test suite now verifies create/read/update/delete behavior against the project SQLite flow.
+- Fixed BDD regressions by correcting the Battery array monthly-yield variable reference and updating the surface-detail navigation assertion to match the current `Evaluation` heading.
 
 ## 2026-04-20
 
