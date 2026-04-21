@@ -6,6 +6,7 @@ export interface Location {
   longitude: number;
   northing?: number | null;
   easting?: number | null;
+  site_photo_data_url?: string | null;
 }
 
 export interface Surface {
@@ -18,6 +19,7 @@ export interface Surface {
   tilt_deg: number;
   usable_area_m2?: number;
   notes?: string;
+  photo_data_url?: string | null;
 }
 
 export interface PanelType {

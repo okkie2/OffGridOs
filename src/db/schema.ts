@@ -29,6 +29,7 @@ function ensureLocationColumns(db: Database.Database): void {
   const additions = [
     !cols.has('northing') ? 'ALTER TABLE locations ADD COLUMN northing REAL;' : '',
     !cols.has('easting') ? 'ALTER TABLE locations ADD COLUMN easting REAL;' : '',
+    !cols.has('site_photo_data_url') ? 'ALTER TABLE locations ADD COLUMN site_photo_data_url TEXT;' : '',
   ].filter(Boolean);
 
   if (additions.length > 0) {
@@ -40,6 +41,7 @@ function ensureSurfaceColumns(db: Database.Database): void {
   const cols = new Set((db.prepare("PRAGMA table_info('surfaces')").all() as { name: string }[]).map((row) => row.name));
   const additions = [
     !cols.has('sort_order') ? 'ALTER TABLE surfaces ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;' : '',
+    !cols.has('photo_data_url') ? 'ALTER TABLE surfaces ADD COLUMN photo_data_url TEXT;' : '',
   ].filter(Boolean);
 
   if (additions.length > 0) {
@@ -106,7 +108,8 @@ export function initSchema(db: Database.Database): void {
       latitude  REAL NOT NULL,
       longitude REAL NOT NULL,
       northing  REAL,
-      easting   REAL
+      easting   REAL,
+      site_photo_data_url TEXT
     );
 
     CREATE TABLE IF NOT EXISTS surfaces (
@@ -117,7 +120,8 @@ export function initSchema(db: Database.Database): void {
       orientation_deg REAL NOT NULL,
       tilt_deg       REAL NOT NULL,
       usable_area_m2 REAL,
-      notes          TEXT
+      notes          TEXT,
+      photo_data_url TEXT
     );
 
     CREATE TABLE IF NOT EXISTS panel_types (

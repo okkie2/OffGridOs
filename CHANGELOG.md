@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 2026-04-21
+
+- Persisted surface notes, surface photos, and the location site photo in SQLite by extending the schema, API payloads, and web save flows so these no longer live only in browser-local state.
+
 ## 2026-04-20
 
 - Added a new post-publish TODO item to persist all project information in SQLite, including surface notes and uploaded pictures, so browser-local state can be phased out for important project data.

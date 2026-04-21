@@ -25,11 +25,17 @@ export function getLocation(db: Database.Database): Location | null {
 export function upsertLocation(db: Database.Database, data: Omit<Location, 'id'>): void {
   const existing = getLocation(db);
   if (existing) {
-    db.prepare('UPDATE locations SET country=@country, place_name=@place_name, latitude=@latitude, longitude=@longitude, northing=@northing, easting=@easting WHERE id=@id')
-      .run({ ...data, id: existing.id });
+    const sitePhotoDataUrl = data.site_photo_data_url === undefined
+      ? (existing.site_photo_data_url ?? null)
+      : data.site_photo_data_url;
+    db.prepare('UPDATE locations SET country=@country, place_name=@place_name, latitude=@latitude, longitude=@longitude, northing=@northing, easting=@easting, site_photo_data_url=@site_photo_data_url WHERE id=@id')
+      .run({ ...data, site_photo_data_url: sitePhotoDataUrl, id: existing.id });
   } else {
-    db.prepare('INSERT INTO locations (country, place_name, latitude, longitude, northing, easting) VALUES (@country, @place_name, @latitude, @longitude, @northing, @easting)')
-      .run(data);
+    db.prepare('INSERT INTO locations (country, place_name, latitude, longitude, northing, easting, site_photo_data_url) VALUES (@country, @place_name, @latitude, @longitude, @northing, @easting, @site_photo_data_url)')
+      .run({
+        ...data,
+        site_photo_data_url: data.site_photo_data_url ?? null,
+      });
   }
 }
 
@@ -45,9 +51,12 @@ export function getSurface(db: Database.Database, surface_id: string): Surface |
 
 export function insertSurface(db: Database.Database, data: Omit<Surface, 'id'>): void {
   db.prepare(`
-    INSERT INTO surfaces (surface_id, name, sort_order, orientation_deg, tilt_deg, usable_area_m2, notes)
-    VALUES (@surface_id, @name, @sort_order, @orientation_deg, @tilt_deg, @usable_area_m2, @notes)
-  `).run(data);
+    INSERT INTO surfaces (surface_id, name, sort_order, orientation_deg, tilt_deg, usable_area_m2, notes, photo_data_url)
+    VALUES (@surface_id, @name, @sort_order, @orientation_deg, @tilt_deg, @usable_area_m2, @notes, @photo_data_url)
+  `).run({
+    ...data,
+    photo_data_url: data.photo_data_url ?? null,
+  });
 }
 
 export function createSurface(db: Database.Database, data: Omit<Surface, 'id'>): void {
@@ -63,9 +72,12 @@ export function updateSurface(db: Database.Database, data: Omit<Surface, 'id'>):
   db.prepare(`
     UPDATE surfaces
     SET name=@name, orientation_deg=@orientation_deg, tilt_deg=@tilt_deg,
-        usable_area_m2=@usable_area_m2, notes=@notes
+        usable_area_m2=@usable_area_m2, notes=@notes, photo_data_url=@photo_data_url
     WHERE surface_id=@surface_id
-  `).run(data);
+  `).run({
+    ...data,
+    photo_data_url: data.photo_data_url ?? null,
+  });
 }
 
 export function deleteSurface(db: Database.Database, surface_id: string): void {

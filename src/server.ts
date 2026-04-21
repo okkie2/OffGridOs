@@ -943,6 +943,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           longitude?: unknown;
           northing?: unknown;
           easting?: unknown;
+          site_photo_data_url?: unknown;
         }>(request);
 
         const placeName = typeof payload.place_name === 'string' ? payload.place_name.trim() : '';
@@ -955,6 +956,11 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         const easting = payload.easting == null || payload.easting === ''
           ? null
           : (typeof payload.easting === 'number' ? payload.easting : Number(payload.easting));
+        const sitePhotoDataUrl = payload.site_photo_data_url === undefined
+          ? undefined
+          : (payload.site_photo_data_url == null || payload.site_photo_data_url === ''
+              ? null
+              : (typeof payload.site_photo_data_url === 'string' ? payload.site_photo_data_url : String(payload.site_photo_data_url)));
 
         if (!placeName || !country || !isValidLatitude(latitude) || !isValidLongitude(longitude)) {
           sendJson(response, 400, {
@@ -978,6 +984,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             longitude,
             northing,
             easting,
+            site_photo_data_url: sitePhotoDataUrl,
           });
         });
 
@@ -999,6 +1006,8 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           name?: unknown;
           orientation_deg?: unknown;
           tilt_deg?: unknown;
+          notes?: unknown;
+          photo_data_url?: unknown;
         }>(request);
 
         const roofFaceId = typeof payload.surface_id === 'string' ? payload.surface_id.trim() : '';
@@ -1009,6 +1018,10 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         const tiltDeg = payload.tilt_deg == null || payload.tilt_deg === ''
           ? 30
           : (typeof payload.tilt_deg === 'number' ? payload.tilt_deg : Number(payload.tilt_deg));
+        const notes = isValidNonEmptyText(payload.notes) ? payload.notes.trim() : undefined;
+        const photoDataUrl = payload.photo_data_url == null || payload.photo_data_url === ''
+          ? null
+          : (typeof payload.photo_data_url === 'string' ? payload.photo_data_url : String(payload.photo_data_url));
 
         if (!roofFaceId || !Number.isFinite(orientationDeg) || orientationDeg < 0 || orientationDeg > 360 || !Number.isFinite(tiltDeg) || tiltDeg < 0 || tiltDeg > 90) {
           sendJson(response, 400, {
@@ -1029,7 +1042,8 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             orientation_deg: orientationDeg,
             tilt_deg: tiltDeg,
             usable_area_m2: undefined,
-            notes: undefined,
+            notes,
+            photo_data_url: photoDataUrl,
           });
           return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath) };
         });
@@ -1056,6 +1070,8 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           name?: unknown;
           orientation_deg?: unknown;
           tilt_deg?: unknown;
+          notes?: unknown;
+          photo_data_url?: unknown;
         }>(request);
 
         const name = typeof payload.name === 'string' ? payload.name.trim() : '';
@@ -1065,6 +1081,14 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         const tiltDeg = typeof payload.tilt_deg === 'number'
           ? payload.tilt_deg
           : Number(payload.tilt_deg);
+        const notes = payload.notes === undefined
+          ? undefined
+          : (isValidNonEmptyText(payload.notes) ? payload.notes.trim() : '');
+        const photoDataUrl = payload.photo_data_url === undefined
+          ? undefined
+          : (payload.photo_data_url == null || payload.photo_data_url === ''
+              ? null
+              : (typeof payload.photo_data_url === 'string' ? payload.photo_data_url : String(payload.photo_data_url)));
 
         if (!name || !Number.isFinite(orientationDeg) || orientationDeg < 0 || orientationDeg > 360 || !Number.isFinite(tiltDeg) || tiltDeg < 0 || tiltDeg > 90) {
           sendJson(response, 400, {
@@ -1085,7 +1109,8 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             orientation_deg: orientationDeg,
             tilt_deg: tiltDeg,
             usable_area_m2: existingFace.usable_area_m2 ?? undefined,
-            notes: existingFace.notes ?? undefined,
+            notes: notes === undefined ? (existingFace.notes ?? undefined) : notes,
+            photo_data_url: photoDataUrl === undefined ? (existingFace.photo_data_url ?? null) : photoDataUrl,
           });
           syncPvTopologyForSurface(db, roofFaceId);
 

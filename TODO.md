@@ -5,7 +5,6 @@
 
 ## NEXT
 
-- Persist all project information in SQLite, including surface notes and uploaded pictures, so the UI no longer relies on browser-local state for important project data.
 - Review the new PV-topology persistence layer in the UI and calculation flow, then decide whether direct editing is the next slice.
 
 ## LATER

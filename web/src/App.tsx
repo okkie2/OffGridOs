@@ -9,6 +9,8 @@ interface Surface {
   name: string;
   orientation_deg: number;
   tilt_deg: number;
+  notes?: string;
+  photo_data_url?: string | null;
 }
 
 interface ArrayState {
@@ -261,8 +263,11 @@ interface DigitalTwinExport {
     location: {
       country: string;
       place_name: string;
+      latitude: number;
+      longitude: number;
       northing?: number | null;
       easting?: number | null;
+      site_photo_data_url?: string | null;
     } | null;
     project_preferences: {
       preferred_inverter_type_id?: string | null;
@@ -1474,8 +1479,8 @@ function SurfaceDetail({
     `${storagePrefix}:mppt-type`,
     persistedConfiguration?.selected_mppt_type_id ?? projectMppt?.mppt_type_id ?? '',
   );
-  const [photo, setPhoto] = usePersistentState<string | null>(`${storagePrefix}:photo`, null);
-  const [surfaceNotes, setSurfaceNotes] = usePersistentState(`${storagePrefix}:notes`, '');
+  const [photo, setPhoto] = useState<string | null>(surface?.photo_data_url ?? null);
+  const [surfaceNotes, setSurfaceNotes] = useState(surface?.notes ?? '');
   const [isSavingSurface, setIsSavingSurface] = useState(false);
   const [surfaceSaveMessage, setSurfaceSaveMessage] = useState<string | null>(null);
   const [surfaceSaveError, setSurfaceSaveError] = useState<string | null>(null);
@@ -1508,6 +1513,11 @@ function SurfaceDetail({
       setParallelStrings(derivedParallelStrings);
     }
   }, [configuredPanelCount, panelsPerString, parallelStrings, panelsPerStringOptions]);
+
+  useEffect(() => {
+    setPhoto(surface?.photo_data_url ?? null);
+    setSurfaceNotes(surface?.notes ?? '');
+  }, [surface?.surface_id, surface?.photo_data_url, surface?.notes]);
 
   if (!surface) {
     return (
@@ -1581,6 +1591,8 @@ function SurfaceDetail({
           name: trimmedName,
           orientation_deg: surfaceAzimuthDraft,
           tilt_deg: surfaceTiltDraft,
+          notes: surfaceNotes.trim(),
+          photo_data_url: photo,
         }),
       });
 
@@ -1777,7 +1789,7 @@ function SurfaceDetail({
         <section className="panel panel-with-actions">
           <div className="section-head">
             <h2>Surface photo</h2>
-            <p>Optional visual reference for this surface. The photo stays local to this browser.</p>
+            <p>Optional visual reference for this surface, saved in the project database.</p>
           </div>
           {photo ? (
             <div className="photo-frame">
@@ -2075,7 +2087,7 @@ function SurfaceDetail({
         <section className="panel balanced-row-panel notes-panel">
           <div className="section-head">
             <h2>Notes</h2>
-            <p>Local notes for this surface.</p>
+            <p>Notes for this surface, saved in the project database.</p>
           </div>
           <label className="field">
             <span>Notes</span>
@@ -2438,7 +2450,7 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
     `${storagePrefix}:longitude`,
     data.project.location?.longitude != null ? String(data.project.location.longitude) : '',
   );
-  const [photo, setPhoto] = usePersistentState<string | null>(`${storagePrefix}:photo`, null);
+  const [photo, setPhoto] = useState<string | null>(data.project.location?.site_photo_data_url ?? null);
   const [isSaving, setIsSaving] = useState(false);
   const [isCreatingSurface, setIsCreatingSurface] = useState(false);
   const [focusedSurfaceId, setFocusedSurfaceId] = useState<string | null>(null);
@@ -2479,13 +2491,14 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
         headers: {
           'Content-Type': 'application/json',
         },
-          body: JSON.stringify({
-            place_name: address.trim(),
-            country: country.trim(),
-            latitude: numericLatitude,
-            longitude: numericLongitude,
-          }),
-        });
+        body: JSON.stringify({
+          place_name: address.trim(),
+          country: country.trim(),
+          latitude: numericLatitude,
+          longitude: numericLongitude,
+          site_photo_data_url: photo,
+        }),
+      });
 
       const payload = await response.json() as { error?: string };
 
@@ -2583,6 +2596,10 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
   }
 
   useEffect(() => {
+    setPhoto(data.project.location?.site_photo_data_url ?? null);
+  }, [data.project.location?.site_photo_data_url]);
+
+  useEffect(() => {
     if (!focusedSurfaceId) return;
 
     const element = document.getElementById(`surface-card-${focusedSurfaceId}`);
@@ -2611,7 +2628,7 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
             <p>Shared location inputs for the whole site and all configured surfaces.</p>
           </div>
           <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--muted)', fontSize: '0.86rem' }}>
-            Location, country, latitude, and longitude save to SQLite. The photo stays local too.
+            Location, country, latitude, longitude, and site photo save to SQLite.
           </p>
           {saveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{saveError}</p> : null}
           {saveMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{saveMessage}</p> : null}
