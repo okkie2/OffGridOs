@@ -3699,11 +3699,6 @@ function InverterArrayPage({
   const inverterCompatibility = batteryArrayConfig
     ? evaluateInverterCompatibility(batteryArrayConfig, selectedInverterType)
     : null;
-  const projectInverter = data.entities.inverter_configurations[0] ?? null;
-  const batteryToInverter = projectInverter
-    ? data.relationships.battery_bank_to_inverter.find((item) => item.to_inverter_configuration_id === projectInverter.inverter_configuration_id) ?? null
-    : null;
-
   async function handleSaveInverterDesign(options?: { imageOverride?: string | null }) {
     if (!selectedInverterTypeId) {
       setInverterDesignSaveError('Choose an inverter type before saving the inverter configuration.');
@@ -3898,21 +3893,30 @@ function InverterArrayPage({
           </div>
         </section>
 
-        <section className="panel">
-          <div className="section-head">
-            <h2>Battery - Inverter evaluation</h2>
-          </div>
-          {batteryArrayConfig && selectedInverterType ? (
-            <div className="fit-card">
-              <div className="fit-head">
-                <strong>{selectedInverterType.model}</strong>
-                <StatusBadge status={inverterCompatibility?.status ?? 'outside_limits'} fit={inverterCompatibility?.fit} />
+        {batteryArrayConfig && selectedInverterType ? (
+          <div className="detail-grid">
+            <section className="panel">
+              <div className="section-head">
+                <h2>Verdict</h2>
+              </div>
+              <StatusBadge status={inverterCompatibility?.status ?? 'outside_limits'} fit={inverterCompatibility?.fit} />
+            </section>
+
+            <section className="panel">
+              <div className="section-head">
+                <h2>Explanation</h2>
               </div>
               <ul className="reason-list">
                 {inverterCompatibility?.reasons.map((reason) => (
                   <li key={reason}>{reason.replaceAll('_', ' ')}</li>
                 )) ?? null}
               </ul>
+            </section>
+
+            <section className="panel">
+              <div className="section-head">
+                <h2>Electrical details</h2>
+              </div>
               <dl className="detail-stats mppt-checks">
                 <div className={batteryArrayConfig.stringVoltage > selectedInverterType.input_voltage_v * 1.1 || batteryArrayConfig.stringVoltage < selectedInverterType.input_voltage_v * 0.85 ? 'check-fail' : 'check-pass'}>
                   <dt>Voltage check</dt>
@@ -3927,11 +3931,16 @@ function InverterArrayPage({
                   <dd>{batteryArrayConfig.maxDischargePowerW != null ? formatKw(batteryArrayConfig.maxDischargePowerW) : 'n/a'} / {formatKw(selectedInverterType.continuous_power_w)}</dd>
                 </div>
               </dl>
+            </section>
+          </div>
+        ) : (
+          <section className="panel">
+            <div className="section-head">
+              <h2>Battery - Inverter evaluation</h2>
             </div>
-          ) : (
             <p className="fit-note">Choose a battery type and an inverter before the evaluation can be calculated.</p>
-          )}
-        </section>
+          </section>
+        )}
       </section>
     </>
   );
