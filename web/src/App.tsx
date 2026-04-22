@@ -1,6 +1,8 @@
 import React from 'react';
 import { useEffect, useState, type ChangeEvent, type MouseEvent } from 'react';
 
+declare const __BUILD_INFO__: string;
+
 type Status = 'within_limits' | 'outside_limits';
 type FitStatus = 'optimal' | 'acceptable' | 'clipping_expected' | 'underutilized';
 
@@ -1392,6 +1394,9 @@ function Sidebar({ route, data }: { route: Route; data: DigitalTwinExport | null
         <div className="sidebar-logo-sub">Digital Twin</div>
       </div>
       <nav className="sidebar-nav">
+        <a href={routeHref({ kind: 'overview' })} onClick={go({ kind: 'overview' })} className={`sidebar-nav-item ${route.kind === 'overview' ? 'active' : ''}`}>
+          Overview
+        </a>
         <a href={routeHref({ kind: 'location' })} onClick={go({ kind: 'location' })} className={`sidebar-nav-item ${route.kind === 'location' || route.kind === 'surface' ? 'active' : ''}`}>
           Location
         </a>
@@ -1440,6 +1445,7 @@ function Sidebar({ route, data }: { route: Route; data: DigitalTwinExport | null
       </nav>
       <div className="sidebar-footer">
         <span className="sidebar-footer-btn">New project</span>
+        <span className="sidebar-footer-stamp">{typeof __BUILD_INFO__ !== 'undefined' ? __BUILD_INFO__ : ''}</span>
       </div>
     </aside>
   );
@@ -1560,9 +1566,10 @@ function SurfaceDetail({
   useEffect(() => {
     setSurfaceDescription(surface?.description ?? '');
     setPhoto(surface?.photo_data_url ?? null);
-    setSurfaceAvailableAreaDraft(surface?.usable_area_m2 != null ? String(surface.usable_area_m2) : '');
+    setSurfaceAreaHeightDraft(surface?.area_height_m != null ? String(surface.area_height_m) : '');
+    setSurfaceAreaWidthDraft(surface?.area_width_m != null ? String(surface.area_width_m) : '');
     setSurfaceNotes(surface?.notes ?? '');
-  }, [surface?.surface_id, surface?.description, surface?.photo_data_url, surface?.usable_area_m2, surface?.notes]);
+  }, [surface?.surface_id, surface?.description, surface?.photo_data_url, surface?.area_height_m, surface?.area_width_m, surface?.notes]);
 
   if (!surface) {
     return (

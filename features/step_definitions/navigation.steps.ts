@@ -529,7 +529,7 @@ When('I open Location from the menu', async function () {
 });
 
 When('I go back to Dashboard using the menu', async function () {
-  await this.clickByText('Dashboard');
+  await this.clickByText('Overview');
   await this.waitForText('System chain');
 });
 
@@ -540,7 +540,7 @@ When('I open Catalogs from the menu', async function () {
 
 When('I open Battery array from the menu', async function () {
   await this.clickByText('Battery array');
-  await this.waitForText('Battery array configuration');
+  await this.waitForText('Battery selection');
 });
 
 When('I open Solar yield from the menu', async function () {
@@ -600,7 +600,7 @@ Then('I should see the Panel types page', async function () {
 });
 
 Then('I should see the Battery array page', async function () {
-  assert.ok(this.dom?.window.document.body.textContent?.includes('Battery array configuration'));
+  assert.ok(this.dom?.window.document.body.textContent?.includes('Battery selection'));
 });
 
 Then('I should see the Solar yield page', async function () {
@@ -637,7 +637,7 @@ When('I save the surface information', async function () {
 
 When('I reload OffGridOS', async function () {
   await this.reloadApp();
-  await this.waitForText('Dashboard');
+  await this.waitForText('Overview');
 });
 
 Then('the active surface should persist notes {string} with a stored photo', function (notes: string) {
