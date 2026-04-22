@@ -65,6 +65,7 @@ For deployment and persistent-storage requirements, see [deployment.md](./docs/d
 
 - [app-structure-v2.md](./docs/app-structure-v2.md): current preferred page-by-page app structure, including the stepwise flow from location through consumers and dashboard.
 - [app-navigation.md](./docs/app-navigation.md): navigation structure connecting the overview and subsystem drill-down screens.
+- [user-flow.md](./docs/user-flow.md): user-authored end-to-end screen flow with a written evaluation of the `Location` section.
 - [digital-twin-model.md](./docs/digital-twin-model.md): component graph, bidirectional dependency model, and monthly scenario views.
 - [digital-twin-data-model.md](./docs/digital-twin-data-model.md): entities, relationships, evaluation fields, and JSON export shape.
 - [digital-twin-db-extension.md](./docs/digital-twin-db-extension.md): phased plan for which digital twin entities should be persisted in SQLite and in what order.

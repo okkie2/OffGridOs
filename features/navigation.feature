@@ -37,6 +37,13 @@ Feature: Navigation
     When I go back to Dashboard using the menu
     Then I should see the Dashboard page
 
+  Scenario: Navigate from the menu to Solar yield and back
+    Given OffGridOS is rendered with project data
+    When I open Solar yield from the menu
+    Then I should see the Solar yield page
+    When I go back to Dashboard using the menu
+    Then I should see the Dashboard page
+
   Scenario: Navigate from the menu to Inverter array and back
     Given OffGridOS is rendered with project data
     When I open Inverter array from the menu

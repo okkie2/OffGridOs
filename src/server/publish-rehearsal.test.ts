@@ -32,10 +32,13 @@ describe('publish rehearsal', () => {
       upsertLocation(db, {
         country: 'NL',
         place_name: 'Warten',
+        description: 'Farm site in Friesland',
+        notes: 'Representative persisted location state',
         latitude: 53.126579,
         longitude: 5.899564,
         northing: 557800.12,
         easting: 181200.45,
+        site_photo_data_url: 'data:image/png;base64,test-location-photo',
       });
 
       upsertSurfacePanelAssignment(db, {
@@ -75,6 +78,9 @@ describe('publish rehearsal', () => {
 
       expect(location).not.toBeNull();
       expect(location?.place_name).toBe('Warten');
+      expect(location?.description).toBe('Farm site in Friesland');
+      expect(location?.notes).toBe('Representative persisted location state');
+      expect(location?.site_photo_data_url).toBe('data:image/png;base64,test-location-photo');
       expect(location?.northing).toBeCloseTo(557800.12);
       expect(location?.easting).toBeCloseTo(181200.45);
 
@@ -108,6 +114,9 @@ describe('publish rehearsal', () => {
 
       expect(exportData.entities.inverter_configurations[0]?.inverter_id).toBe('victron-mp2-48-10000');
       expect(exportData.project.location?.place_name).toBe('Warten');
+      expect(exportData.project.location?.description).toBe('Farm site in Friesland');
+      expect(exportData.project.location?.notes).toBe('Representative persisted location state');
+      expect(exportData.project.location?.site_photo_data_url).toBe('data:image/png;base64,test-location-photo');
       expect(exportData.derived.summary.array_count).toBeGreaterThan(0);
       expect(exportData.derived.summary.mppt_configuration_count).toBeGreaterThan(0);
     } finally {

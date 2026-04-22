@@ -1325,10 +1325,6 @@ function getRoute(): Route {
     const surfaceId = hash.slice('/surfaces/'.length);
     if (surfaceId) return { kind: 'surface', surfaceId };
   }
-  if (hash.startsWith('/faces/')) {
-    const surfaceId = hash.slice('/faces/'.length);
-    if (surfaceId) return { kind: 'surface', surfaceId };
-  }
   if (hash.startsWith('/panel-arrays/')) {
     const surfaceId = hash.slice('/panel-arrays/'.length);
     if (surfaceId) return { kind: 'surface', surfaceId };

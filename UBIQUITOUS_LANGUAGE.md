@@ -66,6 +66,7 @@ Use the following terms consistently in the digital twin and future schema work.
 | Module | One photovoltaic panel | Panel |
 | String | A series-connected set of panels | String |
 | Parallel strings | Two or more strings connected in parallel | Parallel strings |
+| String array | Set of series and or parallel strings | String array |
 | Array | The complete PV grouping connected to one MPPT input, regardless of whether it contains one string, parallel strings, or another allowed combination | Array |
 | PV system array | The larger photovoltaic assembly made of one or more arrays | PV array |
 | MPPT solar charger | Solar charger that tracks maximum power point and charges the battery bank | MPPT |

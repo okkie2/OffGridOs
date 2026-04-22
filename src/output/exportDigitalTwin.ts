@@ -110,10 +110,13 @@ interface ExportProject {
   location: {
     country: string;
     place_name: string;
+    description: string | null;
+    notes: string | null;
     latitude: number;
     longitude: number;
     northing: number | null;
     easting: number | null;
+    site_photo_data_url: string | null;
   } | null;
   current_assumptions: {
     surface_to_array_default: '1:1';
@@ -133,6 +136,10 @@ interface ExportSurfaceConfiguration {
 
 interface ExportBatteryBankConfiguration {
   battery_bank_id: string;
+  title?: string | null;
+  description?: string | null;
+  image_data_url?: string | null;
+  notes?: string | null;
   selected_battery_type_id?: string | null;
   configured_battery_count: number;
   batteries_per_string: number;
@@ -427,10 +434,13 @@ function toProject(location: Location | null, projectPreferences: ProjectPrefere
     location: location ? {
       country: location.country,
       place_name: location.place_name,
+      description: location.description ?? null,
+      notes: location.notes ?? null,
       latitude: location.latitude,
       longitude: location.longitude,
       northing: location.northing ?? null,
       easting: location.easting ?? null,
+      site_photo_data_url: location.site_photo_data_url ?? null,
     } : null,
     current_assumptions: {
       surface_to_array_default: '1:1',
@@ -639,16 +649,18 @@ function buildBatteryBanks(
   return [{
     battery_bank_id: 'battery-bank-main',
     battery_type_id: derivedBatteryType?.battery_type_id,
-    name: derivedBatteryType ? `${derivedBatteryType.model} bank` : 'Main battery bank',
+    name: design?.title?.trim() || (derivedBatteryType ? `${derivedBatteryType.model} bank` : 'Main battery bank'),
     module_count: Math.max(configuredBatteryCount, 1),
     nominal_voltage_v: derivedBatteryType?.nominal_voltage,
     capacity_kwh: derivedBatteryType ? Number((derivedBatteryType.capacity_kwh * Math.max(configuredBatteryCount, 1)).toFixed(2)) : null,
     provisional: !selectedBatteryType,
-    notes: selectedBatteryType
-      ? `Uses the saved battery-bank configuration (${batteriesPerString}s ${parallelStrings}p).`
-      : derivedBatteryType
-        ? 'Derived provisional battery-bank choice uses one module of the preferred or best-priced compatible battery type.'
-        : 'No provisional battery-bank choice could be derived from the current project preferences and battery catalog.',
+    notes: design?.notes?.trim() || (
+      selectedBatteryType
+        ? `Uses the saved battery-bank configuration (${batteriesPerString}s ${parallelStrings}p).`
+        : derivedBatteryType
+          ? 'Derived provisional battery-bank choice uses one module of the preferred or best-priced compatible battery type.'
+          : 'No provisional battery-bank choice could be derived from the current project preferences and battery catalog.'
+    ),
   }];
 }
 
@@ -854,6 +866,10 @@ export function buildDigitalTwinExport(db: Database.Database, dbPath: string): D
       })),
       battery_bank_configurations: batteryBankConfigurations.map((design) => ({
         battery_bank_id: design.battery_bank_id,
+        title: design.title ?? null,
+        description: design.description ?? null,
+        image_data_url: design.image_data_url ?? null,
+        notes: design.notes ?? null,
         selected_battery_type_id: design.selected_battery_type_id ?? null,
         configured_battery_count: design.configured_battery_count,
         batteries_per_string: design.batteries_per_string,

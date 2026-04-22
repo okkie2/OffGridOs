@@ -97,15 +97,23 @@ class NavigationWorld extends World {
         const rawBody = typeof init?.body === 'string' ? init.body : '{}';
         const payload = JSON.parse(rawBody) as {
           name?: unknown;
+          description?: unknown;
           orientation_deg?: unknown;
           tilt_deg?: unknown;
+          usable_area_m2?: unknown;
           notes?: unknown;
           photo_data_url?: unknown;
         };
 
         const name = typeof payload.name === 'string' ? payload.name.trim() : '';
+        const description = payload.description === undefined
+          ? undefined
+          : (typeof payload.description === 'string' ? payload.description.trim() : String(payload.description));
         const orientationDeg = typeof payload.orientation_deg === 'number' ? payload.orientation_deg : Number(payload.orientation_deg);
         const tiltDeg = typeof payload.tilt_deg === 'number' ? payload.tilt_deg : Number(payload.tilt_deg);
+        const usableAreaM2 = payload.usable_area_m2 === undefined
+          ? undefined
+          : (payload.usable_area_m2 == null || payload.usable_area_m2 === '' ? null : Number(payload.usable_area_m2));
         const notes = payload.notes === undefined
           ? undefined
           : (typeof payload.notes === 'string' ? payload.notes : String(payload.notes));
@@ -126,9 +134,10 @@ class NavigationWorld extends World {
           updateSurface(db, {
             surface_id: surfaceId,
             name,
+            description: description === undefined ? (existing.description ?? null) : description,
             orientation_deg: orientationDeg,
             tilt_deg: tiltDeg,
-            usable_area_m2: existing.usable_area_m2 ?? undefined,
+            usable_area_m2: usableAreaM2 === undefined ? (existing.usable_area_m2 ?? undefined) : usableAreaM2 ?? undefined,
             notes: effectiveNotes === undefined ? (existing.notes ?? undefined) : effectiveNotes,
             photo_data_url: photoDataUrl === undefined ? (existing.photo_data_url ?? null) : photoDataUrl,
           });
@@ -534,6 +543,11 @@ When('I open Battery array from the menu', async function () {
   await this.waitForText('Battery array configuration');
 });
 
+When('I open Solar yield from the menu', async function () {
+  await this.clickByText('Solar yield');
+  await this.waitForText('Surface summary');
+});
+
 When('I open Inverter array from the menu', async function () {
   await this.clickByText('Inverter array');
   await this.waitForText('Inverter array');
@@ -589,13 +603,18 @@ Then('I should see the Battery array page', async function () {
   assert.ok(this.dom?.window.document.body.textContent?.includes('Battery array configuration'));
 });
 
+Then('I should see the Solar yield page', async function () {
+  assert.ok(this.dom?.window.document.body.textContent?.includes('Surface summary'));
+  assert.ok(this.dom?.window.document.body.textContent?.includes('Monthly expected yield'));
+});
+
 Then('I should see the Inverter array page', async function () {
   assert.ok(this.dom?.window.document.body.textContent?.includes('Inverter array'));
 });
 
 Then('I should see the Surface detail page', async function () {
   assert.ok(this.dom?.window.document.body.textContent?.includes('Panel'));
-  assert.ok(this.dom?.window.document.body.textContent?.includes('String'));
+  assert.ok(this.dom?.window.document.body.textContent?.includes('Panel array'));
   assert.ok(this.dom?.window.document.body.textContent?.includes('MPPT'));
   assert.ok(this.dom?.window.document.body.textContent?.includes('Evaluation'));
 });
