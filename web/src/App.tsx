@@ -3836,107 +3836,95 @@ function InverterArrayPage({
           </section>
         </div>
 
-        <section className="panel panel-with-actions">
-          <div className="section-head">
-            <h2>Inverter selection</h2>
-          </div>
-          <label className="config-field">
-            <span>Selected inverter</span>
-            <select
-              value={selectedInverterTypeId}
-              onChange={(event) => setSelectedInverterTypeId(event.target.value)}
-              disabled={data.entities.inverter_types.length === 0}
-            >
-              {data.entities.inverter_types.length === 0 ? <option value="">No inverter catalog available</option> : null}
-              {data.entities.inverter_types.map((option) => (
-                <option key={option.inverter_id} value={option.inverter_id}>
-                  {option.model}
-                </option>
-              ))}
-            </select>
-          </label>
-          {selectedInverterType ? (
-            <dl className="detail-stats panel-spec-grid" style={{ marginTop: 16 }}>
-              <div>
-                <dt>Input voltage</dt>
-                <dd>{formatVolts(selectedInverterType.input_voltage_v)}</dd>
-              </div>
-              <div>
-                <dt>Output voltage</dt>
-                <dd>{formatVolts(selectedInverterType.output_voltage_v)}</dd>
-              </div>
-              <div>
-                <dt>Continuous power</dt>
-                <dd>{formatKw(selectedInverterType.continuous_power_w)}</dd>
-              </div>
-              <div>
-                <dt>Peak power</dt>
-                <dd>{selectedInverterType.peak_power_va.toLocaleString('en-US')} VA</dd>
-              </div>
-              <div>
-                <dt>Max current</dt>
-                <dd>{formatAmps(selectedInverterType.max_charge_current_a)}</dd>
-              </div>
-            </dl>
-          ) : null}
-          {data.entities.inverter_types.length === 0 ? (
-            <p className="fit-note">No inverter catalog entries are available yet.</p>
-          ) : null}
-          <div className="button-row button-row-end">
-            <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveInverterDesign()} disabled={isSavingInverterDesign || data.entities.inverter_types.length === 0}>
-              {isSavingInverterDesign ? 'Saving...' : 'Save'}
-            </button>
-          </div>
-        </section>
-
-        {batteryArrayConfig && selectedInverterType ? (
-          <div className="detail-grid">
-            <section className="panel">
-              <div className="section-head">
-                <h2>Verdict</h2>
-              </div>
-              <StatusBadge status={inverterCompatibility?.status ?? 'outside_limits'} fit={inverterCompatibility?.fit} />
-            </section>
-
-            <section className="panel">
-              <div className="section-head">
-                <h2>Explanation</h2>
-              </div>
-              <ul className="reason-list">
-                {inverterCompatibility?.reasons.map((reason) => (
-                  <li key={reason}>{reason.replaceAll('_', ' ')}</li>
-                )) ?? null}
-              </ul>
-            </section>
-
-            <section className="panel">
-              <div className="section-head">
-                <h2>Electrical details</h2>
-              </div>
-              <dl className="detail-stats mppt-checks">
-                <div className={batteryArrayConfig.stringVoltage > selectedInverterType.input_voltage_v * 1.1 || batteryArrayConfig.stringVoltage < selectedInverterType.input_voltage_v * 0.85 ? 'check-fail' : 'check-pass'}>
-                  <dt>Voltage check</dt>
-                  <dd>{formatVolts(batteryArrayConfig.stringVoltage)} / {formatVolts(selectedInverterType.input_voltage_v)}</dd>
+        <div className="detail-grid">
+          <section className="panel panel-with-actions">
+            <div className="section-head">
+              <h2>Inverter selection</h2>
+            </div>
+            <label className="config-field">
+              <span>Selected inverter</span>
+              <select
+                value={selectedInverterTypeId}
+                onChange={(event) => setSelectedInverterTypeId(event.target.value)}
+                disabled={data.entities.inverter_types.length === 0}
+              >
+                {data.entities.inverter_types.length === 0 ? <option value="">No inverter catalog available</option> : null}
+                {data.entities.inverter_types.map((option) => (
+                  <option key={option.inverter_id} value={option.inverter_id}>
+                    {option.model}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {selectedInverterType ? (
+              <dl className="detail-stats panel-spec-grid" style={{ marginTop: 16 }}>
+                <div>
+                  <dt>Input voltage</dt>
+                  <dd>{formatVolts(selectedInverterType.input_voltage_v)}</dd>
                 </div>
-                <div className={batteryArrayConfig.maxDischargeCurrentA != null && batteryArrayConfig.maxDischargeCurrentA > selectedInverterType.max_charge_current_a ? 'check-fail' : 'check-pass'}>
-                  <dt>Current check</dt>
-                  <dd>{batteryArrayConfig.maxDischargeCurrentA != null ? formatAmps(batteryArrayConfig.maxDischargeCurrentA) : 'n/a'} / {formatAmps(selectedInverterType.max_charge_current_a)}</dd>
+                <div>
+                  <dt>Output voltage</dt>
+                  <dd>{formatVolts(selectedInverterType.output_voltage_v)}</dd>
                 </div>
-                <div className={batteryArrayConfig.maxDischargePowerW != null && batteryArrayConfig.maxDischargePowerW > selectedInverterType.continuous_power_w ? 'check-fail' : 'check-pass'}>
-                  <dt>Power check</dt>
-                  <dd>{batteryArrayConfig.maxDischargePowerW != null ? formatKw(batteryArrayConfig.maxDischargePowerW) : 'n/a'} / {formatKw(selectedInverterType.continuous_power_w)}</dd>
+                <div>
+                  <dt>Continuous power</dt>
+                  <dd>{formatKw(selectedInverterType.continuous_power_w)}</dd>
+                </div>
+                <div>
+                  <dt>Peak power</dt>
+                  <dd>{selectedInverterType.peak_power_va.toLocaleString('en-US')} VA</dd>
+                </div>
+                <div>
+                  <dt>Max current</dt>
+                  <dd>{formatAmps(selectedInverterType.max_charge_current_a)}</dd>
                 </div>
               </dl>
-            </section>
-          </div>
-        ) : (
-          <section className="panel">
+            ) : null}
+            {data.entities.inverter_types.length === 0 ? (
+              <p className="fit-note">No inverter catalog entries are available yet.</p>
+            ) : null}
+            <div className="button-row button-row-end">
+              <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveInverterDesign()} disabled={isSavingInverterDesign || data.entities.inverter_types.length === 0}>
+                {isSavingInverterDesign ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </section>
+
+          <section className="panel panel-span-2">
             <div className="section-head">
               <h2>Battery - Inverter evaluation</h2>
             </div>
-            <p className="fit-note">Choose a battery type and an inverter before the evaluation can be calculated.</p>
+            {batteryArrayConfig && selectedInverterType ? (
+              <div className="fit-card">
+                <div className="fit-head">
+                  <strong>{selectedInverterType.model}</strong>
+                  <StatusBadge status={inverterCompatibility?.status ?? 'outside_limits'} fit={inverterCompatibility?.fit} />
+                </div>
+                <ul className="reason-list">
+                  {inverterCompatibility?.reasons.map((reason) => (
+                    <li key={reason}>{reason.replaceAll('_', ' ')}</li>
+                  )) ?? null}
+                </ul>
+                <dl className="detail-stats mppt-checks">
+                  <div className={batteryArrayConfig.stringVoltage > selectedInverterType.input_voltage_v * 1.1 || batteryArrayConfig.stringVoltage < selectedInverterType.input_voltage_v * 0.85 ? 'check-fail' : 'check-pass'}>
+                    <dt>Voltage check</dt>
+                    <dd>{formatVolts(batteryArrayConfig.stringVoltage)} / {formatVolts(selectedInverterType.input_voltage_v)}</dd>
+                  </div>
+                  <div className={batteryArrayConfig.maxDischargeCurrentA != null && batteryArrayConfig.maxDischargeCurrentA > selectedInverterType.max_charge_current_a ? 'check-fail' : 'check-pass'}>
+                    <dt>Current check</dt>
+                    <dd>{batteryArrayConfig.maxDischargeCurrentA != null ? formatAmps(batteryArrayConfig.maxDischargeCurrentA) : 'n/a'} / {formatAmps(selectedInverterType.max_charge_current_a)}</dd>
+                  </div>
+                  <div className={batteryArrayConfig.maxDischargePowerW != null && batteryArrayConfig.maxDischargePowerW > selectedInverterType.continuous_power_w ? 'check-fail' : 'check-pass'}>
+                    <dt>Power check</dt>
+                    <dd>{batteryArrayConfig.maxDischargePowerW != null ? formatKw(batteryArrayConfig.maxDischargePowerW) : 'n/a'} / {formatKw(selectedInverterType.continuous_power_w)}</dd>
+                  </div>
+                </dl>
+              </div>
+            ) : (
+              <p className="fit-note">Choose a battery type and an inverter before the evaluation can be calculated.</p>
+            )}
           </section>
-        )}
+        </div>
       </section>
     </>
   );
