@@ -7,8 +7,10 @@ type FitStatus = 'optimal' | 'acceptable' | 'clipping_expected' | 'underutilized
 interface Surface {
   surface_id: string;
   name: string;
+  description?: string | null;
   orientation_deg: number;
   tilt_deg: number;
+  usable_area_m2?: number | null;
   notes?: string;
   photo_data_url?: string | null;
 }
@@ -114,6 +116,10 @@ interface InverterTypeDraft {
 
 interface BatteryBankConfiguration {
   battery_bank_id: string;
+  title?: string | null;
+  description?: string | null;
+  image_data_url?: string | null;
+  notes?: string | null;
   selected_battery_type_id?: string | null;
   configured_battery_count: number;
   batteries_per_string: number;
@@ -263,6 +269,8 @@ interface DigitalTwinExport {
     location: {
       country: string;
       place_name: string;
+      description?: string | null;
+      notes?: string | null;
       latitude: number;
       longitude: number;
       northing?: number | null;
@@ -270,6 +278,7 @@ interface DigitalTwinExport {
       site_photo_data_url?: string | null;
     } | null;
     project_preferences: {
+      daily_consumption_kwh?: number | null;
       preferred_inverter_type_id?: string | null;
     };
   };
@@ -465,6 +474,7 @@ function buildLocalSurfaceSummaries(data: DigitalTwinExport): LocalSurfaceSummar
 type Route =
   | { kind: 'overview' }
   | { kind: 'location' }
+  | { kind: 'solar-yield' }
   | { kind: 'catalogs' }
   | { kind: 'catalog'; catalog: 'panel-types' | 'mppt-types' | 'battery-types' | 'inverter-types' }
   | { kind: 'battery-array' }
@@ -815,6 +825,22 @@ function StatusBadge({ status, fit }: { status: Status | null; fit?: FitStatus }
   return <span className={`status status-${tone}`}>{text}</span>;
 }
 
+function verdictLabel(status: Status | null, fit?: FitStatus): string {
+  if (!status) {
+    return 'Not evaluated';
+  }
+
+  if (status === 'outside_limits') {
+    return 'Outside limits';
+  }
+
+  if (fit) {
+    return fit.replaceAll('_', ' ');
+  }
+
+  return 'Within limits';
+}
+
 function SummaryCard({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
     <article className="summary-card">
@@ -1155,7 +1181,7 @@ function evaluateBatteryRefillRule(input: {
     };
   }
 
-  const requiredRefillKwh = Number((input.totalCapacityKwh * 0.8).toFixed(2));
+  const requiredRefillKwh = Number((input.totalCapacityKwh * 0.6).toFixed(2));
   if (input.sunniestMonthDailyYieldKwh <= 0) {
     return {
       headline: 'No solar refill available',
@@ -1168,12 +1194,12 @@ function evaluateBatteryRefillRule(input: {
 
   const refillRatio = Number((input.sunniestMonthDailyYieldKwh / requiredRefillKwh).toFixed(2));
   const reasons: string[] = [
-    `10% to 90% refill needs about ${requiredRefillKwh.toLocaleString('en-US', { maximumFractionDigits: 2 })} kWh.`,
+    `20% to 80% refill needs about ${requiredRefillKwh.toLocaleString('en-US', { maximumFractionDigits: 2 })} kWh.`,
     `Best-month daily solar is estimated at ${input.sunniestMonthDailyYieldKwh.toLocaleString('en-US', { maximumFractionDigits: 2 })} kWh/day.`,
   ];
 
   if (refillRatio < 0.9) {
-    reasons.push('The battery array is too large to refill from 10% to 90% in one best-month day.');
+    reasons.push('The battery array is too large to refill from 20% to 80% in one best-month day.');
     return {
       headline: 'Battery array too large for one-day refill',
       tone: 'danger',
@@ -1194,7 +1220,7 @@ function evaluateBatteryRefillRule(input: {
     };
   }
 
-  reasons.push('The battery array can be refilled from 10% to 90% in about one best-month day.');
+  reasons.push('The battery array can be refilled from 20% to 80% in about one best-month day.');
   return {
     headline: 'Battery array fits the refill rule',
     tone: 'good',
@@ -1271,6 +1297,9 @@ function getRoute(): Route {
   if (hash === '/surfaces') {
     return { kind: 'location' };
   }
+  if (hash === '/solar-yield') {
+    return { kind: 'solar-yield' };
+  }
   if (hash === '/catalogs') {
     return { kind: 'catalogs' };
   }
@@ -1320,6 +1349,10 @@ function navigateTo(route: Route): void {
     window.location.hash = '/location';
     return;
   }
+  if (route.kind === 'solar-yield') {
+    window.location.hash = '/solar-yield';
+    return;
+  }
   if (route.kind === 'catalogs') {
     window.location.hash = '/catalogs';
     return;
@@ -1342,6 +1375,7 @@ function navigateTo(route: Route): void {
 function routeHref(route: Route): string {
   if (route.kind === 'overview') return '#/';
   if (route.kind === 'location') return '#/location';
+  if (route.kind === 'solar-yield') return '#/solar-yield';
   if (route.kind === 'catalogs') return '#/catalogs';
   if (route.kind === 'catalog') return `#/${route.catalog}`;
   if (route.kind === 'battery-array') return '#/battery-array';
@@ -1362,9 +1396,6 @@ function Sidebar({ route, data }: { route: Route; data: DigitalTwinExport | null
         <div className="sidebar-logo-sub">Digital Twin</div>
       </div>
       <nav className="sidebar-nav">
-        <a href={routeHref({ kind: 'overview' })} onClick={go({ kind: 'overview' })} className={`sidebar-nav-item ${route.kind === 'overview' ? 'active' : ''}`}>
-          Dashboard
-        </a>
         <a href={routeHref({ kind: 'location' })} onClick={go({ kind: 'location' })} className={`sidebar-nav-item ${route.kind === 'location' || route.kind === 'surface' ? 'active' : ''}`}>
           Location
         </a>
@@ -1382,6 +1413,9 @@ function Sidebar({ route, data }: { route: Route; data: DigitalTwinExport | null
             ))}
           </div>
         ) : null}
+        <a href={routeHref({ kind: 'solar-yield' })} onClick={go({ kind: 'solar-yield' })} className={`sidebar-nav-item ${route.kind === 'solar-yield' ? 'active' : ''}`}>
+          Solar yield
+        </a>
         <a href={routeHref({ kind: 'battery-array' })} onClick={go({ kind: 'battery-array' })} className={`sidebar-nav-item ${route.kind === 'battery-array' ? 'active' : ''}`}>
           Battery array
         </a>
@@ -1431,6 +1465,12 @@ function Breadcrumbs({ route, surfaceName }: { route: Route; surfaceName?: strin
           <span className="crumb crumb-current">{surfaceName ?? route.surfaceId}</span>
         </>
       ) : null}
+      {route.kind === 'solar-yield' ? (
+        <>
+          <span className="crumb-sep">/</span>
+          <span className="crumb crumb-current">Solar yield</span>
+        </>
+      ) : null}
     </nav>
   );
 }
@@ -1457,8 +1497,15 @@ function SurfaceDetail({
   const installedPanelCount = arrayState?.panel_count ?? array?.panel_count ?? 0;
   const storagePrefix = `${data.project.project_id}:surface:${surfaceId}`;
   const [surfaceNameDraft, setSurfaceNameDraft] = usePersistentState(`${storagePrefix}:name`, surface?.name ?? surfaceId);
+  const [surfaceDescription, setSurfaceDescription] = useState(surface?.description ?? '');
   const [surfaceAzimuthDraft, setSurfaceAzimuthDraft] = usePersistentState(`${storagePrefix}:azimuth`, surface?.orientation_deg ?? 0);
   const [surfaceTiltDraft, setSurfaceTiltDraft] = usePersistentState(`${storagePrefix}:tilt`, surface?.tilt_deg ?? 0);
+  const [surfaceAreaHeightDraft, setSurfaceAreaHeightDraft] = useState(
+    surface?.area_height_m != null ? String(surface.area_height_m) : '',
+  );
+  const [surfaceAreaWidthDraft, setSurfaceAreaWidthDraft] = useState(
+    surface?.area_width_m != null ? String(surface.area_width_m) : '',
+  );
   const [selectedPanelTypeId, setSelectedPanelTypeId] = usePersistentState(
     `${storagePrefix}:panel-type`,
     array?.panel_type_id ?? data.entities.panel_types[0]?.panel_type_id ?? '',
@@ -1515,9 +1562,11 @@ function SurfaceDetail({
   }, [configuredPanelCount, panelsPerString, parallelStrings, panelsPerStringOptions]);
 
   useEffect(() => {
+    setSurfaceDescription(surface?.description ?? '');
     setPhoto(surface?.photo_data_url ?? null);
+    setSurfaceAvailableAreaDraft(surface?.usable_area_m2 != null ? String(surface.usable_area_m2) : '');
     setSurfaceNotes(surface?.notes ?? '');
-  }, [surface?.surface_id, surface?.photo_data_url, surface?.notes]);
+  }, [surface?.surface_id, surface?.description, surface?.photo_data_url, surface?.usable_area_m2, surface?.notes]);
 
   if (!surface) {
     return (
@@ -1571,7 +1620,10 @@ function SurfaceDetail({
   async function handleSaveSurfaceDetails(options?: { photoOverride?: string | null }) {
     const trimmedName = surfaceNameDraft.trim();
     const nameToPersist = trimmedName || surface.name;
+    const descriptionToPersist = surfaceDescription.trim();
     const photoToPersist = options?.photoOverride === undefined ? photo : options.photoOverride;
+    const areaHeightM = surfaceAreaHeightDraft.trim() === '' ? null : Number(surfaceAreaHeightDraft);
+    const areaWidthM = surfaceAreaWidthDraft.trim() === '' ? null : Number(surfaceAreaWidthDraft);
 
     if (!nameToPersist) {
       setSurfaceSaveError('Surface name is required before saving.');
@@ -1591,8 +1643,11 @@ function SurfaceDetail({
         },
         body: JSON.stringify({
           name: nameToPersist,
+          description: descriptionToPersist,
           orientation_deg: surfaceAzimuthDraft,
           tilt_deg: surfaceTiltDraft,
+          area_height_m: areaHeightM,
+          area_width_m: areaWidthM,
           notes: surfaceNotes.trim(),
           photo_data_url: photoToPersist,
         }),
@@ -1719,7 +1774,7 @@ function SurfaceDetail({
         // Keep the save successful even if local draft syncing fails.
       }
 
-      setSurfaceDesignSaveMessage('String layout and MPPT choice saved to the project database.');
+      setSurfaceDesignSaveMessage('Panel array layout and MPPT choice saved to the project database.');
       await refreshProjectData();
     } catch (error) {
       setSurfaceDesignSaveError(error instanceof Error ? error.message : 'Failed to save surface configuration.');
@@ -1748,7 +1803,6 @@ function SurfaceDetail({
           <Breadcrumbs route={{ kind: 'surface', surfaceId }} surfaceName={surfaceNameDraft || surface.name} />
           <div className="section-head">
             <h2>Surface information</h2>
-            <p>Surface name, azimuth, and tilt save to SQLite. Shared site inputs are configured on the Location page.</p>
           </div>
           <h1 className="detail-page-title">{surfaceNameDraft || surface.name}</h1>
           {surfaceSaveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{surfaceSaveError}</p> : null}
@@ -1760,6 +1814,34 @@ function SurfaceDetail({
                 type="text"
                 value={surfaceNameDraft}
                 onChange={(event) => setSurfaceNameDraft(event.target.value)}
+              />
+            </label>
+            <label className="config-field config-field-span-2">
+              <span>Description</span>
+              <input
+                type="text"
+                value={surfaceDescription}
+                onChange={(event) => setSurfaceDescription(event.target.value)}
+              />
+            </label>
+            <label className="config-field">
+              <span>Height (m)</span>
+              <input
+                type="number"
+                min={0}
+                step={0.1}
+                value={surfaceAreaHeightDraft}
+                onChange={(event) => setSurfaceAreaHeightDraft(event.target.value)}
+              />
+            </label>
+            <label className="config-field">
+              <span>Width (m)</span>
+              <input
+                type="number"
+                min={0}
+                step={0.1}
+                value={surfaceAreaWidthDraft}
+                onChange={(event) => setSurfaceAreaWidthDraft(event.target.value)}
               />
             </label>
             <label className="config-field">
@@ -1906,8 +1988,8 @@ function SurfaceDetail({
 
         <section className="panel panel-with-actions">
           <div className="section-head">
-            <h2>String</h2>
-            <p>Set the string layout.</p>
+            <h2>Panel array</h2>
+            <p>Set the preferred string layout for this surface array.</p>
           </div>
           {surfaceDesignSaveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{surfaceDesignSaveError}</p> : null}
           {surfaceDesignSaveMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{surfaceDesignSaveMessage}</p> : null}
@@ -2048,7 +2130,7 @@ function SurfaceDetail({
         <section className="panel panel-span-2 balanced-row-panel summary-panel">
           <div className="section-head">
             <h2>Evaluation</h2>
-            <p>Evaluation of panel, string, and MPPT combination.</p>
+            <p>Evaluation of the panel-array and MPPT combination.</p>
           </div>
           {panelType ? (
             <div className="fit-card">
@@ -2459,8 +2541,10 @@ function OverviewPage({
 
 function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageContext) {
   const storagePrefix = `${data.project.project_id}:location`;
-  const [address, setAddress] = usePersistentState(`${storagePrefix}:address`, data.project.location?.place_name ?? '');
+  const [title, setTitle] = usePersistentState(`${storagePrefix}:title`, data.project.location?.place_name ?? '');
   const [country, setCountry] = usePersistentState(`${storagePrefix}:country`, data.project.location?.country ?? '');
+  const [description, setDescription] = usePersistentState(`${storagePrefix}:description`, data.project.location?.description ?? '');
+  const [notes, setNotes] = usePersistentState(`${storagePrefix}:notes`, data.project.location?.notes ?? '');
   const [latitude, setLatitude] = usePersistentState(
     `${storagePrefix}:latitude`,
     data.project.location?.latitude != null ? String(data.project.location.latitude) : '',
@@ -2482,7 +2566,7 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
     const numericLatitude = Number(latitude);
     const numericLongitude = Number(longitude);
 
-    if (!address.trim() || !country.trim()) {
+    if (!title.trim() || !country.trim()) {
       setSaveError('Location and country are required before saving.');
       setSaveMessage(null);
       return;
@@ -2511,8 +2595,10 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          place_name: address.trim(),
+          place_name: title.trim(),
           country: country.trim(),
+          description: description.trim(),
+          notes: notes.trim(),
           latitude: numericLatitude,
           longitude: numericLongitude,
           site_photo_data_url: photo,
@@ -2619,6 +2705,14 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
   }, [data.project.location?.site_photo_data_url]);
 
   useEffect(() => {
+    setDescription(data.project.location?.description ?? '');
+  }, [data.project.location?.description, setDescription]);
+
+  useEffect(() => {
+    setNotes(data.project.location?.notes ?? '');
+  }, [data.project.location?.notes, setNotes]);
+
+  useEffect(() => {
     if (!focusedSurfaceId) return;
 
     const element = document.getElementById(`surface-card-${focusedSurfaceId}`);
@@ -2647,18 +2741,22 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
             <p>Shared location inputs for the whole site and all configured surfaces.</p>
           </div>
           <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--muted)', fontSize: '0.86rem' }}>
-            Location, country, latitude, longitude, and site photo save to SQLite.
+            Title, country, description, notes, coordinates, and location image save to SQLite.
           </p>
           {saveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{saveError}</p> : null}
           {saveMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{saveMessage}</p> : null}
           <div className="roof-config-inline">
             <label className="config-field">
-              <span>Location</span>
-              <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="e.g. Kerkstraat 12, Amsterdam" />
+              <span>Title</span>
+              <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Warten farm" />
             </label>
             <label className="config-field">
               <span>Country</span>
               <input type="text" value={country} onChange={(e) => setCountry(e.target.value)} placeholder="e.g. Netherlands" />
+            </label>
+            <label className="config-field config-field-span-2">
+              <span>Description</span>
+              <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Short shared description of the location" />
             </label>
             <label className="config-field">
               <span>Latitude</span>
@@ -2681,6 +2779,15 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
               />
             </label>
           </div>
+          <label className="field" style={{ marginTop: 16 }}>
+            <span>Notes</span>
+            <textarea
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              rows={5}
+              placeholder="Shared context for the whole location, such as access, shading context, planning assumptions, or owner notes."
+            />
+          </label>
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
             <button type="button" className="button button-secondary" onClick={() => void handleSaveLocation()} disabled={isSaving}>
               {isSaving ? 'Saving...' : 'Save'}
@@ -2718,6 +2825,9 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
           <h2>Surfaces</h2>
           <p>{localSurfaceSummaries.length} configured surfaces</p>
         </div>
+        <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--muted)', fontSize: '0.86rem' }}>
+          A surface is one usable plane for PV placement, such as one roof side, dormer face, wall face, or flat roof zone.
+        </p>
         {surfaceError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{surfaceError}</p> : null}
         {surfaceMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{surfaceMessage}</p> : null}
         <div className="surface-grid">
@@ -2737,15 +2847,8 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
                   <div className="surface-card-top">
                     <div>
                       <h3>{surface.name}</h3>
-                      <p className="surface-card-meta">{surface.orientation_deg}° · {surface.tilt_deg}° tilt</p>
                     </div>
-                    <StatusBadge status={surface.status} fit={surface.fit} />
                   </div>
-                  <dl className="mini-stats">
-                    <div><dt>Panels</dt><dd>{surface.panel_count}</dd></div>
-                    <div><dt>Installed</dt><dd>{formatWp(surface.installed_wp)}</dd></div>
-                    <div><dt>MPPT</dt><dd>{surface.mppt_name}</dd></div>
-                  </dl>
                   <div className="button-row">
                     <button
                       type="button"
@@ -2780,17 +2883,11 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
           </div>
         </div>
       </section>
-
-      <YieldSection
-        data={data}
-        localSurfaceSummaries={localSurfaceSummaries}
-        localTotalInstalledWp={localSurfaceSummaries.reduce((sum, surface) => sum + surface.installed_wp, 0)}
-      />
     </>
   );
 }
 
-function YieldSection({
+function SolarYieldPage({
   data,
   localSurfaceSummaries,
   localTotalInstalledWp,
@@ -2804,77 +2901,166 @@ function YieldSection({
   const effectiveLatitude = Number.isFinite(numericLatitude) && storedLatitude !== ''
     ? numericLatitude
     : (data.project.location?.latitude ?? 52);
-  const surfaceYieldRows = localSurfaceSummaries.map((surface) => ({
-    surface,
-    yieldRows: estimateFaceYieldTable({
+
+  const surfaceYieldRows = localSurfaceSummaries.map((surface) => {
+    const yieldRows = estimateFaceYieldTable({
       installedWp: surface.installed_wp,
       azimuthDeg: surface.orientation_deg,
       tiltDeg: surface.tilt_deg,
       latitudeDeg: effectiveLatitude,
-    }),
+    });
+    const annualKwh = Number(yieldRows.reduce((sum, row) => sum + row.monthlyKwh, 0).toFixed(1));
+    const averageDailyKwh = Number((annualKwh / 365).toFixed(2));
+
+    return {
+      surface,
+      yieldRows,
+      annualKwh,
+      averageDailyKwh,
+    };
+  });
+
+  const monthlyTotals = MONTH_KEYS.map((month) => ({
+    month,
+    averageDailyKwh: Number(surfaceYieldRows.reduce((sum, item) => {
+      const match = item.yieldRows.find((row) => row.month === month);
+      return sum + (match?.averageDailyKwh ?? 0);
+    }, 0).toFixed(2)),
+    monthlyKwh: Number(surfaceYieldRows.reduce((sum, item) => {
+      const match = item.yieldRows.find((row) => row.month === month);
+      return sum + (match?.monthlyKwh ?? 0);
+    }, 0).toFixed(1)),
   }));
-  const monthlyTotals = data.derived.project_monthly_solar_output;
+
+  const totalAnnualKwh = Number(surfaceYieldRows.reduce((sum, item) => sum + item.annualKwh, 0).toFixed(1));
+  const totalAverageDailyKwh = Number((totalAnnualKwh / 365).toFixed(2));
+
   return (
-    <section className="panel" id="yield">
-      <div className="section-head">
-        <h2>Yield</h2>
-        <p>Computed output after location, surface geometry, panel configuration, and MPPT choices are in place.</p>
+    <>
+      <div className="topbar">
+        <h1 className="topbar-title">{data.project.name}</h1>
+        <span className="topbar-meta">Solar yield</span>
       </div>
-      <div className="hero-strip" style={{ marginBottom: 16 }}>
-        <SummaryCard label="Installed PV" value={formatWp(localTotalInstalledWp)} />
-        <SummaryCard label="Surfaces" value={String(localSurfaceSummaries.length)} />
-        <SummaryCard label="Arrays" value={String(localSurfaceSummaries.length)} />
-        <SummaryCard label="MPPTs" value={String(localSurfaceSummaries.length)} />
-      </div>
-      <div className="yield-table-wrap">
-        <table className="yield-table">
-          <thead>
-            <tr>
-              <th>Surface</th>
-              {MONTH_KEYS.map((month) => (
-                <th key={month}>{MONTH_LABELS[month]}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {surfaceYieldRows.map(({ surface, yieldRows }) => {
-              return (
-                <tr key={surface.surface_id}>
-                  <th>{surface.name}</th>
-                  {yieldRows.map((row) => (
-                    <td key={`${surface.surface_id}-${row.month}`}>
-                      {formatDailyYield(row.averageDailyKwh)} / {formatWholeKwh(row.monthlyKwh)}
+
+      <section className="detail-shell">
+        <div className="detail-grid detail-intro-grid">
+          <section className="panel panel-span-2">
+            <Breadcrumbs route={{ kind: 'solar-yield' }} />
+            <div className="section-head">
+              <h2>Start information</h2>
+              <p>Solar yield is derived from the location latitude plus all configured surfaces and their PV setup.</p>
+            </div>
+            <div className="hero-strip">
+              <SummaryCard label="Location" value={data.project.location?.place_name ?? 'Location not set'} detail={data.project.location?.country ?? 'No country set'} />
+              <SummaryCard label="Latitude" value={effectiveLatitude.toLocaleString('en-US', { maximumFractionDigits: 4 })} />
+              <SummaryCard label="Surfaces" value={String(localSurfaceSummaries.length)} />
+              <SummaryCard label="Installed PV" value={formatWp(localTotalInstalledWp)} />
+              <SummaryCard label="Avg daily yield" value={formatKwh(totalAverageDailyKwh)} />
+              <SummaryCard label="Annual yield" value={formatKwh(totalAnnualKwh)} />
+            </div>
+          </section>
+        </div>
+
+        <section className="panel">
+          <div className="section-head">
+            <h2>Surface summary</h2>
+            <p>One row per surface, including the current verdict and total expected yield.</p>
+          </div>
+          <div className="yield-table-wrap">
+            <table className="yield-table">
+              <thead>
+                <tr>
+                  <th>Surface</th>
+                  <th>Verdict</th>
+                  <th>Installed PV</th>
+                  <th>Azimuth</th>
+                  <th>Tilt</th>
+                  <th>Avg kWh/day</th>
+                  <th>Annual kWh</th>
+                </tr>
+              </thead>
+              <tbody>
+                {surfaceYieldRows.map(({ surface, averageDailyKwh, annualKwh }) => (
+                  <tr key={surface.surface_id}>
+                    <th>{surface.name}</th>
+                    <td>
+                      <div className="yield-verdict-cell">
+                        <StatusBadge status={surface.status} fit={surface.fit} />
+                        <span>{verdictLabel(surface.status, surface.fit)}</span>
+                      </div>
                     </td>
+                    <td>{formatWp(surface.installed_wp)}</td>
+                    <td>{surface.orientation_deg}°</td>
+                    <td>{surface.tilt_deg}°</td>
+                    <td>{formatDailyYield(averageDailyKwh)}</td>
+                    <td>{annualKwh.toLocaleString('en-US', { maximumFractionDigits: 1 })}</td>
+                  </tr>
+                ))}
+                <tr>
+                  <th>Total</th>
+                  <td>{localSurfaceSummaries.some((surface) => surface.status != null) ? 'Mixed' : 'Not evaluated'}</td>
+                  <td>{formatWp(localTotalInstalledWp)}</td>
+                  <td>-</td>
+                  <td>-</td>
+                  <td>{formatDailyYield(totalAverageDailyKwh)}</td>
+                  <td>{totalAnnualKwh.toLocaleString('en-US', { maximumFractionDigits: 1 })}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="section-head">
+            <h2>Monthly expected yield</h2>
+            <p>Columns show months. Rows show each surface, with the last row giving the average daily yield total for that month.</p>
+          </div>
+          <div className="yield-table-wrap">
+            <table className="yield-table">
+              <thead>
+                <tr>
+                  <th>Expected yield</th>
+                  {MONTH_KEYS.map((month) => (
+                    <th key={month}>{MONTH_LABELS[month]}</th>
                   ))}
                 </tr>
-              );
-            })}
-            <tr>
-              <th>Total</th>
-              {monthlyTotals.map((row) => (
-                <td key={`total-${row.month}`}>
-                  {formatDailyYield(row.average_daily_kwh)} / {formatWholeKwh(row.monthly_kwh)}
-                </td>
-              ))}
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+              </thead>
+              <tbody>
+                {surfaceYieldRows.map(({ surface, yieldRows }) => (
+                  <tr key={`monthly-${surface.surface_id}`}>
+                    <th>{surface.name}</th>
+                    {yieldRows.map((row) => (
+                      <td key={`${surface.surface_id}-${row.month}`}>{formatDailyYield(row.averageDailyKwh)}</td>
+                    ))}
+                  </tr>
+                ))}
+                <tr>
+                  <th>Total avg kWh/day</th>
+                  {monthlyTotals.map((row) => (
+                    <td key={`total-day-${row.month}`}>{formatDailyYield(row.averageDailyKwh)}</td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+    </>
   );
 }
 
 function BatteryArrayPage({
   data,
-  localSurfaceSummaries,
-  mpptByArray,
-  mpptToBatteryBankByMpptId,
   batteryBank,
   batteryBankState,
   refreshProjectData,
 }: PageContext) {
   const storagePrefix = `${data.project.project_id}:battery-array`;
   const persistedDesign = data.entities.battery_bank_configurations.find((item) => item.battery_bank_id === 'battery-bank-main') ?? null;
+  const [batteryTitle, setBatteryTitle] = useState(persistedDesign?.title ?? batteryBank?.name ?? '');
+  const [batteryDescription, setBatteryDescription] = useState(persistedDesign?.description ?? '');
+  const [batteryImage, setBatteryImage] = useState<string | null>(persistedDesign?.image_data_url ?? null);
+  const [batteryNotes, setBatteryNotes] = useState(persistedDesign?.notes ?? '');
   const [selectedBatteryTypeId, setSelectedBatteryTypeId] = usePersistentState(
     `${storagePrefix}:battery-type`,
     persistedDesign?.selected_battery_type_id ?? batteryBank?.battery_type_id ?? data.entities.battery_types[0]?.battery_type_id ?? '',
@@ -2890,10 +3076,6 @@ function BatteryArrayPage({
   const [parallelStrings, setParallelStrings] = usePersistentState(
     `${storagePrefix}:parallel-strings`,
     Math.max(persistedDesign?.parallel_strings ?? 1, 1),
-  );
-  const [selectedMonth, setSelectedMonth] = usePersistentState<(typeof MONTH_KEYS)[number]>(
-    `${storagePrefix}:month`,
-    'july',
   );
   const [isSavingBatteryDesign, setIsSavingBatteryDesign] = useState(false);
   const [batteryDesignSaveMessage, setBatteryDesignSaveMessage] = useState<string | null>(null);
@@ -2920,56 +3102,10 @@ function BatteryArrayPage({
   });
   const totalUpstreamInputPowerW = activeUpstreamRelations.reduce((sum, relation) => sum + relation.input_power_w, 0);
   const targetBatteryVoltage = batteryArrayConfig?.stringVoltage ?? batteryBankState?.nominal_voltage_v ?? batteryBank?.nominal_voltage_v ?? null;
-  const projectStorageKey = getProjectStorageKey(data);
-  const storedLatitude = readPersistentState<string>(
-    `${projectStorageKey}:location:latitude`,
-    data.project.location?.latitude != null ? String(data.project.location.latitude) : '',
-  );
-  const numericLatitude = Number(storedLatitude);
-  const effectiveLatitude = Number.isFinite(numericLatitude) && storedLatitude !== ''
-    ? numericLatitude
-    : (data.project.location?.latitude ?? 52);
+  const dailyConsumptionKwh = data.project.project_preferences.daily_consumption_kwh ?? null;
   const projectMonthlySolarByMonth = new Map(
     data.derived.project_monthly_solar_output.map((row) => [row.month, row] as const),
   );
-  const estimatedYieldBySurface = localSurfaceSummaries.map((surface) => ({
-    surface_id: surface.surface_id,
-    name: surface.name,
-    ...estimateFaceYieldForMonth({
-      installedWp: surface.installed_wp,
-      azimuthDeg: surface.orientation_deg,
-      tiltDeg: surface.tilt_deg,
-      latitudeDeg: effectiveLatitude,
-      month: selectedMonth,
-    }),
-  }));
-  const surfaceYieldRows = localSurfaceSummaries.map((surface) => ({
-    surface,
-    yieldRows: estimateFaceYieldTable({
-      installedWp: surface.installed_wp,
-      azimuthDeg: surface.orientation_deg,
-      tiltDeg: surface.tilt_deg,
-      latitudeDeg: effectiveLatitude,
-    }),
-  }));
-  const monthlyTotals = MONTH_KEYS.map((month) => ({
-    month,
-    averageDailyKwh: Number(
-      surfaceYieldRows.reduce((sum, item) => {
-        const match = item.yieldRows.find((row) => row.month === month);
-        return sum + (match?.averageDailyKwh ?? 0);
-      }, 0).toFixed(2),
-    ),
-    monthlyKwh: Number(
-      surfaceYieldRows.reduce((sum, item) => {
-        const match = item.yieldRows.find((row) => row.month === month);
-        return sum + (match?.monthlyKwh ?? 0);
-      }, 0).toFixed(1),
-    ),
-  }));
-  const selectedProjectMonth = projectMonthlySolarByMonth.get(selectedMonth) ?? null;
-  const totalEstimatedDailyYieldKwh = selectedProjectMonth?.average_daily_kwh ?? estimatedYieldBySurface.reduce((sum, surface) => sum + surface.averageDailyKwh, 0);
-  const totalEstimatedMonthlyYieldKwh = selectedProjectMonth?.monthly_kwh ?? estimatedYieldBySurface.reduce((sum, surface) => sum + surface.monthlyKwh, 0);
   const bestMonth = data.derived.project_monthly_solar_output
     .map((row) => ({
       month: row.month,
@@ -2982,11 +3118,8 @@ function BatteryArrayPage({
       totalDailyKwh: row.average_daily_kwh,
     }))
     .sort((left, right) => left.totalDailyKwh - right.totalDailyKwh)[0] ?? null;
-  const estimatedDaysToFull = batteryArrayConfig && totalEstimatedDailyYieldKwh > 0
-    ? Number((batteryArrayConfig.totalCapacityKwh / totalEstimatedDailyYieldKwh).toFixed(1))
-    : null;
   const refillEnergyKwh = batteryArrayConfig
-    ? Number((batteryArrayConfig.totalCapacityKwh * 0.8).toFixed(2))
+    ? Number((batteryArrayConfig.totalCapacityKwh * 0.6).toFixed(2))
     : null;
   const daysToRefillBestMonth = refillEnergyKwh != null && (bestMonth?.totalDailyKwh ?? 0) > 0
     ? Number((refillEnergyKwh / (bestMonth?.totalDailyKwh ?? 1)).toFixed(1))
@@ -2994,25 +3127,50 @@ function BatteryArrayPage({
   const daysToRefillWorstMonth = refillEnergyKwh != null && (worstMonth?.totalDailyKwh ?? 0) > 0
     ? Number((refillEnergyKwh / (worstMonth?.totalDailyKwh ?? 1)).toFixed(1))
     : null;
-  const batterySizing = batteryArrayConfig
-    ? evaluateBatteryArraySizing(
-      totalUpstreamInputPowerW,
-      targetBatteryVoltage,
-      batteryArrayConfig.totalCapacityKwh,
-      batteryArrayConfig.maxChargeCurrentA,
-      totalEstimatedDailyYieldKwh,
-    )
+  const estimatedChargeCurrentA = targetBatteryVoltage != null && targetBatteryVoltage > 0
+    ? Number((totalUpstreamInputPowerW / targetBatteryVoltage).toFixed(2))
     : null;
+  const chargeCurrentExceeded = batteryArrayConfig?.maxChargeCurrentA != null
+    && estimatedChargeCurrentA != null
+    && estimatedChargeCurrentA > batteryArrayConfig.maxChargeCurrentA;
   const batteryRefillRule = batteryArrayConfig
     ? evaluateBatteryRefillRule({
       totalCapacityKwh: batteryArrayConfig.totalCapacityKwh,
       sunniestMonthDailyYieldKwh: bestMonth?.totalDailyKwh ?? 0,
     })
     : null;
+  const evaluationVerdict = chargeCurrentExceeded
+    ? {
+      headline: 'Battery bank exceeds the charge-current limit',
+      tone: 'danger' as const,
+      reasons: [
+        `Estimated charge current ${formatAmps(estimatedChargeCurrentA)} exceeds the battery-array charge limit of ${formatAmps(batteryArrayConfig?.maxChargeCurrentA ?? 0)}.`,
+        'Reduce upstream PV charging power or increase the battery-bank charge-current capability.',
+      ],
+    }
+    : batteryRefillRule;
+  const monthlyCapacityRows = MONTH_KEYS.map((month) => {
+    const monthYield = projectMonthlySolarByMonth.get(month)?.average_daily_kwh ?? 0;
+    return {
+      month,
+      averageDailyYieldKwh: monthYield,
+      expectedConsumptionKwh: dailyConsumptionKwh,
+      daysToCharge20To80: refillEnergyKwh != null && monthYield > 0
+        ? Number((refillEnergyKwh / monthYield).toFixed(1))
+        : null,
+    };
+  });
 
-  async function handleSaveBatteryDesign() {
+  useEffect(() => {
+    setBatteryTitle(persistedDesign?.title ?? batteryBank?.name ?? '');
+    setBatteryDescription(persistedDesign?.description ?? '');
+    setBatteryImage(persistedDesign?.image_data_url ?? null);
+    setBatteryNotes(persistedDesign?.notes ?? '');
+  }, [persistedDesign?.title, persistedDesign?.description, persistedDesign?.image_data_url, persistedDesign?.notes, batteryBank?.name]);
+
+  async function handleSaveBatteryDesign(options?: { imageOverride?: string | null }) {
     if (!selectedBatteryTypeId) {
-      setBatteryDesignSaveError('Choose a battery type before saving the battery configuration.');
+      setBatteryDesignSaveError('Choose a battery type before saving the battery bank.');
       setBatteryDesignSaveMessage(null);
       return;
     }
@@ -3029,6 +3187,8 @@ function BatteryArrayPage({
       return;
     }
 
+    const imageToPersist = options?.imageOverride === undefined ? batteryImage : options.imageOverride;
+
     setIsSavingBatteryDesign(true);
     setBatteryDesignSaveError(null);
     setBatteryDesignSaveMessage(null);
@@ -3040,6 +3200,10 @@ function BatteryArrayPage({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          title: batteryTitle.trim(),
+          description: batteryDescription.trim(),
+          image_data_url: imageToPersist,
+          notes: batteryNotes.trim(),
           selected_battery_type_id: selectedBatteryTypeId,
           configured_battery_count: configuredBatteryCount,
           batteries_per_string: batteriesPerString,
@@ -3050,7 +3214,7 @@ function BatteryArrayPage({
       const payload = await response.json() as { error?: string };
 
       if (!response.ok) {
-        throw new Error(payload.error ?? `Failed to save battery configuration (${response.status})`);
+        throw new Error(payload.error ?? `Failed to save battery bank (${response.status})`);
       }
 
       try {
@@ -3063,10 +3227,10 @@ function BatteryArrayPage({
         // Keep the save successful even if draft syncing fails.
       }
 
-      setBatteryDesignSaveMessage('Battery configuration saved to the project database.');
+      setBatteryDesignSaveMessage('Battery bank saved to the project database.');
       await refreshProjectData();
     } catch (error) {
-      setBatteryDesignSaveError(error instanceof Error ? error.message : 'Failed to save battery configuration.');
+      setBatteryDesignSaveError(error instanceof Error ? error.message : 'Failed to save the battery bank.');
       setBatteryDesignSaveMessage(null);
     } finally {
       setIsSavingBatteryDesign(false);
@@ -3087,6 +3251,18 @@ function BatteryArrayPage({
     }
   }, [configuredBatteryCount, batteriesPerString, parallelStrings, batteriesPerStringOptions]);
 
+  function handleBatteryImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (loadEvent) => {
+      const nextImage = loadEvent.target?.result as string;
+      setBatteryImage(nextImage);
+      void handleSaveBatteryDesign({ imageOverride: nextImage });
+    };
+    reader.readAsDataURL(file);
+  }
+
   return (
     <>
       <div className="topbar">
@@ -3098,354 +3274,374 @@ function BatteryArrayPage({
         </span>
       </div>
 
-      <section className="panel">
-        <div className="section-head">
-          <h2>Solar available</h2>
-          <p>Monthly total solar available for charging across all configured surfaces.</p>
-        </div>
-        <div className="yield-table-wrap">
-          <table className="yield-table">
-            <thead>
-              <tr>
-                <th>Metric</th>
-                {MONTH_KEYS.map((month) => (
-                  <th key={month}>{MONTH_LABELS[month]}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <th>kWh/day</th>
-                {monthlyTotals.map((row) => (
-                  <td key={`battery-day-${row.month}`}>{formatDailyYield(row.averageDailyKwh)}</td>
-                ))}
-              </tr>
-              <tr>
-                <th>kWh/month</th>
-                {monthlyTotals.map((row) => (
-                  <td key={`battery-month-${row.month}`}>{row.monthlyKwh.toLocaleString('en-US', { maximumFractionDigits: 0 })}</td>
-                ))}
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="panel storage-panel">
-        <details className="disclosure" open={false}>
-          <summary className="disclosure-summary">Upstream MPPT inputs</summary>
-          <p className="disclosure-copy">Read-only MPPT inputs from all surfaces, shown at the current target battery voltage.</p>
-          <div className="status-list">
-            {data.relationships.array_to_mppt.map((relation) => {
-              const array = data.entities.arrays.find((item) => item.array_id === relation.from_array_id);
-              if ((array?.panel_count ?? 0) <= 0) return null;
-              const surface = data.entities.surfaces.find((item) => item.surface_id === array?.surface_id);
-              const mppt = mpptByArray.get(relation.from_array_id);
-              const mpptOutput = mppt ? mpptToBatteryBankByMpptId.get(mppt.mppt_configuration_id) ?? null : null;
-              const outputVoltage = batteryArrayConfig?.stringVoltage ?? mpptOutput?.output_voltage_v ?? null;
-              const outputPower = relation.input_power_w;
-              const outputCurrent = outputVoltage != null && outputVoltage > 0
-                ? Number((outputPower / outputVoltage).toFixed(2))
-                : null;
-              return (
-                <article key={relation.relationship_id} className="status-card">
-                  <div className="status-card-top">
-                    <span className="status-title">{surface?.name ?? array?.name ?? relation.from_array_id}</span>
-                  </div>
-                  <p>{mppt?.name ?? relation.to_mppt_configuration_id}</p>
-                  <dl className="mini-stats">
-                    <div>
-                      <dt>Input PV</dt>
-                      <dd>{formatWp(relation.input_power_w)}</dd>
-                    </div>
-                    <div>
-                      <dt>Output V</dt>
-                      <dd>{outputVoltage != null ? formatVolts(outputVoltage) : 'n/a'}</dd>
-                    </div>
-                    <div>
-                      <dt>Output power</dt>
-                      <dd>{formatKw(outputPower)}</dd>
-                    </div>
-                    <div>
-                      <dt>Output A</dt>
-                      <dd>{outputCurrent != null ? formatAmps(outputCurrent) : 'n/a'}</dd>
-                    </div>
-                  </dl>
-                </article>
-              );
-            })}
-          </div>
-        </details>
-      </section>
-
-      <section className="detail-grid">
-        <section className="panel">
-          <div className="section-head">
-            <h2>Battery configuration</h2>
-          </div>
-          <div className="panel-selector">
-            <label className="config-field">
-              <span>Selected battery</span>
-              <select
-                value={selectedBatteryTypeId}
-                onChange={(event) => setSelectedBatteryTypeId(event.target.value)}
-              >
-                {data.entities.battery_types.map((option) => (
-                  <option key={option.battery_type_id} value={option.battery_type_id}>
-                    {option.model}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          {selectedBatteryType ? (
-            <dl className="detail-stats panel-spec-grid">
-              <div>
-                <dt>Voltage</dt>
-                <dd>{formatVolts(selectedBatteryType.nominal_voltage)}</dd>
-              </div>
-              <div>
-                <dt>Capacity</dt>
-                <dd>{formatKwh(selectedBatteryType.capacity_kwh)}</dd>
-              </div>
-              <div>
-                <dt>Ah</dt>
-                <dd>{selectedBatteryType.capacity_ah} Ah</dd>
-              </div>
-            </dl>
-          ) : null}
-          <div style={{ marginTop: 16 }}>
-            <button type="button" className="button button-secondary" onClick={() => void handleSaveBatteryDesign()} disabled={isSavingBatteryDesign}>
-              {isSavingBatteryDesign ? 'Saving…' : 'Save battery configuration'}
-            </button>
-            {batteryDesignSaveError ? <p className="save-error">{batteryDesignSaveError}</p> : null}
-            {batteryDesignSaveMessage ? <p className="save-message">{batteryDesignSaveMessage}</p> : null}
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="section-head">
-            <h2>Battery array configuration</h2>
-          </div>
-          {selectedBatteryType ? (
-            <div className="fit-card">
-              <div className="config-grid">
-                <label className="config-field">
-                  <span>Battery count</span>
-                  <input
-                    type="number"
-                    min={1}
-                    value={configuredBatteryCount}
-                    onChange={(event) => setConfiguredBatteryCount(Math.max(1, Number(event.target.value) || 1))}
-                  />
-                </label>
-                <label className="config-field">
-                  <span>Target battery voltage</span>
-                  <select
-                    value={batteryArrayConfig?.stringVoltage ?? (batteryVoltageOptions[0]?.voltage ?? '')}
-                    onChange={(event) => {
-                      const nextVoltage = Number(event.target.value);
-                      const match = batteryVoltageOptions.find((option) => option.voltage === nextVoltage);
-                      if (!match) return;
-                      setBatteriesPerString(match.batteriesPerString);
-                      setParallelStrings(match.parallelStrings);
-                    }}
-                  >
-                    {batteryVoltageOptions.map((option) => (
-                      <option key={`${option.voltage}-${option.batteriesPerString}-${option.parallelStrings}`} value={option.voltage}>
-                        {formatVolts(option.voltage)} ({option.batteriesPerString}s {option.parallelStrings}p)
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="config-field">
-                  <span>Selected month</span>
-                  <select
-                    value={selectedMonth}
-                    onChange={(event) => setSelectedMonth(event.target.value as (typeof MONTH_KEYS)[number])}
-                  >
-                    {MONTH_KEYS.map((month) => (
-                      <option key={month} value={month}>
-                        {MONTH_LABELS[month]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="config-field">
-                  <span>Batteries per string</span>
-                  <select
-                    value={batteriesPerString}
-                    onChange={(event) => {
-                      const nextBatteriesPerString = Math.max(1, Number(event.target.value) || 1);
-                      setBatteriesPerString(nextBatteriesPerString);
-                      setParallelStrings(Math.max(1, configuredBatteryCount / nextBatteriesPerString));
-                    }}
-                  >
-                    {batteriesPerStringOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="config-field">
-                  <span>Parallel strings</span>
-                  <select
-                    value={parallelStrings}
-                    onChange={(event) => {
-                      const nextParallelStrings = Math.max(1, Number(event.target.value) || 1);
-                      setParallelStrings(nextParallelStrings);
-                      setBatteriesPerString(Math.max(1, configuredBatteryCount / nextParallelStrings));
-                    }}
-                  >
-                    {parallelStringOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-
-              {batteryArrayConfig ? (
-                <>
-                  <div className="fit-head">
-                    <div>
-                      <p>
-                        {batteryArrayConfig.configuredBatteryCount} battery(s) used from {configuredBatteryCount} currently assigned in the saved project configuration
-                      </p>
-                    </div>
-                  </div>
-                  <dl className="detail-stats compact-stats">
-                    <div>
-                      <dt>String voltage</dt>
-                      <dd>{formatVolts(batteryArrayConfig.stringVoltage)}</dd>
-                    </div>
-                    <div>
-                      <dt>Total capacity</dt>
-                      <dd>{formatKwh(batteryArrayConfig.totalCapacityKwh)}</dd>
-                    </div>
-                    {batteryArrayConfig.maxChargeCurrentA != null ? (
-                      <div>
-                        <dt>Max charge amps</dt>
-                        <dd>{formatAmps(batteryArrayConfig.maxChargeCurrentA)}</dd>
-                      </div>
-                    ) : null}
-                    {batteryArrayConfig.maxDischargeCurrentA != null ? (
-                      <div>
-                        <dt>Max discharge amps</dt>
-                        <dd>{formatAmps(batteryArrayConfig.maxDischargeCurrentA)}</dd>
-                      </div>
-                    ) : null}
-                    {batteryArrayConfig.maxDischargePowerW != null ? (
-                      <div>
-                        <dt>Max discharge watts</dt>
-                        <dd>{formatKw(batteryArrayConfig.maxDischargePowerW)}</dd>
-                      </div>
-                    ) : null}
-                  </dl>
-                  {!batteryArrayConfig.usesConfiguredBatteriesExactly ? (
-                    <p className="fit-note">
-                      Batteries per string × parallel strings = {batteryArrayConfig.configuredBatteryCount}, but {configuredBatteryCount} are assigned. Adjust to match exactly.
-                    </p>
-                  ) : null}
-                </>
-              ) : null}
+      <section className="detail-shell">
+        <div className="detail-grid detail-intro-grid">
+          <section className="panel panel-with-actions">
+            <div className="section-head">
+              <h2>About</h2>
             </div>
-          ) : (
-                <p>No battery type is available yet for this battery array.</p>
-          )}
-        </section>
-      </section>
+            {batteryDesignSaveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{batteryDesignSaveError}</p> : null}
+            <label className="config-field" style={{ display: 'block', marginBottom: 8 }}>
+              <span>Title</span>
+              <input type="text" value={batteryTitle} onChange={(event) => setBatteryTitle(event.target.value)} />
+            </label>
+            <label className="config-field" style={{ display: 'block' }}>
+              <span>Description</span>
+              <input type="text" value={batteryDescription} onChange={(event) => setBatteryDescription(event.target.value)} />
+            </label>
+            <div className="button-row button-row-end">
+              <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveBatteryDesign()} disabled={isSavingBatteryDesign}>
+                {isSavingBatteryDesign ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </section>
 
-      <section className="detail-grid">
-        <section className="panel">
-          <div className="section-head">
-            <h2>Selected month consequence</h2>
-            <p>What the current battery configuration means in the selected month.</p>
-          </div>
-          {batterySizing ? (
-            <>
-              <div className="fit-head">
-                <div>
-                  <strong>{batterySizing.headline}</strong>
-                </div>
-                <span className={`status status-${batterySizing.tone}`}>{batterySizing.headline}</span>
+          <section className="panel panel-with-actions">
+            <div className="section-head">
+              <h2>Notes</h2>
+            </div>
+            <textarea
+              className="field-textarea"
+              value={batteryNotes}
+              onChange={(event) => setBatteryNotes(event.target.value)}
+              rows={5}
+              placeholder="Add battery-bank notes, installation assumptions, room constraints, or maintenance context."
+            />
+            <div className="button-row button-row-end">
+              <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveBatteryDesign()} disabled={isSavingBatteryDesign}>
+                {isSavingBatteryDesign ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </section>
+
+          <section className="panel panel-with-actions">
+            <div className="section-head">
+              <h2>Image</h2>
+              <p>Battery location</p>
+            </div>
+            {batteryImage ? (
+              <div className="photo-frame">
+                <img src={batteryImage} alt={batteryTitle.trim() || 'Battery bank'} className="photo-image" />
+                <button
+                  type="button"
+                  className="button button-secondary button-sm photo-remove"
+                  onClick={() => {
+                    setBatteryImage(null);
+                    void handleSaveBatteryDesign({ imageOverride: null });
+                  }}
+                >
+                  Remove
+                </button>
               </div>
-              <dl className="detail-stats compact-stats">
+            ) : (
+              <label className="upload-dropzone">
+                <span>Click to upload an image</span>
+                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleBatteryImageChange} />
+              </label>
+            )}
+            <div className="button-row button-row-end">
+              <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveBatteryDesign()} disabled={isSavingBatteryDesign}>
+                {isSavingBatteryDesign ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </section>
+        </div>
+
+        <section className="detail-grid-2">
+          <section className="panel panel-with-actions">
+            <div className="section-head">
+              <h2>Battery selection</h2>
+              <p>Choose the preferred system voltage, battery type, and amount of batteries.</p>
+            </div>
+            <div className="config-grid config-control-row">
+              <label className="config-field">
+                <span>Preferred system voltage</span>
+                <select
+                  value={batteryArrayConfig?.stringVoltage ?? (batteryVoltageOptions[0]?.voltage ?? '')}
+                  onChange={(event) => {
+                    const nextVoltage = Number(event.target.value);
+                    const match = batteryVoltageOptions.find((option) => option.voltage === nextVoltage);
+                    if (!match) return;
+                    setBatteriesPerString(match.batteriesPerString);
+                    setParallelStrings(match.parallelStrings);
+                  }}
+                >
+                  {batteryVoltageOptions.map((option) => (
+                    <option key={`${option.voltage}-${option.batteriesPerString}-${option.parallelStrings}`} value={option.voltage}>
+                      {formatVolts(option.voltage)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="config-field config-field-span-2">
+                <span>Selected battery type</span>
+                <select value={selectedBatteryTypeId} onChange={(event) => setSelectedBatteryTypeId(event.target.value)}>
+                  {data.entities.battery_types.map((option) => (
+                    <option key={option.battery_type_id} value={option.battery_type_id}>
+                      {option.model}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="config-field">
+                <span>Amount of batteries</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={configuredBatteryCount}
+                  onChange={(event) => setConfiguredBatteryCount(Math.max(1, Number(event.target.value) || 1))}
+                />
+              </label>
+            </div>
+            {selectedBatteryType ? (
+              <dl className="detail-stats panel-spec-grid">
                 <div>
-                  <dt>Month</dt>
-                  <dd>{MONTH_LABELS[selectedMonth]}</dd>
+                  <dt>Nominal voltage</dt>
+                  <dd>{formatVolts(selectedBatteryType.nominal_voltage)}</dd>
                 </div>
                 <div>
-                  <dt>Solar / day</dt>
-                  <dd>{formatDailyYield(totalEstimatedDailyYieldKwh)} kWh</dd>
+                  <dt>Capacity</dt>
+                  <dd>{formatKwh(selectedBatteryType.capacity_kwh)}</dd>
                 </div>
                 <div>
-                  <dt>Solar / month</dt>
-                  <dd>{totalEstimatedMonthlyYieldKwh.toLocaleString('en-US', { maximumFractionDigits: 1 })} kWh</dd>
+                  <dt>Ah</dt>
+                  <dd>{selectedBatteryType.capacity_ah} Ah</dd>
                 </div>
                 <div>
-                  <dt>Target battery voltage</dt>
-                  <dd>{targetBatteryVoltage != null ? formatVolts(targetBatteryVoltage) : 'n/a'}</dd>
-                </div>
-                <div>
-                  <dt>Estimated charge current</dt>
-                  <dd>{batterySizing.estimatedChargeCurrentA != null ? formatAmps(batterySizing.estimatedChargeCurrentA) : 'n/a'}</dd>
-                </div>
-                <div>
-                  <dt>Days to fill from solar</dt>
-                  <dd>{estimatedDaysToFull != null ? `${estimatedDaysToFull} d` : 'n/a'}</dd>
+                  <dt>Chemistry</dt>
+                  <dd>{selectedBatteryType.chemistry}</dd>
                 </div>
               </dl>
-            </>
-          ) : null}
+            ) : (
+              <p className="fit-note">No battery type is available yet for this battery bank.</p>
+            )}
+            <div className="button-row button-row-end">
+              <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveBatteryDesign()} disabled={isSavingBatteryDesign}>
+                {isSavingBatteryDesign ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </section>
+
+          <section className="panel panel-with-actions">
+            <div className="section-head">
+              <h2>Battery array</h2>
+              <p>Choose the preferred batteries per string and preferred number of parallel strings.</p>
+            </div>
+            {selectedBatteryType ? (
+              <>
+                <div className="fit-card">
+                  <div className="config-grid config-control-row">
+                    <label className="config-field">
+                      <span>Preferred batteries per string</span>
+                      <select
+                        value={batteriesPerString}
+                        onChange={(event) => {
+                          const nextBatteriesPerString = Math.max(1, Number(event.target.value) || 1);
+                          setBatteriesPerString(nextBatteriesPerString);
+                          setParallelStrings(Math.max(1, configuredBatteryCount / nextBatteriesPerString));
+                        }}
+                      >
+                        {batteriesPerStringOptions.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="config-field">
+                      <span>Preferred number of parallel strings</span>
+                      <select
+                        value={parallelStrings}
+                        onChange={(event) => {
+                          const nextParallelStrings = Math.max(1, Number(event.target.value) || 1);
+                          setParallelStrings(nextParallelStrings);
+                          setBatteriesPerString(Math.max(1, configuredBatteryCount / nextParallelStrings));
+                        }}
+                      >
+                        {parallelStringOptions.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  {batteryArrayConfig ? (
+                    <>
+                      <dl className="detail-stats compact-stats">
+                        <div>
+                          <dt>String voltage</dt>
+                          <dd>{formatVolts(batteryArrayConfig.stringVoltage)}</dd>
+                        </div>
+                        <div>
+                          <dt>String capacity</dt>
+                          <dd>{formatKwh(batteryArrayConfig.stringCapacityKwh)}</dd>
+                        </div>
+                        <div>
+                          <dt>Total capacity</dt>
+                          <dd>{formatKwh(batteryArrayConfig.totalCapacityKwh)}</dd>
+                        </div>
+                        {batteryArrayConfig.maxChargeCurrentA != null ? (
+                          <div>
+                            <dt>Max charge current</dt>
+                            <dd>{formatAmps(batteryArrayConfig.maxChargeCurrentA)}</dd>
+                          </div>
+                        ) : null}
+                        {batteryArrayConfig.maxDischargeCurrentA != null ? (
+                          <div>
+                            <dt>Max discharge current</dt>
+                            <dd>{formatAmps(batteryArrayConfig.maxDischargeCurrentA)}</dd>
+                          </div>
+                        ) : null}
+                        {batteryArrayConfig.maxDischargePowerW != null ? (
+                          <div>
+                            <dt>Max discharge power</dt>
+                            <dd>{formatKw(batteryArrayConfig.maxDischargePowerW)}</dd>
+                          </div>
+                        ) : null}
+                      </dl>
+                      {!batteryArrayConfig.usesConfiguredBatteriesExactly ? (
+                        <p className="fit-note">
+                          Batteries per string × parallel strings = {batteryArrayConfig.configuredBatteryCount}, but {configuredBatteryCount} batteries are assigned. Adjust to match exactly.
+                        </p>
+                      ) : null}
+                    </>
+                  ) : null}
+                </div>
+                <div className="button-row button-row-end">
+                  <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveBatteryDesign()} disabled={isSavingBatteryDesign}>
+                    {isSavingBatteryDesign ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <p className="fit-note">Choose a battery type before configuring the battery array.</p>
+            )}
+          </section>
         </section>
 
         <section className="panel">
           <div className="section-head">
-            <h2>Refill rule</h2>
-            <p>Consequence of the 10% to 90% in one day sizing rule.</p>
+            <h2>Solar yield - Battery bank evaluation</h2>
+            <p>Evaluation of the solar-yield and battery-bank combination.</p>
           </div>
-          {batteryRefillRule ? (
-            <>
+          {batteryArrayConfig && evaluationVerdict ? (
+            <div className="fit-card">
               <div className="fit-head">
                 <div>
-                  <strong>{batteryRefillRule.headline}</strong>
+                  <strong>{evaluationVerdict.headline}</strong>
                 </div>
-                <span className={`status status-${batteryRefillRule.tone}`}>{batteryRefillRule.headline}</span>
+                <span className={`status status-${evaluationVerdict.tone}`}>{evaluationVerdict.headline}</span>
               </div>
-              <dl className="detail-stats compact-stats">
-                <div>
-                  <dt>Required refill energy</dt>
-                  <dd>{batteryRefillRule.requiredRefillKwh != null ? `${batteryRefillRule.requiredRefillKwh.toLocaleString('en-US', { maximumFractionDigits: 2 })} kWh` : 'n/a'}</dd>
-                </div>
-                <div>
-                  <dt>Refill ratio</dt>
-                  <dd>{batteryRefillRule.refillRatio != null ? `${batteryRefillRule.refillRatio}x` : 'n/a'}</dd>
-                </div>
+              <ul className="reason-list">
+                {evaluationVerdict.reasons.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+                {batteryRefillRule && evaluationVerdict !== batteryRefillRule
+                  ? batteryRefillRule.reasons.map((reason) => <li key={`refill-${reason}`}>{reason}</li>)
+                  : null}
+              </ul>
+              <dl className="detail-stats outcome-checks">
                 <div>
                   <dt>Best month</dt>
                   <dd>{bestMonth ? MONTH_LABELS[bestMonth.month] : 'n/a'}</dd>
-                </div>
-                <div>
-                  <dt>10% → 90% in best month</dt>
-                  <dd>{daysToRefillBestMonth != null ? `${daysToRefillBestMonth} d` : 'n/a'}</dd>
                 </div>
                 <div>
                   <dt>Worst month</dt>
                   <dd>{worstMonth ? MONTH_LABELS[worstMonth.month] : 'n/a'}</dd>
                 </div>
                 <div>
-                  <dt>10% → 90% in worst month</dt>
+                  <dt>Required recharge energy</dt>
+                  <dd>{refillEnergyKwh != null ? formatKwh(refillEnergyKwh) : 'n/a'}</dd>
+                </div>
+                <div className={chargeCurrentExceeded ? 'check-fail' : 'check-pass'}>
+                  <dt>Estimated charge current</dt>
+                  <dd>{estimatedChargeCurrentA != null ? formatAmps(estimatedChargeCurrentA) : 'n/a'}</dd>
+                </div>
+                <div className={chargeCurrentExceeded ? 'check-fail' : 'check-pass'}>
+                  <dt>Battery charge limit</dt>
+                  <dd>{batteryArrayConfig.maxChargeCurrentA != null ? formatAmps(batteryArrayConfig.maxChargeCurrentA) : 'n/a'}</dd>
+                </div>
+                <div>
+                  <dt>20% → 80% in best month</dt>
+                  <dd>{daysToRefillBestMonth != null ? `${daysToRefillBestMonth} d` : 'n/a'}</dd>
+                </div>
+                <div>
+                  <dt>20% → 80% in worst month</dt>
                   <dd>{daysToRefillWorstMonth != null ? `${daysToRefillWorstMonth} d` : 'n/a'}</dd>
                 </div>
+                <div>
+                  <dt>Upstream PV input</dt>
+                  <dd>{formatWp(totalUpstreamInputPowerW)}</dd>
+                </div>
               </dl>
-            </>
-          ) : null}
+            </div>
+          ) : (
+            <p className="fit-note">Choose a battery type and configure the battery array before the evaluation can be calculated.</p>
+          )}
+        </section>
+
+        <section className="panel">
+          <div className="section-head">
+            <h2>Battery capacity</h2>
+            <p>Battery-bank electrical details and monthly charge context across the year.</p>
+          </div>
+          <dl className="detail-stats compact-stats" style={{ marginBottom: 16 }}>
+            <div>
+              <dt>Total capacity</dt>
+              <dd>{batteryArrayConfig ? formatKwh(batteryArrayConfig.totalCapacityKwh) : 'n/a'}</dd>
+            </div>
+            <div>
+              <dt>Preferred system voltage</dt>
+              <dd>{targetBatteryVoltage != null ? formatVolts(targetBatteryVoltage) : 'n/a'}</dd>
+            </div>
+            <div>
+              <dt>Expected consumption / day</dt>
+              <dd>{dailyConsumptionKwh != null ? formatDailyYield(dailyConsumptionKwh) : 'n/a'}</dd>
+            </div>
+            <div>
+              <dt>Recharge energy 20% → 80%</dt>
+              <dd>{refillEnergyKwh != null ? formatKwh(refillEnergyKwh) : 'n/a'}</dd>
+            </div>
+          </dl>
+          <div className="yield-table-wrap">
+            <table className="yield-table">
+              <thead>
+                <tr>
+                  <th>Battery capacity</th>
+                  {MONTH_KEYS.map((month) => (
+                    <th key={month}>{MONTH_LABELS[month]}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th>Expected yield / day</th>
+                  {monthlyCapacityRows.map((row) => (
+                    <td key={`capacity-yield-${row.month}`}>{formatDailyYield(row.averageDailyYieldKwh)}</td>
+                  ))}
+                </tr>
+                <tr>
+                  <th>Expected consumption / day</th>
+                  {monthlyCapacityRows.map((row) => (
+                    <td key={`capacity-consumption-${row.month}`}>
+                      {row.expectedConsumptionKwh != null ? formatDailyYield(row.expectedConsumptionKwh) : 'n/a'}
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <th>Avg days to charge 20% → 80%</th>
+                  {monthlyCapacityRows.map((row) => (
+                    <td key={`capacity-charge-${row.month}`}>
+                      {row.daysToCharge20To80 != null ? `${row.daysToCharge20To80} d` : 'n/a'}
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </section>
       </section>
-
     </>
   );
 }
@@ -3479,10 +3675,14 @@ function InverterArrayPage({
   const storagePrefix = `${data.project.project_id}:inverter-array`;
   const [selectedInverterTypeId, setSelectedInverterTypeId] = usePersistentState(
     `${storagePrefix}:inverter-type`,
-    data.entities.inverter_configurations[0]?.inverter_id ?? data.entities.inverter_types[0]?.inverter_id ?? '',
+    data.entities.inverter_configurations[0]?.selected_inverter_type_id ?? data.entities.inverter_types[0]?.inverter_id ?? '',
   );
+  const persistedInverterConfig = data.entities.inverter_configurations[0] ?? null;
+  const [inverterTitle, setInverterTitle] = useState(persistedInverterConfig?.title ?? '');
+  const [inverterDescription, setInverterDescription] = useState(persistedInverterConfig?.description ?? '');
+  const [inverterImage, setInverterImage] = useState<string | null>(persistedInverterConfig?.image_data_url ?? null);
+  const [inverterNotes, setInverterNotes] = useState(persistedInverterConfig?.notes ?? '');
   const [isSavingInverterDesign, setIsSavingInverterDesign] = useState(false);
-  const [inverterDesignSaveMessage, setInverterDesignSaveMessage] = useState<string | null>(null);
   const [inverterDesignSaveError, setInverterDesignSaveError] = useState<string | null>(null);
 
   const selectedInverterType = selectedInverterTypeId
@@ -3504,25 +3704,27 @@ function InverterArrayPage({
     ? data.relationships.battery_bank_to_inverter.find((item) => item.to_inverter_configuration_id === projectInverter.inverter_configuration_id) ?? null
     : null;
 
-  async function handleSaveInverterDesign() {
+  async function handleSaveInverterDesign(options?: { imageOverride?: string | null }) {
     if (!selectedInverterTypeId) {
-      setInverterDesignSaveError('Choose an inverter type before saving the inverter array.');
-      setInverterDesignSaveMessage(null);
+      setInverterDesignSaveError('Choose an inverter type before saving the inverter configuration.');
       return;
     }
 
+    const imageToPersist = options?.imageOverride === undefined ? inverterImage : options.imageOverride;
+
     setIsSavingInverterDesign(true);
     setInverterDesignSaveError(null);
-    setInverterDesignSaveMessage(null);
 
     try {
       const response = await fetch('/api/inverter-configuration', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           selected_inverter_type_id: selectedInverterTypeId,
+          title: inverterTitle.trim(),
+          description: inverterDescription.trim(),
+          image_data_url: imageToPersist,
+          notes: inverterNotes.trim(),
         }),
       });
 
@@ -3539,14 +3741,24 @@ function InverterArrayPage({
         // Keep the save successful even if draft syncing fails.
       }
 
-      setInverterDesignSaveMessage('Inverter configuration saved to the project database.');
       await refreshProjectData();
     } catch (error) {
       setInverterDesignSaveError(error instanceof Error ? error.message : 'Failed to save inverter configuration.');
-      setInverterDesignSaveMessage(null);
     } finally {
       setIsSavingInverterDesign(false);
     }
+  }
+
+  function handleInverterImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (loadEvent) => {
+      const nextImage = loadEvent.target?.result as string;
+      setInverterImage(nextImage);
+      void handleSaveInverterDesign({ imageOverride: nextImage });
+    };
+    reader.readAsDataURL(file);
   }
 
   return (
@@ -3560,88 +3772,85 @@ function InverterArrayPage({
         </span>
       </div>
 
-      <header className="hero panel">
-        <div className="hero-strip">
-          <SummaryCard label="Battery array" value={currentBatteryType ? `${currentBatteryType.model} array` : (batteryBank?.name ?? 'n/a')} />
-          <SummaryCard
-            label="Voltage"
-            value={batteryArrayConfig != null ? formatVolts(batteryArrayConfig.stringVoltage) : (batteryBankState?.nominal_voltage_v != null ? formatVolts(batteryBankState.nominal_voltage_v) : 'n/a')}
-          />
-          <SummaryCard
-            label="Capacity"
-            value={batteryArrayConfig != null ? formatKwh(batteryArrayConfig.totalCapacityKwh) : (batteryBankState?.capacity_kwh != null ? formatKwh(batteryBankState.capacity_kwh) : 'n/a')}
-          />
-          <SummaryCard
-            label="Battery max power"
-            value={batteryArrayConfig?.maxDischargePowerW != null ? formatKw(batteryArrayConfig.maxDischargePowerW) : 'n/a'}
-          />
-          <SummaryCard
-            label="MPPT charge"
-            value={batteryBankState?.total_mppt_charge_current_a != null ? formatAmps(batteryBankState.total_mppt_charge_current_a) : 'n/a'}
-          />
+      <section className="detail-shell">
+        <div className="detail-grid detail-intro-grid">
+          <section className="panel panel-with-actions">
+            <div className="section-head">
+              <h2>About</h2>
+            </div>
+            {inverterDesignSaveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{inverterDesignSaveError}</p> : null}
+            <label className="config-field" style={{ display: 'block', marginBottom: 8 }}>
+              <span>Title</span>
+              <input type="text" value={inverterTitle} onChange={(event) => setInverterTitle(event.target.value)} />
+            </label>
+            <label className="config-field" style={{ display: 'block' }}>
+              <span>Description</span>
+              <input type="text" value={inverterDescription} onChange={(event) => setInverterDescription(event.target.value)} />
+            </label>
+            <div className="button-row button-row-end">
+              <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveInverterDesign()} disabled={isSavingInverterDesign}>
+                {isSavingInverterDesign ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </section>
+
+          <section className="panel panel-with-actions">
+            <div className="section-head">
+              <h2>Notes</h2>
+            </div>
+            <textarea
+              className="field-textarea"
+              value={inverterNotes}
+              onChange={(event) => setInverterNotes(event.target.value)}
+              rows={5}
+              placeholder="Add inverter notes, installation assumptions, or maintenance context."
+            />
+            <div className="button-row button-row-end">
+              <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveInverterDesign()} disabled={isSavingInverterDesign}>
+                {isSavingInverterDesign ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </section>
+
+          <section className="panel panel-with-actions">
+            <div className="section-head">
+              <h2>Image</h2>
+              <p>Inverter location</p>
+            </div>
+            {inverterImage ? (
+              <div className="photo-frame">
+                <img src={inverterImage} alt={inverterTitle.trim() || 'Inverter'} className="photo-image" />
+                <button
+                  type="button"
+                  className="button button-secondary button-sm photo-remove"
+                  onClick={() => {
+                    setInverterImage(null);
+                    void handleSaveInverterDesign({ imageOverride: null });
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <label className="upload-dropzone">
+                <span>Click to upload an image</span>
+                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleInverterImageChange} />
+              </label>
+            )}
+            <div className="button-row button-row-end">
+              <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveInverterDesign()} disabled={isSavingInverterDesign}>
+                {isSavingInverterDesign ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </section>
         </div>
-      </header>
 
-      <section className="overview-grid">
-        <section className="panel">
+        <section className="panel panel-with-actions">
           <div className="section-head">
-            <h2>Inverter array</h2>
-            <p>Battery-array summary and inverter fit for the current local battery configuration.</p>
-          </div>
-          <dl className="detail-stats panel-spec-grid">
-            <div>
-              <dt>Battery array</dt>
-              <dd>{currentBatteryType ? `${currentBatteryType.model} array` : (batteryBank?.name ?? 'n/a')}</dd>
-            </div>
-            <div>
-              <dt>Modules</dt>
-              <dd>{batteryArrayConfig?.configuredBatteryCount ?? 0}</dd>
-            </div>
-            <div>
-              <dt>Nominal voltage</dt>
-              <dd>{batteryArrayConfig != null ? formatVolts(batteryArrayConfig.stringVoltage) : (batteryBankState?.nominal_voltage_v != null ? formatVolts(batteryBankState.nominal_voltage_v) : 'n/a')}</dd>
-            </div>
-            <div>
-              <dt>Capacity</dt>
-              <dd>{batteryArrayConfig != null ? formatKwh(batteryArrayConfig.totalCapacityKwh) : (batteryBankState?.capacity_kwh != null ? formatKwh(batteryBankState.capacity_kwh) : 'n/a')}</dd>
-            </div>
-            <div>
-              <dt>Battery max power</dt>
-              <dd>{batteryArrayConfig?.maxDischargePowerW != null ? formatKw(batteryArrayConfig.maxDischargePowerW) : 'n/a'}</dd>
-            </div>
-            <div>
-              <dt>MPPT charge current</dt>
-              <dd>{batteryBankState?.total_mppt_charge_current_a != null ? formatAmps(batteryBankState.total_mppt_charge_current_a) : 'n/a'}</dd>
-            </div>
-            <div>
-              <dt>Inverter link</dt>
-              <dd>{batteryToInverter ? 'Connected' : 'Pending'}</dd>
-            </div>
-          </dl>
-          {batteryArrayConfig ? (
-            <dl className="detail-stats compact-stats">
-              <div>
-                <dt>Battery max charge amps</dt>
-                <dd>{batteryArrayConfig.maxChargeCurrentA != null ? formatAmps(batteryArrayConfig.maxChargeCurrentA) : 'n/a'}</dd>
-              </div>
-              <div>
-                <dt>Battery max discharge amps</dt>
-                <dd>{batteryArrayConfig.maxDischargeCurrentA != null ? formatAmps(batteryArrayConfig.maxDischargeCurrentA) : 'n/a'}</dd>
-              </div>
-              <div>
-                <dt>Battery max discharge watts</dt>
-                <dd>{batteryArrayConfig.maxDischargePowerW != null ? formatKw(batteryArrayConfig.maxDischargePowerW) : 'n/a'}</dd>
-              </div>
-            </dl>
-          ) : null}
-        </section>
-
-        <section className="panel">
-          <div className="section-head">
-            <h2>Configuration</h2>
+            <h2>Inverter selection</h2>
           </div>
           <label className="config-field">
-            <span>Configured inverter</span>
+            <span>Selected inverter</span>
             <select
               value={selectedInverterTypeId}
               onChange={(event) => setSelectedInverterTypeId(event.target.value)}
@@ -3655,20 +3864,8 @@ function InverterArrayPage({
               ))}
             </select>
           </label>
-          <div style={{ marginTop: 16 }}>
-            <button
-              type="button"
-              className="button button-primary"
-              onClick={() => void handleSaveInverterDesign()}
-              disabled={isSavingInverterDesign || data.entities.inverter_types.length === 0}
-            >
-              {isSavingInverterDesign ? 'Saving…' : 'Save inverter configuration'}
-            </button>
-            {inverterDesignSaveError ? <p className="save-error">{inverterDesignSaveError}</p> : null}
-            {inverterDesignSaveMessage ? <p className="save-message">{inverterDesignSaveMessage}</p> : null}
-          </div>
           {selectedInverterType ? (
-            <dl className="detail-stats panel-spec-grid">
+            <dl className="detail-stats panel-spec-grid" style={{ marginTop: 16 }}>
               <div>
                 <dt>Input voltage</dt>
                 <dd>{formatVolts(selectedInverterType.input_voltage_v)}</dd>
@@ -3692,36 +3889,48 @@ function InverterArrayPage({
             </dl>
           ) : null}
           {data.entities.inverter_types.length === 0 ? (
-            <p className="fit-note">No inverter catalog entries are available yet, so the inverter configuration is waiting on seeded data.</p>
+            <p className="fit-note">No inverter catalog entries are available yet.</p>
           ) : null}
-          <div className="fit-head">
-            <div>
-            <strong>{selectedInverterType?.model ?? 'No inverter configured'}</strong>
-              <p className="mppt-result-sub">{projectInverter?.name ?? 'Provisional'}</p>
-            </div>
-            <StatusBadge status={inverterCompatibility?.status ?? 'outside_limits'} fit={inverterCompatibility?.fit} />
+          <div className="button-row button-row-end">
+            <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveInverterDesign()} disabled={isSavingInverterDesign || data.entities.inverter_types.length === 0}>
+              {isSavingInverterDesign ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="section-head">
+            <h2>Battery - Inverter evaluation</h2>
           </div>
           {batteryArrayConfig && selectedInverterType ? (
-            <dl className="detail-stats mppt-checks">
-              <div className={batteryArrayConfig.stringVoltage > selectedInverterType.input_voltage_v * 1.1 || batteryArrayConfig.stringVoltage < selectedInverterType.input_voltage_v * 0.85 ? 'check-fail' : 'check-pass'}>
-                <dt>Voltage check</dt>
-                <dd>{formatVolts(batteryArrayConfig.stringVoltage)} / {formatVolts(selectedInverterType.input_voltage_v)}</dd>
+            <div className="fit-card">
+              <div className="fit-head">
+                <strong>{selectedInverterType.model}</strong>
+                <StatusBadge status={inverterCompatibility?.status ?? 'outside_limits'} fit={inverterCompatibility?.fit} />
               </div>
-              <div className={batteryArrayConfig.maxDischargeCurrentA != null && batteryArrayConfig.maxDischargeCurrentA > selectedInverterType.max_charge_current_a ? 'check-fail' : 'check-pass'}>
-                <dt>Current check</dt>
-                <dd>{batteryArrayConfig.maxDischargeCurrentA != null ? formatAmps(batteryArrayConfig.maxDischargeCurrentA) : 'n/a'} / {formatAmps(selectedInverterType.max_charge_current_a)}</dd>
-              </div>
-              <div className={batteryArrayConfig.maxDischargePowerW != null && batteryArrayConfig.maxDischargePowerW > selectedInverterType.continuous_power_w ? 'check-fail' : 'check-pass'}>
-                <dt>Power check</dt>
-                <dd>{batteryArrayConfig.maxDischargePowerW != null ? formatKw(batteryArrayConfig.maxDischargePowerW) : 'n/a'} / {formatKw(selectedInverterType.continuous_power_w)}</dd>
-              </div>
-            </dl>
-          ) : null}
-          <ul className="reason-list">
-            {inverterCompatibility?.reasons.map((reason) => (
-              <li key={reason}>{reason.replaceAll('_', ' ')}</li>
-            )) ?? null}
-          </ul>
+              <ul className="reason-list">
+                {inverterCompatibility?.reasons.map((reason) => (
+                  <li key={reason}>{reason.replaceAll('_', ' ')}</li>
+                )) ?? null}
+              </ul>
+              <dl className="detail-stats mppt-checks">
+                <div className={batteryArrayConfig.stringVoltage > selectedInverterType.input_voltage_v * 1.1 || batteryArrayConfig.stringVoltage < selectedInverterType.input_voltage_v * 0.85 ? 'check-fail' : 'check-pass'}>
+                  <dt>Voltage check</dt>
+                  <dd>{formatVolts(batteryArrayConfig.stringVoltage)} / {formatVolts(selectedInverterType.input_voltage_v)}</dd>
+                </div>
+                <div className={batteryArrayConfig.maxDischargeCurrentA != null && batteryArrayConfig.maxDischargeCurrentA > selectedInverterType.max_charge_current_a ? 'check-fail' : 'check-pass'}>
+                  <dt>Current check</dt>
+                  <dd>{batteryArrayConfig.maxDischargeCurrentA != null ? formatAmps(batteryArrayConfig.maxDischargeCurrentA) : 'n/a'} / {formatAmps(selectedInverterType.max_charge_current_a)}</dd>
+                </div>
+                <div className={batteryArrayConfig.maxDischargePowerW != null && batteryArrayConfig.maxDischargePowerW > selectedInverterType.continuous_power_w ? 'check-fail' : 'check-pass'}>
+                  <dt>Power check</dt>
+                  <dd>{batteryArrayConfig.maxDischargePowerW != null ? formatKw(batteryArrayConfig.maxDischargePowerW) : 'n/a'} / {formatKw(selectedInverterType.continuous_power_w)}</dd>
+                </div>
+              </dl>
+            </div>
+          ) : (
+            <p className="fit-note">Choose a battery type and an inverter before the evaluation can be calculated.</p>
+          )}
         </section>
       </section>
     </>
@@ -4991,6 +5200,8 @@ export function App() {
       <main className="app-shell">
         {route.kind === 'location' ? (
           <LocationPage {...context} />
+        ) : route.kind === 'solar-yield' ? (
+          <SolarYieldPage {...context} />
         ) : route.kind === 'catalogs' ? (
           <CatalogsPage />
         ) : route.kind === 'catalog' && route.catalog === 'panel-types' ? (

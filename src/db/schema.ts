@@ -27,6 +27,8 @@ function ensureBatteryTypesColumns(db: Database.Database): void {
 function ensureLocationColumns(db: Database.Database): void {
   const cols = new Set((db.prepare("PRAGMA table_info('locations')").all() as { name: string }[]).map((row) => row.name));
   const additions = [
+    !cols.has('description') ? 'ALTER TABLE locations ADD COLUMN description TEXT;' : '',
+    !cols.has('notes') ? 'ALTER TABLE locations ADD COLUMN notes TEXT;' : '',
     !cols.has('northing') ? 'ALTER TABLE locations ADD COLUMN northing REAL;' : '',
     !cols.has('easting') ? 'ALTER TABLE locations ADD COLUMN easting REAL;' : '',
     !cols.has('site_photo_data_url') ? 'ALTER TABLE locations ADD COLUMN site_photo_data_url TEXT;' : '',
@@ -40,8 +42,11 @@ function ensureLocationColumns(db: Database.Database): void {
 function ensureSurfaceColumns(db: Database.Database): void {
   const cols = new Set((db.prepare("PRAGMA table_info('surfaces')").all() as { name: string }[]).map((row) => row.name));
   const additions = [
+    !cols.has('description') ? 'ALTER TABLE surfaces ADD COLUMN description TEXT;' : '',
     !cols.has('sort_order') ? 'ALTER TABLE surfaces ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;' : '',
     !cols.has('photo_data_url') ? 'ALTER TABLE surfaces ADD COLUMN photo_data_url TEXT;' : '',
+    !cols.has('area_height_m') ? 'ALTER TABLE surfaces ADD COLUMN area_height_m REAL;' : '',
+    !cols.has('area_width_m') ? 'ALTER TABLE surfaces ADD COLUMN area_width_m REAL;' : '',
   ].filter(Boolean);
 
   if (additions.length > 0) {
@@ -85,6 +90,34 @@ function ensureSurfaceColumns(db: Database.Database): void {
   `);
 }
 
+function ensureInverterConfigurationColumns(db: Database.Database): void {
+  const cols = new Set((db.prepare("PRAGMA table_info('inverter_configurations')").all() as { name: string }[]).map((row) => row.name));
+  const additions = [
+    !cols.has('title') ? 'ALTER TABLE inverter_configurations ADD COLUMN title TEXT;' : '',
+    !cols.has('description') ? 'ALTER TABLE inverter_configurations ADD COLUMN description TEXT;' : '',
+    !cols.has('image_data_url') ? 'ALTER TABLE inverter_configurations ADD COLUMN image_data_url TEXT;' : '',
+    !cols.has('notes') ? 'ALTER TABLE inverter_configurations ADD COLUMN notes TEXT;' : '',
+  ].filter(Boolean);
+
+  if (additions.length > 0) {
+    db.exec(additions.join('\n'));
+  }
+}
+
+function ensureBatteryBankConfigurationColumns(db: Database.Database): void {
+  const cols = new Set((db.prepare("PRAGMA table_info('battery_bank_configurations')").all() as { name: string }[]).map((row) => row.name));
+  const additions = [
+    !cols.has('title') ? 'ALTER TABLE battery_bank_configurations ADD COLUMN title TEXT;' : '',
+    !cols.has('description') ? 'ALTER TABLE battery_bank_configurations ADD COLUMN description TEXT;' : '',
+    !cols.has('image_data_url') ? 'ALTER TABLE battery_bank_configurations ADD COLUMN image_data_url TEXT;' : '',
+    !cols.has('notes') ? 'ALTER TABLE battery_bank_configurations ADD COLUMN notes TEXT;' : '',
+  ].filter(Boolean);
+
+  if (additions.length > 0) {
+    db.exec(additions.join('\n'));
+  }
+}
+
 function ensureMpptTypesColumns(db: Database.Database): void {
   const cols = new Set((db.prepare("PRAGMA table_info('mppt_types')").all() as { name: string }[]).map((row) => row.name));
   const additions = [
@@ -105,6 +138,8 @@ export function initSchema(db: Database.Database): void {
       id        INTEGER PRIMARY KEY AUTOINCREMENT,
       country   TEXT NOT NULL,
       place_name TEXT NOT NULL,
+      description TEXT,
+      notes     TEXT,
       latitude  REAL NOT NULL,
       longitude REAL NOT NULL,
       northing  REAL,
@@ -116,6 +151,7 @@ export function initSchema(db: Database.Database): void {
       id             INTEGER PRIMARY KEY AUTOINCREMENT,
       surface_id     TEXT UNIQUE NOT NULL,
       name           TEXT NOT NULL,
+      description    TEXT,
       sort_order     INTEGER NOT NULL DEFAULT 0,
       orientation_deg REAL NOT NULL,
       tilt_deg       REAL NOT NULL,
@@ -189,6 +225,10 @@ export function initSchema(db: Database.Database): void {
     CREATE TABLE IF NOT EXISTS battery_bank_configurations (
       id                       INTEGER PRIMARY KEY AUTOINCREMENT,
       battery_bank_id          TEXT UNIQUE NOT NULL,
+      title                    TEXT,
+      description              TEXT,
+      image_data_url           TEXT,
+      notes                    TEXT,
       selected_battery_type_id TEXT REFERENCES battery_types(battery_type_id),
       configured_battery_count  INTEGER NOT NULL DEFAULT 1,
       batteries_per_string      INTEGER NOT NULL DEFAULT 1,
@@ -257,6 +297,8 @@ export function initSchema(db: Database.Database): void {
 
   ensureLocationColumns(db);
   ensureSurfaceColumns(db);
+  ensureBatteryBankConfigurationColumns(db);
+  ensureInverterConfigurationColumns(db);
   ensureBatteryTypesColumns(db);
   ensureMpptTypesColumns(db);
   seedLocation(db);

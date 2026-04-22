@@ -2,6 +2,8 @@ export interface Location {
   id: number;
   country: string;
   place_name: string;
+  description?: string | null;
+  notes?: string | null;
   latitude: number;
   longitude: number;
   northing?: number | null;
@@ -13,11 +15,14 @@ export interface Surface {
   id: number;
   surface_id: string;
   name: string;
+  description?: string | null;
   sort_order?: number | null;
   /** Azimuth in degrees: 0 = North, 90 = East, 180 = South, 270 = West */
   orientation_deg: number;
   tilt_deg: number;
   usable_area_m2?: number;
+  area_height_m?: number | null;
+  area_width_m?: number | null;
   notes?: string;
   photo_data_url?: string | null;
 }
@@ -84,6 +89,10 @@ export interface SurfaceConfiguration {
 export interface BatteryBankConfiguration {
   id: number;
   battery_bank_id: string;
+  title?: string | null;
+  description?: string | null;
+  image_data_url?: string | null;
+  notes?: string | null;
   selected_battery_type_id?: string | null;
   configured_battery_count: number;
   batteries_per_string: number;
@@ -141,6 +150,10 @@ export interface InverterConfiguration {
   id: number;
   inverter_configuration_id: string;
   selected_inverter_type_id?: string | null;
+  title?: string | null;
+  description?: string | null;
+  image_data_url?: string | null;
+  notes?: string | null;
 }
 
 export interface ProjectPreferences {

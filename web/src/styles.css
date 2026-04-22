@@ -162,6 +162,7 @@ h1, h2, h3, p, dl, dd, dt {
 .app-shell {
   flex: 1;
   min-width: 0;
+  max-width: 1440px;
   padding: 32px;
 }
 
@@ -709,6 +710,12 @@ h1, h2, h3, p, dl, dd, dt {
   font-weight: 600;
 }
 
+.yield-verdict-cell {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+}
+
 /* ── Warnings ── */
 
 .warning-list {
@@ -809,11 +816,18 @@ h1, h2, h3, p, dl, dd, dt {
   gap: 12px;
 }
 
+.detail-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
 .detail-intro-grid {
   margin-bottom: 0;
 }
 
 .detail-grid .panel,
+.detail-grid-2 .panel,
 .overview-grid .panel {
   margin-top: 0;
 }
@@ -948,6 +962,17 @@ h1, h2, h3, p, dl, dd, dt {
 }
 
 .field textarea {
+  resize: vertical;
+}
+
+.field-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-low);
+  color: var(--text);
+  font: inherit;
+  border-radius: 8px;
   resize: vertical;
 }
 

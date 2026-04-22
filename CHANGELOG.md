@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## 2026-04-23
+
+- Restructured Battery bank, Inverter, and all detail pages to a consistent 3-column About/Notes/Image top zone, followed by full-width input and output sections, with a 1440px max-width on the content shell.
+- Added persistent `About` (title, description, image, notes) to the Inverter page, backed by new `title`, `description`, `image_data_url`, and `notes` columns on `inverter_configurations` in SQLite.
+- Replaced the single `Available area (m²)` field on the Surface page with separate `Height (m)` and `Width (m)` inputs; area is now derived as height × width and stored in `usable_area_m2`.
+- Removed noisy subtitle copy from Battery bank About, Surface information, and Inverter sections.
+
+## 2026-04-22
+
+- Reworked the Battery array page toward the intended `Battery bank` flow by adding a persistent `About` section with title, description, image, and notes, splitting the page into `Battery selection`, `Battery array`, `Solar yield - Battery bank evaluation`, and `Battery capacity`, and aligning refill guidance around `20% -> 80%`.
+- Simplified the `Solar yield` monthly table so it now shows only the `kWh/day` values, removing the per-cell `kWh/month` figures and the monthly totals row.
+- Added optional surface `description` persistence, exposed `Available area` on the Surface detail page, and renamed the `String` section to `Panel array` so the page structure reads more clearly with minimal UI change.
+- Fixed the Location photo persistence path so the saved location image now survives reload through the digital-twin export, added persisted location `description` and `notes`, simplified the Location surface cards to title-plus-actions, added a short surface explanation, and removed the embedded Yield block from the Location page.
+- Added a dedicated `Solar yield` page under the `Location` menu cluster so the combined per-surface and per-month yield view now has its own destination instead of living only inside the Location page.
+- Added [user-flow.md](./docs/user-flow.md) to capture the current end-to-end user flow draft, and included a written evaluation of the `Location` section to clarify its scope, strengths, and remaining gaps.
+
 ## 2026-04-21
 
 - Persisted surface notes, surface photos, and the location site photo in SQLite by extending the schema, API payloads, and web save flows so these no longer live only in browser-local state.

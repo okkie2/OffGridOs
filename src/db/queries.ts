@@ -28,12 +28,20 @@ export function upsertLocation(db: Database.Database, data: Omit<Location, 'id'>
     const sitePhotoDataUrl = data.site_photo_data_url === undefined
       ? (existing.site_photo_data_url ?? null)
       : data.site_photo_data_url;
-    db.prepare('UPDATE locations SET country=@country, place_name=@place_name, latitude=@latitude, longitude=@longitude, northing=@northing, easting=@easting, site_photo_data_url=@site_photo_data_url WHERE id=@id')
-      .run({ ...data, site_photo_data_url: sitePhotoDataUrl, id: existing.id });
-  } else {
-    db.prepare('INSERT INTO locations (country, place_name, latitude, longitude, northing, easting, site_photo_data_url) VALUES (@country, @place_name, @latitude, @longitude, @northing, @easting, @site_photo_data_url)')
+    db.prepare('UPDATE locations SET country=@country, place_name=@place_name, description=@description, notes=@notes, latitude=@latitude, longitude=@longitude, northing=@northing, easting=@easting, site_photo_data_url=@site_photo_data_url WHERE id=@id')
       .run({
         ...data,
+        description: data.description ?? null,
+        notes: data.notes ?? null,
+        site_photo_data_url: sitePhotoDataUrl,
+        id: existing.id,
+      });
+  } else {
+    db.prepare('INSERT INTO locations (country, place_name, description, notes, latitude, longitude, northing, easting, site_photo_data_url) VALUES (@country, @place_name, @description, @notes, @latitude, @longitude, @northing, @easting, @site_photo_data_url)')
+      .run({
+        ...data,
+        description: data.description ?? null,
+        notes: data.notes ?? null,
         site_photo_data_url: data.site_photo_data_url ?? null,
       });
   }
@@ -51,10 +59,13 @@ export function getSurface(db: Database.Database, surface_id: string): Surface |
 
 export function insertSurface(db: Database.Database, data: Omit<Surface, 'id'>): void {
   db.prepare(`
-    INSERT INTO surfaces (surface_id, name, sort_order, orientation_deg, tilt_deg, usable_area_m2, notes, photo_data_url)
-    VALUES (@surface_id, @name, @sort_order, @orientation_deg, @tilt_deg, @usable_area_m2, @notes, @photo_data_url)
+    INSERT INTO surfaces (surface_id, name, description, sort_order, orientation_deg, tilt_deg, usable_area_m2, area_height_m, area_width_m, notes, photo_data_url)
+    VALUES (@surface_id, @name, @description, @sort_order, @orientation_deg, @tilt_deg, @usable_area_m2, @area_height_m, @area_width_m, @notes, @photo_data_url)
   `).run({
     ...data,
+    description: data.description ?? null,
+    area_height_m: data.area_height_m ?? null,
+    area_width_m: data.area_width_m ?? null,
     photo_data_url: data.photo_data_url ?? null,
   });
 }
@@ -71,11 +82,15 @@ export function createSurface(db: Database.Database, data: Omit<Surface, 'id'>):
 export function updateSurface(db: Database.Database, data: Omit<Surface, 'id'>): void {
   db.prepare(`
     UPDATE surfaces
-    SET name=@name, orientation_deg=@orientation_deg, tilt_deg=@tilt_deg,
-        usable_area_m2=@usable_area_m2, notes=@notes, photo_data_url=@photo_data_url
+    SET name=@name, description=@description, orientation_deg=@orientation_deg, tilt_deg=@tilt_deg,
+        usable_area_m2=@usable_area_m2, area_height_m=@area_height_m, area_width_m=@area_width_m,
+        notes=@notes, photo_data_url=@photo_data_url
     WHERE surface_id=@surface_id
   `).run({
     ...data,
+    description: data.description ?? null,
+    area_height_m: data.area_height_m ?? null,
+    area_width_m: data.area_width_m ?? null,
     photo_data_url: data.photo_data_url ?? null,
   });
 }
@@ -363,6 +378,10 @@ export function upsertBatteryBankConfiguration(db: Database.Database, data: Omit
   db.prepare(`
     INSERT INTO battery_bank_configurations (
       battery_bank_id,
+      title,
+      description,
+      image_data_url,
+      notes,
       selected_battery_type_id,
       configured_battery_count,
       batteries_per_string,
@@ -370,17 +389,31 @@ export function upsertBatteryBankConfiguration(db: Database.Database, data: Omit
     )
     VALUES (
       @battery_bank_id,
+      @title,
+      @description,
+      @image_data_url,
+      @notes,
       @selected_battery_type_id,
       @configured_battery_count,
       @batteries_per_string,
       @parallel_strings
     )
     ON CONFLICT(battery_bank_id) DO UPDATE SET
+      title = excluded.title,
+      description = excluded.description,
+      image_data_url = excluded.image_data_url,
+      notes = excluded.notes,
       selected_battery_type_id = excluded.selected_battery_type_id,
       configured_battery_count = excluded.configured_battery_count,
       batteries_per_string = excluded.batteries_per_string,
       parallel_strings = excluded.parallel_strings
-  `).run(data);
+  `).run({
+    ...data,
+    title: data.title ?? null,
+    description: data.description ?? null,
+    image_data_url: data.image_data_url ?? null,
+    notes: data.notes ?? null,
+  });
 }
 
 // ── MPPT types ────────────────────────────────────────────────────────────────
@@ -581,11 +614,35 @@ export function getInverterConfiguration(db: Database.Database, inverter_configu
 
 export function upsertInverterConfiguration(db: Database.Database, data: Omit<InverterConfiguration, 'id'>): void {
   db.prepare(`
-    INSERT INTO inverter_configurations (inverter_configuration_id, selected_inverter_type_id)
-    VALUES (@inverter_configuration_id, @selected_inverter_type_id)
+    INSERT INTO inverter_configurations (
+      inverter_configuration_id,
+      selected_inverter_type_id,
+      title,
+      description,
+      image_data_url,
+      notes
+    )
+    VALUES (
+      @inverter_configuration_id,
+      @selected_inverter_type_id,
+      @title,
+      @description,
+      @image_data_url,
+      @notes
+    )
     ON CONFLICT(inverter_configuration_id) DO UPDATE SET
-      selected_inverter_type_id = excluded.selected_inverter_type_id
-  `).run(data);
+      selected_inverter_type_id = excluded.selected_inverter_type_id,
+      title = excluded.title,
+      description = excluded.description,
+      image_data_url = excluded.image_data_url,
+      notes = excluded.notes
+  `).run({
+    ...data,
+    title: data.title ?? null,
+    description: data.description ?? null,
+    image_data_url: data.image_data_url ?? null,
+    notes: data.notes ?? null,
+  });
 }
 
 // ── Project preferences ───────────────────────────────────────────────────────

@@ -939,6 +939,8 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         const payload = await readJsonBody<{
           place_name?: unknown;
           country?: unknown;
+          description?: unknown;
+          notes?: unknown;
           latitude?: unknown;
           longitude?: unknown;
           northing?: unknown;
@@ -948,6 +950,8 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
         const placeName = typeof payload.place_name === 'string' ? payload.place_name.trim() : '';
         const country = typeof payload.country === 'string' ? payload.country.trim() : '';
+        const description = isValidNonEmptyText(payload.description) ? payload.description.trim() : null;
+        const notes = isValidNonEmptyText(payload.notes) ? payload.notes.trim() : null;
         const latitude = typeof payload.latitude === 'number' ? payload.latitude : Number(payload.latitude);
         const longitude = typeof payload.longitude === 'number' ? payload.longitude : Number(payload.longitude);
         const northing = payload.northing == null || payload.northing === ''
@@ -980,6 +984,8 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           upsertLocation(db, {
             place_name: placeName,
             country,
+            description,
+            notes,
             latitude,
             longitude,
             northing,
@@ -1068,19 +1074,29 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
         const payload = await readJsonBody<{
           name?: unknown;
+          description?: unknown;
           orientation_deg?: unknown;
           tilt_deg?: unknown;
+          area_height_m?: unknown;
+          area_width_m?: unknown;
           notes?: unknown;
           photo_data_url?: unknown;
         }>(request);
 
         const name = typeof payload.name === 'string' ? payload.name.trim() : '';
+        const description = payload.description === undefined
+          ? undefined
+          : (isValidNonEmptyText(payload.description) ? payload.description.trim() : '');
         const orientationDeg = typeof payload.orientation_deg === 'number'
           ? payload.orientation_deg
           : Number(payload.orientation_deg);
         const tiltDeg = typeof payload.tilt_deg === 'number'
           ? payload.tilt_deg
           : Number(payload.tilt_deg);
+        const parseOptionalPositive = (v: unknown) =>
+          v === undefined ? undefined : (v === null || v === '' ? null : (typeof v === 'number' ? v : Number(v)));
+        const areaHeightM = parseOptionalPositive(payload.area_height_m);
+        const areaWidthM = parseOptionalPositive(payload.area_width_m);
         const notes = payload.notes === undefined
           ? undefined
           : (isValidNonEmptyText(payload.notes) ? payload.notes.trim() : '');
@@ -1103,12 +1119,21 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             return null;
           }
 
+          const resolvedHeight = areaHeightM !== undefined ? areaHeightM : (existingFace.area_height_m ?? null);
+          const resolvedWidth = areaWidthM !== undefined ? areaWidthM : (existingFace.area_width_m ?? null);
+          const derivedArea = resolvedHeight != null && resolvedWidth != null && resolvedHeight > 0 && resolvedWidth > 0
+            ? Number((resolvedHeight * resolvedWidth).toFixed(4))
+            : null;
+
           updateSurface(db, {
             surface_id: roofFaceId,
             name,
+            description: description === undefined ? (existingFace.description ?? null) : description,
             orientation_deg: orientationDeg,
             tilt_deg: tiltDeg,
-            usable_area_m2: existingFace.usable_area_m2 ?? undefined,
+            area_height_m: resolvedHeight ?? undefined,
+            area_width_m: resolvedWidth ?? undefined,
+            usable_area_m2: derivedArea ?? existingFace.usable_area_m2 ?? undefined,
             notes: notes === undefined ? (existingFace.notes ?? undefined) : notes,
             photo_data_url: photoDataUrl === undefined ? (existingFace.photo_data_url ?? null) : photoDataUrl,
           });
@@ -1301,12 +1326,30 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
     void (async () => {
       try {
         const payload = await readJsonBody<{
+          title?: unknown;
+          description?: unknown;
+          image_data_url?: unknown;
+          notes?: unknown;
           selected_battery_type_id?: unknown;
           configured_battery_count?: unknown;
           batteries_per_string?: unknown;
           parallel_strings?: unknown;
         }>(request);
 
+        const title = payload.title === undefined
+          ? undefined
+          : (isValidNonEmptyText(payload.title) ? payload.title.trim() : '');
+        const description = payload.description === undefined
+          ? undefined
+          : (isValidNonEmptyText(payload.description) ? payload.description.trim() : '');
+        const imageDataUrl = payload.image_data_url === undefined
+          ? undefined
+          : (payload.image_data_url == null || payload.image_data_url === ''
+              ? null
+              : (typeof payload.image_data_url === 'string' ? payload.image_data_url : String(payload.image_data_url)));
+        const notes = payload.notes === undefined
+          ? undefined
+          : (isValidNonEmptyText(payload.notes) ? payload.notes.trim() : '');
         const selectedBatteryTypeId = typeof payload.selected_battery_type_id === 'string' ? payload.selected_battery_type_id.trim() : '';
         const configuredBatteryCount = typeof payload.configured_battery_count === 'number'
           ? payload.configured_battery_count
@@ -1326,6 +1369,8 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         }
 
         const updated = withDb(databasePath, (db) => {
+          const existingConfiguration = getBatteryBankConfiguration(db, 'battery-bank-main');
+
           if (selectedBatteryTypeId) {
             const batteryType = db.prepare('SELECT 1 FROM battery_types WHERE battery_type_id = ?').get(selectedBatteryTypeId);
             if (!batteryType) {
@@ -1342,6 +1387,10 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
           upsertBatteryBankConfiguration(db, {
             battery_bank_id: 'battery-bank-main',
+            title: title === undefined ? (existingConfiguration?.title ?? null) : title,
+            description: description === undefined ? (existingConfiguration?.description ?? null) : description,
+            image_data_url: imageDataUrl === undefined ? (existingConfiguration?.image_data_url ?? null) : imageDataUrl,
+            notes: notes === undefined ? (existingConfiguration?.notes ?? null) : notes,
             selected_battery_type_id: selectedBatteryTypeId || null,
             configured_battery_count: configuredBatteryCount,
             batteries_per_string: batteriesPerString,
@@ -1363,8 +1412,18 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
   if (method === 'PUT' && url.pathname === '/api/inverter-configuration') {
     void (async () => {
       try {
-        const payload = await readJsonBody<{ selected_inverter_type_id?: unknown }>(request);
+        const payload = await readJsonBody<{
+          selected_inverter_type_id?: unknown;
+          title?: unknown;
+          description?: unknown;
+          image_data_url?: unknown;
+          notes?: unknown;
+        }>(request);
         const selectedInverterTypeId = typeof payload.selected_inverter_type_id === 'string' ? payload.selected_inverter_type_id.trim() : '';
+        const title = typeof payload.title === 'string' ? payload.title : null;
+        const description = typeof payload.description === 'string' ? payload.description : null;
+        const imageDataUrl = typeof payload.image_data_url === 'string' ? payload.image_data_url : (payload.image_data_url === null ? null : undefined);
+        const notes = typeof payload.notes === 'string' ? payload.notes : null;
 
         const updated = withDb(databasePath, (db) => {
           if (selectedInverterTypeId) {
@@ -1376,9 +1435,15 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             return { status: 400 as const, body: { error: 'Choose an inverter type before saving the inverter configuration.' } };
           }
 
+          const existing = db.prepare('SELECT * FROM inverter_configurations WHERE inverter_configuration_id = ?').get('inverter-configuration-main') as { title?: string; description?: string; image_data_url?: string; notes?: string } | undefined;
+
           upsertInverterConfiguration(db, {
             inverter_configuration_id: 'inverter-configuration-main',
             selected_inverter_type_id: selectedInverterTypeId,
+            title: title ?? existing?.title ?? null,
+            description: description ?? existing?.description ?? null,
+            image_data_url: imageDataUrl !== undefined ? imageDataUrl : (existing?.image_data_url ?? null),
+            notes: notes ?? existing?.notes ?? null,
           });
           setPref(db, 'preferred_inverter_type_id', selectedInverterTypeId);
 
