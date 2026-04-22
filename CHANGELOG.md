@@ -2,6 +2,8 @@
 
 ## 2026-04-23
 
+- Added a small build/version stamp to the sidebar footer so Railway and local builds can be distinguished at a glance.
+
 - Restructured Battery bank, Inverter, and all detail pages to a consistent 3-column About/Notes/Image top zone, followed by full-width input and output sections, with a 1440px max-width on the content shell.
 - Added persistent `About` (title, description, image, notes) to the Inverter page, backed by new `title`, `description`, `image_data_url`, and `notes` columns on `inverter_configurations` in SQLite.
 - Replaced the single `Available area (m²)` field on the Surface page with separate `Height (m)` and `Width (m)` inputs; area is now derived as height × width and stored in `usable_area_m2`.

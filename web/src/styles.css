@@ -155,6 +155,15 @@ h1, h2, h3, p, dl, dd, dt {
 .sidebar-footer {
   padding: 16px;
   border-top: 1px solid rgba(255 255 255 / 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sidebar-footer-stamp {
+  font-size: 0.68rem;
+  color: var(--sidebar-muted);
+  letter-spacing: 0.04em;
 }
 
 /* ── Main content ── */
