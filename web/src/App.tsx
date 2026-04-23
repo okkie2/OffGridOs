@@ -486,7 +486,7 @@ function buildLocalSurfaceSummaries(data: DigitalTwinExport): LocalSurfaceSummar
     const mpptCompatibility = arrayConfig && arrayConfig.configuredPanelCount > 0 && selectedMpptType
       ? evaluateMpptCompatibility(arrayConfig, selectedMpptType)
       : null;
-    const localSurfaceName = readStoredSurfaceLabel(projectId, surface);
+    const localSurfaceName = surface.name;
 
     return {
       surface_id: surface.surface_id,
@@ -504,7 +504,6 @@ function buildLocalSurfaceSummaries(data: DigitalTwinExport): LocalSurfaceSummar
 }
 
 type Route =
-  | { kind: 'overview' }
   | { kind: 'location' }
   | { kind: 'solar-yield' }
   | { kind: 'about' }
@@ -1325,10 +1324,7 @@ function evaluateInverterCompatibility(
 function getRoute(): Route {
   const hash = window.location.hash.replace(/^#/, '');
   if (hash === '' || hash === '/') {
-    return { kind: 'overview' };
-  }
-  if (hash === '/overview') {
-    return { kind: 'overview' };
+    return { kind: 'location' };
   }
   if (hash === '/location') {
     return { kind: 'location' };
@@ -1379,10 +1375,6 @@ function getRoute(): Route {
 }
 
 function navigateTo(route: Route): void {
-  if (route.kind === 'overview') {
-    window.location.hash = '/overview';
-    return;
-  }
   if (route.kind === 'location') {
     window.location.hash = '/location';
     return;
@@ -1415,7 +1407,6 @@ function navigateTo(route: Route): void {
 }
 
 function routeHref(route: Route): string {
-  if (route.kind === 'overview') return '#/overview';
   if (route.kind === 'location') return '#/location';
   if (route.kind === 'solar-yield') return '#/solar-yield';
   if (route.kind === 'about') return '#/about';
@@ -1439,9 +1430,6 @@ function Sidebar({ route, data }: { route: Route; data: DigitalTwinExport | null
         <div className="sidebar-logo-sub">Digital Twin</div>
       </div>
       <nav className="sidebar-nav">
-        <a href={routeHref({ kind: 'overview' })} onClick={go({ kind: 'overview' })} className={`sidebar-nav-item ${route.kind === 'overview' ? 'active' : ''}`}>
-          Overview
-        </a>
         <a href={routeHref({ kind: 'location' })} onClick={go({ kind: 'location' })} className={`sidebar-nav-item ${route.kind === 'location' || route.kind === 'surface' ? 'active' : ''}`}>
           Location
         </a>
@@ -1508,10 +1496,6 @@ function Breadcrumbs({ route, surfaceName }: { route: Route; surfaceName?: strin
     <nav className="breadcrumbs" aria-label="Breadcrumb">
       {route.kind === 'surface' ? (
         <>
-          <button type="button" className="crumb crumb-link" onClick={() => navigateTo({ kind: 'overview' })}>
-            Overview
-          </button>
-          <span className="crumb-sep">/</span>
           <button type="button" className="crumb crumb-link" onClick={() => navigateTo({ kind: 'location' })}>
             Location
           </button>
@@ -2318,276 +2302,6 @@ type PageContext = {
   batteryToInverter: BatteryBankToInverterRelationship | null;
   refreshProjectData: () => Promise<void>;
 };
-
-function OverviewPage({
-  data,
-  route,
-  weakestMonth,
-  localSurfaceSummaries,
-  localTotalInstalledWp,
-  arrayStateBySurface,
-  mpptByArray,
-  relationByArray,
-  mpptToBatteryBankByMpptId,
-  arrayById,
-  mpptById,
-  batteryBank,
-  batteryBankState,
-  projectInverter,
-  batteryToInverter,
-}: PageContext) {
-  return (
-    <>
-      <div className="topbar">
-        <h1 className="topbar-title">{data.project.name}</h1>
-      </div>
-
-      <header className="hero panel">
-        <div className="hero-strip">
-          <SummaryCard label="Installed PV" value={formatWp(localTotalInstalledWp)} />
-      <SummaryCard label="Surfaces" value={String(localSurfaceSummaries.length)} />
-          <SummaryCard label="Arrays" value={String(localSurfaceSummaries.length)} />
-          <SummaryCard label="MPPTs" value={String(localSurfaceSummaries.length)} />
-          <SummaryCard
-            label="Battery capacity"
-            value={batteryBankState?.capacity_kwh != null ? `${batteryBankState.capacity_kwh} kWh` : 'n/a'}
-          />
-          <SummaryCard
-            label="Inverter"
-            value={batteryToInverter?.continuous_power_w != null ? formatKw(batteryToInverter.continuous_power_w) : 'n/a'}
-          />
-        </div>
-      </header>
-
-      <section className="chain panel">
-        <div className="section-head">
-          <h2>System chain</h2>
-        </div>
-        <div className="chain-row">
-          <div className="chain-node">
-            <div className="chain-node-label">Surfaces</div>
-            <div className="chain-node-metric">{localSurfaceSummaries.length}</div>
-          </div>
-          <div className="chain-arrow">→</div>
-          <div className="chain-node">
-            <div className="chain-node-label">Arrays</div>
-            <div className="chain-node-metric">{localSurfaceSummaries.length}</div>
-          </div>
-          <div className="chain-arrow">→</div>
-          <div className="chain-node">
-            <div className="chain-node-label">MPPTs</div>
-            <div className="chain-node-metric">{localSurfaceSummaries.length}</div>
-          </div>
-          <div className="chain-arrow">→</div>
-          <div className="chain-node">
-            <div className="chain-node-label">Battery bank</div>
-            <div className="chain-node-metric">
-              {batteryBankState?.capacity_kwh != null ? `${batteryBankState.capacity_kwh} kWh` : batteryBank?.name ?? 'n/a'}
-            </div>
-          </div>
-          <div className="chain-arrow">→</div>
-          <div className="chain-node">
-            <div className="chain-node-label">Inverter</div>
-            <div className="chain-node-metric">
-              {batteryToInverter?.continuous_power_w != null ? formatKw(batteryToInverter.continuous_power_w) : projectInverter?.name ?? 'n/a'}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="status-strip panel">
-        <div className="section-head">
-          <h2>Array → MPPT fit</h2>
-        </div>
-        <div className="status-list">
-          {data.relationships.array_to_mppt.map((relation) => {
-            const array = arrayById.get(relation.from_array_id);
-            const mppt = mpptById.get(relation.to_mppt_configuration_id);
-            return (
-              <article key={relation.relationship_id} className="status-card">
-                <div className="status-card-top">
-                  <span className="status-title">{array?.name ?? relation.from_array_id}</span>
-                  <StatusBadge status={relation.evaluation.electrical_status} fit={relation.evaluation.fit_status} />
-                </div>
-                <p>{mppt?.name ?? relation.to_mppt_configuration_id}</p>
-              </article>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="overview-grid">
-        <section className="panel panel-with-actions">
-          <div className="section-head">
-            <h2>Surfaces</h2>
-            <p>Surface summary, array setup, and MPPT judgment together on one page.</p>
-          </div>
-          <div className="surface-grid">
-            {localSurfaceSummaries.map((surface) => {
-              return (
-                <div
-                  key={surface.surface_id}
-                  className="surface-card"
-                >
-                  <div className="surface-card-top">
-                    <div>
-                      <h3>{surface.name}</h3>
-                      <p className="surface-card-meta">{surface.orientation_deg}° · {surface.tilt_deg}° tilt</p>
-                    </div>
-                    <StatusBadge status={surface.status} fit={surface.fit} />
-                  </div>
-                  <dl className="mini-stats">
-                    <div>
-                      <dt>Array</dt>
-                      <dd>{surface.array_name}</dd>
-                    </div>
-                    <div>
-                      <dt>Panels</dt>
-                      <dd>{surface.panel_count}</dd>
-                    </div>
-                    <div>
-                      <dt>Installed</dt>
-                      <dd>{formatWp(surface.installed_wp)}</dd>
-                    </div>
-                    <div>
-                      <dt>MPPT</dt>
-                      <dd>{surface.mppt_name}</dd>
-                    </div>
-                  </dl>
-                  <div className="button-row">
-                    <button
-                      type="button"
-                      className="button button-secondary button-sm"
-                      onClick={() => navigateTo({ kind: 'surface', surfaceId: surface.surface_id })}
-                    >
-                      Detail
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="section-head">
-            <h2>Battery array</h2>
-            <p>The export now derives one provisional battery bank and inverter so the chain continues past the MPPT layer.</p>
-          </div>
-          <div className="status-list">
-            <article className="status-card">
-              <div className="status-card-top">
-                <span className="status-title">Battery bank</span>
-                <StatusBadge status={batteryToInverter?.evaluation.electrical_status ?? 'within_limits'} />
-              </div>
-              <p>{batteryBank?.name ?? 'No provisional battery bank'}</p>
-              <dl className="mini-stats">
-                <div>
-                  <dt>Modules</dt>
-                  <dd>{batteryBankState?.module_count ?? 0}</dd>
-                </div>
-                <div>
-                  <dt>Voltage</dt>
-                  <dd>{batteryBankState?.nominal_voltage_v != null ? `${batteryBankState.nominal_voltage_v} V` : 'n/a'}</dd>
-                </div>
-                <div>
-                  <dt>Capacity</dt>
-                  <dd>{batteryBankState?.capacity_kwh != null ? `${batteryBankState.capacity_kwh} kWh` : 'n/a'}</dd>
-                </div>
-                <div>
-                  <dt>MPPT charge</dt>
-                  <dd>{batteryBankState?.total_mppt_charge_current_a != null ? `${batteryBankState.total_mppt_charge_current_a} A` : 'n/a'}</dd>
-                </div>
-              </dl>
-            </article>
-
-            <article className="status-card">
-              <div className="status-card-top">
-                <span className="status-title">Inverter</span>
-                <StatusBadge status={batteryToInverter?.evaluation.electrical_status ?? 'within_limits'} />
-              </div>
-              <p>{projectInverter?.name ?? 'No provisional inverter'}</p>
-              <dl className="mini-stats">
-                <div>
-                  <dt>Bank link</dt>
-                  <dd>{batteryToInverter ? 'Connected' : 'Pending'}</dd>
-                </div>
-                <div>
-                  <dt>Power</dt>
-                  <dd>{batteryToInverter?.continuous_power_w != null ? formatKw(batteryToInverter.continuous_power_w) : 'n/a'}</dd>
-                </div>
-                <div>
-                  <dt>Voltage</dt>
-                  <dd>{batteryToInverter?.nominal_voltage_v != null ? `${batteryToInverter.nominal_voltage_v} V` : 'n/a'}</dd>
-                </div>
-                <div>
-                  <dt>Fit</dt>
-                  <dd>{batteryToInverter?.evaluation.reasons[0]?.replaceAll('_', ' ') ?? 'n/a'}</dd>
-                </div>
-              </dl>
-            </article>
-          </div>
-        </section>
-      </section>
-
-      <section className="panel">
-        <div className="section-head">
-          <h2>Monthly balance</h2>
-        </div>
-        <div className="section-head">
-          <h3>Project solar output</h3>
-          <p>Summed average daily and monthly solar output across all surface configurations.</p>
-        </div>
-        <div className="yield-table-wrap">
-          <table className="yield-table">
-            <thead>
-              <tr>
-                <th>Metric</th>
-                {data.derived.project_monthly_solar_output.map((row) => (
-                  <th key={row.month}>{MONTH_LABELS[row.month] ?? row.month}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <th>kWh/day</th>
-                {data.derived.project_monthly_solar_output.map((row) => (
-                  <td key={`project-day-${row.month}`}>{formatDailyYield(row.average_daily_kwh)}</td>
-                ))}
-              </tr>
-              <tr>
-                <th>kWh/month</th>
-                {data.derived.project_monthly_solar_output.map((row) => (
-                  <td key={`project-month-${row.month}`}>{row.monthly_kwh.toLocaleString('en-US', { maximumFractionDigits: 1 })}</td>
-                ))}
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div className="month-list">
-          {data.derived.monthly_balance.map((row) => {
-            const hasData = row.solar_kwh != null || row.consumer_kwh != null;
-            return (
-              <div key={row.month} className={`month-row ${weakestMonth?.month === row.month ? 'month-row-active' : ''}`}>
-                <span>{MONTH_LABELS[row.month] ?? row.month}</span>
-                {hasData ? (
-                  <span>
-                    {row.solar_kwh != null ? `${row.solar_kwh} kWh solar` : ''}
-                    {row.solar_kwh != null && row.consumer_kwh != null ? ' · ' : ''}
-                    {row.consumer_kwh != null ? `${row.consumer_kwh} kWh load` : ''}
-                  </span>
-                ) : (
-                  <span className="month-empty">{row.notes ?? 'No data yet'}</span>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-    </>
-  );
-}
 
 function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageContext) {
   const storagePrefix = `${data.project.project_id}:location`;
@@ -5313,9 +5027,7 @@ export function App() {
     <div className="layout">
       <Sidebar route={route} data={data} />
       <main className="app-shell">
-        {route.kind === 'overview' ? (
-          <OverviewPage {...context} />
-        ) : route.kind === 'location' ? (
+        {route.kind === 'location' ? (
           <LocationPage {...context} />
         ) : route.kind === 'about' ? (
           <AboutPage />

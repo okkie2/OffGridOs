@@ -2,6 +2,12 @@
 
 ## 2026-04-23
 
+- Removed `Overview` again from the app shell and navigation docs so `Location` is the only default landing page and top-level site entry.
+
+- Added [persistence-field-coverage-matrix.md](./docs/persistence-field-coverage-matrix.md) as a concrete field-by-field save coverage contract tied to routes, example values, and dependency scenarios.
+- Added [persistence-testing-strategy.md](./docs/persistence-testing-strategy.md) to define the save-per-box persistence testing approach, including dependency-aware scenarios, field coverage expectations, and reload-based verification.
+- Linked the new persistence testing strategy from [TODO.md](./TODO.md) and [README.md](./README.md) so follow-up coverage work has one canonical reference.
+
 - Stopped using browser-local overrides for surface names so sidebar labels and surface titles now come from SQLite only, while the name field remains editable in the form until Save.
 
 - Restored the Overview landing route and sidebar entry, and prefixed surface breadcrumbs with `Overview / Location / ...` so the navigation matches the older overview-first layout again.
