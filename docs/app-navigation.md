@@ -39,6 +39,8 @@ Recommended top-level sections:
 
 These should be visible in the main app navigation.
 
+The React sidebar should keep this order aligned with the current deployed build so local and remote nav states stay in sync after each publish.
+
 ## Default landing page
 
 The app should open on:
