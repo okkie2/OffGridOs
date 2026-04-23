@@ -107,14 +107,12 @@ Soft-fit reasons:
 Hard-limit reasons:
 
 - `dc_voltage_mismatch`
-- `continuous_current_too_high`
-- `peak_current_too_high`
-- `surge_demand_too_high`
+- `inverter_current_too_high_for_battery`
+- `inverter_power_too_high_for_battery`
 
 Soft-fit reasons:
 
-- `high_current_draw`
-- `oversized_inverter`
+- `inverter_underutilized`
 - `well_matched`
 
 ### Inverter to branch circuit

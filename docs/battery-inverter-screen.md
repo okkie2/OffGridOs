@@ -10,7 +10,7 @@ This screen should help the user answer:
 
 - what battery bank is configured
 - how the MPPTs feed the battery bank
-- whether the battery bank suits the inverter
+- whether the inverter can be supplied by the battery bank
 - where the system is tight, oversized, or seasonally stressed
 
 It is the main DC-chain and storage view.
@@ -98,9 +98,9 @@ Show:
 
 This should help the user see:
 
-- whether the inverter matches the battery bank
-- whether surge and continuous loads are realistic
-- whether the inverter is oversized or under pressure
+- whether the inverter can be supplied by the battery bank
+- whether the inverter is voltage-compatible with the battery bank
+- whether the inverter is underutilized relative to the available battery capacity
 
 ## 5. Monthly storage pressure section
 
@@ -139,6 +139,7 @@ The user should quickly be able to answer:
 
 - Is the battery bank a good match for the MPPT output side?
 - Is the battery bank a good match for the inverter?
+- Is the inverter a safe fit for the available battery-bank output?
 - Which months stress the storage system most?
 - Would it be better to change the battery bank, the inverter, or the upstream PV side?
 

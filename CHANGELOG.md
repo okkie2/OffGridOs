@@ -2,6 +2,8 @@
 
 ## 2026-04-23
 
+- Fixed the battery-bank-to-inverter verdict so a battery bank larger than the inverter is no longer treated as outside limits; the page now only flags cases where the inverter can demand more than the battery bank can supply.
+
 - Added `npm run stop:app` as the standard local cleanup command so stale OffGridOS listeners on the known app ports can be terminated before restarting the canonical `3000` app URL.
 - Added a guarded single-instance local runtime flow with one canonical manual app URL on `http://127.0.0.1:3000`, new wrapper scripts for development and startup, and fail-fast port checks so conflicting localhost copies no longer start silently.
 - Added [local-runtime.md](./docs/local-runtime.md) plus a repo-local Codex skill for keeping the single-instance local-run rule consistent across scripts, docs, and agent guidance.

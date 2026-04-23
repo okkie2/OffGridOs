@@ -1288,28 +1288,32 @@ function evaluateInverterCompatibility(
 
   const outsideLimits = batteryArrayConfig.stringVoltage > inverterType.input_voltage_v * 1.1
     || batteryArrayConfig.stringVoltage < inverterType.input_voltage_v * 0.85
-    || (batteryArrayConfig.maxDischargeCurrentA != null && batteryArrayConfig.maxDischargeCurrentA > inverterType.max_charge_current_a)
-    || (batteryArrayConfig.maxDischargePowerW != null && batteryArrayConfig.maxDischargePowerW > inverterType.continuous_power_w);
+    || (batteryArrayConfig.maxDischargeCurrentA != null && inverterType.max_charge_current_a > batteryArrayConfig.maxDischargeCurrentA)
+    || (batteryArrayConfig.maxDischargePowerW != null && inverterType.continuous_power_w > batteryArrayConfig.maxDischargePowerW);
 
   const reasons: string[] = [];
   if (batteryArrayConfig.stringVoltage > inverterType.input_voltage_v * 1.1) reasons.push('voltage_too_high');
   if (batteryArrayConfig.stringVoltage < inverterType.input_voltage_v * 0.85) reasons.push('voltage_too_low');
-  if (batteryArrayConfig.maxDischargeCurrentA != null && batteryArrayConfig.maxDischargeCurrentA > inverterType.max_charge_current_a) {
-    reasons.push('current_too_high');
+  if (batteryArrayConfig.maxDischargeCurrentA != null && inverterType.max_charge_current_a > batteryArrayConfig.maxDischargeCurrentA) {
+    reasons.push('inverter_current_too_high_for_battery');
   }
-  if (batteryArrayConfig.maxDischargePowerW != null && batteryArrayConfig.maxDischargePowerW > inverterType.continuous_power_w) {
-    reasons.push('power_too_high');
+  if (batteryArrayConfig.maxDischargePowerW != null && inverterType.continuous_power_w > batteryArrayConfig.maxDischargePowerW) {
+    reasons.push('inverter_power_too_high_for_battery');
   }
 
   let fit: FitStatus | undefined;
   if (!outsideLimits) {
+    const currentRatio = batteryArrayConfig.maxDischargeCurrentA != null
+      ? inverterType.max_charge_current_a / batteryArrayConfig.maxDischargeCurrentA
+      : null;
     const powerRatio = batteryArrayConfig.maxDischargePowerW != null
-      ? batteryArrayConfig.maxDischargePowerW / inverterType.continuous_power_w
+      ? inverterType.continuous_power_w / batteryArrayConfig.maxDischargePowerW
       : 0;
-    if (powerRatio >= 0.9) {
+    const fitRatio = currentRatio != null ? Math.min(currentRatio, powerRatio) : powerRatio;
+    if (fitRatio >= 0.9) {
       fit = 'optimal';
       reasons.push('well_matched');
-    } else if (powerRatio >= 0.7) {
+    } else if (fitRatio >= 0.7) {
       fit = 'acceptable';
       reasons.push('acceptable_headroom');
     } else {
@@ -3588,12 +3592,28 @@ function InverterArrayPage({
     data.entities.inverter_configurations[0]?.selected_inverter_type_id ?? data.entities.inverter_types[0]?.inverter_id ?? '',
   );
   const persistedInverterConfig = data.entities.inverter_configurations[0] ?? null;
-  const [inverterTitle, setInverterTitle] = useState(persistedInverterConfig?.title ?? '');
-  const [inverterDescription, setInverterDescription] = useState(persistedInverterConfig?.description ?? '');
-  const [inverterImage, setInverterImage] = useState<string | null>(persistedInverterConfig?.image_data_url ?? null);
-  const [inverterNotes, setInverterNotes] = useState(persistedInverterConfig?.notes ?? '');
+  const [inverterDraft, setInverterDraft] = useState(() => ({
+    title: persistedInverterConfig?.title ?? '',
+    description: persistedInverterConfig?.description ?? '',
+    image_data_url: persistedInverterConfig?.image_data_url ?? null,
+    notes: persistedInverterConfig?.notes ?? '',
+  }));
   const [isSavingInverterDesign, setIsSavingInverterDesign] = useState(false);
   const [inverterDesignSaveError, setInverterDesignSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setInverterDraft({
+      title: persistedInverterConfig?.title ?? '',
+      description: persistedInverterConfig?.description ?? '',
+      image_data_url: persistedInverterConfig?.image_data_url ?? null,
+      notes: persistedInverterConfig?.notes ?? '',
+    });
+  }, [
+    persistedInverterConfig?.title,
+    persistedInverterConfig?.description,
+    persistedInverterConfig?.image_data_url,
+    persistedInverterConfig?.notes,
+  ]);
 
   const selectedInverterType = selectedInverterTypeId
     ? data.entities.inverter_types.find((item) => item.inverter_id === selectedInverterTypeId) ?? null
@@ -3615,7 +3635,7 @@ function InverterArrayPage({
       return;
     }
 
-    const imageToPersist = options?.imageOverride === undefined ? inverterImage : options.imageOverride;
+    const imageToPersist = options?.imageOverride === undefined ? inverterDraft.image_data_url : options.imageOverride;
 
     setIsSavingInverterDesign(true);
     setInverterDesignSaveError(null);
@@ -3626,10 +3646,10 @@ function InverterArrayPage({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           selected_inverter_type_id: selectedInverterTypeId,
-          title: inverterTitle.trim(),
-          description: inverterDescription.trim(),
+          title: inverterDraft.title.trim(),
+          description: inverterDraft.description.trim(),
           image_data_url: imageToPersist,
-          notes: inverterNotes.trim(),
+          notes: inverterDraft.notes.trim(),
         }),
       });
 
@@ -3660,7 +3680,7 @@ function InverterArrayPage({
     const reader = new FileReader();
     reader.onload = (loadEvent) => {
       const nextImage = loadEvent.target?.result as string;
-      setInverterImage(nextImage);
+      setInverterDraft((current) => ({ ...current, image_data_url: nextImage }));
       void handleSaveInverterDesign({ imageOverride: nextImage });
     };
     reader.readAsDataURL(file);
@@ -3681,11 +3701,11 @@ function InverterArrayPage({
             {inverterDesignSaveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{inverterDesignSaveError}</p> : null}
             <label className="config-field" style={{ display: 'block', marginBottom: 8 }}>
               <span>Title</span>
-              <input type="text" value={inverterTitle} onChange={(event) => setInverterTitle(event.target.value)} />
+              <input type="text" value={inverterDraft.title} onChange={(event) => setInverterDraft((current) => ({ ...current, title: event.target.value }))} />
             </label>
             <label className="config-field" style={{ display: 'block' }}>
               <span>Description</span>
-              <input type="text" value={inverterDescription} onChange={(event) => setInverterDescription(event.target.value)} />
+              <input type="text" value={inverterDraft.description} onChange={(event) => setInverterDraft((current) => ({ ...current, description: event.target.value }))} />
             </label>
             <div className="button-row button-row-end">
               <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveInverterDesign()} disabled={isSavingInverterDesign}>
@@ -3700,8 +3720,8 @@ function InverterArrayPage({
             </div>
             <textarea
               className="field-textarea"
-              value={inverterNotes}
-              onChange={(event) => setInverterNotes(event.target.value)}
+              value={inverterDraft.notes}
+              onChange={(event) => setInverterDraft((current) => ({ ...current, notes: event.target.value }))}
               rows={5}
               placeholder="Add inverter notes, installation assumptions, or maintenance context."
             />
@@ -3717,14 +3737,14 @@ function InverterArrayPage({
               <h2>Image</h2>
               <p>Inverter location</p>
             </div>
-            {inverterImage ? (
+            {inverterDraft.image_data_url ? (
               <div className="photo-frame">
-                <img src={inverterImage} alt={inverterTitle.trim() || 'Inverter'} className="photo-image" />
+                <img src={inverterDraft.image_data_url} alt={inverterDraft.title.trim() || 'Inverter'} className="photo-image" />
                 <button
                   type="button"
                   className="button button-secondary button-sm photo-remove"
                   onClick={() => {
-                    setInverterImage(null);
+                    setInverterDraft((current) => ({ ...current, image_data_url: null }));
                     void handleSaveInverterDesign({ imageOverride: null });
                   }}
                 >
@@ -3819,11 +3839,11 @@ function InverterArrayPage({
                     <dt>Voltage check</dt>
                     <dd>{formatVolts(batteryArrayConfig.stringVoltage)} / {formatVolts(selectedInverterType.input_voltage_v)}</dd>
                   </div>
-                  <div className={batteryArrayConfig.maxDischargeCurrentA != null && batteryArrayConfig.maxDischargeCurrentA > selectedInverterType.max_charge_current_a ? 'check-fail' : 'check-pass'}>
+                  <div className={batteryArrayConfig.maxDischargeCurrentA != null && selectedInverterType.max_charge_current_a > batteryArrayConfig.maxDischargeCurrentA ? 'check-fail' : 'check-pass'}>
                     <dt>Current check</dt>
                     <dd>{batteryArrayConfig.maxDischargeCurrentA != null ? formatAmps(batteryArrayConfig.maxDischargeCurrentA) : 'n/a'} / {formatAmps(selectedInverterType.max_charge_current_a)}</dd>
                   </div>
-                  <div className={batteryArrayConfig.maxDischargePowerW != null && batteryArrayConfig.maxDischargePowerW > selectedInverterType.continuous_power_w ? 'check-fail' : 'check-pass'}>
+                  <div className={batteryArrayConfig.maxDischargePowerW != null && selectedInverterType.continuous_power_w > batteryArrayConfig.maxDischargePowerW ? 'check-fail' : 'check-pass'}>
                     <dt>Power check</dt>
                     <dd>{batteryArrayConfig.maxDischargePowerW != null ? formatKw(batteryArrayConfig.maxDischargePowerW) : 'n/a'} / {formatKw(selectedInverterType.continuous_power_w)}</dd>
                   </div>
