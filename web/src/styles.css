@@ -193,11 +193,6 @@ h1, h2, h3, p, dl, dd, dt {
   color: var(--text);
 }
 
-.topbar-meta {
-  font-size: 0.82rem;
-  color: var(--muted);
-}
-
 /* ── Panels ── */
 
 .panel {
@@ -1217,6 +1212,21 @@ h1, h2, h3, p, dl, dd, dt {
   display: block;
   max-height: 260px;
   object-fit: cover;
+}
+
+.map-frame {
+  margin-top: 12px;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-low);
+}
+
+.map-frame iframe {
+  display: block;
+  width: 100%;
+  min-height: 300px;
+  border: 0;
 }
 
 .photo-remove {

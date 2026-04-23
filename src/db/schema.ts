@@ -27,6 +27,7 @@ function ensureBatteryTypesColumns(db: Database.Database): void {
 function ensureLocationColumns(db: Database.Database): void {
   const cols = new Set((db.prepare("PRAGMA table_info('locations')").all() as { name: string }[]).map((row) => row.name));
   const additions = [
+    !cols.has('title') ? 'ALTER TABLE locations ADD COLUMN title TEXT;' : '',
     !cols.has('description') ? 'ALTER TABLE locations ADD COLUMN description TEXT;' : '',
     !cols.has('notes') ? 'ALTER TABLE locations ADD COLUMN notes TEXT;' : '',
     !cols.has('northing') ? 'ALTER TABLE locations ADD COLUMN northing REAL;' : '',
@@ -136,6 +137,7 @@ export function initSchema(db: Database.Database): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS locations (
       id        INTEGER PRIMARY KEY AUTOINCREMENT,
+      title     TEXT,
       country   TEXT NOT NULL,
       place_name TEXT NOT NULL,
       description TEXT,

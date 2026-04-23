@@ -937,6 +937,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
     void (async () => {
       try {
         const payload = await readJsonBody<{
+          title?: unknown;
           place_name?: unknown;
           country?: unknown;
           description?: unknown;
@@ -948,6 +949,9 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           site_photo_data_url?: unknown;
         }>(request);
 
+        const title = payload.title == null
+          ? null
+          : (isValidNonEmptyText(payload.title) ? payload.title.trim() : '');
         const placeName = typeof payload.place_name === 'string' ? payload.place_name.trim() : '';
         const country = typeof payload.country === 'string' ? payload.country.trim() : '';
         const description = isValidNonEmptyText(payload.description) ? payload.description.trim() : null;
@@ -982,6 +986,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
         withDb(databasePath, (db) => {
           upsertLocation(db, {
+            title: title === '' ? null : title,
             place_name: placeName,
             country,
             description,

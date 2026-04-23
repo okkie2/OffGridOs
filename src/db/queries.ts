@@ -25,21 +25,24 @@ export function getLocation(db: Database.Database): Location | null {
 export function upsertLocation(db: Database.Database, data: Omit<Location, 'id'>): void {
   const existing = getLocation(db);
   if (existing) {
+    const title = data.title === undefined ? (existing.title ?? null) : data.title;
     const sitePhotoDataUrl = data.site_photo_data_url === undefined
       ? (existing.site_photo_data_url ?? null)
       : data.site_photo_data_url;
-    db.prepare('UPDATE locations SET country=@country, place_name=@place_name, description=@description, notes=@notes, latitude=@latitude, longitude=@longitude, northing=@northing, easting=@easting, site_photo_data_url=@site_photo_data_url WHERE id=@id')
+    db.prepare('UPDATE locations SET title=@title, country=@country, place_name=@place_name, description=@description, notes=@notes, latitude=@latitude, longitude=@longitude, northing=@northing, easting=@easting, site_photo_data_url=@site_photo_data_url WHERE id=@id')
       .run({
         ...data,
+        title,
         description: data.description ?? null,
         notes: data.notes ?? null,
         site_photo_data_url: sitePhotoDataUrl,
         id: existing.id,
       });
   } else {
-    db.prepare('INSERT INTO locations (country, place_name, description, notes, latitude, longitude, northing, easting, site_photo_data_url) VALUES (@country, @place_name, @description, @notes, @latitude, @longitude, @northing, @easting, @site_photo_data_url)')
+    db.prepare('INSERT INTO locations (title, country, place_name, description, notes, latitude, longitude, northing, easting, site_photo_data_url) VALUES (@title, @country, @place_name, @description, @notes, @latitude, @longitude, @northing, @easting, @site_photo_data_url)')
       .run({
         ...data,
+        title: data.title ?? null,
         description: data.description ?? null,
         notes: data.notes ?? null,
         site_photo_data_url: data.site_photo_data_url ?? null,

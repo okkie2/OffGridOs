@@ -30,6 +30,7 @@ describe('publish rehearsal', () => {
 
     withDb(dbPath, (db) => {
       upsertLocation(db, {
+        title: '18Mad Boerderij',
         country: 'NL',
         place_name: 'Warten',
         description: 'Farm site in Friesland',
@@ -77,6 +78,7 @@ describe('publish rehearsal', () => {
       const exportData = buildDigitalTwinExport(db, dbPath);
 
       expect(location).not.toBeNull();
+      expect(location?.title).toBe('18Mad Boerderij');
       expect(location?.place_name).toBe('Warten');
       expect(location?.description).toBe('Farm site in Friesland');
       expect(location?.notes).toBe('Representative persisted location state');
@@ -114,9 +116,11 @@ describe('publish rehearsal', () => {
 
       expect(exportData.entities.inverter_configurations[0]?.inverter_id).toBe('victron-mp2-48-10000');
       expect(exportData.project.location?.place_name).toBe('Warten');
+      expect(exportData.project.location?.title).toBe('18Mad Boerderij');
       expect(exportData.project.location?.description).toBe('Farm site in Friesland');
       expect(exportData.project.location?.notes).toBe('Representative persisted location state');
       expect(exportData.project.location?.site_photo_data_url).toBe('data:image/png;base64,test-location-photo');
+      expect(exportData.project.name).toBe('18Mad Boerderij');
       expect(exportData.derived.summary.array_count).toBeGreaterThan(0);
       expect(exportData.derived.summary.mppt_configuration_count).toBeGreaterThan(0);
     } finally {

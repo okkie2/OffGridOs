@@ -1,11 +1,16 @@
 import path from 'path';
 
 export const DEFAULT_DATABASE_PATH = './project.db';
+export const DEFAULT_PRODUCTION_DATABASE_PATH = '/data/project.db';
 const DEFAULT_SERVER_PORT = 3000;
 const DEFAULT_SERVER_HOST = '0.0.0.0';
 
 export function resolveDatabasePath(explicitPath?: string): string {
-  return path.resolve(explicitPath ?? process.env.DATABASE_PATH ?? DEFAULT_DATABASE_PATH);
+  const databasePath = explicitPath
+    ?? process.env.DATABASE_PATH
+    ?? (process.env.NODE_ENV === 'production' ? DEFAULT_PRODUCTION_DATABASE_PATH : DEFAULT_DATABASE_PATH);
+
+  return path.resolve(databasePath);
 }
 
 export function resolveServerPort(): number {

@@ -108,6 +108,7 @@ interface ExportProject {
   project_id: string;
   name: string;
   location: {
+    title?: string | null;
     country: string;
     place_name: string;
     description: string | null;
@@ -432,6 +433,7 @@ function toProject(location: Location | null, projectPreferences: ProjectPrefere
     project_id: 'offgridos-project',
     name: 'OffGridOS - 18Mad Boerderij',
     location: location ? {
+      title: location.title ?? null,
       country: location.country,
       place_name: location.place_name,
       description: location.description ?? null,

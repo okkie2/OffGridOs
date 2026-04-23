@@ -2,6 +2,13 @@
 
 ## 2026-04-23
 
+- Changed the Location page header to show the editable location name instead of the project name, and relabeled the field as `Location name` so it reads as a CRUD-able location property.
+
+- Split the Location header title into a real persisted location title field, renamed the project header to `18Mad Boerderij`, and added an About page with the Joost Okkinga byline and Codeberg repository link.
+
+- Made production database resolution fall back to `/data/project.db` when `DATABASE_PATH` is unset, so Railway redeploys keep using mounted persistent storage instead of a disposable container-local SQLite file.
+- Added runtime-path tests that cover the local default, the production fallback, and explicit overrides.
+
 - Removed the Overview sidebar link and made Location the default landing page.
 - Added a Save button to the Location Site photo card so image uploads now have an explicit save action next to the photo itself.
 - Added a small build/version stamp to the sidebar footer so Railway and local builds can be distinguished at a glance.

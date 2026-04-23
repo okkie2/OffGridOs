@@ -173,6 +173,7 @@ const INVERTER_TYPES: Array<{
 ];
 
 const BASELINE_LOCATION = {
+  title: '18Mad Boerderij',
   country: 'NL',
   place_name: 'Warten',
   latitude: 53.126579,
@@ -579,7 +580,7 @@ export function seedInverterConfigurations(db: Database.Database): void {
 export function seedLocation(db: Database.Database): void {
   const existing = db.prepare('SELECT COUNT(*) as count FROM locations').get() as { count: number } | undefined;
   if (!existing || existing.count === 0) {
-    db.prepare('INSERT INTO locations (country, place_name, latitude, longitude, northing, easting) VALUES (@country, @place_name, @latitude, @longitude, @northing, @easting)')
+    db.prepare('INSERT INTO locations (title, country, place_name, latitude, longitude, northing, easting) VALUES (@title, @country, @place_name, @latitude, @longitude, @northing, @easting)')
       .run(BASELINE_LOCATION);
   }
 }

@@ -269,6 +269,7 @@ interface DigitalTwinExport {
     project_id?: string;
     name: string;
     location: {
+      title?: string | null;
       country: string;
       place_name: string;
       description?: string | null;
@@ -391,6 +392,12 @@ function readStoredSurfaceLabel(projectId: string, surface: Surface): string {
   return stored.trim() || surface.name;
 }
 
+function buildGoogleMapsIframeSrc(latitude: number, longitude: number): string {
+  const lat = latitude.toFixed(6);
+  const lng = longitude.toFixed(6);
+  return `https://www.google.com/maps?q=${encodeURIComponent(`${lat},${lng}`)}&z=19&t=k&output=embed`;
+}
+
 type LocalSurfaceSummary = {
   surface_id: string;
   name: string;
@@ -406,6 +413,12 @@ type LocalSurfaceSummary = {
 
 function getProjectStorageKey(data: DigitalTwinExport): string {
   return data.project.project_id ?? 'offgridos-project';
+}
+
+function getLocationDisplayName(data: DigitalTwinExport): string {
+  return data.project.location?.title?.trim()
+    || data.project.location?.place_name
+    || 'Location not set';
 }
 
 function buildLocalSurfaceSummaries(data: DigitalTwinExport): LocalSurfaceSummary[] {
@@ -476,6 +489,7 @@ function buildLocalSurfaceSummaries(data: DigitalTwinExport): LocalSurfaceSummar
 type Route =
   | { kind: 'location' }
   | { kind: 'solar-yield' }
+  | { kind: 'about' }
   | { kind: 'catalogs' }
   | { kind: 'catalog'; catalog: 'panel-types' | 'mppt-types' | 'battery-types' | 'inverter-types' }
   | { kind: 'battery-array' }
@@ -1301,6 +1315,9 @@ function getRoute(): Route {
   if (hash === '/solar-yield') {
     return { kind: 'solar-yield' };
   }
+  if (hash === '/about') {
+    return { kind: 'about' };
+  }
   if (hash === '/catalogs') {
     return { kind: 'catalogs' };
   }
@@ -1346,6 +1363,10 @@ function navigateTo(route: Route): void {
     window.location.hash = '/solar-yield';
     return;
   }
+  if (route.kind === 'about') {
+    window.location.hash = '/about';
+    return;
+  }
   if (route.kind === 'catalogs') {
     window.location.hash = '/catalogs';
     return;
@@ -1368,6 +1389,7 @@ function navigateTo(route: Route): void {
 function routeHref(route: Route): string {
   if (route.kind === 'location') return '#/location';
   if (route.kind === 'solar-yield') return '#/solar-yield';
+  if (route.kind === 'about') return '#/about';
   if (route.kind === 'catalogs') return '#/catalogs';
   if (route.kind === 'catalog') return `#/${route.catalog}`;
   if (route.kind === 'battery-array') return '#/battery-array';
@@ -1435,7 +1457,14 @@ function Sidebar({ route, data }: { route: Route; data: DigitalTwinExport | null
         ) : null}
       </nav>
       <div className="sidebar-footer">
-        <span className="sidebar-footer-btn">New project</span>
+        <span className="sidebar-nav-item sidebar-nav-disabled">New project</span>
+        <a
+          href={routeHref({ kind: 'about' })}
+          onClick={go({ kind: 'about' })}
+          className={`sidebar-nav-item ${route.kind === 'about' ? 'active' : ''}`}
+        >
+          About
+        </a>
         <span className="sidebar-footer-stamp">{typeof __BUILD_INFO__ !== 'undefined' ? __BUILD_INFO__ : ''}</span>
       </div>
     </aside>
@@ -2275,11 +2304,6 @@ function OverviewPage({
     <>
       <div className="topbar">
         <h1 className="topbar-title">{data.project.name}</h1>
-        <span className="topbar-meta">
-          {data.project.location
-            ? `${data.project.location.place_name}, ${data.project.location.country}`
-            : 'Location not set'}
-        </span>
       </div>
 
       <header className="hero panel">
@@ -2531,7 +2555,11 @@ function OverviewPage({
 
 function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageContext) {
   const storagePrefix = `${data.project.project_id}:location`;
-  const [title, setTitle] = usePersistentState(`${storagePrefix}:title`, data.project.location?.place_name ?? '');
+  const defaultLocationName = data.project.location?.title ?? '18Mad Boerderij';
+  const [title, setTitle] = usePersistentState(
+    `${storagePrefix}:title`,
+    defaultLocationName,
+  );
   const [country, setCountry] = usePersistentState(`${storagePrefix}:country`, data.project.location?.country ?? '');
   const [description, setDescription] = usePersistentState(`${storagePrefix}:description`, data.project.location?.description ?? '');
   const [notes, setNotes] = usePersistentState(`${storagePrefix}:notes`, data.project.location?.notes ?? '');
@@ -2551,14 +2579,17 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
   const [saveError, setSaveError] = useState<string | null>(null);
   const [surfaceMessage, setSurfaceMessage] = useState<string | null>(null);
   const [surfaceError, setSurfaceError] = useState<string | null>(null);
+  const numericLatitude = Number(latitude);
+  const numericLongitude = Number(longitude);
+  const hasMapCoordinates = Number.isFinite(numericLatitude) && Number.isFinite(numericLongitude);
 
   async function handleSaveLocation(photoOverride?: string | null) {
     const numericLatitude = Number(latitude);
     const numericLongitude = Number(longitude);
     const nextPhoto = photoOverride === undefined ? photo : photoOverride;
 
-    if (!title.trim() || !country.trim()) {
-      setSaveError('Location and country are required before saving.');
+    if (!country.trim()) {
+      setSaveError('Country is required before saving.');
       setSaveMessage(null);
       return;
     }
@@ -2586,7 +2617,8 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          place_name: title.trim(),
+          title: title.trim() || null,
+          place_name: data.project.location?.place_name ?? 'Warten',
           country: country.trim(),
           description: description.trim(),
           notes: notes.trim(),
@@ -2700,6 +2732,19 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
   }, [data.project.location?.site_photo_data_url]);
 
   useEffect(() => {
+    const savedTitle = data.project.location?.title?.trim();
+    if (savedTitle) {
+      setTitle(savedTitle);
+      return;
+    }
+
+    const currentTitle = title.trim();
+    if (currentTitle === '' || currentTitle === data.project.location?.place_name) {
+      setTitle(defaultLocationName);
+    }
+  }, [data.project.location?.place_name, data.project.location?.title, defaultLocationName, setTitle, title]);
+
+  useEffect(() => {
     setDescription(data.project.location?.description ?? '');
   }, [data.project.location?.description, setDescription]);
 
@@ -2725,8 +2770,7 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
   return (
     <>
       <div className="topbar">
-        <h1 className="topbar-title">{data.project.name}</h1>
-        <span className="topbar-meta">Location</span>
+        <h1 className="topbar-title">{title.trim() || defaultLocationName}</h1>
       </div>
 
       <div className="detail-grid" style={{ marginBottom: 16 }}>
@@ -2736,14 +2780,14 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
             <p>Shared location inputs for the whole site and all configured surfaces.</p>
           </div>
           <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--muted)', fontSize: '0.86rem' }}>
-            Title, country, description, notes, coordinates, and location image save to SQLite.
+            Location name, country, description, notes, coordinates, and location image save to SQLite.
           </p>
           {saveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{saveError}</p> : null}
           {saveMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{saveMessage}</p> : null}
           <div className="roof-config-inline">
             <label className="config-field">
-              <span>Title</span>
-              <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Warten farm" />
+              <span>Location name</span>
+              <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. 18Mad Boerderij" />
             </label>
             <label className="config-field">
               <span>Country</span>
@@ -2821,6 +2865,23 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
               {isSaving ? 'Saving...' : 'Save'}
             </button>
           </div>
+          <div className="section-head" style={{ marginTop: 20 }}>
+            <h2>Satellite map</h2>
+            <p>Google Maps centered on the saved coordinates.</p>
+          </div>
+          {hasMapCoordinates ? (
+            <div className="map-frame">
+              <iframe
+                title="Location satellite map"
+                src={buildGoogleMapsIframeSrc(numericLatitude, numericLongitude)}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                allowFullScreen
+              />
+            </div>
+          ) : (
+            <p style={{ margin: 0, color: 'var(--muted)' }}>Add valid latitude and longitude values to show the map.</p>
+          )}
         </section>
       </div>
 
@@ -2891,6 +2952,46 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
   );
 }
 
+function AboutPage() {
+  return (
+    <>
+      <div className="topbar">
+        <h1 className="topbar-title">About</h1>
+      </div>
+
+      <section className="detail-shell">
+        <div className="detail-grid detail-intro-grid">
+          <section className="panel panel-span-2">
+            <div className="section-head">
+              <h2>About OffGridOS</h2>
+              <p>OffGridOS is designed and maintained by Joost Okkinga.</p>
+            </div>
+            <div className="stack" style={{ gap: 16 }}>
+              <p style={{ margin: 0, maxWidth: 760, color: 'var(--muted)' }}>
+                It is a single-project planning tool for the 18Mad Boerderij digital twin, built around a local-first SQLite database, a Node server, and a React interface.
+              </p>
+              <div className="hero-strip">
+                <SummaryCard label="Maintained by" value="Joost Okkinga" />
+                <SummaryCard label="Source code" value="Codeberg" detail="codeberg.org/okkingaj/OffGridOS" />
+              </div>
+              <div className="button-row">
+                <a
+                  className="button button-secondary"
+                  href="https://codeberg.org/okkingaj/OffGridOS"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open Codeberg repo
+                </a>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+    </>
+  );
+}
+
 function SolarYieldPage({
   data,
   localSurfaceSummaries,
@@ -2943,7 +3044,6 @@ function SolarYieldPage({
     <>
       <div className="topbar">
         <h1 className="topbar-title">{data.project.name}</h1>
-        <span className="topbar-meta">Solar yield</span>
       </div>
 
       <section className="detail-shell">
@@ -2955,7 +3055,7 @@ function SolarYieldPage({
               <p>Solar yield is derived from the location latitude plus all configured surfaces and their PV setup.</p>
             </div>
             <div className="hero-strip">
-              <SummaryCard label="Location" value={data.project.location?.place_name ?? 'Location not set'} detail={data.project.location?.country ?? 'No country set'} />
+              <SummaryCard label="Location" value={getLocationDisplayName(data)} detail={data.project.location?.country ?? 'No country set'} />
               <SummaryCard label="Latitude" value={effectiveLatitude.toLocaleString('en-US', { maximumFractionDigits: 4 })} />
               <SummaryCard label="Surfaces" value={String(localSurfaceSummaries.length)} />
               <SummaryCard label="Installed PV" value={formatWp(localTotalInstalledWp)} />
@@ -3271,11 +3371,6 @@ function BatteryArrayPage({
     <>
       <div className="topbar">
         <h1 className="topbar-title">{data.project.name}</h1>
-        <span className="topbar-meta">
-          {data.project.location
-            ? `${data.project.location.place_name}, ${data.project.location.country}`
-            : 'Location not set'}
-        </span>
       </div>
 
       <section className="detail-shell">
@@ -3764,11 +3859,6 @@ function InverterArrayPage({
     <>
       <div className="topbar">
         <h1 className="topbar-title">{data.project.name}</h1>
-        <span className="topbar-meta">
-          {data.project.location
-            ? `${data.project.location.place_name}, ${data.project.location.country}`
-            : 'Location not set'}
-        </span>
       </div>
 
       <section className="detail-shell">
@@ -5201,6 +5291,8 @@ export function App() {
       <main className="app-shell">
         {route.kind === 'location' ? (
           <LocationPage {...context} />
+        ) : route.kind === 'about' ? (
+          <AboutPage />
         ) : route.kind === 'solar-yield' ? (
           <SolarYieldPage {...context} />
         ) : route.kind === 'catalogs' ? (

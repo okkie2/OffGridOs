@@ -53,6 +53,8 @@ DATABASE_PATH=/data/project.db
 NODE_ENV=production
 ```
 
+If `DATABASE_PATH` is omitted in production, the server now falls back to `/data/project.db` so Railway deployments keep using mounted storage instead of a disposable container path.
+
 The hosting platform must also provide `PORT`, which the Node server uses at runtime.
 
 For local production rehearsals, you can optionally set `HOST=127.0.0.1` so the server binds to the loopback interface instead of the platform default.
