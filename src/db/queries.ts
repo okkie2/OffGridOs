@@ -272,12 +272,39 @@ export function deleteArrayToMpptMappingsForSurface(db: Database.Database, surfa
 }
 
 export function upsertArrayToMpptMapping(db: Database.Database, data: Omit<ArrayToMpptMapping, 'id'>): void {
-  db.prepare(`
-    INSERT INTO array_to_mppt_mappings (mapping_id, array_id, selected_mppt_type_id)
-    VALUES (@mapping_id, @array_id, @selected_mppt_type_id)
-    ON CONFLICT(array_id) DO UPDATE SET
-      selected_mppt_type_id = excluded.selected_mppt_type_id
-  `).run(data);
+  try {
+    db.prepare(`
+      INSERT INTO array_to_mppt_mappings (mapping_id, array_id, selected_mppt_type_id)
+      VALUES (@mapping_id, @array_id, @selected_mppt_type_id)
+      ON CONFLICT(array_id) DO UPDATE SET
+        selected_mppt_type_id = excluded.selected_mppt_type_id
+    `).run(data);
+  } catch (error) {
+    const arrayExists = db.prepare('SELECT array_id, surface_id FROM pv_arrays WHERE array_id = ?').get(data.array_id) as
+      | { array_id: string; surface_id: string }
+      | undefined;
+    const mpptExists = data.selected_mppt_type_id == null
+      ? null
+      : (db.prepare('SELECT mppt_type_id FROM mppt_types WHERE mppt_type_id = ?').get(data.selected_mppt_type_id) as { mppt_type_id: string } | undefined);
+    const existingMapping = db.prepare('SELECT mapping_id, array_id, selected_mppt_type_id FROM array_to_mppt_mappings WHERE mapping_id = ?')
+      .get(data.mapping_id) as { mapping_id: string; array_id: string; selected_mppt_type_id?: string | null } | undefined;
+    const foreignKeyViolations = db.prepare('PRAGMA foreign_key_check').all() as Array<{
+      table: string;
+      rowid: number;
+      parent: string;
+      fkid: number;
+    }>;
+
+    console.error('[db] upsertArrayToMpptMapping failed', {
+      data,
+      arrayExists: arrayExists ?? null,
+      mpptExists: mpptExists ?? null,
+      existingMapping: existingMapping ?? null,
+      foreignKeyViolations: foreignKeyViolations.slice(0, 20),
+      error: error instanceof Error ? { name: error.name, message: error.message } : error,
+    });
+    throw error;
+  }
 }
 
 function resolveValidSelectedMpptTypeId(db: Database.Database, selectedMpptTypeId?: string | null): string | null {

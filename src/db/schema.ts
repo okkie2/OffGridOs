@@ -311,5 +311,6 @@ export function initSchema(db: Database.Database): void {
   seedSurfacePanelAssignments(db);
   seedInverterTypes(db);
   seedInverterConfigurations(db);
-  syncPvTopology(db);
+  // PV topology rows are derived data. Skip rebuilding them at startup so
+  // legacy production data can still boot and be repaired in-app.
 }

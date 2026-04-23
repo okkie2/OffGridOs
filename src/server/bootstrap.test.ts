@@ -37,9 +37,9 @@ describe('ensureDatabaseReady', () => {
       expect(countRows(db, 'surfaces')).toBeGreaterThan(0);
       expect(countRows(db, 'panel_types')).toBeGreaterThan(0);
       expect(countRows(db, 'surface_panel_assignments')).toBeGreaterThan(0);
-      expect(countRows(db, 'pv_arrays')).toBeGreaterThan(0);
-      expect(countRows(db, 'pv_strings')).toBeGreaterThan(0);
-      expect(countRows(db, 'array_to_mppt_mappings')).toBeGreaterThan(0);
+      expect(countRows(db, 'pv_arrays')).toBe(0);
+      expect(countRows(db, 'pv_strings')).toBe(0);
+      expect(countRows(db, 'array_to_mppt_mappings')).toBe(0);
       expect(countRows(db, 'inverter_configurations')).toBe(1);
     } finally {
       db.close();
@@ -52,9 +52,9 @@ describe('ensureDatabaseReady', () => {
       expect(countRows(db, 'surfaces')).toBeGreaterThan(0);
       expect(countRows(db, 'panel_types')).toBeGreaterThan(0);
       expect(countRows(db, 'surface_panel_assignments')).toBeGreaterThan(0);
-      expect(countRows(db, 'pv_arrays')).toBeGreaterThan(0);
-      expect(countRows(db, 'pv_strings')).toBeGreaterThan(0);
-      expect(countRows(db, 'array_to_mppt_mappings')).toBeGreaterThan(0);
+      expect(countRows(db, 'pv_arrays')).toBe(0);
+      expect(countRows(db, 'pv_strings')).toBe(0);
+      expect(countRows(db, 'array_to_mppt_mappings')).toBe(0);
       expect(countRows(db, 'inverter_configurations')).toBe(1);
     } finally {
       db.close();

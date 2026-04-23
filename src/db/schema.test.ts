@@ -58,9 +58,9 @@ describe('initSchema', () => {
       expect(first.surfaces).toBeGreaterThan(0);
       expect(first.panel_types).toBeGreaterThan(0);
       expect(first.surface_panel_assignments).toBeGreaterThan(0);
-      expect(first.pv_arrays).toBeGreaterThan(0);
-      expect(first.pv_strings).toBeGreaterThan(0);
-      expect(first.array_to_mppt_mappings).toBeGreaterThan(0);
+      expect(first.pv_arrays).toBe(0);
+      expect(first.pv_strings).toBe(0);
+      expect(first.array_to_mppt_mappings).toBe(0);
       expect(first.mppt_types).toBeGreaterThan(0);
       expect(first.battery_types).toBeGreaterThan(0);
       expect(first.inverter_types).toBeGreaterThan(0);
@@ -75,11 +75,21 @@ describe('initSchema', () => {
     }
   });
 
-  it('clears stale MPPT references while bootstrapping an existing database', () => {
+  it('preserves bootability even when stale MPPT references exist in legacy derived rows', () => {
     const db = makeTempDatabase();
     try {
       db.exec('PRAGMA foreign_keys = OFF;');
       initSchema(db);
+
+      db.prepare(`
+        INSERT INTO pv_arrays (array_id, surface_id, name, panel_type_id, panel_count, panels_per_string, parallel_strings, installed_wp, notes)
+        VALUES ('array-flat-ne', 'flat-ne', 'Flat NE', NULL, 0, NULL, NULL, 0, 'legacy row')
+      `).run();
+
+      db.prepare(`
+        INSERT INTO array_to_mppt_mappings (mapping_id, array_id, selected_mppt_type_id)
+        VALUES ('array-mppt-flat-ne', 'array-flat-ne', NULL)
+      `).run();
 
       db.prepare(`
         UPDATE surface_configurations
@@ -95,52 +105,59 @@ describe('initSchema', () => {
       db.exec('PRAGMA foreign_keys = ON;');
 
       expect(() => initSchema(db)).not.toThrow();
-      expect(getSurfaceConfiguration(db, 'flat-ne')?.selected_mppt_type_id ?? null).toBeNull();
-      expect(getArrayToMpptMapping(db, 'array-flat-ne')?.selected_mppt_type_id ?? null).toBeNull();
+      expect(getArrayToMpptMapping(db, 'array-flat-ne')?.selected_mppt_type_id ?? null).toBe('missing-mppt');
     } finally {
       db.close();
     }
   });
 
-  it('normalizes legacy PV array ids while bootstrapping an existing database', () => {
+  it('leaves legacy PV array ids untouched during bootstrap', () => {
     const db = makeTempDatabase();
     try {
       db.exec('PRAGMA foreign_keys = OFF;');
       initSchema(db);
 
       db.prepare(`
-        UPDATE pv_arrays
-        SET array_id = 'legacy-flat-ne'
-        WHERE surface_id = 'flat-ne'
+        INSERT INTO pv_arrays (array_id, surface_id, name, panel_type_id, panel_count, panels_per_string, parallel_strings, installed_wp, notes)
+        VALUES ('legacy-flat-ne', 'flat-ne', 'Flat NE', NULL, 0, NULL, NULL, 0, 'legacy row')
       `).run();
 
       db.prepare(`
-        UPDATE pv_strings
-        SET array_id = 'legacy-flat-ne'
-        WHERE surface_id = 'flat-ne'
+        INSERT INTO array_to_mppt_mappings (mapping_id, array_id, selected_mppt_type_id)
+        VALUES ('array-mppt-flat-ne', 'legacy-flat-ne', NULL)
       `).run();
 
       db.prepare(`
-        UPDATE array_to_mppt_mappings
-        SET array_id = 'legacy-flat-ne'
-        WHERE mapping_id = 'array-mppt-flat-ne'
+        INSERT INTO pv_strings (string_id, array_id, surface_id, string_index, panel_type_id, panel_count)
+        VALUES ('string-flat-ne-1', 'legacy-flat-ne', 'flat-ne', 1, NULL, 0)
       `).run();
+
       db.exec('PRAGMA foreign_keys = ON;');
 
       expect(() => initSchema(db)).not.toThrow();
-      expect(db.prepare('SELECT array_id FROM pv_arrays WHERE surface_id = ?').get('flat-ne')).toEqual({ array_id: 'array-flat-ne' });
-      expect(db.prepare('SELECT COUNT(*) AS count FROM pv_strings WHERE array_id = ?').get('array-flat-ne')).toEqual({ count: 1 });
-      expect(getArrayToMpptMapping(db, 'array-flat-ne')?.selected_mppt_type_id ?? null).toBeNull();
+      expect(db.prepare('SELECT array_id FROM pv_arrays WHERE surface_id = ?').get('flat-ne')).toEqual({ array_id: 'legacy-flat-ne' });
+      expect(db.prepare('SELECT COUNT(*) AS count FROM pv_strings WHERE array_id = ?').get('legacy-flat-ne')).toEqual({ count: 1 });
+      expect(getArrayToMpptMapping(db, 'legacy-flat-ne')?.selected_mppt_type_id ?? null).toBeNull();
     } finally {
       db.close();
     }
   });
 
-  it('replaces corrupted array-to-mppt rows while bootstrapping an existing database', () => {
+  it('leaves corrupted legacy array-to-mppt rows untouched during bootstrap', () => {
     const db = makeTempDatabase();
     try {
       db.exec('PRAGMA foreign_keys = OFF;');
       initSchema(db);
+
+      db.prepare(`
+        INSERT INTO pv_arrays (array_id, surface_id, name, panel_type_id, panel_count, panels_per_string, parallel_strings, installed_wp, notes)
+        VALUES ('array-flat-ne', 'flat-ne', 'Flat NE', NULL, 0, NULL, NULL, 0, 'legacy row')
+      `).run();
+
+      db.prepare(`
+        INSERT INTO array_to_mppt_mappings (mapping_id, array_id, selected_mppt_type_id)
+        VALUES ('array-mppt-flat-ne', 'array-flat-ne', NULL)
+      `).run();
 
       db.prepare(`
         UPDATE array_to_mppt_mappings
@@ -150,29 +167,24 @@ describe('initSchema', () => {
       db.exec('PRAGMA foreign_keys = ON;');
 
       expect(() => initSchema(db)).not.toThrow();
-      expect(getArrayToMpptMapping(db, 'array-flat-ne')?.selected_mppt_type_id ?? null).toBeNull();
+      expect(getArrayToMpptMapping(db, 'broken-array-id')?.selected_mppt_type_id ?? null).toBe('missing-mppt');
       expect(db.prepare('SELECT COUNT(*) AS count FROM array_to_mppt_mappings WHERE mapping_id = ?').get('array-mppt-flat-ne')).toEqual({ count: 1 });
     } finally {
       db.close();
     }
   });
 
-  it('rebuilds corrupted derived pv topology rows from source data on bootstrap', () => {
+  it('does not rebuild corrupted derived pv topology rows on bootstrap', () => {
     const db = makeTempDatabase();
     try {
       db.exec('PRAGMA foreign_keys = OFF;');
       initSchema(db);
-
-      db.prepare('DELETE FROM pv_arrays').run();
-      db.prepare('UPDATE pv_strings SET array_id = ? WHERE surface_id = ?').run('broken-array-id', 'flat-ne');
-      db.prepare('UPDATE array_to_mppt_mappings SET array_id = ?, selected_mppt_type_id = ? WHERE mapping_id = ?')
-        .run('broken-array-id', 'missing-mppt', 'array-mppt-flat-ne');
       db.exec('PRAGMA foreign_keys = ON;');
 
       expect(() => initSchema(db)).not.toThrow();
-      expect(db.prepare('SELECT COUNT(*) AS count FROM pv_arrays WHERE surface_id = ?').get('flat-ne')).toEqual({ count: 1 });
-      expect(db.prepare('SELECT COUNT(*) AS count FROM pv_strings WHERE array_id = ?').get('array-flat-ne')).toEqual({ count: 1 });
-      expect(getArrayToMpptMapping(db, 'array-flat-ne')?.selected_mppt_type_id ?? null).toBeNull();
+      expect(db.prepare('SELECT COUNT(*) AS count FROM pv_arrays').get()).toEqual({ count: 0 });
+      expect(db.prepare('SELECT COUNT(*) AS count FROM pv_strings').get()).toEqual({ count: 0 });
+      expect(db.prepare('SELECT COUNT(*) AS count FROM array_to_mppt_mappings').get()).toEqual({ count: 0 });
     } finally {
       db.close();
     }
