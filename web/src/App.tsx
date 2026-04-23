@@ -573,6 +573,7 @@ const REPORT_ROUTES: Array<{
   labelKey: TranslationKey;
 }> = [
   { kind: 'verdict-summary', labelKey: 'nav.report.verdict_summary' },
+  { kind: 'cost-summary', labelKey: 'nav.report.cost_summary' },
 ];
 
 const RESERVED_ROUTE_SEGMENTS = new Set([
@@ -4675,6 +4676,7 @@ function VerdictSummaryPage({
   data,
   arrayBySurfaceId,
   localSurfaceSummaries,
+  localTotalInstalledWp,
   relationByArray,
   mpptByArray,
   batteryBank,
