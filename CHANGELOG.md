@@ -2,6 +2,8 @@
 
 ## 2026-04-23
 
+- Restored the Overview landing route and sidebar entry, and prefixed surface breadcrumbs with `Overview / Location / ...` so the navigation matches the older overview-first layout again.
+
 - Added a token-protected database publish endpoint so the local `project.db` can be uploaded to Railway as an explicit operational step, with SQLite validation before replacing the live database file.
 - Documented the exact local-first publish command for moving the local SQLite database, including embedded images, to Railway without relying on GitHub deploys to carry volume data.
 - Changed the Location page header to show the editable location name instead of the project name, and relabeled the field as `Location name` so it reads as a CRUD-able location property.

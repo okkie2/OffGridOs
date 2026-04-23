@@ -505,6 +505,7 @@ function buildLocalSurfaceSummaries(data: DigitalTwinExport): LocalSurfaceSummar
 }
 
 type Route =
+  | { kind: 'overview' }
   | { kind: 'location' }
   | { kind: 'solar-yield' }
   | { kind: 'about' }
@@ -1324,6 +1325,12 @@ function evaluateInverterCompatibility(
 
 function getRoute(): Route {
   const hash = window.location.hash.replace(/^#/, '');
+  if (hash === '' || hash === '/') {
+    return { kind: 'overview' };
+  }
+  if (hash === '/overview') {
+    return { kind: 'overview' };
+  }
   if (hash === '/location') {
     return { kind: 'location' };
   }
@@ -1373,6 +1380,10 @@ function getRoute(): Route {
 }
 
 function navigateTo(route: Route): void {
+  if (route.kind === 'overview') {
+    window.location.hash = '/overview';
+    return;
+  }
   if (route.kind === 'location') {
     window.location.hash = '/location';
     return;
@@ -1405,6 +1416,7 @@ function navigateTo(route: Route): void {
 }
 
 function routeHref(route: Route): string {
+  if (route.kind === 'overview') return '#/overview';
   if (route.kind === 'location') return '#/location';
   if (route.kind === 'solar-yield') return '#/solar-yield';
   if (route.kind === 'about') return '#/about';
@@ -1428,6 +1440,9 @@ function Sidebar({ route, data }: { route: Route; data: DigitalTwinExport | null
         <div className="sidebar-logo-sub">Digital Twin</div>
       </div>
       <nav className="sidebar-nav">
+        <a href={routeHref({ kind: 'overview' })} onClick={go({ kind: 'overview' })} className={`sidebar-nav-item ${route.kind === 'overview' ? 'active' : ''}`}>
+          Overview
+        </a>
         <a href={routeHref({ kind: 'location' })} onClick={go({ kind: 'location' })} className={`sidebar-nav-item ${route.kind === 'location' || route.kind === 'surface' ? 'active' : ''}`}>
           Location
         </a>
@@ -1494,6 +1509,10 @@ function Breadcrumbs({ route, surfaceName }: { route: Route; surfaceName?: strin
     <nav className="breadcrumbs" aria-label="Breadcrumb">
       {route.kind === 'surface' ? (
         <>
+          <button type="button" className="crumb crumb-link" onClick={() => navigateTo({ kind: 'overview' })}>
+            Overview
+          </button>
+          <span className="crumb-sep">/</span>
           <button type="button" className="crumb crumb-link" onClick={() => navigateTo({ kind: 'location' })}>
             Location
           </button>
@@ -5295,7 +5314,9 @@ export function App() {
     <div className="layout">
       <Sidebar route={route} data={data} />
       <main className="app-shell">
-        {route.kind === 'location' ? (
+        {route.kind === 'overview' ? (
+          <OverviewPage {...context} />
+        ) : route.kind === 'location' ? (
           <LocationPage {...context} />
         ) : route.kind === 'about' ? (
           <AboutPage />
