@@ -135,4 +135,25 @@ describe('initSchema', () => {
       db.close();
     }
   });
+
+  it('replaces corrupted array-to-mppt rows while bootstrapping an existing database', () => {
+    const db = makeTempDatabase();
+    try {
+      db.exec('PRAGMA foreign_keys = OFF;');
+      initSchema(db);
+
+      db.prepare(`
+        UPDATE array_to_mppt_mappings
+        SET array_id = 'broken-array-id', selected_mppt_type_id = 'missing-mppt'
+        WHERE mapping_id = 'array-mppt-flat-ne'
+      `).run();
+      db.exec('PRAGMA foreign_keys = ON;');
+
+      expect(() => initSchema(db)).not.toThrow();
+      expect(getArrayToMpptMapping(db, 'array-flat-ne')?.selected_mppt_type_id ?? null).toBeNull();
+      expect(db.prepare('SELECT COUNT(*) AS count FROM array_to_mppt_mappings WHERE mapping_id = ?').get('array-mppt-flat-ne')).toEqual({ count: 1 });
+    } finally {
+      db.close();
+    }
+  });
 });

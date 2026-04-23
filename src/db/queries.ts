@@ -267,6 +267,10 @@ export function getArrayToMpptMapping(db: Database.Database, array_id: string): 
   return (db.prepare('SELECT * FROM array_to_mppt_mappings WHERE array_id = ?').get(array_id) as ArrayToMpptMapping) ?? null;
 }
 
+export function deleteArrayToMpptMappingsForSurface(db: Database.Database, surface_id: string): void {
+  db.prepare('DELETE FROM array_to_mppt_mappings WHERE mapping_id = ? OR array_id = ?').run(`array-mppt-${surface_id}`, `array-${surface_id}`);
+}
+
 export function upsertArrayToMpptMapping(db: Database.Database, data: Omit<ArrayToMpptMapping, 'id'>): void {
   db.prepare(`
     INSERT INTO array_to_mppt_mappings (mapping_id, array_id, selected_mppt_type_id)
@@ -341,6 +345,7 @@ export function syncPvTopologyForSurface(db: Database.Database, surface_id: stri
     }
   }
 
+  deleteArrayToMpptMappingsForSurface(db, surface_id);
   upsertArrayToMpptMapping(db, {
     mapping_id: `array-mppt-${surface_id}`,
     array_id: arrayId,
