@@ -2,6 +2,15 @@
 
 ## 2026-04-24
 
+- Hid the `Cost summary` report from the visible web-app navigation while keeping the underlying route available.
+- Switched the web app from hash routing to clean deeplinkable routes using the `/:lang/:locationSlug/...` schema, with language-aware URLs and canonical location slugs.
+- Moved the web UI language selector to a shared top-right app control and translated the shared catalog landing page plus catalog-screen chrome into the English/Dutch/Frisian dictionary.
+- Translated the `Inverter array` web page into the new English/Dutch/Frisian UI dictionary, including inverter compatibility verdict copy and check labels.
+- Added the `Reports` section with `Verdict summary` and `Cost summary` pages so the selected components and current pricing can be reviewed from dedicated read-only screens without mixing them into catalog CRUD.
+- Clarified the verdict report so the battery-bank assessment is explicitly project-level and based on the total PV across all surfaces, not any single surface.
+- Renamed the verdict report's battery section to `Project battery verdict` to make the project-level scope obvious.
+- Renamed the verdict report's inverter section to `Project inverter verdict` to match the same project-level wording.
+- Translated the `Solar yield` and `Battery array` web pages into the new English/Dutch/Frisian UI dictionary, including section copy, table labels, month headings, and battery evaluation text.
 - Changed the Solar yield, Battery array, and Inverter array top-bar titles to use the editable location name instead of the project name.
 - Added the first multilingual UI foundation in the web app with English, Dutch, and Frisian language dictionaries, a persisted language switcher, and translated sidebar/page-label chrome for the main navigation.
 - Added `price_source_url` to the panel, MPPT, and inverter catalog tables, and wired the React CRUD screens so catalog entries can store both a unit price and a source URL.
@@ -9,7 +18,7 @@
 
 ## 2026-04-23
 
-- Added [verdict-price-summary-pages.md](./docs/verdict-price-summary-pages.md) to define the simplified `Verdict summary` and `Price summary` pages, including the RS inverter matching rule for included MPPTs.
+- Added [verdict-price-summary-pages.md](./docs/verdict-price-summary-pages.md) to define the simplified `Verdict summary` and `Cost summary` pages under `Reports`, including the RS inverter matching rule for included MPPTs.
 - Normalized the battery catalog pricing shape to use `price_source_url` alongside the other catalog types, while keeping compatibility with older `source` and `url` battery columns.
 - Added `price per unit` and `price source URL` fields to the panel, MPPT, battery, and inverter catalog editors so product pricing can now be stored directly from the UI.
 - Added [verdict-language-guide.md](./docs/verdict-language-guide.md) so relationship verdicts now have one canonical wording guide that explains what is underutilized, acceptable, optimal, or outside limits relative to what.

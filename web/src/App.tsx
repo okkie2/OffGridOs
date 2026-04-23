@@ -1,6 +1,6 @@
 import React from 'react';
 import { useEffect, useState, type ChangeEvent, type MouseEvent } from 'react';
-import { LANGUAGE_OPTIONS, LanguageProvider, useTranslation, type TranslationKey } from './i18n';
+import { LANGUAGE_OPTIONS, LanguageProvider, readLanguageFromPath, useTranslation, type LanguageCode, type TranslationKey } from './i18n';
 
 declare const __BUILD_INFO__: string;
 
@@ -459,6 +459,21 @@ function getLocationDisplayName(
     || (t ? t('location.not_set') : 'Location not set');
 }
 
+function slugifyPathSegment(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    || 'project';
+}
+
+function getLocationSlug(data: DigitalTwinExport): string {
+  return slugifyPathSegment(getLocationDisplayName(data));
+}
+
 function buildLocalSurfaceSummaries(data: DigitalTwinExport): LocalSurfaceSummary[] {
   const projectId = getProjectStorageKey(data);
   const configurationBySurfaceId = new Map(data.entities.surface_configurations.map((configuration) => [configuration.surface_id, configuration]));
@@ -529,10 +544,19 @@ type Route =
   | { kind: 'solar-yield' }
   | { kind: 'about' }
   | { kind: 'catalogs' }
+  | { kind: 'reports' }
   | { kind: 'catalog'; catalog: 'panel-types' | 'mppt-types' | 'battery-types' | 'inverter-types' }
+  | { kind: 'verdict-summary' }
+  | { kind: 'cost-summary' }
   | { kind: 'battery-array' }
   | { kind: 'inverter-array' }
   | { kind: 'surface'; surfaceId: string };
+
+type ParsedAppUrl = {
+  language: LanguageCode | null;
+  locationSlug: string | null;
+  route: Route;
+};
 
 const CATALOG_ROUTES: Array<{
   catalog: 'panel-types' | 'mppt-types' | 'battery-types' | 'inverter-types';
@@ -543,6 +567,26 @@ const CATALOG_ROUTES: Array<{
   { catalog: 'battery-types', labelKey: 'nav.catalog.battery_types' },
   { catalog: 'inverter-types', labelKey: 'nav.catalog.inverter_types' },
 ];
+
+const REPORT_ROUTES: Array<{
+  kind: 'verdict-summary' | 'cost-summary';
+  labelKey: TranslationKey;
+}> = [
+  { kind: 'verdict-summary', labelKey: 'nav.report.verdict_summary' },
+];
+
+const RESERVED_ROUTE_SEGMENTS = new Set([
+  'about',
+  'battery-array',
+  'catalogs',
+  'cost-summary',
+  'inverter-array',
+  'location',
+  'reports',
+  'solar-yield',
+  'surfaces',
+  'verdict-summary',
+]);
 
 const MONTH_LABELS: Record<string, string> = {
   january: 'Jan',
@@ -661,6 +705,14 @@ function formatAmps(amps: number): string {
 
 function formatVolts(volts: number): string {
   return `${volts.toLocaleString('en-US', { maximumFractionDigits: 1 })} V`;
+}
+
+function formatCurrency(value: number | null | undefined): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return 'Unknown';
+  }
+
+  return `€${value.toLocaleString('en-US', { minimumFractionDigits: Number.isInteger(value) ? 0 : 2, maximumFractionDigits: 2 })}`;
 }
 
 function formatDailyYield(kwh: number | null | undefined): string {
@@ -884,16 +936,17 @@ function statusTone(status: Status, fit?: FitStatus): string {
 }
 
 function StatusBadge({ status, fit }: { status: Status | null; fit?: FitStatus }) {
+  const { t } = useTranslation();
   if (!status) {
     return <span className="status" aria-hidden="true" />;
   }
 
   const tone = statusTone(status, fit);
   const text = status === 'outside_limits'
-    ? 'Outside limits'
+    ? t('status.outside_limits')
     : fit
-      ? fit.replaceAll('_', ' ')
-      : 'Electrical OK';
+      ? t(`fit.${fit}` as TranslationKey)
+      : t('status.electrical_ok');
   return <span className={`status status-${tone}`}>{text}</span>;
 }
 
@@ -913,103 +966,72 @@ function verdictLabel(status: Status | null, fit?: FitStatus): string {
   return 'Within limits';
 }
 
-type RelationshipKind = 'array_to_mppt' | 'battery_to_inverter';
+type RelationshipKind = 'array_to_mppt' | 'mppt_to_battery_bank' | 'battery_to_inverter';
 
 function formatReasonFallback(reason: string): string {
   const sentence = reason.replaceAll('_', ' ');
   return sentence.charAt(0).toUpperCase() + sentence.slice(1) + '.';
 }
 
-function getRelationshipVerdictSummary(kind: RelationshipKind, status: Status | null, fit?: FitStatus): string | null {
+function getRelationshipVerdictSummary(
+  kind: RelationshipKind,
+  status: Status | null,
+  fit: FitStatus | undefined,
+  t: (key: TranslationKey, variables?: Record<string, string | number>) => string,
+): string | null {
   if (!status) return null;
-
-  if (kind === 'array_to_mppt') {
-    if (status === 'outside_limits') return 'This array is not electrically compatible with the selected MPPT.';
-    if (fit === 'optimal') return 'This array is closely matched to the selected MPPT.';
-    if (fit === 'acceptable') return 'This array is a workable match for the selected MPPT, with some headroom or tradeoff.';
-    if (fit === 'clipping_expected') return 'This array is intentionally large relative to the selected MPPT, so clipping is expected in stronger conditions.';
-    if (fit === 'underutilized') return 'The selected MPPT has significant unused PV capacity relative to this array.';
-    return 'This array stays within the selected MPPT electrical limits.';
-  }
-
-  if (status === 'outside_limits') return 'This battery bank is not electrically compatible with the selected inverter.';
-  if (fit === 'optimal') return 'This battery bank is closely matched to the selected inverter.';
-  if (fit === 'acceptable') return 'This battery bank can support the selected inverter, with some headroom or tradeoff.';
-  if (fit === 'underutilized') return 'The selected inverter has significant unused capacity relative to this battery bank.';
-  return 'This battery bank stays within the selected inverter electrical limits.';
+  const prefix = `relationship.${kind}.summary`;
+  if (status === 'outside_limits') return t(`${prefix}.outside_limits` as TranslationKey);
+  if (fit === 'optimal') return t(`${prefix}.optimal` as TranslationKey);
+  if (fit === 'acceptable') return t(`${prefix}.acceptable` as TranslationKey);
+  if (fit === 'clipping_expected') return t(`${prefix}.clipping_expected` as TranslationKey);
+  if (fit === 'underutilized') return t(`${prefix}.underutilized` as TranslationKey);
+  return t(`${prefix}.within_limits` as TranslationKey);
 }
 
-function getRelationshipVerdictLabel(kind: RelationshipKind, status: Status | null, fit?: FitStatus): string {
-  if (!status) return 'Not evaluated';
-
-  if (kind === 'array_to_mppt') {
-    if (status === 'outside_limits') return 'Array outside MPPT limits';
-    if (fit === 'optimal') return 'Array well matched to MPPT';
-    if (fit === 'acceptable') return 'Array acceptable for MPPT';
-    if (fit === 'clipping_expected') return 'Array clipping at MPPT';
-    if (fit === 'underutilized') return 'MPPT underutilized by array';
-    return 'Array within MPPT limits';
-  }
-
-  if (status === 'outside_limits') return 'Battery outside inverter limits';
-  if (fit === 'optimal') return 'Battery well matched to inverter';
-  if (fit === 'acceptable') return 'Battery acceptable for inverter';
-  if (fit === 'underutilized') return 'Inverter underutilized by battery';
-  return 'Battery within inverter limits';
+function getRelationshipVerdictLabel(
+  kind: RelationshipKind,
+  status: Status | null,
+  fit: FitStatus | undefined,
+  t: (key: TranslationKey, variables?: Record<string, string | number>) => string,
+): string {
+  if (!status) return t('status.not_evaluated');
+  const prefix = `relationship.${kind}.label`;
+  if (status === 'outside_limits') return t(`${prefix}.outside_limits` as TranslationKey);
+  if (fit === 'optimal') return t(`${prefix}.optimal` as TranslationKey);
+  if (fit === 'acceptable') return t(`${prefix}.acceptable` as TranslationKey);
+  if (fit === 'clipping_expected') return t(`${prefix}.clipping_expected` as TranslationKey);
+  if (fit === 'underutilized') return t(`${prefix}.underutilized` as TranslationKey);
+  return t(`${prefix}.within_limits` as TranslationKey);
 }
 
-function explainRelationshipReason(kind: RelationshipKind, reason: string): string {
-  if (kind === 'array_to_mppt') {
-    switch (reason) {
-      case 'voltage_too_high':
-        return 'String voltage exceeds the MPPT voltage limit.';
-      case 'pv_input_current_too_high':
-        return 'Array input current exceeds the MPPT input-current limit.';
-      case 'pv_short_circuit_current_too_high':
-        return 'Array short-circuit current exceeds the MPPT short-circuit limit.';
-      case 'charge_current_too_high':
-        return 'Estimated charge current exceeds the MPPT charge-current limit.';
-      case 'power_too_high':
-        return 'Array power exceeds the selected MPPT power window.';
-      case 'clipping_expected':
-        return 'Peak solar conditions are expected to clip against the selected MPPT.';
-      case 'well_matched':
-        return 'Array power and MPPT capacity are closely aligned.';
-      case 'acceptable_headroom':
-        return 'The selected MPPT still has some useful headroom above the current array.';
-      case 'low_utilization':
-        return 'The array uses only a small share of the MPPT\'s available PV capacity.';
-      case 'missing_mppt_type':
-        return 'Choose an MPPT before this relationship can be evaluated.';
-      default:
-        return formatReasonFallback(reason);
-    }
-  }
-
-  switch (reason) {
-    case 'voltage_too_high':
-      return 'Battery-bank voltage is above the inverter DC input range.';
-    case 'voltage_too_low':
-      return 'Battery-bank voltage is below the inverter DC input range.';
-    case 'inverter_current_too_high_for_battery':
-      return 'The inverter can demand more current than this battery bank should supply.';
-    case 'inverter_power_too_high_for_battery':
-      return 'The inverter is too large for this battery bank\'s available power.';
-    case 'well_matched':
-      return 'Battery-bank voltage and power capability are closely aligned with the inverter.';
-    case 'acceptable_headroom':
-      return 'The selected inverter fits this battery bank with some remaining headroom.';
-    case 'low_utilization':
-      return 'The selected inverter is larger than this battery bank currently justifies.';
-    case 'missing_inverter_type':
-      return 'Choose an inverter before this relationship can be evaluated.';
-    default:
-      return formatReasonFallback(reason);
+function explainRelationshipReason(
+  kind: RelationshipKind,
+  reason: string,
+  t: (key: TranslationKey, variables?: Record<string, string | number>) => string,
+): string {
+  const key = `relationship.${kind}.reason.${reason}` as TranslationKey;
+  try {
+    return t(key);
+  } catch {
+    return formatReasonFallback(reason);
   }
 }
 
-function buildRelationshipReasonList(kind: RelationshipKind, reasons: string[]): string[] {
-  return [...new Set(reasons.map((reason) => explainRelationshipReason(kind, reason)))];
+function buildRelationshipReasonList(
+  kind: RelationshipKind,
+  reasons: string[],
+  t: (key: TranslationKey, variables?: Record<string, string | number>) => string,
+): string[] {
+  return [...new Set(reasons.map((reason) => explainRelationshipReason(kind, reason, t)))];
+}
+
+function isMatchingRsMppt(inverterType: InverterType | null, mpptType: MpptType | null): boolean {
+  if (!inverterType || !mpptType) {
+    return false;
+  }
+
+  return inverterType.model.trim() !== '' && inverterType.model === mpptType.model && inverterType.model.toLowerCase().includes('rs');
 }
 
 function SummaryCard({ label, value, detail }: { label: string; value: string; detail?: string }) {
@@ -1401,6 +1423,140 @@ function evaluateBatteryRefillRule(input: {
   };
 }
 
+function getBatteryEvaluationCopy(input: {
+  chargeCurrentExceeded: boolean;
+  estimatedChargeCurrentA: number | null;
+  maxChargeCurrentA: number | null;
+  refillEnergyKwh: number | null;
+  bestMonthDailyYieldKwh: number;
+  batteryRefillRule: ReturnType<typeof evaluateBatteryRefillRule> | null;
+  t: (key: TranslationKey, variables?: Record<string, string | number>) => string;
+}): {
+  headline: string;
+  tone: 'good' | 'ok' | 'warn' | 'danger' | 'cool';
+  reasons: string[];
+} | null {
+  const {
+    chargeCurrentExceeded,
+    estimatedChargeCurrentA,
+    maxChargeCurrentA,
+    refillEnergyKwh,
+    bestMonthDailyYieldKwh,
+    batteryRefillRule,
+    t,
+  } = input;
+
+  if (chargeCurrentExceeded) {
+    return {
+      headline: t('battery.evaluation.headline.charge_current_limit'),
+      tone: 'danger',
+      reasons: [
+        t('battery.evaluation.reason.charge_current_exceeded', {
+          estimated: formatAmps(estimatedChargeCurrentA ?? 0),
+          limit: formatAmps(maxChargeCurrentA ?? 0),
+        }),
+        t('battery.evaluation.reason.reduce_input'),
+      ],
+    };
+  }
+
+  if (!batteryRefillRule) {
+    return null;
+  }
+
+  if (batteryRefillRule.headline === 'Battery capacity unknown') {
+    return {
+      headline: t('battery.evaluation.headline.capacity_unknown'),
+      tone: batteryRefillRule.tone,
+      reasons: [t('battery.evaluation.reason.capacity_unknown')],
+    };
+  }
+
+  if (batteryRefillRule.headline === 'No solar refill available') {
+    return {
+      headline: t('battery.evaluation.headline.no_solar_refill'),
+      tone: batteryRefillRule.tone,
+      reasons: [t('battery.evaluation.reason.no_solar_refill')],
+    };
+  }
+
+  const reasons = [
+    t('battery.evaluation.reason.refill_needed', {
+      required: (refillEnergyKwh ?? 0).toLocaleString('en-US', { maximumFractionDigits: 2 }),
+    }),
+    t('battery.evaluation.reason.best_month_daily_solar', {
+      yield: bestMonthDailyYieldKwh.toLocaleString('en-US', { maximumFractionDigits: 2 }),
+    }),
+  ];
+
+  if (batteryRefillRule.headline === 'Battery array too large for one-day refill') {
+    return {
+      headline: t('battery.evaluation.headline.too_large_one_day_refill'),
+      tone: batteryRefillRule.tone,
+      reasons: [...reasons, t('battery.evaluation.reason.too_large')],
+    };
+  }
+
+  if (batteryRefillRule.headline === 'Battery array is relatively small') {
+    return {
+      headline: t('battery.evaluation.headline.relatively_small'),
+      tone: batteryRefillRule.tone,
+      reasons: [...reasons, t('battery.evaluation.reason.relatively_small')],
+    };
+  }
+
+  return {
+    headline: t('battery.evaluation.headline.fits_rule'),
+    tone: batteryRefillRule.tone,
+    reasons: [...reasons, t('battery.evaluation.reason.fits_rule')],
+  };
+}
+
+function getInverterEvaluationCopy(input: {
+  compatibility: ReturnType<typeof evaluateInverterCompatibility> | null;
+  t: (key: TranslationKey, variables?: Record<string, string | number>) => string;
+}): {
+  summary: string | null;
+  label: string;
+  reasons: string[];
+} | null {
+  const { compatibility, t } = input;
+  if (!compatibility) {
+    return null;
+  }
+
+  const summary = compatibility.status === 'outside_limits'
+    ? t('inverter.evaluation.summary.outside_limits')
+    : compatibility.fit === 'optimal'
+      ? t('inverter.evaluation.summary.optimal')
+      : compatibility.fit === 'acceptable'
+        ? t('inverter.evaluation.summary.acceptable')
+        : compatibility.fit === 'underutilized'
+          ? t('inverter.evaluation.summary.underutilized')
+          : t('inverter.evaluation.summary.within_limits');
+
+  const label = compatibility.status === 'outside_limits'
+    ? t('inverter.evaluation.label.outside_limits')
+    : compatibility.fit === 'optimal'
+      ? t('inverter.evaluation.label.optimal')
+      : compatibility.fit === 'acceptable'
+        ? t('inverter.evaluation.label.acceptable')
+        : compatibility.fit === 'underutilized'
+          ? t('inverter.evaluation.label.underutilized')
+          : t('inverter.evaluation.label.within_limits');
+
+  const reasons = [...new Set(compatibility.reasons.map((reason) => {
+    const key = `inverter.evaluation.reason.${reason}` as TranslationKey;
+    try {
+      return t(key);
+    } catch {
+      return formatReasonFallback(reason);
+    }
+  }))];
+
+  return { summary, label, reasons };
+}
+
 function evaluateInverterCompatibility(
   batteryArrayConfig: {
     stringVoltage: number;
@@ -1464,44 +1620,22 @@ function evaluateInverterCompatibility(
   };
 }
 
-function getRoute(): Route {
-  const hash = window.location.hash.replace(/^#/, '');
-  if (hash === '' || hash === '/') {
+function parseLegacyHashRoute(hash: string): Route {
+  if (hash === '' || hash === '/' || hash === '/location' || hash === '/surfaces') {
     return { kind: 'location' };
   }
-  if (hash === '/location') {
-    return { kind: 'location' };
-  }
-  if (hash === '/surfaces') {
-    return { kind: 'location' };
-  }
-  if (hash === '/solar-yield') {
-    return { kind: 'solar-yield' };
-  }
-  if (hash === '/about') {
-    return { kind: 'about' };
-  }
-  if (hash === '/catalogs') {
-    return { kind: 'catalogs' };
-  }
-  if (hash === '/panel-types') {
-    return { kind: 'catalog', catalog: 'panel-types' };
-  }
-  if (hash === '/mppt-types') {
-    return { kind: 'catalog', catalog: 'mppt-types' };
-  }
-  if (hash === '/battery-types') {
-    return { kind: 'catalog', catalog: 'battery-types' };
-  }
-  if (hash === '/inverter-types') {
-    return { kind: 'catalog', catalog: 'inverter-types' };
-  }
-  if (hash === '/battery-array') {
-    return { kind: 'battery-array' };
-  }
-  if (hash === '/inverter-array') {
-    return { kind: 'inverter-array' };
-  }
+  if (hash === '/solar-yield') return { kind: 'solar-yield' };
+  if (hash === '/about') return { kind: 'about' };
+  if (hash === '/catalogs') return { kind: 'catalogs' };
+  if (hash === '/reports') return { kind: 'reports' };
+  if (hash === '/reports/verdict-summary' || hash === '/verdict-summary') return { kind: 'verdict-summary' };
+  if (hash === '/reports/cost-summary' || hash === '/cost-summary') return { kind: 'cost-summary' };
+  if (hash === '/panel-types') return { kind: 'catalog', catalog: 'panel-types' };
+  if (hash === '/mppt-types') return { kind: 'catalog', catalog: 'mppt-types' };
+  if (hash === '/battery-types') return { kind: 'catalog', catalog: 'battery-types' };
+  if (hash === '/inverter-types') return { kind: 'catalog', catalog: 'inverter-types' };
+  if (hash === '/battery-array') return { kind: 'battery-array' };
+  if (hash === '/inverter-array') return { kind: 'inverter-array' };
   if (hash.startsWith('/surfaces/')) {
     const surfaceId = hash.slice('/surfaces/'.length);
     if (surfaceId) return { kind: 'surface', surfaceId };
@@ -1517,51 +1651,102 @@ function getRoute(): Route {
   return { kind: 'location' };
 }
 
-function navigateTo(route: Route): void {
-  if (route.kind === 'location') {
-    window.location.hash = '/location';
-    return;
+function parseAppUrl(pathname: string, hash: string): ParsedAppUrl {
+  const language = readLanguageFromPath(pathname);
+  const segments = pathname.split('/').filter(Boolean);
+
+  if (!language) {
+    return {
+      language: null,
+      locationSlug: null,
+      route: parseLegacyHashRoute(hash.replace(/^#/, '')),
+    };
   }
-  if (route.kind === 'solar-yield') {
-    window.location.hash = '/solar-yield';
-    return;
+
+  const [, locationSlug, ...rest] = segments;
+  if (!locationSlug) {
+    return { language, locationSlug: null, route: { kind: 'location' } };
   }
-  if (route.kind === 'about') {
-    window.location.hash = '/about';
-    return;
+
+  if (rest.length === 0 || rest[0] === 'location' || rest[0] === 'surfaces') {
+    return { language, locationSlug, route: { kind: 'location' } };
   }
-  if (route.kind === 'catalogs') {
-    window.location.hash = '/catalogs';
-    return;
+
+  if (rest[0] === 'solar-yield') return { language, locationSlug, route: { kind: 'solar-yield' } };
+  if (rest[0] === 'about') return { language, locationSlug, route: { kind: 'about' } };
+  if (rest[0] === 'catalogs') {
+    const catalog = rest[1];
+    if (catalog === 'panel-types' || catalog === 'mppt-types' || catalog === 'battery-types' || catalog === 'inverter-types') {
+      return { language, locationSlug, route: { kind: 'catalog', catalog } };
+    }
+    return { language, locationSlug, route: { kind: 'catalogs' } };
   }
-  if (route.kind === 'catalog') {
-    window.location.hash = `/${route.catalog}`;
-    return;
+  if (rest[0] === 'reports') {
+    if (rest[1] === 'verdict-summary') return { language, locationSlug, route: { kind: 'verdict-summary' } };
+    if (rest[1] === 'cost-summary') return { language, locationSlug, route: { kind: 'cost-summary' } };
+    return { language, locationSlug, route: { kind: 'reports' } };
   }
-  if (route.kind === 'battery-array') {
-    window.location.hash = '/battery-array';
-    return;
+  if (rest[0] === 'battery-array') return { language, locationSlug, route: { kind: 'battery-array' } };
+  if (rest[0] === 'inverter-array') return { language, locationSlug, route: { kind: 'inverter-array' } };
+
+  const [surfaceId] = rest;
+  if (surfaceId && !RESERVED_ROUTE_SEGMENTS.has(surfaceId)) {
+    return { language, locationSlug, route: { kind: 'surface', surfaceId: decodeURIComponent(surfaceId) } };
   }
-  if (route.kind === 'inverter-array') {
-    window.location.hash = '/inverter-array';
-    return;
-  }
-  window.location.hash = `/surfaces/${route.surfaceId}`;
+
+  return { language, locationSlug, route: { kind: 'location' } };
 }
 
-function routeHref(route: Route): string {
-  if (route.kind === 'location') return '#/location';
-  if (route.kind === 'solar-yield') return '#/solar-yield';
-  if (route.kind === 'about') return '#/about';
-  if (route.kind === 'catalogs') return '#/catalogs';
-  if (route.kind === 'catalog') return `#/${route.catalog}`;
-  if (route.kind === 'battery-array') return '#/battery-array';
-  if (route.kind === 'inverter-array') return '#/inverter-array';
-  return `#/surfaces/${route.surfaceId}`;
+function buildRoutePath(route: Route, language: LanguageCode, locationSlug: string): string {
+  const base = `/${language}/${locationSlug}`;
+
+  if (route.kind === 'location') return base;
+  if (route.kind === 'solar-yield') return `${base}/solar-yield`;
+  if (route.kind === 'about') return `${base}/about`;
+  if (route.kind === 'catalogs') return `${base}/catalogs`;
+  if (route.kind === 'reports') return `${base}/reports`;
+  if (route.kind === 'catalog') return `${base}/catalogs/${route.catalog}`;
+  if (route.kind === 'verdict-summary') return `${base}/reports/verdict-summary`;
+  if (route.kind === 'cost-summary') return `${base}/reports/cost-summary`;
+  if (route.kind === 'battery-array') return `${base}/battery-array`;
+  if (route.kind === 'inverter-array') return `${base}/inverter-array`;
+  return `${base}/${encodeURIComponent(route.surfaceId)}`;
+}
+
+function getCurrentPathContext(): { language: LanguageCode; locationSlug: string } {
+  const parsed = parseAppUrl(window.location.pathname, window.location.hash);
+  return {
+    language: parsed.language ?? 'en',
+    locationSlug: parsed.locationSlug ?? 'project',
+  };
+}
+
+function navigateTo(route: Route, options?: { language?: LanguageCode; locationSlug?: string; replace?: boolean }): void {
+  const current = getCurrentPathContext();
+  const nextLanguage = options?.language ?? current.language;
+  const nextLocationSlug = options?.locationSlug ?? current.locationSlug;
+  const nextPath = buildRoutePath(route, nextLanguage, nextLocationSlug);
+
+  if (options?.replace) {
+    window.history.replaceState(null, '', nextPath);
+  } else {
+    window.history.pushState(null, '', nextPath);
+  }
+
+  window.dispatchEvent(new PopStateEvent('popstate'));
+}
+
+function routeHref(route: Route, options?: { language?: LanguageCode; locationSlug?: string }): string {
+  const current = getCurrentPathContext();
+  return buildRoutePath(
+    route,
+    options?.language ?? current.language,
+    options?.locationSlug ?? current.locationSlug,
+  );
 }
 
 function Sidebar({ route, data }: { route: Route; data: DigitalTwinExport | null }) {
-  const { language, setLanguage, t } = useTranslation();
+  const { t } = useTranslation();
   const go = (next: Route) => (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
     navigateTo(next);
@@ -1619,18 +1804,25 @@ function Sidebar({ route, data }: { route: Route; data: DigitalTwinExport | null
             ))}
           </div>
         ) : null}
+        <a href={routeHref({ kind: 'reports' })} onClick={go({ kind: 'reports' })} className={`sidebar-nav-item ${route.kind === 'reports' || route.kind === 'verdict-summary' || route.kind === 'cost-summary' ? 'active' : ''}`}>
+          {t('nav.reports')}
+        </a>
+        {data && (route.kind === 'reports' || route.kind === 'verdict-summary' || route.kind === 'cost-summary') ? (
+          <div className="sidebar-subnav">
+            {REPORT_ROUTES.map((report) => (
+              <a
+                key={report.kind}
+                href={routeHref({ kind: report.kind })}
+                onClick={go({ kind: report.kind })}
+                className={`sidebar-subnav-item ${route.kind === report.kind ? 'active' : ''}`}
+              >
+                {t(report.labelKey)}
+              </a>
+            ))}
+          </div>
+        ) : null}
       </nav>
       <div className="sidebar-footer">
-        <label className="sidebar-language">
-          <span className="sidebar-language-label">{t('ui.language')}</span>
-          <select value={language} onChange={(event) => setLanguage(event.target.value as typeof language)} className="sidebar-language-select">
-            {LANGUAGE_OPTIONS.map((option) => (
-              <option key={option} value={option}>
-                {t(`language.${option}` as TranslationKey)}
-              </option>
-            ))}
-          </select>
-        </label>
         <span className="sidebar-nav-item sidebar-nav-disabled">{t('nav.new_project')}</span>
         <a
           href={routeHref({ kind: 'about' })}
@@ -1642,6 +1834,30 @@ function Sidebar({ route, data }: { route: Route; data: DigitalTwinExport | null
         <span className="sidebar-footer-stamp">{typeof __BUILD_INFO__ !== 'undefined' ? __BUILD_INFO__ : ''}</span>
       </div>
     </aside>
+  );
+}
+
+function AppLanguageControl({ route, locationSlug }: { route: Route; locationSlug: string }) {
+  const { language, setLanguage, t } = useTranslation();
+  return (
+    <label className="app-language">
+      <span className="app-language-label">{t('ui.language')}</span>
+      <select
+        value={language}
+        onChange={(event) => {
+          const nextLanguage = event.target.value as LanguageCode;
+          setLanguage(nextLanguage);
+          navigateTo(route, { language: nextLanguage, locationSlug, replace: true });
+        }}
+        className="app-language-select"
+      >
+        {LANGUAGE_OPTIONS.map((option) => (
+          <option key={option} value={option}>
+            {t(`language.${option}` as TranslationKey)}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -2437,6 +2653,7 @@ type PageContext = {
   weakestMonth: MonthlyBalanceRow | null;
   localSurfaceSummaries: LocalSurfaceSummary[];
   localTotalInstalledWp: number;
+  arrayBySurfaceId: Map<string, ArrayEntity>;
   arrayStateBySurface: Map<string, ArrayState>;
   mpptByArray: Map<string, MpptConfiguration>;
   relationByArray: Map<string, ArrayToMpptRelationship>;
@@ -2644,11 +2861,8 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
       return;
     }
 
-    const currentTitle = title.trim();
-    if (currentTitle === '' || currentTitle === data.project.location?.place_name) {
-      setTitle(defaultLocationName);
-    }
-  }, [data.project.location?.place_name, data.project.location?.title, defaultLocationName, setTitle, title]);
+    setTitle(defaultLocationName);
+  }, [data.project.location?.title, defaultLocationName, setTitle]);
 
   useEffect(() => {
     setDescription(data.project.location?.description ?? '');
@@ -3222,16 +3436,15 @@ function BatteryArrayPage({
       sunniestMonthDailyYieldKwh: bestMonth?.totalDailyKwh ?? 0,
     })
     : null;
-  const evaluationVerdict = chargeCurrentExceeded
-    ? {
-      headline: 'Battery bank exceeds the charge-current limit',
-      tone: 'danger' as const,
-      reasons: [
-        `Estimated charge current ${formatAmps(estimatedChargeCurrentA)} exceeds the battery-array charge limit of ${formatAmps(batteryArrayConfig?.maxChargeCurrentA ?? 0)}.`,
-        'Reduce upstream PV charging power or increase the battery-bank charge-current capability.',
-      ],
-    }
-    : batteryRefillRule;
+  const evaluationVerdict = getBatteryEvaluationCopy({
+    chargeCurrentExceeded: Boolean(chargeCurrentExceeded),
+    estimatedChargeCurrentA,
+    maxChargeCurrentA: batteryArrayConfig?.maxChargeCurrentA ?? null,
+    refillEnergyKwh,
+    bestMonthDailyYieldKwh: bestMonth?.totalDailyKwh ?? 0,
+    batteryRefillRule,
+    t,
+  });
   const monthlyCapacityRows = MONTH_KEYS.map((month) => {
     const monthYield = projectMonthlySolarByMonth.get(month)?.average_daily_kwh ?? 0;
     return {
@@ -3253,19 +3466,19 @@ function BatteryArrayPage({
 
   async function handleSaveBatteryDesign(options?: { imageOverride?: string | null }) {
     if (!selectedBatteryTypeId) {
-      setBatteryDesignSaveError('Choose a battery type before saving the battery bank.');
+      setBatteryDesignSaveError(t('battery.save.error.choose_type'));
       setBatteryDesignSaveMessage(null);
       return;
     }
 
     if (configuredBatteryCount < 1 || batteriesPerString < 1 || parallelStrings < 1) {
-      setBatteryDesignSaveError('Battery count, batteries per string, and parallel strings must all be at least 1.');
+      setBatteryDesignSaveError(t('battery.save.error.invalid_counts'));
       setBatteryDesignSaveMessage(null);
       return;
     }
 
     if (configuredBatteryCount !== batteriesPerString * parallelStrings) {
-      setBatteryDesignSaveError('Battery count must equal batteries per string multiplied by parallel strings before saving.');
+      setBatteryDesignSaveError(t('battery.save.error.mismatch'));
       setBatteryDesignSaveMessage(null);
       return;
     }
@@ -3310,10 +3523,10 @@ function BatteryArrayPage({
         // Keep the save successful even if draft syncing fails.
       }
 
-      setBatteryDesignSaveMessage('Battery bank saved to the project database.');
+      setBatteryDesignSaveMessage(t('battery.save.success'));
       await refreshProjectData();
     } catch (error) {
-      setBatteryDesignSaveError(error instanceof Error ? error.message : 'Failed to save the battery bank.');
+      setBatteryDesignSaveError(error instanceof Error ? error.message : t('battery.save.error.failed'));
       setBatteryDesignSaveMessage(null);
     } finally {
       setIsSavingBatteryDesign(false);
@@ -3357,50 +3570,50 @@ function BatteryArrayPage({
         <div className="detail-grid detail-intro-grid">
           <section className="panel panel-with-actions">
             <div className="section-head">
-              <h2>About</h2>
+              <h2>{t('battery.about.title')}</h2>
             </div>
             {batteryDesignSaveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{batteryDesignSaveError}</p> : null}
             <label className="config-field" style={{ display: 'block', marginBottom: 8 }}>
-              <span>Title</span>
+              <span>{t('battery.about.field.title')}</span>
               <input type="text" value={batteryTitle} onChange={(event) => setBatteryTitle(event.target.value)} />
             </label>
             <label className="config-field" style={{ display: 'block' }}>
-              <span>Description</span>
+              <span>{t('battery.about.field.description')}</span>
               <input type="text" value={batteryDescription} onChange={(event) => setBatteryDescription(event.target.value)} />
             </label>
             <div className="button-row button-row-end">
               <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveBatteryDesign()} disabled={isSavingBatteryDesign}>
-                {isSavingBatteryDesign ? 'Saving...' : 'Save'}
+                {isSavingBatteryDesign ? t('common.saving') : t('common.save')}
               </button>
             </div>
           </section>
 
           <section className="panel panel-with-actions">
             <div className="section-head">
-              <h2>Notes</h2>
+              <h2>{t('battery.notes.title')}</h2>
             </div>
             <textarea
               className="field-textarea"
               value={batteryNotes}
               onChange={(event) => setBatteryNotes(event.target.value)}
               rows={5}
-              placeholder="Add battery-bank notes, installation assumptions, room constraints, or maintenance context."
+              placeholder={t('battery.notes.placeholder')}
             />
             <div className="button-row button-row-end">
               <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveBatteryDesign()} disabled={isSavingBatteryDesign}>
-                {isSavingBatteryDesign ? 'Saving...' : 'Save'}
+                {isSavingBatteryDesign ? t('common.saving') : t('common.save')}
               </button>
             </div>
           </section>
 
           <section className="panel panel-with-actions">
             <div className="section-head">
-              <h2>Image</h2>
-              <p>Battery location</p>
+              <h2>{t('battery.image.title')}</h2>
+              <p>{t('battery.image.description')}</p>
             </div>
             {batteryImage ? (
               <div className="photo-frame">
-                <img src={batteryImage} alt={batteryTitle.trim() || 'Battery bank'} className="photo-image" />
+                <img src={batteryImage} alt={batteryTitle.trim() || t('battery.image.alt')} className="photo-image" />
                 <button
                   type="button"
                   className="button button-secondary button-sm photo-remove"
@@ -3409,18 +3622,18 @@ function BatteryArrayPage({
                     void handleSaveBatteryDesign({ imageOverride: null });
                   }}
                 >
-                  Remove
+                  {t('common.remove')}
                 </button>
               </div>
             ) : (
               <label className="upload-dropzone">
-                <span>Click to upload an image</span>
+                <span>{t('battery.image.upload')}</span>
                 <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleBatteryImageChange} />
               </label>
             )}
             <div className="button-row button-row-end">
               <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveBatteryDesign()} disabled={isSavingBatteryDesign}>
-                {isSavingBatteryDesign ? 'Saving...' : 'Save'}
+                {isSavingBatteryDesign ? t('common.saving') : t('common.save')}
               </button>
             </div>
           </section>
@@ -3429,12 +3642,12 @@ function BatteryArrayPage({
         <section className="detail-grid-2">
           <section className="panel panel-with-actions">
             <div className="section-head">
-              <h2>Battery selection</h2>
-              <p>Choose the preferred system voltage, battery type, and amount of batteries.</p>
+              <h2>{t('battery.selection.title')}</h2>
+              <p>{t('battery.selection.description')}</p>
             </div>
             <div className="config-grid config-control-row">
               <label className="config-field">
-                <span>Preferred system voltage</span>
+                <span>{t('battery.selection.system_voltage')}</span>
                 <select
                   value={batteryArrayConfig?.stringVoltage ?? (batteryVoltageOptions[0]?.voltage ?? '')}
                   onChange={(event) => {
@@ -3453,7 +3666,7 @@ function BatteryArrayPage({
                 </select>
               </label>
               <label className="config-field config-field-span-2">
-                <span>Selected battery type</span>
+                <span>{t('battery.selection.selected_type')}</span>
                 <select value={selectedBatteryTypeId} onChange={(event) => setSelectedBatteryTypeId(event.target.value)}>
                   {data.entities.battery_types.map((option) => (
                     <option key={option.battery_type_id} value={option.battery_type_id}>
@@ -3463,7 +3676,7 @@ function BatteryArrayPage({
                 </select>
               </label>
               <label className="config-field">
-                <span>Amount of batteries</span>
+                <span>{t('battery.selection.amount')}</span>
                 <input
                   type="number"
                   min={1}
@@ -3475,43 +3688,43 @@ function BatteryArrayPage({
             {selectedBatteryType ? (
               <dl className="detail-stats panel-spec-grid">
                 <div>
-                  <dt>Nominal voltage</dt>
+                  <dt>{t('battery.selection.stat.nominal_voltage')}</dt>
                   <dd>{formatVolts(selectedBatteryType.nominal_voltage)}</dd>
                 </div>
                 <div>
-                  <dt>Capacity</dt>
+                  <dt>{t('battery.selection.stat.capacity')}</dt>
                   <dd>{formatKwh(selectedBatteryType.capacity_kwh)}</dd>
                 </div>
                 <div>
-                  <dt>Ah</dt>
+                  <dt>{t('battery.selection.stat.ah')}</dt>
                   <dd>{selectedBatteryType.capacity_ah} Ah</dd>
                 </div>
                 <div>
-                  <dt>Chemistry</dt>
+                  <dt>{t('battery.selection.stat.chemistry')}</dt>
                   <dd>{selectedBatteryType.chemistry}</dd>
                 </div>
               </dl>
             ) : (
-              <p className="fit-note">No battery type is available yet for this battery bank.</p>
+              <p className="fit-note">{t('battery.selection.empty')}</p>
             )}
             <div className="button-row button-row-end">
               <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveBatteryDesign()} disabled={isSavingBatteryDesign}>
-                {isSavingBatteryDesign ? 'Saving...' : 'Save'}
+                {isSavingBatteryDesign ? t('common.saving') : t('common.save')}
               </button>
             </div>
           </section>
 
           <section className="panel panel-with-actions">
             <div className="section-head">
-              <h2>Battery array</h2>
-              <p>Choose the preferred batteries per string and preferred number of parallel strings.</p>
+              <h2>{t('battery.array.title')}</h2>
+              <p>{t('battery.array.description')}</p>
             </div>
             {selectedBatteryType ? (
               <>
                 <div className="fit-card">
                   <div className="config-grid config-control-row">
                     <label className="config-field">
-                      <span>Preferred batteries per string</span>
+                      <span>{t('battery.array.batteries_per_string')}</span>
                       <select
                         value={batteriesPerString}
                         onChange={(event) => {
@@ -3528,7 +3741,7 @@ function BatteryArrayPage({
                       </select>
                     </label>
                     <label className="config-field">
-                      <span>Preferred number of parallel strings</span>
+                      <span>{t('battery.array.parallel_strings')}</span>
                       <select
                         value={parallelStrings}
                         onChange={(event) => {
@@ -3549,39 +3762,42 @@ function BatteryArrayPage({
                     <>
                       <dl className="detail-stats compact-stats">
                         <div>
-                          <dt>String voltage</dt>
+                          <dt>{t('battery.array.stat.string_voltage')}</dt>
                           <dd>{formatVolts(batteryArrayConfig.stringVoltage)}</dd>
                         </div>
                         <div>
-                          <dt>String capacity</dt>
+                          <dt>{t('battery.array.stat.string_capacity')}</dt>
                           <dd>{formatKwh(batteryArrayConfig.stringCapacityKwh)}</dd>
                         </div>
                         <div>
-                          <dt>Total capacity</dt>
+                          <dt>{t('battery.array.stat.total_capacity')}</dt>
                           <dd>{formatKwh(batteryArrayConfig.totalCapacityKwh)}</dd>
                         </div>
                         {batteryArrayConfig.maxChargeCurrentA != null ? (
                           <div>
-                            <dt>Max charge current</dt>
+                            <dt>{t('battery.array.stat.max_charge_current')}</dt>
                             <dd>{formatAmps(batteryArrayConfig.maxChargeCurrentA)}</dd>
                           </div>
                         ) : null}
                         {batteryArrayConfig.maxDischargeCurrentA != null ? (
                           <div>
-                            <dt>Max discharge current</dt>
+                            <dt>{t('battery.array.stat.max_discharge_current')}</dt>
                             <dd>{formatAmps(batteryArrayConfig.maxDischargeCurrentA)}</dd>
                           </div>
                         ) : null}
                         {batteryArrayConfig.maxDischargePowerW != null ? (
                           <div>
-                            <dt>Max discharge power</dt>
+                            <dt>{t('battery.array.stat.max_discharge_power')}</dt>
                             <dd>{formatKw(batteryArrayConfig.maxDischargePowerW)}</dd>
                           </div>
                         ) : null}
                       </dl>
                       {!batteryArrayConfig.usesConfiguredBatteriesExactly ? (
                         <p className="fit-note">
-                          Batteries per string × parallel strings = {batteryArrayConfig.configuredBatteryCount}, but {configuredBatteryCount} batteries are assigned. Adjust to match exactly.
+                          {t('battery.array.mismatch', {
+                            configured: batteryArrayConfig.configuredBatteryCount,
+                            assigned: configuredBatteryCount,
+                          })}
                         </p>
                       ) : null}
                     </>
@@ -3589,20 +3805,20 @@ function BatteryArrayPage({
                 </div>
                 <div className="button-row button-row-end">
                   <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveBatteryDesign()} disabled={isSavingBatteryDesign}>
-                    {isSavingBatteryDesign ? 'Saving...' : 'Save'}
+                    {isSavingBatteryDesign ? t('common.saving') : t('common.save')}
                   </button>
                 </div>
               </>
             ) : (
-              <p className="fit-note">Choose a battery type before configuring the battery array.</p>
+              <p className="fit-note">{t('battery.array.empty')}</p>
             )}
           </section>
         </section>
 
         <section className="panel">
           <div className="section-head">
-            <h2>Solar yield - Battery bank evaluation</h2>
-            <p>Evaluation of the solar-yield and battery-bank combination.</p>
+            <h2>{t('battery.evaluation.title')}</h2>
+            <p>{t('battery.evaluation.description')}</p>
           </div>
           {batteryArrayConfig && evaluationVerdict ? (
             <div className="fit-card">
@@ -3622,64 +3838,64 @@ function BatteryArrayPage({
               </ul>
               <dl className="detail-stats outcome-checks">
                 <div>
-                  <dt>Best month</dt>
-                  <dd>{bestMonth ? MONTH_LABELS[bestMonth.month] : 'n/a'}</dd>
+                  <dt>{t('battery.evaluation.stat.best_month')}</dt>
+                  <dd>{bestMonth ? getMonthLabel(bestMonth.month, t) : 'n/a'}</dd>
                 </div>
                 <div>
-                  <dt>Worst month</dt>
-                  <dd>{worstMonth ? MONTH_LABELS[worstMonth.month] : 'n/a'}</dd>
+                  <dt>{t('battery.evaluation.stat.worst_month')}</dt>
+                  <dd>{worstMonth ? getMonthLabel(worstMonth.month, t) : 'n/a'}</dd>
                 </div>
                 <div>
-                  <dt>Required recharge energy</dt>
+                  <dt>{t('battery.evaluation.stat.required_recharge_energy')}</dt>
                   <dd>{refillEnergyKwh != null ? formatKwh(refillEnergyKwh) : 'n/a'}</dd>
                 </div>
                 <div className={chargeCurrentExceeded ? 'check-fail' : 'check-pass'}>
-                  <dt>Estimated charge current</dt>
+                  <dt>{t('battery.evaluation.stat.estimated_charge_current')}</dt>
                   <dd>{estimatedChargeCurrentA != null ? formatAmps(estimatedChargeCurrentA) : 'n/a'}</dd>
                 </div>
                 <div className={chargeCurrentExceeded ? 'check-fail' : 'check-pass'}>
-                  <dt>Battery charge limit</dt>
+                  <dt>{t('battery.evaluation.stat.battery_charge_limit')}</dt>
                   <dd>{batteryArrayConfig.maxChargeCurrentA != null ? formatAmps(batteryArrayConfig.maxChargeCurrentA) : 'n/a'}</dd>
                 </div>
                 <div>
-                  <dt>20% → 80% in best month</dt>
+                  <dt>{t('battery.evaluation.stat.refill_best_month')}</dt>
                   <dd>{daysToRefillBestMonth != null ? `${daysToRefillBestMonth} d` : 'n/a'}</dd>
                 </div>
                 <div>
-                  <dt>20% → 80% in worst month</dt>
+                  <dt>{t('battery.evaluation.stat.refill_worst_month')}</dt>
                   <dd>{daysToRefillWorstMonth != null ? `${daysToRefillWorstMonth} d` : 'n/a'}</dd>
                 </div>
                 <div>
-                  <dt>Upstream PV input</dt>
+                  <dt>{t('battery.evaluation.stat.upstream_pv_input')}</dt>
                   <dd>{formatWp(totalUpstreamInputPowerW)}</dd>
                 </div>
               </dl>
             </div>
           ) : (
-            <p className="fit-note">Choose a battery type and configure the battery array before the evaluation can be calculated.</p>
+            <p className="fit-note">{t('battery.evaluation.empty')}</p>
           )}
         </section>
 
         <section className="panel">
           <div className="section-head">
-            <h2>Battery capacity</h2>
-            <p>Battery-bank electrical details and monthly charge context across the year.</p>
+            <h2>{t('battery.capacity.title')}</h2>
+            <p>{t('battery.capacity.description')}</p>
           </div>
           <dl className="detail-stats compact-stats" style={{ marginBottom: 16 }}>
             <div>
-              <dt>Total capacity</dt>
+              <dt>{t('battery.capacity.stat.total_capacity')}</dt>
               <dd>{batteryArrayConfig ? formatKwh(batteryArrayConfig.totalCapacityKwh) : 'n/a'}</dd>
             </div>
             <div>
-              <dt>Preferred system voltage</dt>
+              <dt>{t('battery.capacity.stat.system_voltage')}</dt>
               <dd>{targetBatteryVoltage != null ? formatVolts(targetBatteryVoltage) : 'n/a'}</dd>
             </div>
             <div>
-              <dt>Expected consumption / day</dt>
+              <dt>{t('battery.capacity.stat.expected_consumption_day')}</dt>
               <dd>{dailyConsumptionKwh != null ? formatDailyYield(dailyConsumptionKwh) : 'n/a'}</dd>
             </div>
             <div>
-              <dt>Recharge energy 20% → 80%</dt>
+              <dt>{t('battery.capacity.stat.recharge_energy')}</dt>
               <dd>{refillEnergyKwh != null ? formatKwh(refillEnergyKwh) : 'n/a'}</dd>
             </div>
           </dl>
@@ -3687,21 +3903,21 @@ function BatteryArrayPage({
             <table className="yield-table">
               <thead>
                 <tr>
-                  <th>Battery capacity</th>
+                  <th>{t('battery.capacity.table.title')}</th>
                   {MONTH_KEYS.map((month) => (
-                    <th key={month}>{MONTH_LABELS[month]}</th>
+                    <th key={month}>{getMonthLabel(month, t)}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <th>Expected yield / day</th>
+                  <th>{t('battery.capacity.table.expected_yield_day')}</th>
                   {monthlyCapacityRows.map((row) => (
                     <td key={`capacity-yield-${row.month}`}>{formatDailyYield(row.averageDailyYieldKwh)}</td>
                   ))}
                 </tr>
                 <tr>
-                  <th>Expected consumption / day</th>
+                  <th>{t('battery.capacity.table.expected_consumption_day')}</th>
                   {monthlyCapacityRows.map((row) => (
                     <td key={`capacity-consumption-${row.month}`}>
                       {row.expectedConsumptionKwh != null ? formatDailyYield(row.expectedConsumptionKwh) : 'n/a'}
@@ -3709,7 +3925,7 @@ function BatteryArrayPage({
                   ))}
                 </tr>
                 <tr>
-                  <th>Avg days to charge 20% → 80%</th>
+                  <th>{t('battery.capacity.table.avg_days_to_charge')}</th>
                   {monthlyCapacityRows.map((row) => (
                     <td key={`capacity-charge-${row.month}`}>
                       {row.daysToCharge20To80 != null ? `${row.daysToCharge20To80} d` : 'n/a'}
@@ -3795,11 +4011,13 @@ function InverterArrayPage({
   const inverterCompatibility = batteryArrayConfig
     ? evaluateInverterCompatibility(batteryArrayConfig, selectedInverterType)
     : null;
-  const inverterVerdictSummary = getRelationshipVerdictSummary('battery_to_inverter', inverterCompatibility?.status ?? null, inverterCompatibility?.fit);
-  const inverterReasonLines = inverterCompatibility ? buildRelationshipReasonList('battery_to_inverter', inverterCompatibility.reasons) : [];
+  const inverterEvaluationCopy = getInverterEvaluationCopy({
+    compatibility: inverterCompatibility,
+    t,
+  });
   async function handleSaveInverterDesign(options?: { imageOverride?: string | null }) {
     if (!selectedInverterTypeId) {
-      setInverterDesignSaveError('Choose an inverter type before saving the inverter configuration.');
+      setInverterDesignSaveError(t('inverter.save.error.choose_type'));
       return;
     }
 
@@ -3836,7 +4054,7 @@ function InverterArrayPage({
 
       await refreshProjectData();
     } catch (error) {
-      setInverterDesignSaveError(error instanceof Error ? error.message : 'Failed to save inverter configuration.');
+      setInverterDesignSaveError(error instanceof Error ? error.message : t('inverter.save.error.failed'));
     } finally {
       setIsSavingInverterDesign(false);
     }
@@ -3865,50 +4083,50 @@ function InverterArrayPage({
         <div className="detail-grid detail-intro-grid">
           <section className="panel panel-with-actions">
             <div className="section-head">
-              <h2>About</h2>
+              <h2>{t('inverter.about.title')}</h2>
             </div>
             {inverterDesignSaveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{inverterDesignSaveError}</p> : null}
             <label className="config-field" style={{ display: 'block', marginBottom: 8 }}>
-              <span>Title</span>
+              <span>{t('inverter.about.field.title')}</span>
               <input type="text" value={inverterDraft.title} onChange={(event) => setInverterDraft((current) => ({ ...current, title: event.target.value }))} />
             </label>
             <label className="config-field" style={{ display: 'block' }}>
-              <span>Description</span>
+              <span>{t('inverter.about.field.description')}</span>
               <input type="text" value={inverterDraft.description} onChange={(event) => setInverterDraft((current) => ({ ...current, description: event.target.value }))} />
             </label>
             <div className="button-row button-row-end">
               <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveInverterDesign()} disabled={isSavingInverterDesign}>
-                {isSavingInverterDesign ? 'Saving...' : 'Save'}
+                {isSavingInverterDesign ? t('common.saving') : t('common.save')}
               </button>
             </div>
           </section>
 
           <section className="panel panel-with-actions">
             <div className="section-head">
-              <h2>Notes</h2>
+              <h2>{t('inverter.notes.title')}</h2>
             </div>
             <textarea
               className="field-textarea"
               value={inverterDraft.notes}
               onChange={(event) => setInverterDraft((current) => ({ ...current, notes: event.target.value }))}
               rows={5}
-              placeholder="Add inverter notes, installation assumptions, or maintenance context."
+              placeholder={t('inverter.notes.placeholder')}
             />
             <div className="button-row button-row-end">
               <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveInverterDesign()} disabled={isSavingInverterDesign}>
-                {isSavingInverterDesign ? 'Saving...' : 'Save'}
+                {isSavingInverterDesign ? t('common.saving') : t('common.save')}
               </button>
             </div>
           </section>
 
           <section className="panel panel-with-actions">
             <div className="section-head">
-              <h2>Image</h2>
-              <p>Inverter location</p>
+              <h2>{t('inverter.image.title')}</h2>
+              <p>{t('inverter.image.description')}</p>
             </div>
             {inverterDraft.image_data_url ? (
               <div className="photo-frame">
-                <img src={inverterDraft.image_data_url} alt={inverterDraft.title.trim() || 'Inverter'} className="photo-image" />
+                <img src={inverterDraft.image_data_url} alt={inverterDraft.title.trim() || t('inverter.image.alt')} className="photo-image" />
                 <button
                   type="button"
                   className="button button-secondary button-sm photo-remove"
@@ -3917,18 +4135,18 @@ function InverterArrayPage({
                     void handleSaveInverterDesign({ imageOverride: null });
                   }}
                 >
-                  Remove
+                  {t('common.remove')}
                 </button>
               </div>
             ) : (
               <label className="upload-dropzone">
-                <span>Click to upload an image</span>
+                <span>{t('inverter.image.upload')}</span>
                 <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleInverterImageChange} />
               </label>
             )}
             <div className="button-row button-row-end">
               <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveInverterDesign()} disabled={isSavingInverterDesign}>
-                {isSavingInverterDesign ? 'Saving...' : 'Save'}
+                {isSavingInverterDesign ? t('common.saving') : t('common.save')}
               </button>
             </div>
           </section>
@@ -3937,16 +4155,16 @@ function InverterArrayPage({
         <div className="detail-grid">
           <section className="panel panel-with-actions">
             <div className="section-head">
-              <h2>Inverter selection</h2>
+              <h2>{t('inverter.selection.title')}</h2>
             </div>
             <label className="config-field">
-              <span>Selected inverter</span>
+              <span>{t('inverter.selection.selected')}</span>
               <select
                 value={selectedInverterTypeId}
                 onChange={(event) => setSelectedInverterTypeId(event.target.value)}
                 disabled={data.entities.inverter_types.length === 0}
               >
-                {data.entities.inverter_types.length === 0 ? <option value="">No inverter catalog available</option> : null}
+                {data.entities.inverter_types.length === 0 ? <option value="">{t('inverter.selection.empty_catalog')}</option> : null}
                 {data.entities.inverter_types.map((option) => (
                   <option key={option.inverter_id} value={option.inverter_id}>
                     {option.model}
@@ -3957,68 +4175,70 @@ function InverterArrayPage({
             {selectedInverterType ? (
               <dl className="detail-stats panel-spec-grid" style={{ marginTop: 16 }}>
                 <div>
-                  <dt>Input voltage</dt>
+                  <dt>{t('inverter.selection.stat.input_voltage')}</dt>
                   <dd>{formatVolts(selectedInverterType.input_voltage_v)}</dd>
                 </div>
                 <div>
-                  <dt>Output voltage</dt>
+                  <dt>{t('inverter.selection.stat.output_voltage')}</dt>
                   <dd>{formatVolts(selectedInverterType.output_voltage_v)}</dd>
                 </div>
                 <div>
-                  <dt>Continuous power</dt>
+                  <dt>{t('inverter.selection.stat.continuous_power')}</dt>
                   <dd>{formatKw(selectedInverterType.continuous_power_w)}</dd>
                 </div>
                 <div>
-                  <dt>Peak power</dt>
+                  <dt>{t('inverter.selection.stat.peak_power')}</dt>
                   <dd>{selectedInverterType.peak_power_va.toLocaleString('en-US')} VA</dd>
                 </div>
                 <div>
-                  <dt>Max current</dt>
+                  <dt>{t('inverter.selection.stat.max_current')}</dt>
                   <dd>{formatAmps(selectedInverterType.max_charge_current_a)}</dd>
                 </div>
               </dl>
             ) : null}
             {data.entities.inverter_types.length === 0 ? (
-              <p className="fit-note">No inverter catalog entries are available yet.</p>
+              <p className="fit-note">{t('inverter.selection.empty')}</p>
             ) : null}
             <div className="button-row button-row-end">
               <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveInverterDesign()} disabled={isSavingInverterDesign || data.entities.inverter_types.length === 0}>
-                {isSavingInverterDesign ? 'Saving...' : 'Save'}
+                {isSavingInverterDesign ? t('common.saving') : t('common.save')}
               </button>
             </div>
           </section>
 
           <section className="panel panel-span-2">
             <div className="section-head">
-              <h2>Battery - Inverter evaluation</h2>
+              <h2>{t('inverter.evaluation.title')}</h2>
             </div>
             {batteryArrayConfig && selectedInverterType ? (
               <div className="fit-card">
                 <div className="fit-head">
                   <strong>{selectedInverterType.model}</strong>
-                  <StatusBadge status={inverterCompatibility?.status ?? 'outside_limits'} fit={inverterCompatibility?.fit} />
+                  <span className={`status status-${statusTone(inverterCompatibility?.status ?? 'outside_limits', inverterCompatibility?.fit)}`}>
+                    {inverterEvaluationCopy?.label ?? t('inverter.evaluation.label.outside_limits')}
+                  </span>
                 </div>
-                {inverterVerdictSummary ? <p className="fit-note">{inverterVerdictSummary}</p> : null}
+                {inverterEvaluationCopy?.summary ? <p className="fit-note">{inverterEvaluationCopy.summary}</p> : null}
                 <ul className="reason-list">
-                  {inverterReasonLines.map((reason) => <li key={reason}>{reason}</li>)}
+                  {(inverterEvaluationCopy?.reasons ?? []).map((reason) => <li key={reason}>{reason}</li>)}
                 </ul>
                 <dl className="detail-stats mppt-checks">
                   <div className={batteryArrayConfig.stringVoltage > selectedInverterType.input_voltage_v * 1.1 || batteryArrayConfig.stringVoltage < selectedInverterType.input_voltage_v * 0.85 ? 'check-fail' : 'check-pass'}>
-                    <dt>Voltage check</dt>
+                    <dt>{t('inverter.evaluation.check.voltage')}</dt>
                     <dd>{formatVolts(batteryArrayConfig.stringVoltage)} / {formatVolts(selectedInverterType.input_voltage_v)}</dd>
                   </div>
                   <div className={batteryArrayConfig.maxDischargeCurrentA != null && selectedInverterType.max_charge_current_a > batteryArrayConfig.maxDischargeCurrentA ? 'check-fail' : 'check-pass'}>
-                    <dt>Current check</dt>
+                    <dt>{t('inverter.evaluation.check.current')}</dt>
                     <dd>{batteryArrayConfig.maxDischargeCurrentA != null ? formatAmps(batteryArrayConfig.maxDischargeCurrentA) : 'n/a'} / {formatAmps(selectedInverterType.max_charge_current_a)}</dd>
                   </div>
                   <div className={batteryArrayConfig.maxDischargePowerW != null && selectedInverterType.continuous_power_w > batteryArrayConfig.maxDischargePowerW ? 'check-fail' : 'check-pass'}>
-                    <dt>Power check</dt>
+                    <dt>{t('inverter.evaluation.check.power')}</dt>
                     <dd>{batteryArrayConfig.maxDischargePowerW != null ? formatKw(batteryArrayConfig.maxDischargePowerW) : 'n/a'} / {formatKw(selectedInverterType.continuous_power_w)}</dd>
                   </div>
                 </dl>
               </div>
             ) : (
-              <p className="fit-note">Choose a battery type and an inverter before the evaluation can be calculated.</p>
+              <p className="fit-note">{t('inverter.evaluation.empty')}</p>
             )}
           </section>
         </div>
@@ -4176,10 +4396,10 @@ function BatteryCatalogPage({
     <>
       <section className="hero">
         <div>
-          <p className="eyebrow">Configuration data</p>
+          <p className="eyebrow">{t('ui.configuration_data')}</p>
           <h1>{t('page.catalog.battery_types')}</h1>
           <p className="hero-copy">
-            Edit the reusable battery catalog that the battery-array flow and export use for project configuration.
+            {t('catalog.hero.battery_types')}
           </p>
         </div>
       </section>
@@ -4187,11 +4407,11 @@ function BatteryCatalogPage({
       <section className="detail-grid">
         <section className="panel">
           <div className="section-head">
-            <h2>Catalog entries</h2>
-            <p>Select a battery type to edit, or create a new catalog entry.</p>
+            <h2>{t('catalog.ui.entries_title')}</h2>
+            <p>{t('catalog.ui.entries_description', { item: t('catalog.entry.battery_type') })}</p>
           </div>
           <div className="stack" style={{ gap: 8 }}>
-            <button type="button" className="button button-secondary" onClick={startAddNew}>Add battery type</button>
+            <button type="button" className="button button-secondary" onClick={startAddNew}>{t('catalog.ui.add_item', { item: t('catalog.entry.battery_type') })}</button>
             <div className="catalog-list">
               {data.entities.battery_types.map((battery) => (
                 <div
@@ -4211,7 +4431,7 @@ function BatteryCatalogPage({
                         setSaveMessage(null);
                       }}
                     >
-                      Edit
+                      {t('common.edit')}
                     </button>
                   </div>
                 </div>
@@ -4222,14 +4442,14 @@ function BatteryCatalogPage({
 
         <section className="panel">
           <div className="section-head">
-            <h2>{selectedBattery ? 'Edit battery type' : 'Add battery type'}</h2>
-            <p>Changes update the SQLite catalog and are available after refresh.</p>
+            <h2>{selectedBattery ? t('catalog.ui.edit_item', { item: t('catalog.entry.battery_type') }) : t('catalog.ui.add_item', { item: t('catalog.entry.battery_type') })}</h2>
+            <p>{t('catalog.ui.changes_saved')}</p>
           </div>
           <div className="stack" style={{ gap: 16 }}>
             <div className="field">
               <span>Battery type ID</span>
               <p className="muted">
-                {selectedBattery ? selectedBattery.battery_type_id : (draft.model.trim() ? generateUniqueCatalogId(draft.model.trim(), data.entities.battery_types.map((battery) => battery.battery_type_id)) : 'Generated after save')}
+                {selectedBattery ? selectedBattery.battery_type_id : (draft.model.trim() ? generateUniqueCatalogId(draft.model.trim(), data.entities.battery_types.map((battery) => battery.battery_type_id)) : t('catalog.ui.generated_after_save'))}
               </p>
             </div>
             <label className="field">
@@ -4316,7 +4536,7 @@ function BatteryCatalogPage({
             </div>
             <div className="detail-grid two-col">
               <label className="field">
-                <span>Price per unit</span>
+                <span>{t('catalog.ui.price_per_unit')}</span>
                 <input
                   type="number"
                   value={draft.price}
@@ -4324,7 +4544,7 @@ function BatteryCatalogPage({
                 />
               </label>
               <label className="field">
-                <span>Price source URL</span>
+                <span>{t('catalog.ui.price_source_url')}</span>
                 <input
                   value={draft.price_source_url}
                   onChange={(event) => setDraft((current) => ({ ...current, price_source_url: event.target.value }))}
@@ -4333,7 +4553,7 @@ function BatteryCatalogPage({
               </label>
             </div>
             <label className="field">
-              <span>Notes</span>
+              <span>{t('catalog.ui.notes')}</span>
               <textarea
                 value={draft.notes}
                 onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))}
@@ -4342,11 +4562,11 @@ function BatteryCatalogPage({
             </label>
             <div className="stack" style={{ gap: 8 }}>
               <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.model.trim()}>
-                {isSaving ? 'Saving…' : selectedBattery ? 'Save battery type' : 'Create battery type'}
+                {isSaving ? t('common.saving') : selectedBattery ? t('common.save') : t('common.save')}
               </button>
               {selectedBattery ? (
                 <button type="button" className="button button-danger" onClick={() => void handleDelete()} disabled={isSaving}>
-                  Delete battery type
+                  {t('common.delete')}
                 </button>
               ) : null}
               {saveError ? <p className="save-error">{saveError}</p> : null}
@@ -4393,10 +4613,10 @@ function CatalogsPage() {
     <>
       <section className="hero">
         <div>
-          <p className="eyebrow">Configuration data</p>
+          <p className="eyebrow">{t('ui.configuration_data')}</p>
           <h1>{t('page.catalogs')}</h1>
           <p className="hero-copy">
-            Manage the reusable product catalogs used by the project configuration: panels, MPPTs, batteries, and inverters.
+            {t('catalogs.hero')}
           </p>
         </div>
       </section>
@@ -4405,15 +4625,430 @@ function CatalogsPage() {
           <section className="panel" key={catalog.catalog}>
             <div className="section-head">
               <h2>{t(catalog.labelKey)}</h2>
-              <p>Open the CRUD screen for {t(catalog.labelKey).toLowerCase()}.</p>
+              <p>{t('catalogs.open_crud', { name: t(catalog.labelKey).toLowerCase() })}</p>
             </div>
             <div className="stack" style={{ gap: 12 }}>
               <button type="button" className="button button-secondary" onClick={() => navigateTo({ kind: 'catalog', catalog: catalog.catalog })}>
-                Open {t(catalog.labelKey)}
+                {t('common.open')} {t(catalog.labelKey)}
               </button>
             </div>
           </section>
         ))}
+      </section>
+    </>
+  );
+}
+
+function ReportsPage() {
+  const { t } = useTranslation();
+  return (
+    <>
+      <section className="hero">
+        <div>
+          <p className="eyebrow">{t('ui.configuration_data')}</p>
+          <h1>{t('page.reports')}</h1>
+          <p className="hero-copy">
+            {t('reports.hero')}
+          </p>
+        </div>
+      </section>
+      <section className="detail-grid two-col">
+        {REPORT_ROUTES.map((report) => (
+          <section className="panel" key={report.kind}>
+            <div className="section-head">
+              <h2>{t(report.labelKey)}</h2>
+              <p>{t('reports.open_report')}</p>
+            </div>
+            <div className="stack" style={{ gap: 12 }}>
+              <button type="button" className="button button-secondary" onClick={() => navigateTo({ kind: report.kind })}>
+                {t('common.open')} {t(report.labelKey)}
+              </button>
+            </div>
+          </section>
+        ))}
+      </section>
+    </>
+  );
+}
+
+function VerdictSummaryPage({
+  data,
+  arrayBySurfaceId,
+  localSurfaceSummaries,
+  relationByArray,
+  mpptByArray,
+  batteryBank,
+  projectInverter,
+  batteryToInverter,
+}: PageContext) {
+  const { t } = useTranslation();
+
+  const surfaceRows = localSurfaceSummaries.map((surface) => {
+    const array = arrayBySurfaceId.get(surface.surface_id) ?? null;
+    const relation = array ? relationByArray.get(array.array_id) ?? null : null;
+    const panelType = array?.panel_type_id
+      ? data.entities.panel_types.find((item) => item.panel_type_id === array.panel_type_id) ?? null
+      : null;
+    const mpptConfiguration = array ? mpptByArray.get(array.array_id) ?? null : null;
+    const mpptType = mpptConfiguration?.mppt_type_id
+      ? data.entities.mppt_types.find((item) => item.mppt_type_id === mpptConfiguration.mppt_type_id) ?? null
+      : null;
+    const verdictSummary = getRelationshipVerdictSummary('array_to_mppt', relation?.evaluation.electrical_status ?? null, relation?.evaluation.fit_status);
+    const verdictLabel = getRelationshipVerdictLabel('array_to_mppt', relation?.evaluation.electrical_status ?? null, relation?.evaluation.fit_status);
+
+    return {
+      surface,
+      panelType,
+      mpptType,
+      status: relation?.evaluation.electrical_status ?? null,
+      fit: relation?.evaluation.fit_status,
+      verdictLabel,
+      verdictSummary,
+    };
+  });
+
+  const batteryRows = data.relationships.mppt_to_battery_bank.map((relation) => {
+    const mpptConfiguration = data.entities.mppt_configurations.find((item) => item.mppt_configuration_id === relation.from_mppt_configuration_id) ?? null;
+    const mpptType = mpptConfiguration?.mppt_type_id
+      ? data.entities.mppt_types.find((item) => item.mppt_type_id === mpptConfiguration.mppt_type_id) ?? null
+      : null;
+    const verdictSummary = getRelationshipVerdictSummary('mppt_to_battery_bank', relation.evaluation.electrical_status, relation.evaluation.fit_status);
+    const verdictLabel = getRelationshipVerdictLabel('mppt_to_battery_bank', relation.evaluation.electrical_status, relation.evaluation.fit_status);
+
+    return {
+      relation,
+      mpptName: mpptConfiguration?.name ?? mpptType?.model ?? relation.from_mppt_configuration_id,
+      status: relation.evaluation.electrical_status,
+      fit: relation.evaluation.fit_status,
+      verdictLabel,
+      verdictSummary,
+    };
+  });
+
+  const inverterVerdictSummary = batteryToInverter
+    ? getRelationshipVerdictSummary('battery_to_inverter', batteryToInverter.evaluation.electrical_status, batteryToInverter.evaluation.fit_status)
+    : null;
+  const inverterVerdictLabel = batteryToInverter
+    ? getRelationshipVerdictLabel('battery_to_inverter', batteryToInverter.evaluation.electrical_status, batteryToInverter.evaluation.fit_status)
+    : 'Not evaluated';
+
+  const surfaceAggregate = surfaceRows.some((row) => row.status === 'outside_limits')
+    ? 'Blocked'
+    : surfaceRows.some((row) => row.fit === 'acceptable' || row.fit === 'clipping_expected' || row.fit === 'underutilized')
+      ? 'Mixed'
+      : surfaceRows.length > 0
+        ? 'OK'
+        : 'Not evaluated';
+  const batteryAggregate = batteryRows.some((row) => row.status === 'outside_limits')
+    ? 'Blocked'
+    : batteryRows.some((row) => row.fit === 'acceptable')
+      ? 'Acceptable'
+      : batteryRows.some((row) => row.fit === 'optimal')
+        ? 'Optimal'
+        : 'Not evaluated';
+
+  return (
+    <>
+      <section className="hero">
+        <div>
+          <p className="eyebrow">{t('ui.configuration_data')}</p>
+          <h1>{t('page.report.verdict_summary')}</h1>
+          <p className="hero-copy">
+            {t('report.verdict.hero')}
+          </p>
+        </div>
+      </section>
+
+      <div className="hero-strip" style={{ marginBottom: 20 }}>
+        <SummaryCard label={t('report.verdict.surface_verdicts')} value={surfaceAggregate} detail={t('report.verdict.surfaces_count', { count: surfaceRows.length })} />
+        <SummaryCard label={t('report.verdict.battery_verdict')} value={batteryAggregate} detail={batteryRows.length > 0 ? t('report.verdict.mppt_relationships', { count: batteryRows.length, suffix: batteryRows.length === 1 ? '' : 's' }) : t('solar_yield.table.not_evaluated')} />
+        <SummaryCard label={t('report.verdict.inverter_verdict')} value={inverterVerdictLabel} detail={batteryToInverter ? t('report.verdict.selected_battery_to_inverter') : t('solar_yield.table.not_evaluated')} />
+      </div>
+
+      <section className="panel" style={{ marginBottom: 20 }}>
+        <div className="section-head">
+          <h2>{t('report.verdict.surface_verdicts')}</h2>
+          <p>One row per surface, showing the panel-array to MPPT verdict.</p>
+        </div>
+        {surfaceRows.length > 0 ? (
+          <div className="yield-table-wrap">
+            <table className="yield-table">
+              <thead>
+                <tr>
+                  <th>{t('report.table.surface')}</th>
+                  <th>{t('report.table.selected_panel')}</th>
+                  <th>{t('report.table.selected_mppt')}</th>
+                  <th>{t('report.table.verdict')}</th>
+                  <th>{t('report.table.why')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {surfaceRows.map(({ surface, panelType, mpptType, verdictLabel, verdictSummary }) => (
+                  <tr key={surface.surface_id}>
+                    <th>{surface.name}</th>
+                    <td>{panelType?.model ? `${panelType.model} × ${surface.panel_count}` : 'n/a'}</td>
+                    <td>{mpptType?.model ?? 'n/a'}</td>
+                    <td>{verdictLabel}</td>
+                    <td>{verdictSummary ?? t('solar_yield.table.not_evaluated')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="empty-state">
+            <p style={{ margin: 0 }}>{t('report.empty.no_surfaces')}</p>
+          </div>
+        )}
+      </section>
+
+      <section className="panel" style={{ marginBottom: 20 }}>
+        <div className="section-head">
+          <h2>{t('report.verdict.battery_verdict')}</h2>
+          <p>How the total PV across all surfaces fits the selected battery bank.</p>
+        </div>
+        <p style={{ marginTop: 0, marginBottom: 12, color: 'var(--muted)' }}>
+          {t('report.label.selected_battery_type')}: {batteryBank?.battery_type_id ? data.entities.battery_types.find((item) => item.battery_type_id === batteryBank.battery_type_id)?.model ?? batteryBank.battery_type_id : 'n/a'}
+        </p>
+        <p style={{ marginTop: 0, marginBottom: 12, color: 'var(--muted)' }}>
+          Configured PV total across all surfaces: {formatWp(localTotalInstalledWp)}
+        </p>
+        {batteryRows.length > 0 ? (
+          <div className="yield-table-wrap">
+            <table className="yield-table">
+              <thead>
+                <tr>
+                  <th>MPPT</th>
+                  <th>{t('report.table.verdict')}</th>
+                  <th>{t('report.table.why')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {batteryRows.map(({ relation, mpptName, verdictLabel, verdictSummary }) => (
+                  <tr key={relation.relationship_id}>
+                    <th>{mpptName}</th>
+                    <td>{verdictLabel}</td>
+                    <td>{verdictSummary ?? t('solar_yield.table.not_evaluated')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="empty-state">
+            <p style={{ margin: 0 }}>{t('report.empty.choose_battery')}</p>
+          </div>
+        )}
+        <p style={{ marginTop: 12, marginBottom: 0, color: 'var(--muted)', fontSize: '0.86rem' }}>
+          The battery bank is a project-level result. It is not matched against one surface at a time.
+        </p>
+      </section>
+
+      <section className="panel">
+        <div className="section-head">
+          <h2>{t('report.verdict.inverter_verdict')}</h2>
+          <p>How the selected battery bank fits the selected inverter.</p>
+        </div>
+        {projectInverter ? (
+          <>
+            <p style={{ marginTop: 0, marginBottom: 12, color: 'var(--muted)' }}>
+              {t('report.label.selected_inverter')}: {projectInverter.name}
+            </p>
+            <dl className="detail-stats panel-spec-grid" style={{ marginTop: 0, marginBottom: 16 }}>
+              <div><dt>{t('report.table.verdict')}</dt><dd>{inverterVerdictLabel}</dd></div>
+              <div><dt>{t('report.table.why')}</dt><dd>{inverterVerdictSummary ?? t('solar_yield.table.not_evaluated')}</dd></div>
+            </dl>
+          </>
+        ) : (
+          <div className="empty-state">
+            <p style={{ margin: 0 }}>{t('report.empty.choose_inverter')}</p>
+          </div>
+        )}
+      </section>
+    </>
+  );
+}
+
+function CostSummaryPage({
+  data,
+  arrayBySurfaceId,
+  localSurfaceSummaries,
+  mpptByArray,
+  batteryBank,
+  batteryBankState,
+  projectInverter,
+}: PageContext) {
+  const { t } = useTranslation();
+  const selectedBatteryType = batteryBank?.battery_type_id
+    ? data.entities.battery_types.find((item) => item.battery_type_id === batteryBank.battery_type_id) ?? null
+    : null;
+  const selectedInverterType = projectInverter?.inverter_id
+    ? data.entities.inverter_types.find((item) => item.inverter_id === projectInverter.inverter_id) ?? null
+    : null;
+
+  let matchingAllowanceUsed = 0;
+  const surfaceRows = localSurfaceSummaries.map((surface) => {
+    const array = arrayBySurfaceId.get(surface.surface_id) ?? null;
+    const panelType = array?.panel_type_id
+      ? data.entities.panel_types.find((item) => item.panel_type_id === array.panel_type_id) ?? null
+      : null;
+    const mpptConfiguration = array ? mpptByArray.get(array.array_id) ?? null : null;
+    const mpptType = mpptConfiguration?.mppt_type_id
+      ? data.entities.mppt_types.find((item) => item.mppt_type_id === mpptConfiguration.mppt_type_id) ?? null
+      : null;
+    const includedWithInverter = isMatchingRsMppt(selectedInverterType, mpptType) && matchingAllowanceUsed < 2;
+    if (includedWithInverter) {
+      matchingAllowanceUsed += 1;
+    }
+
+    const panelCost = panelType?.price != null
+      ? panelType.price * (array?.panel_count ?? surface.panel_count ?? 0)
+      : null;
+    const mpptCost = includedWithInverter
+      ? 0
+      : mpptType?.price ?? null;
+    const surfaceTotal = panelCost != null && mpptCost != null
+      ? panelCost + mpptCost
+      : null;
+
+    return {
+      surface,
+      mpptType,
+      panelCount: array?.panel_count ?? surface.panel_count,
+      panelCost,
+      mpptCost,
+      surfaceTotal,
+      includedWithInverter,
+    };
+  });
+
+  const batteryModuleCount = batteryBankState?.module_count ?? batteryBank?.module_count ?? 0;
+  const batteryTotal = selectedBatteryType?.price != null
+    ? selectedBatteryType.price * batteryModuleCount
+    : null;
+  const inverterTotal = selectedInverterType?.price ?? null;
+  const projectTotal = surfaceRows.every((row) => row.surfaceTotal != null) && batteryTotal != null && inverterTotal != null
+    ? Number((surfaceRows.reduce((sum, row) => sum + (row.surfaceTotal ?? 0), 0) + batteryTotal + inverterTotal).toFixed(2))
+    : null;
+  const matchingMpptCount = data.entities.mppt_configurations.filter((mpptConfiguration) => {
+    const mpptType = mpptConfiguration.mppt_type_id
+      ? data.entities.mppt_types.find((item) => item.mppt_type_id === mpptConfiguration.mppt_type_id) ?? null
+      : null;
+    return isMatchingRsMppt(selectedInverterType, mpptType);
+  }).length;
+
+  return (
+    <>
+      <section className="hero">
+        <div>
+          <p className="eyebrow">Configuration data</p>
+          <h1>{t('page.report.cost_summary')}</h1>
+          <p className="hero-copy">
+            Estimated equipment cost for the currently selected surfaces, battery bank, and inverter.
+          </p>
+        </div>
+      </section>
+
+      <div className="hero-strip" style={{ marginBottom: 20 }}>
+        <SummaryCard label="Estimated project total" value={formatCurrency(projectTotal)} detail="Based on catalog prices in the current saved configuration." />
+        <SummaryCard label="Battery bank total" value={formatCurrency(batteryTotal)} detail={selectedBatteryType ? `${batteryModuleCount} module${batteryModuleCount === 1 ? '' : 's'}` : 'Not selected'} />
+        <SummaryCard label="Inverter total" value={formatCurrency(inverterTotal)} detail={selectedInverterType ? `${matchingAllowanceUsed} matching MPPT${matchingAllowanceUsed === 1 ? '' : 's'} included` : 'Not selected'} />
+      </div>
+
+      <section className="panel" style={{ marginBottom: 20 }}>
+        <div className="section-head">
+          <h2>Surface costs</h2>
+          <p>Panel and MPPT cost per surface.</p>
+        </div>
+        {surfaceRows.length > 0 ? (
+          <div className="yield-table-wrap">
+            <table className="yield-table">
+              <thead>
+                <tr>
+                  <th>Surface</th>
+                  <th>Panels</th>
+                  <th>Panel cost</th>
+                  <th>Selected MPPT</th>
+                  <th>MPPT cost</th>
+                  <th>Surface total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {surfaceRows.map(({ surface, mpptType, panelCount, panelCost, mpptCost, surfaceTotal, includedWithInverter }) => (
+                  <tr key={surface.surface_id}>
+                    <th>{surface.name}</th>
+                    <td>{panelCount}</td>
+                    <td>{formatCurrency(panelCost)}</td>
+                    <td>{mpptType?.model ?? 'n/a'}</td>
+                    <td>
+                      <div className="stack" style={{ gap: 4 }}>
+                        <span>{formatCurrency(mpptCost)}</span>
+                        {includedWithInverter ? <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Included with inverter</span> : null}
+                      </div>
+                    </td>
+                    <td>{formatCurrency(surfaceTotal)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="empty-state">
+            <p style={{ margin: 0 }}>No priced surfaces are available yet.</p>
+          </div>
+        )}
+      </section>
+
+      <section className="detail-grid two-col" style={{ marginBottom: 20 }}>
+        <section className="panel">
+          <div className="section-head">
+            <h2>Battery bank cost</h2>
+            <p>Selected battery type, unit price, quantity, and total.</p>
+          </div>
+          {selectedBatteryType ? (
+            <dl className="detail-stats panel-spec-grid" style={{ marginTop: 0 }}>
+              <div><dt>Selected battery type</dt><dd>{selectedBatteryType.model}</dd></div>
+              <div><dt>Unit price</dt><dd>{formatCurrency(selectedBatteryType.price)}</dd></div>
+              <div><dt>Quantity</dt><dd>{batteryModuleCount}</dd></div>
+              <div><dt>Battery bank total</dt><dd>{formatCurrency(batteryTotal)}</dd></div>
+            </dl>
+          ) : (
+            <div className="empty-state">
+              <p style={{ margin: 0 }}>Choose a battery type to calculate battery bank cost.</p>
+            </div>
+          )}
+        </section>
+
+        <section className="panel">
+          <div className="section-head">
+            <h2>Inverter cost</h2>
+            <p>Selected inverter price plus the RS MPPT allowance note.</p>
+          </div>
+          {selectedInverterType ? (
+            <dl className="detail-stats panel-spec-grid" style={{ marginTop: 0 }}>
+              <div><dt>Selected inverter</dt><dd>{selectedInverterType.model}</dd></div>
+              <div><dt>Inverter price</dt><dd>{formatCurrency(selectedInverterType.price)}</dd></div>
+              <div><dt>Matching MPPTs included</dt><dd>{Math.min(matchingAllowanceUsed, 2)} of {matchingMpptCount}</dd></div>
+              <div><dt>Inverter total</dt><dd>{formatCurrency(inverterTotal)}</dd></div>
+            </dl>
+          ) : (
+            <div className="empty-state">
+              <p style={{ margin: 0 }}>Choose an inverter to calculate inverter cost.</p>
+            </div>
+          )}
+        </section>
+      </section>
+
+      <section className="panel">
+        <div className="section-head">
+          <h2>Pricing assumptions</h2>
+          <p>What is and is not included in the figures above.</p>
+        </div>
+        <ul style={{ margin: 0, paddingLeft: 20, color: 'var(--muted)', lineHeight: 1.65 }}>
+          <li>Prices come from the catalog entries.</li>
+          <li>Items without a price are shown as unknown, not zero.</li>
+          <li>Matching RS MPPTs with the same product identity as the selected RS inverter are included, up to 2 trackers.</li>
+        </ul>
       </section>
     </>
   );
@@ -4564,10 +5199,10 @@ function PanelCatalogPage({
     <>
       <section className="hero">
         <div>
-          <p className="eyebrow">Configuration data</p>
+          <p className="eyebrow">{t('ui.configuration_data')}</p>
           <h1>{t('page.catalog.panel_types')}</h1>
           <p className="hero-copy">
-            Edit the reusable panel catalog used by the surface configuration and export flow.
+            {t('catalog.hero.panel_types')}
           </p>
         </div>
       </section>
@@ -4575,11 +5210,11 @@ function PanelCatalogPage({
       <section className="detail-grid">
         <section className="panel">
           <div className="section-head">
-            <h2>Catalog entries</h2>
-            <p>Select a panel type to edit, or create a new catalog entry.</p>
+            <h2>{t('catalog.ui.entries_title')}</h2>
+            <p>{t('catalog.ui.entries_description', { item: t('catalog.entry.panel_type') })}</p>
           </div>
           <div className="stack" style={{ gap: 8 }}>
-            <button type="button" className="button button-secondary" onClick={startAddNew}>Add panel type</button>
+            <button type="button" className="button button-secondary" onClick={startAddNew}>{t('catalog.ui.add_item', { item: t('catalog.entry.panel_type') })}</button>
             <div className="catalog-list">
               {data.entities.panel_types.map((panel) => (
                 <div
@@ -4599,7 +5234,7 @@ function PanelCatalogPage({
                         setSaveMessage(null);
                       }}
                     >
-                      Edit
+                      {t('common.edit')}
                     </button>
                   </div>
                 </div>
@@ -4610,14 +5245,14 @@ function PanelCatalogPage({
 
         <section className="panel">
           <div className="section-head">
-            <h2>{selectedPanel ? 'Edit panel type' : 'Add panel type'}</h2>
-            <p>Changes update the SQLite catalog and are available after refresh.</p>
+            <h2>{selectedPanel ? t('catalog.ui.edit_item', { item: t('catalog.entry.panel_type') }) : t('catalog.ui.add_item', { item: t('catalog.entry.panel_type') })}</h2>
+            <p>{t('catalog.ui.changes_saved')}</p>
           </div>
           <div className="stack" style={{ gap: 16 }}>
             <div className="field">
               <span>Panel type ID</span>
               <p className="muted">
-                {selectedPanel ? selectedPanel.panel_type_id : (draft.model.trim() ? generateUniqueCatalogId(draft.model.trim(), data.entities.panel_types.map((panel) => panel.panel_type_id)) : 'Generated after save')}
+                {selectedPanel ? selectedPanel.panel_type_id : (draft.model.trim() ? generateUniqueCatalogId(draft.model.trim(), data.entities.panel_types.map((panel) => panel.panel_type_id)) : t('catalog.ui.generated_after_save'))}
               </p>
             </div>
             <label className="field">
@@ -4642,10 +5277,10 @@ function PanelCatalogPage({
             </div>
             <div className="detail-grid two-col">
               <label className="field"><span>Width (mm)</span><input type="number" value={draft.width_mm} onChange={(event) => setDraft((current) => ({ ...current, width_mm: event.target.value }))} /></label>
-              <label className="field"><span>Price per unit</span><input type="number" value={draft.price} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} /></label>
+              <label className="field"><span>{t('catalog.ui.price_per_unit')}</span><input type="number" value={draft.price} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} /></label>
             </div>
             <label className="field">
-              <span>Price source URL</span>
+              <span>{t('catalog.ui.price_source_url')}</span>
               <input
                 value={draft.price_source_url}
                 onChange={(event) => setDraft((current) => ({ ...current, price_source_url: event.target.value }))}
@@ -4653,16 +5288,16 @@ function PanelCatalogPage({
               />
             </label>
             <label className="field">
-              <span>Notes</span>
+              <span>{t('catalog.ui.notes')}</span>
               <textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={4} />
             </label>
             <div className="stack" style={{ gap: 8 }}>
               <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.model.trim()}>
-                {isSaving ? 'Saving…' : selectedPanel ? 'Save panel type' : 'Create panel type'}
+                {isSaving ? t('common.saving') : t('common.save')}
               </button>
               {selectedPanel ? (
                 <button type="button" className="button button-danger" onClick={() => void handleDelete()} disabled={isSaving}>
-                  Delete panel type
+                  {t('common.delete')}
                 </button>
               ) : null}
               {saveError ? <p className="save-error">{saveError}</p> : null}
@@ -4837,10 +5472,10 @@ function MpptCatalogPage({
     <>
       <section className="hero">
         <div>
-          <p className="eyebrow">Configuration data</p>
+          <p className="eyebrow">{t('ui.configuration_data')}</p>
           <h1>{t('page.catalog.mppt_types')}</h1>
           <p className="hero-copy">
-            Edit the reusable MPPT catalog used by the surface configuration and charging checks.
+            {t('catalog.hero.mppt_types')}
           </p>
         </div>
       </section>
@@ -4848,11 +5483,11 @@ function MpptCatalogPage({
       <section className="detail-grid">
         <section className="panel">
           <div className="section-head">
-            <h2>Catalog entries</h2>
-            <p>Select an MPPT type to edit, or create a new catalog entry.</p>
+            <h2>{t('catalog.ui.entries_title')}</h2>
+            <p>{t('catalog.ui.entries_description', { item: t('catalog.entry.mppt_type') })}</p>
           </div>
           <div className="stack" style={{ gap: 8 }}>
-            <button type="button" className="button button-secondary" onClick={startAddNew}>Add MPPT type</button>
+            <button type="button" className="button button-secondary" onClick={startAddNew}>{t('catalog.ui.add_item', { item: t('catalog.entry.mppt_type') })}</button>
             <div className="catalog-list">
               {data.entities.mppt_types.map((mppt) => (
                 <div
@@ -4872,7 +5507,7 @@ function MpptCatalogPage({
                         setSaveMessage(null);
                       }}
                     >
-                      Edit
+                      {t('common.edit')}
                     </button>
                   </div>
                 </div>
@@ -4883,14 +5518,14 @@ function MpptCatalogPage({
 
         <section className="panel">
           <div className="section-head">
-            <h2>{selectedMppt ? 'Edit MPPT type' : 'Add MPPT type'}</h2>
-            <p>Changes update the SQLite catalog and are available after refresh.</p>
+            <h2>{selectedMppt ? t('catalog.ui.edit_item', { item: t('catalog.entry.mppt_type') }) : t('catalog.ui.add_item', { item: t('catalog.entry.mppt_type') })}</h2>
+            <p>{t('catalog.ui.changes_saved')}</p>
           </div>
           <div className="stack" style={{ gap: 16 }}>
             <div className="field">
               <span>MPPT type ID</span>
               <p className="muted">
-                {selectedMppt ? selectedMppt.mppt_type_id : (draft.model.trim() ? generateUniqueCatalogId(draft.model.trim(), data.entities.mppt_types.map((mppt) => mppt.mppt_type_id)) : 'Generated after save')}
+                {selectedMppt ? selectedMppt.mppt_type_id : (draft.model.trim() ? generateUniqueCatalogId(draft.model.trim(), data.entities.mppt_types.map((mppt) => mppt.mppt_type_id)) : t('catalog.ui.generated_after_save'))}
               </p>
             </div>
             <label className="field">
@@ -4915,10 +5550,10 @@ function MpptCatalogPage({
             </div>
             <div className="detail-grid two-col">
               <label className="field"><span>Nominal battery voltage</span><input type="number" value={draft.nominal_battery_voltage} onChange={(event) => setDraft((current) => ({ ...current, nominal_battery_voltage: event.target.value }))} /></label>
-              <label className="field"><span>Price per unit</span><input type="number" value={draft.price} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} /></label>
+              <label className="field"><span>{t('catalog.ui.price_per_unit')}</span><input type="number" value={draft.price} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} /></label>
             </div>
             <label className="field">
-              <span>Price source URL</span>
+              <span>{t('catalog.ui.price_source_url')}</span>
               <input
                 value={draft.price_source_url}
                 onChange={(event) => setDraft((current) => ({ ...current, price_source_url: event.target.value }))}
@@ -4926,16 +5561,16 @@ function MpptCatalogPage({
               />
             </label>
             <label className="field">
-              <span>Notes</span>
+              <span>{t('catalog.ui.notes')}</span>
               <textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={4} />
             </label>
             <div className="stack" style={{ gap: 8 }}>
               <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.model.trim()}>
-                {isSaving ? 'Saving…' : selectedMppt ? 'Save MPPT type' : 'Create MPPT type'}
+                {isSaving ? t('common.saving') : t('common.save')}
               </button>
               {selectedMppt ? (
                 <button type="button" className="button button-danger" onClick={() => void handleDelete()} disabled={isSaving}>
-                  Delete MPPT type
+                  {t('common.delete')}
                 </button>
               ) : null}
               {saveError ? <p className="save-error">{saveError}</p> : null}
@@ -5101,10 +5736,10 @@ function InverterCatalogPage({
     <>
       <section className="hero">
         <div>
-          <p className="eyebrow">Configuration data</p>
+          <p className="eyebrow">{t('ui.configuration_data')}</p>
           <h1>{t('page.catalog.inverter_types')}</h1>
           <p className="hero-copy">
-            Edit the reusable inverter catalog used by the battery and inverter configuration flow.
+            {t('catalog.hero.inverter_types')}
           </p>
         </div>
       </section>
@@ -5112,11 +5747,11 @@ function InverterCatalogPage({
       <section className="detail-grid">
         <section className="panel">
           <div className="section-head">
-            <h2>Catalog entries</h2>
-            <p>Select an inverter type to edit, or create a new catalog entry.</p>
+            <h2>{t('catalog.ui.entries_title')}</h2>
+            <p>{t('catalog.ui.entries_description', { item: t('catalog.entry.inverter_type') })}</p>
           </div>
           <div className="stack" style={{ gap: 8 }}>
-            <button type="button" className="button button-secondary" onClick={startAddNew}>Add inverter type</button>
+            <button type="button" className="button button-secondary" onClick={startAddNew}>{t('catalog.ui.add_item', { item: t('catalog.entry.inverter_type') })}</button>
             <div className="catalog-list">
               {data.entities.inverter_types.map((inverter) => (
                 <div
@@ -5136,7 +5771,7 @@ function InverterCatalogPage({
                         setSaveMessage(null);
                       }}
                     >
-                      Edit
+                      {t('common.edit')}
                     </button>
                   </div>
                 </div>
@@ -5147,14 +5782,14 @@ function InverterCatalogPage({
 
         <section className="panel">
           <div className="section-head">
-            <h2>{selectedInverter ? 'Edit inverter type' : 'Add inverter type'}</h2>
-            <p>Changes update the SQLite catalog and are available after refresh.</p>
+            <h2>{selectedInverter ? t('catalog.ui.edit_item', { item: t('catalog.entry.inverter_type') }) : t('catalog.ui.add_item', { item: t('catalog.entry.inverter_type') })}</h2>
+            <p>{t('catalog.ui.changes_saved')}</p>
           </div>
           <div className="stack" style={{ gap: 16 }}>
             <div className="field">
               <span>Inverter ID</span>
               <p className="muted">
-                {selectedInverter ? selectedInverter.inverter_id : (draft.model.trim() ? generateUniqueCatalogId(draft.model.trim(), data.entities.inverter_types.map((inverter) => inverter.inverter_id)) : 'Generated after save')}
+                {selectedInverter ? selectedInverter.inverter_id : (draft.model.trim() ? generateUniqueCatalogId(draft.model.trim(), data.entities.inverter_types.map((inverter) => inverter.inverter_id)) : t('catalog.ui.generated_after_save'))}
               </p>
             </div>
             <label className="field">
@@ -5178,20 +5813,20 @@ function InverterCatalogPage({
               <label className="field"><span>Efficiency %</span><input type="number" value={draft.efficiency_pct} onChange={(event) => setDraft((current) => ({ ...current, efficiency_pct: event.target.value }))} /></label>
             </div>
             <div className="detail-grid two-col">
-              <label className="field"><span>Price per unit</span><input type="number" value={draft.price} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} /></label>
-              <label className="field"><span>Price source URL</span><input value={draft.price_source_url} onChange={(event) => setDraft((current) => ({ ...current, price_source_url: event.target.value }))} placeholder="https://..." /></label>
+              <label className="field"><span>{t('catalog.ui.price_per_unit')}</span><input type="number" value={draft.price} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} /></label>
+              <label className="field"><span>{t('catalog.ui.price_source_url')}</span><input value={draft.price_source_url} onChange={(event) => setDraft((current) => ({ ...current, price_source_url: event.target.value }))} placeholder="https://..." /></label>
             </div>
             <label className="field">
-              <span>Notes</span>
+              <span>{t('catalog.ui.notes')}</span>
               <textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={4} />
             </label>
             <div className="stack" style={{ gap: 8 }}>
               <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.model.trim()}>
-                {isSaving ? 'Saving…' : selectedInverter ? 'Save inverter type' : 'Create inverter type'}
+                {isSaving ? t('common.saving') : t('common.save')}
               </button>
               {selectedInverter ? (
                 <button type="button" className="button button-danger" onClick={() => void handleDelete()} disabled={isSaving}>
-                  Delete inverter type
+                  {t('common.delete')}
                 </button>
               ) : null}
               {saveError ? <p className="save-error">{saveError}</p> : null}
@@ -5217,8 +5852,8 @@ function InverterCatalogPage({
 function AppContent() {
   const [data, setData] = useState<DigitalTwinExport | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [route, setRoute] = useState<Route>(() => getRoute());
-  const { t } = useTranslation();
+  const [route, setRoute] = useState<Route>(() => parseAppUrl(window.location.pathname, window.location.hash).route);
+  const { language, setLanguage, t } = useTranslation();
   useLocalStorageRevision();
 
   async function refreshProjectData(): Promise<void> {
@@ -5236,16 +5871,51 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
-    const onHashChange = () => setRoute(getRoute());
-    window.addEventListener('hashchange', onHashChange);
-    return () => window.removeEventListener('hashchange', onHashChange);
-  }, []);
+    const onPopState = () => {
+      const parsed = parseAppUrl(window.location.pathname, window.location.hash);
+      setRoute(parsed.route);
+      if (parsed.language && parsed.language !== language) {
+        setLanguage(parsed.language);
+      }
+    };
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [language, setLanguage]);
+
+  const locationSlug = data ? getLocationSlug(data) : 'project';
+
+  useEffect(() => {
+    if (!data) {
+      return;
+    }
+
+    const parsed = parseAppUrl(window.location.pathname, window.location.hash);
+    const nextLanguage = parsed.language ?? language;
+
+    if (parsed.language && parsed.language !== language) {
+      setLanguage(parsed.language);
+      return;
+    }
+
+    const canonicalPath = buildRoutePath(route, nextLanguage, locationSlug);
+    if (window.location.pathname !== canonicalPath) {
+      navigateTo(route, {
+        language: nextLanguage,
+        locationSlug,
+        replace: true,
+      });
+    }
+  }, [data, language, locationSlug, route, setLanguage]);
 
   if (error) {
     return (
       <div className="layout">
         <Sidebar route={route} data={data} />
         <main className="app-shell">
+          <div className="app-shell-header">
+            <AppLanguageControl route={route} locationSlug="project" />
+          </div>
           <section className="panel error-panel">
             <p>{error}</p>
             <p>{t('app.server_reload')}</p>
@@ -5260,6 +5930,9 @@ function AppContent() {
       <div className="layout">
         <Sidebar route={route} data={data} />
         <main className="app-shell">
+          <div className="app-shell-header">
+            <AppLanguageControl route={route} locationSlug="project" />
+          </div>
           <section className="panel error-panel">
             <p>{t('app.loading')}</p>
           </section>
@@ -5272,6 +5945,7 @@ function AppContent() {
   const localSurfaceSummaries = buildLocalSurfaceSummaries(data);
   const localTotalInstalledWp = localSurfaceSummaries.reduce((total, surface) => total + surface.installed_wp, 0);
   const arrayStateBySurface = new Map(data.derived.array_states.map((state) => [state.surface_id, state]));
+  const arrayBySurfaceId = new Map((data.entities.pv_arrays ?? data.entities.arrays).map((item) => [item.surface_id, item]));
   const mpptByArray = new Map(data.entities.mppt_configurations.map((item) => [item.array_id, item]));
   const relationByArray = new Map(data.relationships.array_to_mppt.map((item) => [item.from_array_id, item]));
   const mpptToBatteryBankByMpptId = new Map(
@@ -5294,6 +5968,7 @@ function AppContent() {
     weakestMonth,
     localSurfaceSummaries,
     localTotalInstalledWp,
+    arrayBySurfaceId,
     arrayStateBySurface,
     mpptByArray,
     relationByArray,
@@ -5312,6 +5987,9 @@ function AppContent() {
       <div className="layout">
         <Sidebar route={route} data={data} />
         <main className="app-shell">
+          <div className="app-shell-header">
+            <AppLanguageControl route={route} locationSlug={locationSlug} />
+          </div>
           <SurfaceDetail
             key={`surface:${route.surfaceId}`}
             data={data}
@@ -5327,6 +6005,9 @@ function AppContent() {
     <div className="layout">
       <Sidebar route={route} data={data} />
       <main className="app-shell">
+        <div className="app-shell-header">
+          <AppLanguageControl route={route} locationSlug={locationSlug} />
+        </div>
         {route.kind === 'location' ? (
           <LocationPage {...context} />
         ) : route.kind === 'about' ? (
@@ -5335,6 +6016,12 @@ function AppContent() {
           <SolarYieldPage {...context} />
         ) : route.kind === 'catalogs' ? (
           <CatalogsPage />
+        ) : route.kind === 'reports' ? (
+          <ReportsPage />
+        ) : route.kind === 'verdict-summary' ? (
+          <VerdictSummaryPage {...context} />
+        ) : route.kind === 'cost-summary' ? (
+          <CostSummaryPage {...context} />
         ) : route.kind === 'catalog' && route.catalog === 'panel-types' ? (
           <PanelCatalogPage data={data} refreshProjectData={refreshProjectData} />
         ) : route.kind === 'catalog' && route.catalog === 'mppt-types' ? (
