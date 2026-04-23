@@ -7,6 +7,7 @@
 - Split the Location header title into a real persisted location title field, renamed the project header to `18Mad Boerderij`, and added an About page with the Joost Okkinga byline and Codeberg repository link.
 
 - Made production database resolution fall back to `/data/project.db` when `DATABASE_PATH` is unset, so Railway redeploys keep using mounted persistent storage instead of a disposable container-local SQLite file.
+- Added a production startup guard that refuses to boot unless `DATABASE_PATH` resolves to `/data/project.db`, so a misconfigured deploy cannot silently create a fresh empty database.
 - Added runtime-path tests that cover the local default, the production fallback, and explicit overrides.
 
 - Removed the Overview sidebar link and made Location the default landing page.

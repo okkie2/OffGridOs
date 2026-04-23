@@ -31,6 +31,13 @@ describe('resolveDatabasePath', () => {
     process.env.DATABASE_PATH = '/custom/project.db';
     process.env.NODE_ENV = 'production';
 
-    expect(resolveDatabasePath()).toBe('/custom/project.db');
+    expect(() => resolveDatabasePath()).toThrow(/must resolve to \/data\/project\.db/);
+  });
+
+  it('accepts the required persistent database path in production', () => {
+    process.env.DATABASE_PATH = DEFAULT_PRODUCTION_DATABASE_PATH;
+    process.env.NODE_ENV = 'production';
+
+    expect(resolveDatabasePath()).toBe(path.resolve(DEFAULT_PRODUCTION_DATABASE_PATH));
   });
 });

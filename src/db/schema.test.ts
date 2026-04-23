@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { initSchema } from './schema.js';
+import { getArrayToMpptMapping, getSurfaceConfiguration } from './queries.js';
 
 type CountRow = { count: number };
 
@@ -69,6 +70,33 @@ describe('initSchema', () => {
 
       const second = snapshotCounts(db, tables);
       expect(second).toEqual(first);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('clears stale MPPT references while bootstrapping an existing database', () => {
+    const db = makeTempDatabase();
+    try {
+      db.exec('PRAGMA foreign_keys = OFF;');
+      initSchema(db);
+
+      db.prepare(`
+        UPDATE surface_configurations
+        SET selected_mppt_type_id = 'missing-mppt'
+        WHERE surface_id = 'flat-ne'
+      `).run();
+
+      db.prepare(`
+        UPDATE array_to_mppt_mappings
+        SET selected_mppt_type_id = 'missing-mppt'
+        WHERE array_id = 'array-flat-ne'
+      `).run();
+      db.exec('PRAGMA foreign_keys = ON;');
+
+      expect(() => initSchema(db)).not.toThrow();
+      expect(getSurfaceConfiguration(db, 'flat-ne')?.selected_mppt_type_id ?? null).toBeNull();
+      expect(getArrayToMpptMapping(db, 'array-flat-ne')?.selected_mppt_type_id ?? null).toBeNull();
     } finally {
       db.close();
     }

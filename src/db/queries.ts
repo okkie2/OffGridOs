@@ -276,12 +276,24 @@ export function upsertArrayToMpptMapping(db: Database.Database, data: Omit<Array
   `).run(data);
 }
 
+function resolveValidSelectedMpptTypeId(db: Database.Database, selectedMpptTypeId?: string | null): string | null {
+  if (!selectedMpptTypeId) {
+    return null;
+  }
+
+  return getMpptType(db, selectedMpptTypeId)?.mppt_type_id ?? null;
+}
+
 export function syncPvTopologyForSurface(db: Database.Database, surface_id: string): void {
   const surface = getSurface(db, surface_id);
   if (!surface) return;
 
   const assignments = db.prepare('SELECT * FROM surface_panel_assignments WHERE surface_id = ? ORDER BY id').all(surface_id) as SurfacePanelAssignment[];
   const configuration = getSurfaceConfiguration(db, surface_id);
+  const selectedMpptTypeId = resolveValidSelectedMpptTypeId(db, configuration?.selected_mppt_type_id ?? null);
+  if (configuration && configuration.selected_mppt_type_id !== selectedMpptTypeId) {
+    db.prepare('UPDATE surface_configurations SET selected_mppt_type_id = ? WHERE surface_id = ?').run(selectedMpptTypeId, surface_id);
+  }
   const primaryAssignment = assignments[0] ?? null;
   const panelCount = assignments.reduce((sum, assignment) => sum + assignment.count, 0);
   const primaryPanelType = primaryAssignment ? getPanelType(db, primaryAssignment.panel_type_id) : null;
@@ -326,7 +338,7 @@ export function syncPvTopologyForSurface(db: Database.Database, surface_id: stri
   upsertArrayToMpptMapping(db, {
     mapping_id: `array-mppt-${surface_id}`,
     array_id: arrayId,
-    selected_mppt_type_id: configuration?.selected_mppt_type_id ?? null,
+    selected_mppt_type_id: selectedMpptTypeId,
   });
 }
 
