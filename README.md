@@ -3,7 +3,7 @@
 
 OffGridOS is a single-project, single-user off-grid system planning tool built around a small SQLite project database, a Node server, and a React web app.
 
-The core flow - location, surfaces, battery array, inverter array - is server-backed and persists to SQLite. Reusable panel, MPPT, battery, and inverter catalogs now live under a shared `Catalogs` section. The next work targets replacing provisional derived configurations with explicit persisted project data and stabilising the schema.
+The core flow - location, surfaces, battery array, inverter array - is server-backed and persists to SQLite. Reusable panel, MPPT, battery, and inverter catalogs live under a shared `Catalogs` section, and the read-only `Verdict summary` and `Cost summary` pages live under `Reports`. The next work targets replacing provisional derived configurations with explicit persisted project data and stabilising the schema.
 
 For planning, treat `TODO.md` as the concrete publish-blocker queue and `ROADMAP.md` as the post-MVP theme queue.
 
@@ -83,11 +83,13 @@ The current publish workflow keeps `project.db` as the local source of truth and
 - [app-structure-v2.md](./docs/app-structure-v2.md): current preferred page-by-page app structure, including the stepwise flow from location through consumers and dashboard.
 - [app-navigation.md](./docs/app-navigation.md): navigation structure connecting the overview and subsystem drill-down screens.
 - [user-flow.md](./docs/user-flow.md): user-authored end-to-end screen flow with a written evaluation of the `Location` section.
+- [verdict-price-summary-pages.md](./docs/verdict-price-summary-pages.md): simplified read-only `Verdict summary` and `Cost summary` page spec under `Reports`.
 - [digital-twin-model.md](./docs/digital-twin-model.md): component graph, bidirectional dependency model, and monthly scenario views.
 - [digital-twin-data-model.md](./docs/digital-twin-data-model.md): entities, relationships, evaluation fields, and JSON export shape.
 - [digital-twin-db-extension.md](./docs/digital-twin-db-extension.md): phased plan for which digital twin entities should be persisted in SQLite and in what order.
 - [digital-twin-types.md](./docs/digital-twin-types.md): TypeScript-facing draft of the digital twin object model and relationship evaluation shape.
 - [relationship-evaluation-guide.md](./docs/relationship-evaluation-guide.md): statuses and reason codes for evaluating compatibility across the system chain.
+- [verdict-language-guide.md](./docs/verdict-language-guide.md): sentence templates for explaining what is underutilized, acceptable, optimal, or outside limits in each relationship.
 - [monthly-usage-model.md](./docs/monthly-usage-model.md): first-pass model for seasonal usage variation and monthly factors.
 - [json-export-shape.md](./docs/json-export-shape.md): API export contract for the React app, including entities, relationships, derived results, and metadata.
 

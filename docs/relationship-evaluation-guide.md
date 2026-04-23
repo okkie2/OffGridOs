@@ -178,3 +178,5 @@ Use this guide when:
 3. shaping UI badges, warnings, and tooltips
 
 Do not store all `reasons` in SQLite initially unless they become part of an audited or user-edited workflow.
+
+For the exact human-readable sentence patterns that explain `what relative to what`, also see [verdict-language-guide.md](./verdict-language-guide.md).

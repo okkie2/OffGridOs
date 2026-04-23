@@ -1,0 +1,155 @@
+# Verdict Language Guide
+
+This note defines how OffGridOS should explain relationship verdicts in human-readable language.
+
+Terminology in this note must follow [UBIQUITOUS_LANGUAGE.md](../UBIQUITOUS_LANGUAGE.md).
+
+Use this guide together with [relationship-evaluation-guide.md](./relationship-evaluation-guide.md):
+
+- [relationship-evaluation-guide.md](./relationship-evaluation-guide.md) defines the evaluation shape, statuses, and reason codes
+- this guide defines how those results should be phrased in the UI
+
+## Purpose
+
+OffGridOS verdicts should not stop at a class label such as:
+
+- `Optimal`
+- `Acceptable`
+- `Underutilized`
+- `Outside limits`
+
+They should also explain:
+
+1. what relationship is being judged
+2. which side is constrained or underused
+3. why the verdict was reached
+
+## Core pattern
+
+Present relationship verdicts in this order:
+
+1. status line
+2. relationship line
+3. explanation line
+
+Example:
+
+- `Within limits · Underutilized`
+- `Array -> MPPT`
+- `The selected MPPT has significant unused PV capacity relative to this array.`
+
+## Language rule
+
+When the verdict is not `outside_limits`, the explanation should still name the subject of the verdict.
+
+Do not say only:
+
+- `Underutilized`
+- `Acceptable`
+- `Optimal`
+
+Instead say:
+
+- what is underutilized by what
+- what is an acceptable match for what
+- what is closely matched to what
+
+## Canonical sentence pattern
+
+Use these sentence shapes:
+
+- `Outside limits`: `{Left side} is not electrically compatible with {right side}.`
+- `Optimal`: `{Left side} is closely matched to {right side}.`
+- `Acceptable`: `{Left side} is a workable match for {right side}, with some headroom or tradeoff.`
+- `Clipping expected`: `{Left side} is intentionally large relative to {right side}, so clipping is expected in stronger conditions.`
+- `Underutilized`: `{Right side} has significant unused capacity relative to {left side}.`
+
+This keeps the wording aligned with relationship direction while still naming the component with spare capacity.
+
+## Relationship-specific templates
+
+### Array -> MPPT
+
+- `Optimal`: `This array is closely matched to the selected MPPT.`
+- `Acceptable`: `This array is a workable match for the selected MPPT, with some headroom or tradeoff.`
+- `Clipping expected`: `This array is intentionally large relative to the selected MPPT, so clipping is expected in stronger conditions.`
+- `Underutilized`: `The selected MPPT has significant unused PV capacity relative to this array.`
+- `Outside limits`: `This array is not electrically compatible with the selected MPPT.`
+
+Reason-level wording:
+
+- `voltage_too_high`: `String voltage exceeds the MPPT voltage limit.`
+- `startup_voltage_too_low`: `String voltage is too low for reliable MPPT startup.`
+- `input_current_too_high`: `Array input current exceeds the MPPT input-current limit.`
+- `low_utilization`: `The array uses only a small share of the MPPT's available PV capacity.`
+- `well_matched`: `Array power and MPPT capacity are closely aligned.`
+
+### MPPT -> battery bank
+
+- `Optimal`: `The selected MPPT is closely matched to this battery bank.`
+- `Acceptable`: `The selected MPPT can charge this battery bank appropriately, with some headroom or limitation.`
+- `Underutilized`: `The battery charge path is underutilized relative to the selected MPPT.`
+- `Outside limits`: `The selected MPPT is not electrically compatible with this battery bank.`
+
+Reason-level wording:
+
+- `battery_voltage_mismatch`: `The MPPT battery voltage does not match the battery bank voltage.`
+- `charge_current_too_high`: `The MPPT can deliver more charge current than this battery bank should accept.`
+- `battery_charge_path_underutilized`: `The available MPPT charging capability is more than this battery bank meaningfully uses.`
+- `well_matched`: `MPPT charging capability and battery-bank acceptance are closely aligned.`
+
+### Battery bank -> inverter
+
+- `Optimal`: `This battery bank is closely matched to the selected inverter.`
+- `Acceptable`: `This battery bank can support the selected inverter, with some headroom or tradeoff.`
+- `Underutilized`: `The selected inverter has significant unused capacity relative to this battery bank.`
+- `Outside limits`: `This battery bank is not electrically compatible with the selected inverter.`
+
+Reason-level wording:
+
+- `dc_voltage_mismatch`: `Battery-bank voltage does not match the inverter DC input range.`
+- `inverter_current_too_high_for_battery`: `The inverter can draw more current than this battery bank should supply.`
+- `inverter_power_too_high_for_battery`: `The inverter is too large for this battery bank's available power.`
+- `inverter_underutilized`: `The selected inverter is larger than this battery bank currently justifies.`
+- `well_matched`: `Battery-bank voltage and power capability are closely aligned with the inverter.`
+
+### Inverter -> branch circuit
+
+- `Optimal`: `This branch circuit is closely matched to the inverter.`
+- `Acceptable`: `This branch circuit is a workable load path for the inverter, with some headroom or tradeoff.`
+- `Underutilized`: `The inverter has significant unused capacity relative to this branch circuit.`
+- `Outside limits`: `This branch circuit is not electrically compatible with the inverter.`
+
+### Branch circuit -> consumer
+
+- `Optimal`: `This consumer is closely matched to the branch circuit.`
+- `Acceptable`: `This consumer can run on this branch circuit, with some headroom or startup tradeoff.`
+- `Underutilized`: `This branch circuit has significant unused capacity relative to this consumer.`
+- `Outside limits`: `This consumer is not electrically compatible with this branch circuit.`
+
+## UI guidance
+
+The badge can stay short:
+
+- `Optimal`
+- `Acceptable`
+- `Underutilized`
+- `Clipping expected`
+- `Outside limits`
+
+But the line below the badge should explain the verdict with a full sentence derived from:
+
+1. relationship type
+2. `electrical_status`
+3. `fit_status`
+4. `reasons`
+
+## Recommendation
+
+Use this guide when:
+
+1. writing verdict copy in React components
+2. turning reason codes into explanation strings
+3. reviewing whether a verdict actually says what is being underused, oversized, or blocked
+
+If a verdict sentence does not answer `what relative to what?`, it is too vague.

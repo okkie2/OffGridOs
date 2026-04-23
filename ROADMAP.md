@@ -12,6 +12,7 @@
 
 - Support more advanced optimisation, scenario comparison, and seasonal planning.
 - Add richer presentation layers for system visualization, summary output, and shareable reporting.
+- Evolve the product into a multilingual planning tool with English, Dutch, and Frisian UI support across the main web workflow.
 
 ## LATER
 
