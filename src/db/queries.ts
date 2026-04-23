@@ -355,16 +355,15 @@ export function syncPvTopologyForSurface(db: Database.Database, surface_id: stri
 
 export function syncPvTopology(db: Database.Database): void {
   const surfaces = db.prepare('SELECT surface_id FROM surfaces ORDER BY surface_id').all() as { surface_id: string }[];
-  const activeSurfaceIds = new Set(surfaces.map((surface) => surface.surface_id));
+
+  // These tables are derived from surfaces, panel assignments, and surface configurations.
+  // Rebuilding them from scratch makes startup resilient to legacy or partially-corrupted rows.
+  db.prepare('DELETE FROM array_to_mppt_mappings').run();
+  db.prepare('DELETE FROM pv_strings').run();
+  db.prepare('DELETE FROM pv_arrays').run();
 
   for (const { surface_id } of surfaces) {
     syncPvTopologyForSurface(db, surface_id);
-  }
-
-  for (const array of listPvArrays(db)) {
-    if (!activeSurfaceIds.has(array.surface_id)) {
-      deletePvArrayForSurface(db, array.surface_id);
-    }
   }
 }
 

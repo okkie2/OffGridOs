@@ -156,4 +156,25 @@ describe('initSchema', () => {
       db.close();
     }
   });
+
+  it('rebuilds corrupted derived pv topology rows from source data on bootstrap', () => {
+    const db = makeTempDatabase();
+    try {
+      db.exec('PRAGMA foreign_keys = OFF;');
+      initSchema(db);
+
+      db.prepare('DELETE FROM pv_arrays').run();
+      db.prepare('UPDATE pv_strings SET array_id = ? WHERE surface_id = ?').run('broken-array-id', 'flat-ne');
+      db.prepare('UPDATE array_to_mppt_mappings SET array_id = ?, selected_mppt_type_id = ? WHERE mapping_id = ?')
+        .run('broken-array-id', 'missing-mppt', 'array-mppt-flat-ne');
+      db.exec('PRAGMA foreign_keys = ON;');
+
+      expect(() => initSchema(db)).not.toThrow();
+      expect(db.prepare('SELECT COUNT(*) AS count FROM pv_arrays WHERE surface_id = ?').get('flat-ne')).toEqual({ count: 1 });
+      expect(db.prepare('SELECT COUNT(*) AS count FROM pv_strings WHERE array_id = ?').get('array-flat-ne')).toEqual({ count: 1 });
+      expect(getArrayToMpptMapping(db, 'array-flat-ne')?.selected_mppt_type_id ?? null).toBeNull();
+    } finally {
+      db.close();
+    }
+  });
 });
