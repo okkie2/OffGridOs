@@ -4820,7 +4820,7 @@ function VerdictSummaryPage({
             <table className="yield-table">
               <thead>
                 <tr>
-                  <th>MPPT</th>
+                  <th>{t('report.table.selected_mppt')}</th>
                   <th>{t('report.table.verdict')}</th>
                   <th>{t('report.table.why')}</th>
                 </tr>
