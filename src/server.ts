@@ -5,8 +5,6 @@ import { createSurface, deleteSurface, deleteSurfacePanelAssignmentsForSurface, 
 import { buildDigitalTwinExport } from './output/exportDigitalTwin.js';
 import { resolveDatabasePath, resolveServerHost, resolveServerPort, resolveWebDistPath } from './config/runtime.js';
 import { ensureDatabaseReady, withDb } from './server/bootstrap.js';
-import type { DatabaseBackup } from './server/database-backup.js';
-import { createDatabaseBackup } from './server/database-backup.js';
 
 const databasePath = resolveDatabasePath();
 const webDistPath = resolveWebDistPath();
@@ -21,19 +19,6 @@ function sendJson(response: ServerResponse, statusCode: number, payload: unknown
 function sendText(response: ServerResponse, statusCode: number, message: string): void {
   response.writeHead(statusCode, { 'Content-Type': 'text/plain; charset=utf-8' });
   response.end(message);
-}
-
-function sendFile(response: ServerResponse, filePath: string, downloadName: string): void {
-  if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
-    sendText(response, 404, 'Not found');
-    return;
-  }
-
-  response.writeHead(200, {
-    'Content-Type': 'application/x-sqlite3',
-    'Content-Disposition': `attachment; filename="${downloadName}"`,
-  });
-  fs.createReadStream(filePath).pipe(response);
 }
 
 async function readJsonBody<T>(request: IncomingMessage): Promise<T> {
@@ -128,31 +113,6 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
       const message = error instanceof Error ? error.message : 'Unknown server error';
       sendJson(response, 500, { error: message });
     }
-    return true;
-  }
-
-  if (method === 'GET' && url.pathname === '/api/database-backup') {
-    void (async () => {
-      let backup: DatabaseBackup | null = null;
-      try {
-        backup = await createDatabaseBackup(databasePath);
-        response.once('finish', () => {
-          backup?.cleanup();
-        });
-        response.once('close', () => {
-          backup?.cleanup();
-        });
-        sendFile(response, backup.backupPath, 'offgridos-project.db');
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown server error';
-        if (!response.headersSent) {
-          sendJson(response, 500, { error: message });
-        } else {
-          response.end();
-        }
-        backup?.cleanup();
-      }
-    })();
     return true;
   }
 
