@@ -132,6 +132,7 @@ export interface BatteryType {
   cooling: 'active' | 'passive';
   price?: number | null;
   price_per_kwh?: number | null;
+  price_source_url?: string | null;
   source?: string | null;
   url?: string | null;
   notes?: string;

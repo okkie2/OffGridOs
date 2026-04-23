@@ -2,6 +2,8 @@
 
 ## 2026-04-24
 
+- Added full persistence-field BDD coverage for location, surface, panel-array, and inverter configuration round-trips, and hardened the jsdom navigation harness so it follows the current clean-route browser APIs.
+- Normalized battery seed/schema/query/API handling around `price_source_url`, including compatibility fallback from older `source` and `url` columns.
 - Moved shared verdict labels, verdict explainers, reason lists, and status badges onto the multilingual dictionary so relationship feedback no longer leaks English copy.
 - Hid the `Cost summary` report from the visible web-app navigation while keeping the underlying route available.
 - Switched the web app from hash routing to clean deeplinkable routes using the `/:lang/:locationSlug/...` schema, with language-aware URLs and canonical location slugs.

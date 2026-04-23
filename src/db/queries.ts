@@ -536,11 +536,23 @@ export function deleteMpptType(db: Database.Database, mppt_type_id: string): voi
 // ── Battery types ─────────────────────────────────────────────────────────────
 
 export function listBatteryTypes(db: Database.Database): BatteryType[] {
-  return db.prepare('SELECT * FROM battery_types ORDER BY battery_type_id').all() as BatteryType[];
+  return db.prepare(`
+    SELECT
+      *,
+      COALESCE(price_source_url, source, url) AS price_source_url
+    FROM battery_types
+    ORDER BY battery_type_id
+  `).all() as BatteryType[];
 }
 
 export function getBatteryType(db: Database.Database, battery_type_id: string): BatteryType | null {
-  return (db.prepare('SELECT * FROM battery_types WHERE battery_type_id = ?').get(battery_type_id) as BatteryType) ?? null;
+  return (db.prepare(`
+    SELECT
+      *,
+      COALESCE(price_source_url, source, url) AS price_source_url
+    FROM battery_types
+    WHERE battery_type_id = ?
+  `).get(battery_type_id) as BatteryType) ?? null;
 }
 
 export function insertBatteryType(db: Database.Database, data: Omit<BatteryType, 'id'>): void {
@@ -550,17 +562,18 @@ export function insertBatteryType(db: Database.Database, data: Omit<BatteryType,
   db.prepare(`
     INSERT INTO battery_types
       (battery_type_id, model, chemistry, nominal_voltage, capacity_ah, capacity_kwh,
-       max_charge_rate, max_discharge_rate, victron_can, cooling, price, price_per_kwh, source, url, notes)
+       max_charge_rate, max_discharge_rate, victron_can, cooling, price, price_per_kwh, price_source_url, source, url, notes)
     VALUES
       (@battery_type_id, @model, @chemistry, @nominal_voltage, @capacity_ah, @capacity_kwh,
-       @max_charge_rate, @max_discharge_rate, @victron_can, @cooling, @price, @price_per_kwh, @source, @url, @notes)
+       @max_charge_rate, @max_discharge_rate, @victron_can, @cooling, @price, @price_per_kwh, @price_source_url, @source, @url, @notes)
   `).run({
     ...data,
     price_per_kwh: pricePerKwh,
     cooling: data.cooling ?? 'passive',
     victron_can: data.victron_can ? 1 : 0,
-    source: data.source ?? data.url ?? null,
-    url: data.url ?? data.source ?? null,
+    price_source_url: data.price_source_url ?? data.source ?? data.url ?? null,
+    source: data.source ?? data.price_source_url ?? data.url ?? null,
+    url: data.url ?? data.price_source_url ?? data.source ?? null,
     notes: data.notes ?? null,
   });
 }
@@ -574,15 +587,16 @@ export function updateBatteryType(db: Database.Database, data: Omit<BatteryType,
     SET model=@model, chemistry=@chemistry, nominal_voltage=@nominal_voltage,
         capacity_ah=@capacity_ah, capacity_kwh=@capacity_kwh,
         max_charge_rate=@max_charge_rate, max_discharge_rate=@max_discharge_rate,
-        victron_can=@victron_can, cooling=@cooling, price=@price, price_per_kwh=@price_per_kwh, source=@source, url=@url, notes=@notes
+        victron_can=@victron_can, cooling=@cooling, price=@price, price_per_kwh=@price_per_kwh, price_source_url=@price_source_url, source=@source, url=@url, notes=@notes
     WHERE battery_type_id=@battery_type_id
   `).run({
     ...data,
     price_per_kwh: pricePerKwh,
     cooling: data.cooling ?? 'passive',
     victron_can: data.victron_can ? 1 : 0,
-    source: data.source ?? data.url ?? null,
-    url: data.url ?? data.source ?? null,
+    price_source_url: data.price_source_url ?? data.source ?? data.url ?? null,
+    source: data.source ?? data.price_source_url ?? data.url ?? null,
+    url: data.url ?? data.price_source_url ?? data.source ?? null,
     notes: data.notes ?? null,
   });
 }

@@ -14,6 +14,7 @@ function ensureBatteryTypesColumns(db: Database.Database): void {
     !cols.has('cooling') ? "ALTER TABLE battery_types ADD COLUMN cooling TEXT NOT NULL DEFAULT 'passive';" : '',
     !cols.has('price') ? 'ALTER TABLE battery_types ADD COLUMN price REAL;' : '',
     !cols.has('price_per_kwh') ? 'ALTER TABLE battery_types ADD COLUMN price_per_kwh REAL;' : '',
+    !cols.has('price_source_url') ? 'ALTER TABLE battery_types ADD COLUMN price_source_url TEXT;' : '',
     !cols.has('source') ? 'ALTER TABLE battery_types ADD COLUMN source TEXT;' : '',
     !cols.has('url') ? 'ALTER TABLE battery_types ADD COLUMN url TEXT;' : '',
   ].filter(Boolean);
@@ -22,6 +23,12 @@ function ensureBatteryTypesColumns(db: Database.Database): void {
     db.exec(additions.join('\n'));
     db.prepare("UPDATE battery_types SET cooling = COALESCE(cooling, 'passive')").run();
   }
+
+  db.prepare(`
+    UPDATE battery_types
+    SET price_source_url = COALESCE(price_source_url, source, url)
+    WHERE price_source_url IS NULL AND (source IS NOT NULL OR url IS NOT NULL)
+  `).run();
 }
 
 function ensureLocationColumns(db: Database.Database): void {
@@ -293,6 +300,7 @@ export function initSchema(db: Database.Database): void {
       cooling             TEXT NOT NULL DEFAULT 'passive',
       price               REAL,
       price_per_kwh       REAL,
+      price_source_url    TEXT,
       source              TEXT,
       url                 TEXT,
       notes               TEXT

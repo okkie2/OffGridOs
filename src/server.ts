@@ -194,7 +194,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           victron_can?: unknown;
           cooling?: unknown;
           price?: unknown;
-          source?: unknown;
+          price_source_url?: unknown;
           notes?: unknown;
         }>(request);
 
@@ -215,7 +215,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         const price = payload.price == null || payload.price === ''
           ? null
           : (typeof payload.price === 'number' ? payload.price : Number(payload.price));
-        const source = isValidNonEmptyText(payload.source) ? payload.source.trim() : null;
+        const priceSourceUrl = isValidNonEmptyText(payload.price_source_url) ? payload.price_source_url.trim() : null;
         const notes = isValidNonEmptyText(payload.notes) ? payload.notes.trim() : undefined;
 
         if (!model || !chemistry || !Number.isFinite(nominalVoltage) || nominalVoltage <= 0 || !Number.isFinite(capacityAh) || capacityAh <= 0 || !Number.isFinite(capacityKwh) || capacityKwh <= 0) {
@@ -248,8 +248,9 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             victron_can: victronCan,
             cooling,
             price,
-            source,
-            url: source,
+            price_source_url: priceSourceUrl,
+            source: priceSourceUrl,
+            url: priceSourceUrl,
             notes,
           });
 
@@ -286,7 +287,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           victron_can?: unknown;
           cooling?: unknown;
           price?: unknown;
-          source?: unknown;
+          price_source_url?: unknown;
           notes?: unknown;
         }>(request);
 
@@ -307,7 +308,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         const price = payload.price == null || payload.price === ''
           ? null
           : (typeof payload.price === 'number' ? payload.price : Number(payload.price));
-        const source = isValidNonEmptyText(payload.source) ? payload.source.trim() : null;
+        const priceSourceUrl = isValidNonEmptyText(payload.price_source_url) ? payload.price_source_url.trim() : null;
         const notes = isValidNonEmptyText(payload.notes) ? payload.notes.trim() : undefined;
 
         if (bodyBatteryTypeId !== batteryTypeId) {
@@ -345,8 +346,9 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             victron_can: victronCan,
             cooling,
             price,
-            source,
-            url: source,
+            price_source_url: priceSourceUrl,
+            source: priceSourceUrl,
+            url: priceSourceUrl,
             notes,
           });
 

@@ -101,7 +101,10 @@ interface ExportInverterConfiguration {
   inverter_id?: string;
   name: string;
   provisional: boolean;
-  notes?: string;
+  title?: string | null;
+  description?: string | null;
+  image_data_url?: string | null;
+  notes?: string | null;
 }
 
 interface ExportProject {
@@ -671,7 +674,14 @@ function pickDerivedInverter(inverterTypes: InverterType[]): InverterType | unde
 }
 
 function buildInverterConfigurations(
-  inverterConfigurations: Array<{ inverter_configuration_id: string; selected_inverter_type_id?: string | null }>,
+  inverterConfigurations: Array<{
+    inverter_configuration_id: string;
+    selected_inverter_type_id?: string | null;
+    title?: string | null;
+    description?: string | null;
+    image_data_url?: string | null;
+    notes?: string | null;
+  }>,
   inverterTypes: InverterType[],
 ): ExportInverterConfiguration[] {
   const inverterTypesById = new Map(inverterTypes.map((inverterType) => [inverterType.inverter_id, inverterType]));
@@ -687,11 +697,10 @@ function buildInverterConfigurations(
       inverter_id: selectedInverter?.inverter_id ?? derivedInverter?.inverter_id,
       name: selectedInverter?.model ?? derivedInverter?.model ?? 'Main inverter',
       provisional: !selectedInverter,
-      notes: selectedInverter
-        ? 'Uses the saved inverter configuration from the project database.'
-        : derivedInverter
-          ? 'Derived provisional inverter choice currently uses the smallest catalog inverter until load-side configuration is modeled.'
-          : 'No provisional inverter choice could be derived from the current inverter catalog.',
+      title: configuration.title ?? null,
+      description: configuration.description ?? null,
+      image_data_url: configuration.image_data_url ?? null,
+      notes: configuration.notes ?? null,
     };
   });
 }

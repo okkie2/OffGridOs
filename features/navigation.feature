@@ -5,7 +5,8 @@ Feature: Navigation
 
   Scenario: Navigate from Location to a surface detail page and return
     Given OffGridOS is rendered with project data
-    When I open the first surface detail from the menu
+    When I open Location from the menu
+    And I open the first surface detail from the menu
     Then I should see the Surface detail page
     When I go back to Location using the breadcrumb
     Then I should see the Location page

@@ -538,9 +538,9 @@ export function seedMpptTypes(db: Database.Database): void {
 export function seedBatteryTypes(db: Database.Database): void {
   const insert = db.prepare(`
     INSERT OR IGNORE INTO battery_types
-      (battery_type_id, model, chemistry, nominal_voltage, capacity_ah, capacity_kwh, victron_can, cooling, price, price_per_kwh, source, url, notes)
+      (battery_type_id, model, chemistry, nominal_voltage, capacity_ah, capacity_kwh, victron_can, cooling, price, price_per_kwh, price_source_url, source, url, notes)
     VALUES
-      (@battery_type_id, @model, @chemistry, @nominal_voltage, @capacity_ah, @capacity_kwh, @victron_can, @cooling, @price, @price_per_kwh, @source, @url, @notes)
+      (@battery_type_id, @model, @chemistry, @nominal_voltage, @capacity_ah, @capacity_kwh, @victron_can, @cooling, @price, @price_per_kwh, @price_source_url, @source, @url, @notes)
   `);
   const insertAll = db.transaction((rows: typeof BATTERY_TYPES) => {
     for (const row of rows) insert.run({
@@ -548,8 +548,9 @@ export function seedBatteryTypes(db: Database.Database): void {
       cooling: row.cooling,
       price: row.price ?? null,
       price_per_kwh: row.price_per_kwh ?? null,
-      source: row.source ?? null,
-      url: row.url ?? null,
+      price_source_url: row.price_source_url ?? row.source ?? row.url ?? null,
+      source: row.source ?? row.price_source_url ?? row.url ?? null,
+      url: row.url ?? row.price_source_url ?? row.source ?? null,
     });
   });
   insertAll(BATTERY_TYPES);
@@ -626,7 +627,14 @@ export function seedPanelTypes(db: Database.Database): void {
       VALUES (@panel_type_id, @model, @wp, @voc, @vmp, @isc, @imp, @length_mm, @width_mm, @notes, @price, @price_source_url)
     `);
     const insertAll = db.transaction((rows: typeof BASELINE_PANEL_TYPES) => {
-      for (const row of rows) insert.run(row);
+      for (const row of rows) {
+        insert.run({
+          ...row,
+          notes: row.notes ?? null,
+          price: row.price ?? null,
+          price_source_url: row.price_source_url ?? null,
+        });
+      }
     });
     insertAll(BASELINE_PANEL_TYPES);
   }
