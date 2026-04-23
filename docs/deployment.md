@@ -23,6 +23,8 @@ The database is the source of truth.
 
 `digital-twin.json` is not the deployment boundary and should not be treated as durable application state.
 
+For day-to-day work, treat the local SQLite file as the editable source of truth and Railway as the published copy.
+
 ## Required runtime paths
 
 Use persistent mounted storage at:
@@ -112,6 +114,68 @@ When using Railway specifically:
 - mount a volume at `/data`
 - keep the app scaled to one running instance while SQLite remains the primary database
 
+## Recommended workflow
+
+Use a local-first publishing workflow:
+
+1. edit project data locally
+2. verify the local app and local database
+3. push code changes to GitHub when needed
+4. publish the local SQLite file to Railway as a separate operational step
+
+This avoids remote-only edits and makes recovery much easier when something goes wrong.
+
+### Safe routine
+
+For normal work:
+
+1. edit data locally in `project.db`
+2. run the app locally and confirm the new panel, location, or catalog changes look right
+3. if code changed, push the code to GitHub and let Railway deploy it
+4. set a strong `DATABASE_PUBLISH_TOKEN` in Railway
+5. after the code is healthy, upload the local SQLite file to `POST /api/admin/publish-database`
+6. smoke-test the live app
+
+### Publish command
+
+Once `DATABASE_PUBLISH_TOKEN` is configured in Railway, publish the local database with:
+
+```bash
+curl -X POST \
+  -H "x-database-publish-token: $DATABASE_PUBLISH_TOKEN" \
+  -H "Content-Type: application/octet-stream" \
+  --data-binary @project.db \
+  https://offgridos.eu/api/admin/publish-database
+```
+
+The server validates that the uploaded file is a real SQLite database before replacing `/data/project.db`.
+
+Because the app stores uploaded images inside SQLite as data URLs, publishing `project.db` also publishes the images.
+
+### Important rule
+
+Do not rely on `git push` to move SQLite data.
+
+GitHub deploys application code. Railway volume data is separate. Updating the remote SQLite file must be an explicit publish step.
+
+### Safety notes
+
+- Keep `DATABASE_PUBLISH_TOKEN` only in Railway and your local shell, not in Git.
+- Use the publish endpoint only for deliberate database releases from your local source-of-truth file.
+- If you later replace this with a more formal sync or admin flow, remove the endpoint and token.
+
+### Temporary production behavior
+
+The app currently skips rebuilding derived PV topology rows during startup so legacy production databases can still boot.
+
+That means these tables may be empty or stale until they are repaired explicitly:
+
+- `pv_arrays`
+- `pv_strings`
+- `array_to_mppt_mappings`
+
+The core project data remains in the main source tables such as locations, surfaces, assignments, catalogs, and configurations.
+
 ## Current custom-domain notes
 
 For the current Vimexx setup:
@@ -145,6 +209,13 @@ The production Node server is responsible for:
 - initializing the schema at startup
 - serving the built frontend
 - exposing API endpoints for the React app
+
+When bootstrap fails, the server now also logs database diagnostics so Railway logs show:
+
+- the database path
+- key table counts
+- `PRAGMA foreign_key_check` output
+- the exact failed MPPT-mapping payload when that insert fails
 
 ## Verification after deploy
 

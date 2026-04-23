@@ -5,11 +5,14 @@ import { createSurface, deleteSurface, deleteSurfacePanelAssignmentsForSurface, 
 import { buildDigitalTwinExport } from './output/exportDigitalTwin.js';
 import { resolveDatabasePath, resolveServerHost, resolveServerPort, resolveWebDistPath } from './config/runtime.js';
 import { ensureDatabaseReady, withDb } from './server/bootstrap.js';
+import { DATABASE_PUBLISH_TOKEN_HEADER, hasValidDatabasePublishToken, publishDatabaseFile, resolveDatabasePublishToken } from './server/database-publish.js';
 
 const databasePath = resolveDatabasePath();
 const webDistPath = resolveWebDistPath();
 const serverHost = resolveServerHost();
 const serverPort = resolveServerPort();
+
+const databasePublishToken = resolveDatabasePublishToken();
 
 function sendJson(response: ServerResponse, statusCode: number, payload: unknown): void {
   response.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -21,14 +24,18 @@ function sendText(response: ServerResponse, statusCode: number, message: string)
   response.end(message);
 }
 
-async function readJsonBody<T>(request: IncomingMessage): Promise<T> {
+async function readRequestBody(request: IncomingMessage): Promise<Buffer> {
   const chunks: Buffer[] = [];
 
   for await (const chunk of request) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   }
 
-  const rawBody = Buffer.concat(chunks).toString('utf-8').trim();
+  return Buffer.concat(chunks);
+}
+
+async function readJsonBody<T>(request: IncomingMessage): Promise<T> {
+  const rawBody = (await readRequestBody(request)).toString('utf-8').trim();
   return (rawBody === '' ? {} : JSON.parse(rawBody)) as T;
 }
 
@@ -102,6 +109,50 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
   if (method === 'GET' && url.pathname === '/api/health') {
     sendJson(response, 200, { ok: true });
+    return true;
+  }
+
+  if (method === 'POST' && url.pathname === '/api/admin/publish-database') {
+    void (async () => {
+      if (!databasePublishToken) {
+        sendJson(response, 503, { error: 'Database publish endpoint is disabled.' });
+        return;
+      }
+
+      if (!hasValidDatabasePublishToken(request.headers, databasePublishToken)) {
+        sendJson(response, 401, { error: `Missing or invalid ${DATABASE_PUBLISH_TOKEN_HEADER} header.` });
+        return;
+      }
+
+      try {
+        const payload = await readRequestBody(request);
+        const result = publishDatabaseFile(databasePath, payload);
+        const summary = withDb(databasePath, (db) => {
+          const locations = (db.prepare('SELECT COUNT(*) AS count FROM locations').get() as { count: number } | undefined)?.count ?? 0;
+          const surfaces = (db.prepare('SELECT COUNT(*) AS count FROM surfaces').get() as { count: number } | undefined)?.count ?? 0;
+          const panels = (db.prepare('SELECT COUNT(*) AS count FROM panel_types').get() as { count: number } | undefined)?.count ?? 0;
+          return { locations, surfaces, panel_types: panels };
+        });
+
+        console.log('[db] published database file', {
+          databasePath,
+          bytesWritten: result.bytesWritten,
+          summary,
+        });
+        sendJson(response, 200, {
+          ok: true,
+          bytesWritten: result.bytesWritten,
+          summary,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        console.error('[db] publish database failed', {
+          databasePath,
+          error: error instanceof Error ? { name: error.name, message: error.message } : error,
+        });
+        sendJson(response, 400, { error: message });
+      }
+    })();
     return true;
   }
 

@@ -37,7 +37,9 @@ Start the production server:
 npm run start
 ```
 
-For deployment and persistent-storage requirements, see [deployment.md](./docs/deployment.md).
+For deployment, persistent-storage requirements, and the recommended local-first SQLite publishing workflow, see [deployment.md](./docs/deployment.md).
+
+The current publish workflow keeps `project.db` as the local source of truth and pushes database updates to Railway separately from GitHub code deploys.
 
 ## Documentation
 

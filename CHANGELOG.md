@@ -2,6 +2,8 @@
 
 ## 2026-04-23
 
+- Added a token-protected database publish endpoint so the local `project.db` can be uploaded to Railway as an explicit operational step, with SQLite validation before replacing the live database file.
+- Documented the exact local-first publish command for moving the local SQLite database, including embedded images, to Railway without relying on GitHub deploys to carry volume data.
 - Changed the Location page header to show the editable location name instead of the project name, and relabeled the field as `Location name` so it reads as a CRUD-able location property.
 
 - Split the Location header title into a real persisted location title field, renamed the project header to `18Mad Boerderij`, and added an About page with the Joost Okkinga byline and Codeberg repository link.
@@ -9,6 +11,7 @@
 - Made production database resolution fall back to `/data/project.db` when `DATABASE_PATH` is unset, so Railway redeploys keep using mounted persistent storage instead of a disposable container-local SQLite file.
 - Added a production startup guard that refuses to boot unless `DATABASE_PATH` resolves to `/data/project.db`, so a misconfigured deploy cannot silently create a fresh empty database.
 - Added runtime-path tests that cover the local default, the production fallback, and explicit overrides.
+- Added targeted bootstrap diagnostics for SQLite startup failures and documented the new local-first workflow where the local `project.db` is edited first and the Railway database is published as a separate step.
 
 - Removed the Overview sidebar link and made Location the default landing page.
 - Added a Save button to the Location Site photo card so image uploads now have an explicit save action next to the photo itself.
