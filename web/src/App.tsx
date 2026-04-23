@@ -474,7 +474,6 @@ function buildLocalSurfaceSummaries(data: DigitalTwinExport): LocalSurfaceSummar
 }
 
 type Route =
-  | { kind: 'overview' }
   | { kind: 'location' }
   | { kind: 'solar-yield' }
   | { kind: 'catalogs' }
@@ -1335,14 +1334,10 @@ function getRoute(): Route {
     const surfaceId = hash.slice('/mppts/'.length);
     if (surfaceId) return { kind: 'surface', surfaceId };
   }
-  return { kind: 'overview' };
+  return { kind: 'location' };
 }
 
 function navigateTo(route: Route): void {
-  if (route.kind === 'overview') {
-    window.location.hash = '/';
-    return;
-  }
   if (route.kind === 'location') {
     window.location.hash = '/location';
     return;
@@ -1371,7 +1366,6 @@ function navigateTo(route: Route): void {
 }
 
 function routeHref(route: Route): string {
-  if (route.kind === 'overview') return '#/';
   if (route.kind === 'location') return '#/location';
   if (route.kind === 'solar-yield') return '#/solar-yield';
   if (route.kind === 'catalogs') return '#/catalogs';
@@ -1394,9 +1388,6 @@ function Sidebar({ route, data }: { route: Route; data: DigitalTwinExport | null
         <div className="sidebar-logo-sub">Digital Twin</div>
       </div>
       <nav className="sidebar-nav">
-        <a href={routeHref({ kind: 'overview' })} onClick={go({ kind: 'overview' })} className={`sidebar-nav-item ${route.kind === 'overview' ? 'active' : ''}`}>
-          Overview
-        </a>
         <a href={routeHref({ kind: 'location' })} onClick={go({ kind: 'location' })} className={`sidebar-nav-item ${route.kind === 'location' || route.kind === 'surface' ? 'active' : ''}`}>
           Location
         </a>
@@ -1454,12 +1445,8 @@ function Sidebar({ route, data }: { route: Route; data: DigitalTwinExport | null
 function Breadcrumbs({ route, surfaceName }: { route: Route; surfaceName?: string }) {
   return (
     <nav className="breadcrumbs" aria-label="Breadcrumb">
-      <button type="button" className="crumb crumb-link" onClick={() => navigateTo({ kind: 'overview' })}>
-        Overview
-      </button>
       {route.kind === 'surface' ? (
         <>
-          <span className="crumb-sep">/</span>
           <button type="button" className="crumb crumb-link" onClick={() => navigateTo({ kind: 'location' })}>
             Location
           </button>
@@ -2820,6 +2807,11 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
               <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoChange} />
             </label>
           )}
+          <div className="button-row button-row-end">
+            <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveLocation()} disabled={isSaving}>
+              {isSaving ? 'Saving...' : 'Save'}
+            </button>
+          </div>
         </section>
       </div>
 
@@ -5217,7 +5209,7 @@ export function App() {
         ) : route.kind === 'inverter-array' ? (
           <InverterArrayPage {...context} />
         ) : (
-          <OverviewPage {...context} />
+          <LocationPage {...context} />
         )}
       </main>
     </div>

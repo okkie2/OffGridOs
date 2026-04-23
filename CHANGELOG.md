@@ -2,6 +2,8 @@
 
 ## 2026-04-23
 
+- Removed the Overview sidebar link and made Location the default landing page.
+- Added a Save button to the Location Site photo card so image uploads now have an explicit save action next to the photo itself.
 - Added a small build/version stamp to the sidebar footer so Railway and local builds can be distinguished at a glance.
 
 - Restructured Battery bank, Inverter, and all detail pages to a consistent 3-column About/Notes/Image top zone, followed by full-width input and output sections, with a 1440px max-width on the content shell.
