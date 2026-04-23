@@ -2,6 +2,8 @@
 
 ## 2026-04-23
 
+- Restored the Location latitude and longitude defaults from the current project baseline and auto-heal blank stored coordinate values on load.
+
 - Removed `Overview` again from the app shell and navigation docs so `Location` is the only default landing page and top-level site entry.
 
 - Added [persistence-field-coverage-matrix.md](./docs/persistence-field-coverage-matrix.md) as a concrete field-by-field save coverage contract tied to routes, example values, and dependency scenarios.

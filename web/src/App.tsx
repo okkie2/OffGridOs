@@ -2306,6 +2306,8 @@ type PageContext = {
 function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageContext) {
   const storagePrefix = `${data.project.project_id}:location`;
   const defaultLocationName = data.project.location?.title ?? '18Mad Boerderij';
+  const defaultLatitude = data.project.location?.latitude ?? 53.126579;
+  const defaultLongitude = data.project.location?.longitude ?? 5.899564;
   const [title, setTitle] = usePersistentState(
     `${storagePrefix}:title`,
     defaultLocationName,
@@ -2315,11 +2317,11 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
   const [notes, setNotes] = usePersistentState(`${storagePrefix}:notes`, data.project.location?.notes ?? '');
   const [latitude, setLatitude] = usePersistentState(
     `${storagePrefix}:latitude`,
-    data.project.location?.latitude != null ? String(data.project.location.latitude) : '',
+    String(defaultLatitude),
   );
   const [longitude, setLongitude] = usePersistentState(
     `${storagePrefix}:longitude`,
-    data.project.location?.longitude != null ? String(data.project.location.longitude) : '',
+    String(defaultLongitude),
   );
   const [photo, setPhoto] = useState<string | null>(data.project.location?.site_photo_data_url ?? null);
   const [isSaving, setIsSaving] = useState(false);
@@ -2501,6 +2503,15 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
   useEffect(() => {
     setNotes(data.project.location?.notes ?? '');
   }, [data.project.location?.notes, setNotes]);
+
+  useEffect(() => {
+    if (latitude.trim() === '') {
+      setLatitude(String(defaultLatitude));
+    }
+    if (longitude.trim() === '') {
+      setLongitude(String(defaultLongitude));
+    }
+  }, [defaultLatitude, defaultLongitude, latitude, longitude, setLatitude, setLongitude]);
 
   useEffect(() => {
     if (!focusedSurfaceId) return;
