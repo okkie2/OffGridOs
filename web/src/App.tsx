@@ -569,11 +569,10 @@ const CATALOG_ROUTES: Array<{
 ];
 
 const REPORT_ROUTES: Array<{
-  kind: 'verdict-summary' | 'cost-summary';
+  kind: 'verdict-summary';
   labelKey: TranslationKey;
 }> = [
   { kind: 'verdict-summary', labelKey: 'nav.report.verdict_summary' },
-  { kind: 'cost-summary', labelKey: 'nav.report.cost_summary' },
 ];
 
 const RESERVED_ROUTE_SEGMENTS = new Set([
