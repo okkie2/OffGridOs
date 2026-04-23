@@ -101,4 +101,38 @@ describe('initSchema', () => {
       db.close();
     }
   });
+
+  it('normalizes legacy PV array ids while bootstrapping an existing database', () => {
+    const db = makeTempDatabase();
+    try {
+      db.exec('PRAGMA foreign_keys = OFF;');
+      initSchema(db);
+
+      db.prepare(`
+        UPDATE pv_arrays
+        SET array_id = 'legacy-flat-ne'
+        WHERE surface_id = 'flat-ne'
+      `).run();
+
+      db.prepare(`
+        UPDATE pv_strings
+        SET array_id = 'legacy-flat-ne'
+        WHERE surface_id = 'flat-ne'
+      `).run();
+
+      db.prepare(`
+        UPDATE array_to_mppt_mappings
+        SET array_id = 'legacy-flat-ne'
+        WHERE mapping_id = 'array-mppt-flat-ne'
+      `).run();
+      db.exec('PRAGMA foreign_keys = ON;');
+
+      expect(() => initSchema(db)).not.toThrow();
+      expect(db.prepare('SELECT array_id FROM pv_arrays WHERE surface_id = ?').get('flat-ne')).toEqual({ array_id: 'array-flat-ne' });
+      expect(db.prepare('SELECT COUNT(*) AS count FROM pv_strings WHERE array_id = ?').get('array-flat-ne')).toEqual({ count: 1 });
+      expect(getArrayToMpptMapping(db, 'array-flat-ne')?.selected_mppt_type_id ?? null).toBeNull();
+    } finally {
+      db.close();
+    }
+  });
 });

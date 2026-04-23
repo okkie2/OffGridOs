@@ -298,6 +298,12 @@ export function syncPvTopologyForSurface(db: Database.Database, surface_id: stri
   const panelCount = assignments.reduce((sum, assignment) => sum + assignment.count, 0);
   const primaryPanelType = primaryAssignment ? getPanelType(db, primaryAssignment.panel_type_id) : null;
   const arrayId = `array-${surface_id}`;
+  const existingArray = getPvArrayBySurface(db, surface_id);
+  if (existingArray && existingArray.array_id !== arrayId) {
+    db.prepare('DELETE FROM pv_strings WHERE array_id = ?').run(existingArray.array_id);
+    db.prepare('DELETE FROM array_to_mppt_mappings WHERE array_id = ?').run(existingArray.array_id);
+    db.prepare('UPDATE pv_arrays SET array_id = ? WHERE surface_id = ?').run(arrayId, surface_id);
+  }
   const panelsPerString = configuration?.panels_per_string ?? (panelCount > 0 ? panelCount : null);
   const parallelStrings = configuration?.parallel_strings ?? (panelCount > 0 ? 1 : null);
   const installedWp = assignments.reduce((sum, assignment) => {
