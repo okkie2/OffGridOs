@@ -2,6 +2,7 @@
 
 ## 2026-04-24
 
+- Moved shared verdict labels, verdict explainers, reason lists, and status badges onto the multilingual dictionary so relationship feedback no longer leaks English copy.
 - Hid the `Cost summary` report from the visible web-app navigation while keeping the underlying route available.
 - Switched the web app from hash routing to clean deeplinkable routes using the `/:lang/:locationSlug/...` schema, with language-aware URLs and canonical location slugs.
 - Moved the web UI language selector to a shared top-right app control and translated the shared catalog landing page plus catalog-screen chrome into the English/Dutch/Frisian dictionary.

@@ -2007,8 +2007,8 @@ function SurfaceDetail({
   const mpptCompatibility = arrayConfig
     ? evaluateMpptCompatibility(arrayConfig, data.entities.mppt_types.find((item) => item.mppt_type_id === selectedMpptTypeId) ?? null)
     : null;
-  const mpptVerdictSummary = getRelationshipVerdictSummary('array_to_mppt', mpptCompatibility?.status ?? null, mpptCompatibility?.fit);
-  const mpptReasonLines = mpptCompatibility ? buildRelationshipReasonList('array_to_mppt', mpptCompatibility.reasons) : [];
+  const mpptVerdictSummary = getRelationshipVerdictSummary('array_to_mppt', mpptCompatibility?.status ?? null, mpptCompatibility?.fit, t);
+  const mpptReasonLines = mpptCompatibility ? buildRelationshipReasonList('array_to_mppt', mpptCompatibility.reasons, t) : [];
   const selectedMpptType = selectedMpptTypeId
     ? data.entities.mppt_types.find((item) => item.mppt_type_id === selectedMpptTypeId) ?? null
     : null;
@@ -3275,8 +3275,8 @@ function SolarYieldPage({
                     <th>{surface.name}</th>
                     <td>
                       {(() => {
-                        const verdictSummary = getRelationshipVerdictSummary('array_to_mppt', surface.status, surface.fit ?? undefined);
-                        const verdictText = getRelationshipVerdictLabel('array_to_mppt', surface.status, surface.fit ?? undefined);
+                        const verdictSummary = getRelationshipVerdictSummary('array_to_mppt', surface.status, surface.fit ?? undefined, t);
+                        const verdictText = getRelationshipVerdictLabel('array_to_mppt', surface.status, surface.fit ?? undefined, t);
                         return (
                       <div className="yield-verdict-cell">
                         <StatusBadge status={surface.status} fit={surface.fit} />
@@ -4295,12 +4295,12 @@ function BatteryCatalogPage({
     const notes = draft.notes.trim() === '' ? null : draft.notes.trim();
 
     if (!model || !chemistry || !Number.isFinite(nominalVoltage) || nominalVoltage <= 0 || !Number.isFinite(capacityAh) || capacityAh <= 0 || !Number.isFinite(capacityKwh) || capacityKwh <= 0) {
-      setSaveError('Fill in the model, chemistry, nominal voltage, capacity Ah, and capacity kWh.');
+      setSaveError(t('catalog.validation.battery_required'));
       return;
     }
 
     if ((maxChargeRate != null && !Number.isFinite(maxChargeRate)) || (maxDischargeRate != null && !Number.isFinite(maxDischargeRate)) || (price != null && !Number.isFinite(price))) {
-      setSaveError('Optional numeric fields must be valid numbers when provided.');
+      setSaveError(t('catalog.validation.optional_numeric_fields'));
       return;
     }
 
@@ -4355,9 +4355,9 @@ function BatteryCatalogPage({
         url: priceSourceUrl,
         notes,
       }));
-      setSaveMessage(`Battery type "${batteryTypeId}" saved.`);
+      setSaveMessage(t('catalog.message.saved', { item: t('catalog.entry.battery_type'), id: batteryTypeId }));
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Failed to save battery type.');
+      setSaveError(error instanceof Error ? error.message : t('catalog.validation.optional_numeric_fields'));
     } finally {
       setIsSaving(false);
     }
@@ -4366,7 +4366,7 @@ function BatteryCatalogPage({
   async function handleDelete() {
     if (!selectedBattery) return;
 
-    const confirmed = window.confirm(`Delete battery type "${selectedBattery.battery_type_id}"?`);
+    const confirmed = window.confirm(t('catalog.confirm.delete', { item: t('catalog.entry.battery_type'), id: selectedBattery.battery_type_id }));
     if (!confirmed) return;
 
     try {
@@ -4384,7 +4384,7 @@ function BatteryCatalogPage({
       const nextBattery = data.entities.battery_types.find((item) => item.battery_type_id !== selectedBattery.battery_type_id) ?? null;
       setSelectedBatteryTypeId(nextBattery?.battery_type_id ?? '');
       setDraft(batteryDraftFromType(nextBattery));
-      setSaveMessage(`Battery type "${selectedBattery.battery_type_id}" deleted.`);
+      setSaveMessage(t('catalog.message.deleted', { item: t('catalog.entry.battery_type'), id: selectedBattery.battery_type_id }));
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Failed to delete battery type.');
     } finally {
@@ -4447,13 +4447,13 @@ function BatteryCatalogPage({
           </div>
           <div className="stack" style={{ gap: 16 }}>
             <div className="field">
-              <span>Battery type ID</span>
+              <span>{t('catalog.field.battery_type_id')}</span>
               <p className="muted">
                 {selectedBattery ? selectedBattery.battery_type_id : (draft.model.trim() ? generateUniqueCatalogId(draft.model.trim(), data.entities.battery_types.map((battery) => battery.battery_type_id)) : t('catalog.ui.generated_after_save'))}
               </p>
             </div>
             <label className="field">
-              <span>Model</span>
+              <span>{t('catalog.field.model')}</span>
               <input
                 value={draft.model}
                 onChange={(event) => setDraft((current) => ({ ...current, model: event.target.value }))}
@@ -4462,7 +4462,7 @@ function BatteryCatalogPage({
             </label>
             <div className="detail-grid two-col">
               <label className="field">
-                <span>Chemistry</span>
+                <span>{t('catalog.field.chemistry')}</span>
                 <input
                   value={draft.chemistry}
                   onChange={(event) => setDraft((current) => ({ ...current, chemistry: event.target.value }))}
@@ -4470,7 +4470,7 @@ function BatteryCatalogPage({
                 />
               </label>
               <label className="field">
-                <span>Cooling</span>
+                <span>{t('catalog.field.cooling')}</span>
                 <select
                   value={draft.cooling}
                   onChange={(event) => setDraft((current) => ({ ...current, cooling: event.target.value as 'active' | 'passive' }))}
@@ -4482,7 +4482,7 @@ function BatteryCatalogPage({
             </div>
             <div className="detail-grid two-col">
               <label className="field">
-                <span>Nominal voltage</span>
+                <span>{t('catalog.field.nominal_voltage')}</span>
                 <input
                   type="number"
                   value={draft.nominal_voltage}
@@ -4490,7 +4490,7 @@ function BatteryCatalogPage({
                 />
               </label>
               <label className="field">
-                <span>Capacity (kWh)</span>
+                <span>{t('catalog.field.capacity_kwh')}</span>
                 <input
                   type="number"
                   value={draft.capacity_kwh}
@@ -4500,7 +4500,7 @@ function BatteryCatalogPage({
             </div>
             <div className="detail-grid two-col">
               <label className="field">
-                <span>Capacity (Ah)</span>
+                <span>{t('catalog.field.capacity_ah')}</span>
                 <input
                   type="number"
                   value={draft.capacity_ah}
@@ -4508,7 +4508,7 @@ function BatteryCatalogPage({
                 />
               </label>
               <label className="field">
-                <span>Victron CAN</span>
+                <span>{t('catalog.field.victron_can')}</span>
                 <input
                   type="checkbox"
                   checked={draft.victron_can}
@@ -4518,7 +4518,7 @@ function BatteryCatalogPage({
             </div>
             <div className="detail-grid two-col">
               <label className="field">
-                <span>Max charge rate</span>
+                <span>{t('catalog.field.max_charge_rate')}</span>
                 <input
                   type="number"
                   value={draft.max_charge_rate}
@@ -4526,7 +4526,7 @@ function BatteryCatalogPage({
                 />
               </label>
               <label className="field">
-                <span>Max discharge rate</span>
+                <span>{t('catalog.field.max_discharge_rate')}</span>
                 <input
                   type="number"
                   value={draft.max_discharge_rate}
@@ -4576,27 +4576,27 @@ function BatteryCatalogPage({
           {selectedBattery ? (
             <dl className="detail-stats panel-spec-grid" style={{ marginTop: 16 }}>
               <div>
-                <dt>Capacity</dt>
+                <dt>{t('catalog.stat.capacity')}</dt>
                 <dd>{selectedBattery.capacity_kwh} kWh</dd>
               </div>
               <div>
-                <dt>Voltage</dt>
+                <dt>{t('catalog.stat.voltage')}</dt>
                 <dd>{selectedBattery.nominal_voltage} V</dd>
               </div>
               <div>
-                <dt>Charge rate</dt>
+                <dt>{t('catalog.stat.charge_rate')}</dt>
                 <dd>{selectedBattery.max_charge_rate != null ? `${selectedBattery.max_charge_rate} A` : 'n/a'}</dd>
               </div>
               <div>
-                <dt>Discharge rate</dt>
+                <dt>{t('catalog.stat.discharge_rate')}</dt>
                 <dd>{selectedBattery.max_discharge_rate != null ? `${selectedBattery.max_discharge_rate} A` : 'n/a'}</dd>
               </div>
               <div>
-                <dt>Price</dt>
+                <dt>{t('catalog.stat.price')}</dt>
                 <dd>{selectedBattery.price != null ? `€${selectedBattery.price.toLocaleString('en-US')}` : 'n/a'}</dd>
               </div>
               <div>
-                <dt>Price / kWh</dt>
+                <dt>{t('catalog.stat.price_per_kwh')}</dt>
                 <dd>{selectedBattery.price_per_kwh != null ? `€${selectedBattery.price_per_kwh}` : 'n/a'}</dd>
               </div>
             </dl>
@@ -4693,8 +4693,8 @@ function VerdictSummaryPage({
     const mpptType = mpptConfiguration?.mppt_type_id
       ? data.entities.mppt_types.find((item) => item.mppt_type_id === mpptConfiguration.mppt_type_id) ?? null
       : null;
-    const verdictSummary = getRelationshipVerdictSummary('array_to_mppt', relation?.evaluation.electrical_status ?? null, relation?.evaluation.fit_status);
-    const verdictLabel = getRelationshipVerdictLabel('array_to_mppt', relation?.evaluation.electrical_status ?? null, relation?.evaluation.fit_status);
+    const verdictSummary = getRelationshipVerdictSummary('array_to_mppt', relation?.evaluation.electrical_status ?? null, relation?.evaluation.fit_status, t);
+    const verdictLabel = getRelationshipVerdictLabel('array_to_mppt', relation?.evaluation.electrical_status ?? null, relation?.evaluation.fit_status, t);
 
     return {
       surface,
@@ -4712,8 +4712,8 @@ function VerdictSummaryPage({
     const mpptType = mpptConfiguration?.mppt_type_id
       ? data.entities.mppt_types.find((item) => item.mppt_type_id === mpptConfiguration.mppt_type_id) ?? null
       : null;
-    const verdictSummary = getRelationshipVerdictSummary('mppt_to_battery_bank', relation.evaluation.electrical_status, relation.evaluation.fit_status);
-    const verdictLabel = getRelationshipVerdictLabel('mppt_to_battery_bank', relation.evaluation.electrical_status, relation.evaluation.fit_status);
+    const verdictSummary = getRelationshipVerdictSummary('mppt_to_battery_bank', relation.evaluation.electrical_status, relation.evaluation.fit_status, t);
+    const verdictLabel = getRelationshipVerdictLabel('mppt_to_battery_bank', relation.evaluation.electrical_status, relation.evaluation.fit_status, t);
 
     return {
       relation,
@@ -4726,26 +4726,26 @@ function VerdictSummaryPage({
   });
 
   const inverterVerdictSummary = batteryToInverter
-    ? getRelationshipVerdictSummary('battery_to_inverter', batteryToInverter.evaluation.electrical_status, batteryToInverter.evaluation.fit_status)
+    ? getRelationshipVerdictSummary('battery_to_inverter', batteryToInverter.evaluation.electrical_status, batteryToInverter.evaluation.fit_status, t)
     : null;
   const inverterVerdictLabel = batteryToInverter
-    ? getRelationshipVerdictLabel('battery_to_inverter', batteryToInverter.evaluation.electrical_status, batteryToInverter.evaluation.fit_status)
-    : 'Not evaluated';
+    ? getRelationshipVerdictLabel('battery_to_inverter', batteryToInverter.evaluation.electrical_status, batteryToInverter.evaluation.fit_status, t)
+    : t('status.not_evaluated');
 
   const surfaceAggregate = surfaceRows.some((row) => row.status === 'outside_limits')
-    ? 'Blocked'
+    ? t('report.verdict.blocked')
     : surfaceRows.some((row) => row.fit === 'acceptable' || row.fit === 'clipping_expected' || row.fit === 'underutilized')
-      ? 'Mixed'
+      ? t('report.verdict.mixed')
       : surfaceRows.length > 0
-        ? 'OK'
-        : 'Not evaluated';
+        ? t('report.verdict.ok')
+        : t('status.not_evaluated');
   const batteryAggregate = batteryRows.some((row) => row.status === 'outside_limits')
-    ? 'Blocked'
+    ? t('report.verdict.blocked')
     : batteryRows.some((row) => row.fit === 'acceptable')
-      ? 'Acceptable'
+      ? t('report.verdict.acceptable')
       : batteryRows.some((row) => row.fit === 'optimal')
-        ? 'Optimal'
-        : 'Not evaluated';
+        ? t('report.verdict.optimal')
+        : t('status.not_evaluated');
 
   return (
     <>
@@ -4761,14 +4761,14 @@ function VerdictSummaryPage({
 
       <div className="hero-strip" style={{ marginBottom: 20 }}>
         <SummaryCard label={t('report.verdict.surface_verdicts')} value={surfaceAggregate} detail={t('report.verdict.surfaces_count', { count: surfaceRows.length })} />
-        <SummaryCard label={t('report.verdict.battery_verdict')} value={batteryAggregate} detail={batteryRows.length > 0 ? t('report.verdict.mppt_relationships', { count: batteryRows.length, suffix: batteryRows.length === 1 ? '' : 's' }) : t('solar_yield.table.not_evaluated')} />
-        <SummaryCard label={t('report.verdict.inverter_verdict')} value={inverterVerdictLabel} detail={batteryToInverter ? t('report.verdict.selected_battery_to_inverter') : t('solar_yield.table.not_evaluated')} />
+        <SummaryCard label={t('report.verdict.battery_verdict')} value={batteryAggregate} detail={batteryRows.length > 0 ? t('report.verdict.project_level_mppt_relationships', { count: batteryRows.length, suffix: batteryRows.length === 1 ? '' : 's' }) : t('solar_yield.table.not_evaluated')} />
+        <SummaryCard label={t('report.verdict.inverter_verdict')} value={inverterVerdictLabel} detail={batteryToInverter ? t('report.verdict.project_level_battery_to_inverter') : t('solar_yield.table.not_evaluated')} />
       </div>
 
       <section className="panel" style={{ marginBottom: 20 }}>
         <div className="section-head">
           <h2>{t('report.verdict.surface_verdicts')}</h2>
-          <p>One row per surface, showing the panel-array to MPPT verdict.</p>
+          <p>{t('report.verdict.surface_description')}</p>
         </div>
         {surfaceRows.length > 0 ? (
           <div className="yield-table-wrap">
@@ -4805,13 +4805,13 @@ function VerdictSummaryPage({
       <section className="panel" style={{ marginBottom: 20 }}>
         <div className="section-head">
           <h2>{t('report.verdict.battery_verdict')}</h2>
-          <p>How the total PV across all surfaces fits the selected battery bank.</p>
+          <p>{t('report.verdict.battery_description')}</p>
         </div>
         <p style={{ marginTop: 0, marginBottom: 12, color: 'var(--muted)' }}>
           {t('report.label.selected_battery_type')}: {batteryBank?.battery_type_id ? data.entities.battery_types.find((item) => item.battery_type_id === batteryBank.battery_type_id)?.model ?? batteryBank.battery_type_id : 'n/a'}
         </p>
         <p style={{ marginTop: 0, marginBottom: 12, color: 'var(--muted)' }}>
-          Configured PV total across all surfaces: {formatWp(localTotalInstalledWp)}
+          {t('report.label.configured_pv_total')}: {formatWp(localTotalInstalledWp)}
         </p>
         {batteryRows.length > 0 ? (
           <div className="yield-table-wrap">
@@ -4840,14 +4840,14 @@ function VerdictSummaryPage({
           </div>
         )}
         <p style={{ marginTop: 12, marginBottom: 0, color: 'var(--muted)', fontSize: '0.86rem' }}>
-          The battery bank is a project-level result. It is not matched against one surface at a time.
+          {t('report.verdict.battery_project_note')}
         </p>
       </section>
 
       <section className="panel">
         <div className="section-head">
           <h2>{t('report.verdict.inverter_verdict')}</h2>
-          <p>How the selected battery bank fits the selected inverter.</p>
+          <p>{t('report.verdict.inverter_description')}</p>
         </div>
         {projectInverter ? (
           <>
@@ -4941,36 +4941,36 @@ function CostSummaryPage({
     <>
       <section className="hero">
         <div>
-          <p className="eyebrow">Configuration data</p>
+          <p className="eyebrow">{t('ui.configuration_data')}</p>
           <h1>{t('page.report.cost_summary')}</h1>
           <p className="hero-copy">
-            Estimated equipment cost for the currently selected surfaces, battery bank, and inverter.
+            {t('report.cost.hero')}
           </p>
         </div>
       </section>
 
       <div className="hero-strip" style={{ marginBottom: 20 }}>
-        <SummaryCard label="Estimated project total" value={formatCurrency(projectTotal)} detail="Based on catalog prices in the current saved configuration." />
-        <SummaryCard label="Battery bank total" value={formatCurrency(batteryTotal)} detail={selectedBatteryType ? `${batteryModuleCount} module${batteryModuleCount === 1 ? '' : 's'}` : 'Not selected'} />
-        <SummaryCard label="Inverter total" value={formatCurrency(inverterTotal)} detail={selectedInverterType ? `${matchingAllowanceUsed} matching MPPT${matchingAllowanceUsed === 1 ? '' : 's'} included` : 'Not selected'} />
+        <SummaryCard label={t('report.cost.project_total')} value={formatCurrency(projectTotal)} detail={t('report.cost.project_total_detail')} />
+        <SummaryCard label={t('report.cost.battery_total')} value={formatCurrency(batteryTotal)} detail={selectedBatteryType ? t('report.cost.modules', { count: batteryModuleCount, suffix: batteryModuleCount === 1 ? '' : 's' }) : t('status.not_evaluated')} />
+        <SummaryCard label={t('report.cost.inverter_total')} value={formatCurrency(inverterTotal)} detail={selectedInverterType ? t('report.cost.matching_mppts_included', { count: matchingAllowanceUsed, suffix: matchingAllowanceUsed === 1 ? '' : 's' }) : t('status.not_evaluated')} />
       </div>
 
       <section className="panel" style={{ marginBottom: 20 }}>
         <div className="section-head">
-          <h2>Surface costs</h2>
-          <p>Panel and MPPT cost per surface.</p>
+          <h2>{t('report.cost.surface_costs')}</h2>
+          <p>{t('report.cost.surface_costs_description')}</p>
         </div>
         {surfaceRows.length > 0 ? (
           <div className="yield-table-wrap">
             <table className="yield-table">
               <thead>
                 <tr>
-                  <th>Surface</th>
-                  <th>Panels</th>
-                  <th>Panel cost</th>
-                  <th>Selected MPPT</th>
-                  <th>MPPT cost</th>
-                  <th>Surface total</th>
+                  <th>{t('report.table.surface')}</th>
+                  <th>{t('surface.panel.count')}</th>
+                  <th>{t('report.cost.panel_cost')}</th>
+                  <th>{t('report.table.selected_mppt')}</th>
+                  <th>{t('report.cost.mppt_cost')}</th>
+                  <th>{t('report.cost.surface_total')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -4983,7 +4983,7 @@ function CostSummaryPage({
                     <td>
                       <div className="stack" style={{ gap: 4 }}>
                         <span>{formatCurrency(mpptCost)}</span>
-                        {includedWithInverter ? <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Included with inverter</span> : null}
+                        {includedWithInverter ? <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{t('report.cost.included_with_inverter')}</span> : null}
                       </div>
                     </td>
                     <td>{formatCurrency(surfaceTotal)}</td>
@@ -4994,7 +4994,7 @@ function CostSummaryPage({
           </div>
         ) : (
           <div className="empty-state">
-            <p style={{ margin: 0 }}>No priced surfaces are available yet.</p>
+            <p style={{ margin: 0 }}>{t('report.empty.no_priced_surfaces')}</p>
           </div>
         )}
       </section>
@@ -5002,38 +5002,38 @@ function CostSummaryPage({
       <section className="detail-grid two-col" style={{ marginBottom: 20 }}>
         <section className="panel">
           <div className="section-head">
-            <h2>Battery bank cost</h2>
-            <p>Selected battery type, unit price, quantity, and total.</p>
+            <h2>{t('report.cost.battery_bank_cost')}</h2>
+            <p>{t('report.cost.battery_bank_cost_description')}</p>
           </div>
           {selectedBatteryType ? (
             <dl className="detail-stats panel-spec-grid" style={{ marginTop: 0 }}>
-              <div><dt>Selected battery type</dt><dd>{selectedBatteryType.model}</dd></div>
-              <div><dt>Unit price</dt><dd>{formatCurrency(selectedBatteryType.price)}</dd></div>
-              <div><dt>Quantity</dt><dd>{batteryModuleCount}</dd></div>
-              <div><dt>Battery bank total</dt><dd>{formatCurrency(batteryTotal)}</dd></div>
+              <div><dt>{t('report.label.selected_battery_type')}</dt><dd>{selectedBatteryType.model}</dd></div>
+              <div><dt>{t('report.cost.unit_price')}</dt><dd>{formatCurrency(selectedBatteryType.price)}</dd></div>
+              <div><dt>{t('report.cost.quantity')}</dt><dd>{batteryModuleCount}</dd></div>
+              <div><dt>{t('report.cost.battery_total')}</dt><dd>{formatCurrency(batteryTotal)}</dd></div>
             </dl>
           ) : (
             <div className="empty-state">
-              <p style={{ margin: 0 }}>Choose a battery type to calculate battery bank cost.</p>
+              <p style={{ margin: 0 }}>{t('report.empty.choose_battery_cost')}</p>
             </div>
           )}
         </section>
 
         <section className="panel">
           <div className="section-head">
-            <h2>Inverter cost</h2>
-            <p>Selected inverter price plus the RS MPPT allowance note.</p>
+            <h2>{t('report.cost.inverter_cost')}</h2>
+            <p>{t('report.cost.inverter_cost_description')}</p>
           </div>
           {selectedInverterType ? (
             <dl className="detail-stats panel-spec-grid" style={{ marginTop: 0 }}>
-              <div><dt>Selected inverter</dt><dd>{selectedInverterType.model}</dd></div>
-              <div><dt>Inverter price</dt><dd>{formatCurrency(selectedInverterType.price)}</dd></div>
-              <div><dt>Matching MPPTs included</dt><dd>{Math.min(matchingAllowanceUsed, 2)} of {matchingMpptCount}</dd></div>
-              <div><dt>Inverter total</dt><dd>{formatCurrency(inverterTotal)}</dd></div>
+              <div><dt>{t('report.label.selected_inverter')}</dt><dd>{selectedInverterType.model}</dd></div>
+              <div><dt>{t('report.cost.unit_price')}</dt><dd>{formatCurrency(selectedInverterType.price)}</dd></div>
+              <div><dt>{t('report.cost.matching_mppts_count')}</dt><dd>{Math.min(matchingAllowanceUsed, 2)} of {matchingMpptCount}</dd></div>
+              <div><dt>{t('report.cost.inverter_total')}</dt><dd>{formatCurrency(inverterTotal)}</dd></div>
             </dl>
           ) : (
             <div className="empty-state">
-              <p style={{ margin: 0 }}>Choose an inverter to calculate inverter cost.</p>
+              <p style={{ margin: 0 }}>{t('report.empty.choose_inverter_cost')}</p>
             </div>
           )}
         </section>
@@ -5041,13 +5041,13 @@ function CostSummaryPage({
 
       <section className="panel">
         <div className="section-head">
-          <h2>Pricing assumptions</h2>
-          <p>What is and is not included in the figures above.</p>
+          <h2>{t('report.cost.pricing_assumptions')}</h2>
+          <p>{t('report.cost.pricing_assumptions_description')}</p>
         </div>
         <ul style={{ margin: 0, paddingLeft: 20, color: 'var(--muted)', lineHeight: 1.65 }}>
-          <li>Prices come from the catalog entries.</li>
-          <li>Items without a price are shown as unknown, not zero.</li>
-          <li>Matching RS MPPTs with the same product identity as the selected RS inverter are included, up to 2 trackers.</li>
+          <li>{t('report.cost.assumption.catalog_prices')}</li>
+          <li>{t('report.cost.assumption.unknown_not_zero')}</li>
+          <li>{t('report.cost.assumption.rs_mppts')}</li>
         </ul>
       </section>
     </>
@@ -5103,12 +5103,12 @@ function PanelCatalogPage({
     const notes = draft.notes.trim() === '' ? null : draft.notes.trim();
 
     if (!model || !Number.isFinite(wp) || wp <= 0 || !Number.isFinite(voc) || voc <= 0 || !Number.isFinite(vmp) || vmp <= 0 || !Number.isFinite(isc) || isc <= 0 || !Number.isFinite(imp) || imp <= 0 || !Number.isFinite(lengthMm) || lengthMm <= 0 || !Number.isFinite(widthMm) || widthMm <= 0) {
-      setSaveError('Fill in the model, WP, Voc, Vmp, Isc, Imp, length, and width.');
+      setSaveError(t('catalog.validation.panel_required'));
       return;
     }
 
     if ((price != null && !Number.isFinite(price)) || (priceSourceUrl != null && priceSourceUrl.length === 0)) {
-      setSaveError('Optional price fields must be valid when provided.');
+      setSaveError(t('catalog.validation.optional_price_fields'));
       return;
     }
 
@@ -5158,9 +5158,9 @@ function PanelCatalogPage({
         price_source_url: priceSourceUrl,
         notes,
       } as PanelType));
-      setSaveMessage(`Panel type "${panelTypeId}" saved.`);
+      setSaveMessage(t('catalog.message.saved', { item: t('catalog.entry.panel_type'), id: panelTypeId }));
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Failed to save panel type.');
+      setSaveError(error instanceof Error ? error.message : t('catalog.validation.optional_price_fields'));
     } finally {
       setIsSaving(false);
     }
@@ -5169,7 +5169,7 @@ function PanelCatalogPage({
   async function handleDelete() {
     if (!selectedPanel) return;
 
-    const confirmed = window.confirm(`Delete panel type "${selectedPanel.panel_type_id}"?`);
+    const confirmed = window.confirm(t('catalog.confirm.delete', { item: t('catalog.entry.panel_type'), id: selectedPanel.panel_type_id }));
     if (!confirmed) return;
 
     try {
@@ -5187,7 +5187,7 @@ function PanelCatalogPage({
       const nextPanel = data.entities.panel_types.find((item) => item.panel_type_id !== selectedPanel.panel_type_id) ?? null;
       setSelectedPanelTypeId(nextPanel?.panel_type_id ?? '');
       setDraft(panelDraftFromType(nextPanel));
-      setSaveMessage(`Panel type "${selectedPanel.panel_type_id}" deleted.`);
+      setSaveMessage(t('catalog.message.deleted', { item: t('catalog.entry.panel_type'), id: selectedPanel.panel_type_id }));
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Failed to delete panel type.');
     } finally {
@@ -5250,13 +5250,13 @@ function PanelCatalogPage({
           </div>
           <div className="stack" style={{ gap: 16 }}>
             <div className="field">
-              <span>Panel type ID</span>
+              <span>{t('catalog.field.panel_type_id')}</span>
               <p className="muted">
                 {selectedPanel ? selectedPanel.panel_type_id : (draft.model.trim() ? generateUniqueCatalogId(draft.model.trim(), data.entities.panel_types.map((panel) => panel.panel_type_id)) : t('catalog.ui.generated_after_save'))}
               </p>
             </div>
             <label className="field">
-              <span>Model</span>
+              <span>{t('catalog.field.model')}</span>
               <input
                 value={draft.model}
                 onChange={(event) => setDraft((current) => ({ ...current, model: event.target.value }))}
@@ -5264,19 +5264,19 @@ function PanelCatalogPage({
               />
             </label>
             <div className="detail-grid two-col">
-              <label className="field"><span>Wp</span><input type="number" value={draft.wp} onChange={(event) => setDraft((current) => ({ ...current, wp: event.target.value }))} /></label>
-              <label className="field"><span>Voc</span><input type="number" value={draft.voc} onChange={(event) => setDraft((current) => ({ ...current, voc: event.target.value }))} /></label>
+              <label className="field"><span>{t('catalog.field.wp')}</span><input type="number" value={draft.wp} onChange={(event) => setDraft((current) => ({ ...current, wp: event.target.value }))} /></label>
+              <label className="field"><span>{t('catalog.field.voc')}</span><input type="number" value={draft.voc} onChange={(event) => setDraft((current) => ({ ...current, voc: event.target.value }))} /></label>
             </div>
             <div className="detail-grid two-col">
-              <label className="field"><span>Vmp</span><input type="number" value={draft.vmp} onChange={(event) => setDraft((current) => ({ ...current, vmp: event.target.value }))} /></label>
-              <label className="field"><span>Isc</span><input type="number" value={draft.isc} onChange={(event) => setDraft((current) => ({ ...current, isc: event.target.value }))} /></label>
+              <label className="field"><span>{t('catalog.field.vmp')}</span><input type="number" value={draft.vmp} onChange={(event) => setDraft((current) => ({ ...current, vmp: event.target.value }))} /></label>
+              <label className="field"><span>{t('catalog.field.isc')}</span><input type="number" value={draft.isc} onChange={(event) => setDraft((current) => ({ ...current, isc: event.target.value }))} /></label>
             </div>
             <div className="detail-grid two-col">
-              <label className="field"><span>Imp</span><input type="number" value={draft.imp} onChange={(event) => setDraft((current) => ({ ...current, imp: event.target.value }))} /></label>
-              <label className="field"><span>Length (mm)</span><input type="number" value={draft.length_mm} onChange={(event) => setDraft((current) => ({ ...current, length_mm: event.target.value }))} /></label>
+              <label className="field"><span>{t('catalog.field.imp')}</span><input type="number" value={draft.imp} onChange={(event) => setDraft((current) => ({ ...current, imp: event.target.value }))} /></label>
+              <label className="field"><span>{t('catalog.field.length_mm')}</span><input type="number" value={draft.length_mm} onChange={(event) => setDraft((current) => ({ ...current, length_mm: event.target.value }))} /></label>
             </div>
             <div className="detail-grid two-col">
-              <label className="field"><span>Width (mm)</span><input type="number" value={draft.width_mm} onChange={(event) => setDraft((current) => ({ ...current, width_mm: event.target.value }))} /></label>
+              <label className="field"><span>{t('catalog.field.width_mm')}</span><input type="number" value={draft.width_mm} onChange={(event) => setDraft((current) => ({ ...current, width_mm: event.target.value }))} /></label>
               <label className="field"><span>{t('catalog.ui.price_per_unit')}</span><input type="number" value={draft.price} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} /></label>
             </div>
             <label className="field">
@@ -5306,14 +5306,14 @@ function PanelCatalogPage({
           </div>
           {selectedPanel ? (
             <dl className="detail-stats panel-spec-grid" style={{ marginTop: 16 }}>
-              <div><dt>Power</dt><dd>{selectedPanel.wp} Wp</dd></div>
-              <div><dt>Voc</dt><dd>{selectedPanel.voc} V</dd></div>
-              <div><dt>Vmp</dt><dd>{selectedPanel.vmp} V</dd></div>
-              <div><dt>Isc</dt><dd>{selectedPanel.isc} A</dd></div>
-              <div><dt>Imp</dt><dd>{selectedPanel.imp} A</dd></div>
-              <div><dt>Price</dt><dd>{selectedPanel.price != null ? `€${selectedPanel.price.toLocaleString('en-US')}` : 'n/a'}</dd></div>
-              <div><dt>Price / Wp</dt><dd>{selectedPanel.price != null ? `€${(selectedPanel.price / selectedPanel.wp).toFixed(2)}` : 'n/a'}</dd></div>
-              <div><dt>Size</dt><dd>{selectedPanel.length_mm != null && selectedPanel.width_mm != null ? `${selectedPanel.length_mm} × ${selectedPanel.width_mm} mm` : 'n/a'}</dd></div>
+              <div><dt>{t('catalog.stat.power')}</dt><dd>{selectedPanel.wp} Wp</dd></div>
+              <div><dt>{t('catalog.field.voc')}</dt><dd>{selectedPanel.voc} V</dd></div>
+              <div><dt>{t('catalog.field.vmp')}</dt><dd>{selectedPanel.vmp} V</dd></div>
+              <div><dt>{t('catalog.field.isc')}</dt><dd>{selectedPanel.isc} A</dd></div>
+              <div><dt>{t('catalog.field.imp')}</dt><dd>{selectedPanel.imp} A</dd></div>
+              <div><dt>{t('catalog.stat.price')}</dt><dd>{selectedPanel.price != null ? `€${selectedPanel.price.toLocaleString('en-US')}` : 'n/a'}</dd></div>
+              <div><dt>{t('catalog.stat.price_per_wp')}</dt><dd>{selectedPanel.price != null ? `€${(selectedPanel.price / selectedPanel.wp).toFixed(2)}` : 'n/a'}</dd></div>
+              <div><dt>{t('catalog.stat.size')}</dt><dd>{selectedPanel.length_mm != null && selectedPanel.width_mm != null ? `${selectedPanel.length_mm} × ${selectedPanel.width_mm} mm` : 'n/a'}</dd></div>
             </dl>
           ) : null}
         </section>
@@ -5371,17 +5371,17 @@ function MpptCatalogPage({
     const notes = draft.notes.trim() === '' ? null : draft.notes.trim();
 
     if (!model || !Number.isInteger(trackerCount) || trackerCount < 1 || !Number.isFinite(maxVoc) || maxVoc <= 0 || !Number.isFinite(maxPvPower) || maxPvPower <= 0 || !Number.isFinite(maxChargeCurrent) || maxChargeCurrent <= 0 || !Number.isFinite(nominalBatteryVoltage) || nominalBatteryVoltage <= 0) {
-      setSaveError('Fill in the model, tracker count, max Voc, max PV power, max charge current, and nominal battery voltage.');
+      setSaveError(t('catalog.validation.mppt_required'));
       return;
     }
 
     if ((maxPvInputCurrentA != null && !Number.isFinite(maxPvInputCurrentA)) || (maxPvShortCircuitCurrentA != null && !Number.isFinite(maxPvShortCircuitCurrentA))) {
-      setSaveError('Optional PV current fields must be valid numbers when provided.');
+      setSaveError(t('catalog.validation.optional_pv_current_fields'));
       return;
     }
 
     if (price != null && !Number.isFinite(price)) {
-      setSaveError('Price must be a valid number when provided.');
+      setSaveError(t('catalog.validation.price_valid'));
       return;
     }
 
@@ -5431,9 +5431,9 @@ function MpptCatalogPage({
         price_source_url: priceSourceUrl,
         notes,
       } as MpptType));
-      setSaveMessage(`MPPT type "${mpptTypeId}" saved.`);
+      setSaveMessage(t('catalog.message.saved', { item: t('catalog.entry.mppt_type'), id: mpptTypeId }));
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Failed to save MPPT type.');
+      setSaveError(error instanceof Error ? error.message : t('catalog.validation.price_valid'));
     } finally {
       setIsSaving(false);
     }
@@ -5442,7 +5442,7 @@ function MpptCatalogPage({
   async function handleDelete() {
     if (!selectedMppt) return;
 
-    const confirmed = window.confirm(`Delete MPPT type "${selectedMppt.mppt_type_id}"?`);
+    const confirmed = window.confirm(t('catalog.confirm.delete', { item: t('catalog.entry.mppt_type'), id: selectedMppt.mppt_type_id }));
     if (!confirmed) return;
 
     try {
@@ -5460,7 +5460,7 @@ function MpptCatalogPage({
       const nextMppt = data.entities.mppt_types.find((item) => item.mppt_type_id !== selectedMppt.mppt_type_id) ?? null;
       setSelectedMpptTypeId(nextMppt?.mppt_type_id ?? '');
       setDraft(mpptDraftFromType(nextMppt));
-      setSaveMessage(`MPPT type "${selectedMppt.mppt_type_id}" deleted.`);
+      setSaveMessage(t('catalog.message.deleted', { item: t('catalog.entry.mppt_type'), id: selectedMppt.mppt_type_id }));
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Failed to delete MPPT type.');
     } finally {
@@ -5523,13 +5523,13 @@ function MpptCatalogPage({
           </div>
           <div className="stack" style={{ gap: 16 }}>
             <div className="field">
-              <span>MPPT type ID</span>
+              <span>{t('catalog.field.mppt_type_id')}</span>
               <p className="muted">
                 {selectedMppt ? selectedMppt.mppt_type_id : (draft.model.trim() ? generateUniqueCatalogId(draft.model.trim(), data.entities.mppt_types.map((mppt) => mppt.mppt_type_id)) : t('catalog.ui.generated_after_save'))}
               </p>
             </div>
             <label className="field">
-              <span>Model</span>
+              <span>{t('catalog.field.model')}</span>
               <input
                 value={draft.model}
                 onChange={(event) => setDraft((current) => ({ ...current, model: event.target.value }))}
@@ -5537,19 +5537,19 @@ function MpptCatalogPage({
               />
             </label>
             <div className="detail-grid two-col">
-              <label className="field"><span>Tracker count</span><input type="number" value={draft.tracker_count} onChange={(event) => setDraft((current) => ({ ...current, tracker_count: event.target.value }))} /></label>
-              <label className="field"><span>Max Voc</span><input type="number" value={draft.max_voc} onChange={(event) => setDraft((current) => ({ ...current, max_voc: event.target.value }))} /></label>
+              <label className="field"><span>{t('catalog.field.tracker_count')}</span><input type="number" value={draft.tracker_count} onChange={(event) => setDraft((current) => ({ ...current, tracker_count: event.target.value }))} /></label>
+              <label className="field"><span>{t('catalog.field.max_voc')}</span><input type="number" value={draft.max_voc} onChange={(event) => setDraft((current) => ({ ...current, max_voc: event.target.value }))} /></label>
             </div>
             <div className="detail-grid two-col">
-              <label className="field"><span>Max PV power</span><input type="number" value={draft.max_pv_power} onChange={(event) => setDraft((current) => ({ ...current, max_pv_power: event.target.value }))} /></label>
-              <label className="field"><span>Max charge current</span><input type="number" value={draft.max_charge_current} onChange={(event) => setDraft((current) => ({ ...current, max_charge_current: event.target.value }))} /></label>
+              <label className="field"><span>{t('catalog.field.max_pv_power')}</span><input type="number" value={draft.max_pv_power} onChange={(event) => setDraft((current) => ({ ...current, max_pv_power: event.target.value }))} /></label>
+              <label className="field"><span>{t('catalog.field.max_charge_current')}</span><input type="number" value={draft.max_charge_current} onChange={(event) => setDraft((current) => ({ ...current, max_charge_current: event.target.value }))} /></label>
             </div>
             <div className="detail-grid two-col">
-              <label className="field"><span>Max PV input current</span><input type="number" value={draft.max_pv_input_current_a} onChange={(event) => setDraft((current) => ({ ...current, max_pv_input_current_a: event.target.value }))} /></label>
-              <label className="field"><span>Max PV short-circuit current</span><input type="number" value={draft.max_pv_short_circuit_current_a} onChange={(event) => setDraft((current) => ({ ...current, max_pv_short_circuit_current_a: event.target.value }))} /></label>
+              <label className="field"><span>{t('catalog.field.max_pv_input_current')}</span><input type="number" value={draft.max_pv_input_current_a} onChange={(event) => setDraft((current) => ({ ...current, max_pv_input_current_a: event.target.value }))} /></label>
+              <label className="field"><span>{t('catalog.field.max_pv_short_circuit_current')}</span><input type="number" value={draft.max_pv_short_circuit_current_a} onChange={(event) => setDraft((current) => ({ ...current, max_pv_short_circuit_current_a: event.target.value }))} /></label>
             </div>
             <div className="detail-grid two-col">
-              <label className="field"><span>Nominal battery voltage</span><input type="number" value={draft.nominal_battery_voltage} onChange={(event) => setDraft((current) => ({ ...current, nominal_battery_voltage: event.target.value }))} /></label>
+              <label className="field"><span>{t('catalog.field.nominal_battery_voltage')}</span><input type="number" value={draft.nominal_battery_voltage} onChange={(event) => setDraft((current) => ({ ...current, nominal_battery_voltage: event.target.value }))} /></label>
               <label className="field"><span>{t('catalog.ui.price_per_unit')}</span><input type="number" value={draft.price} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} /></label>
             </div>
             <label className="field">
@@ -5579,13 +5579,13 @@ function MpptCatalogPage({
           </div>
           {selectedMppt ? (
             <dl className="detail-stats panel-spec-grid" style={{ marginTop: 16 }}>
-              <div><dt>Tracker count</dt><dd>{selectedMppt.tracker_count}</dd></div>
-              <div><dt>Max Voc</dt><dd>{selectedMppt.max_voc} V</dd></div>
-              <div><dt>Max PV power</dt><dd>{selectedMppt.max_pv_power} W</dd></div>
-              <div><dt>Max charge current</dt><dd>{selectedMppt.max_charge_current} A</dd></div>
-              <div><dt>Nominal battery voltage</dt><dd>{selectedMppt.nominal_battery_voltage} V</dd></div>
-              <div><dt>Price</dt><dd>{selectedMppt.price != null ? `€${selectedMppt.price.toLocaleString('en-US')}` : 'n/a'}</dd></div>
-              <div><dt>PV input current</dt><dd>{selectedMppt.max_pv_input_current_a != null ? `${selectedMppt.max_pv_input_current_a} A` : 'n/a'}</dd></div>
+              <div><dt>{t('catalog.stat.tracker_count')}</dt><dd>{selectedMppt.tracker_count}</dd></div>
+              <div><dt>{t('catalog.stat.max_voc')}</dt><dd>{selectedMppt.max_voc} V</dd></div>
+              <div><dt>{t('catalog.stat.max_pv_power')}</dt><dd>{selectedMppt.max_pv_power} W</dd></div>
+              <div><dt>{t('catalog.stat.max_charge_current')}</dt><dd>{selectedMppt.max_charge_current} A</dd></div>
+              <div><dt>{t('catalog.stat.nominal_battery_voltage')}</dt><dd>{selectedMppt.nominal_battery_voltage} V</dd></div>
+              <div><dt>{t('catalog.stat.price')}</dt><dd>{selectedMppt.price != null ? `€${selectedMppt.price.toLocaleString('en-US')}` : 'n/a'}</dd></div>
+              <div><dt>{t('catalog.stat.pv_input_current')}</dt><dd>{selectedMppt.max_pv_input_current_a != null ? `${selectedMppt.max_pv_input_current_a} A` : 'n/a'}</dd></div>
             </dl>
           ) : null}
         </section>
@@ -5642,12 +5642,12 @@ function InverterCatalogPage({
     const notes = draft.notes.trim() === '' ? null : draft.notes.trim();
 
     if (!model || !Number.isFinite(inputVoltageV) || inputVoltageV <= 0 || !Number.isFinite(outputVoltageV) || outputVoltageV <= 0 || !Number.isFinite(continuousPowerW) || continuousPowerW <= 0 || !Number.isFinite(peakPowerVA) || peakPowerVA <= 0 || !Number.isFinite(maxChargeCurrentA) || maxChargeCurrentA <= 0) {
-      setSaveError('Fill in the model, input voltage, output voltage, continuous power, peak power, and max charge current.');
+      setSaveError(t('catalog.validation.inverter_required'));
       return;
     }
 
     if ((efficiencyPct != null && !Number.isFinite(efficiencyPct)) || (price != null && !Number.isFinite(price))) {
-      setSaveError('Optional numeric fields must be valid numbers when provided.');
+      setSaveError(t('catalog.validation.optional_numeric_fields'));
       return;
     }
 
@@ -5695,9 +5695,9 @@ function InverterCatalogPage({
         price_source_url: priceSourceUrl,
         notes,
       } as InverterType));
-      setSaveMessage(`Inverter type "${inverterId}" saved.`);
+      setSaveMessage(t('catalog.message.saved', { item: t('catalog.entry.inverter_type'), id: inverterId }));
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Failed to save inverter type.');
+      setSaveError(error instanceof Error ? error.message : t('catalog.validation.optional_numeric_fields'));
     } finally {
       setIsSaving(false);
     }
@@ -5706,7 +5706,7 @@ function InverterCatalogPage({
   async function handleDelete() {
     if (!selectedInverter) return;
 
-    const confirmed = window.confirm(`Delete inverter type "${selectedInverter.inverter_id}"?`);
+    const confirmed = window.confirm(t('catalog.confirm.delete', { item: t('catalog.entry.inverter_type'), id: selectedInverter.inverter_id }));
     if (!confirmed) return;
 
     try {
@@ -5724,7 +5724,7 @@ function InverterCatalogPage({
       const nextInverter = data.entities.inverter_types.find((item) => item.inverter_id !== selectedInverter.inverter_id) ?? null;
       setSelectedInverterTypeId(nextInverter?.inverter_id ?? '');
       setDraft(inverterDraftFromType(nextInverter));
-      setSaveMessage(`Inverter type "${selectedInverter.inverter_id}" deleted.`);
+      setSaveMessage(t('catalog.message.deleted', { item: t('catalog.entry.inverter_type'), id: selectedInverter.inverter_id }));
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Failed to delete inverter type.');
     } finally {
@@ -5787,13 +5787,13 @@ function InverterCatalogPage({
           </div>
           <div className="stack" style={{ gap: 16 }}>
             <div className="field">
-              <span>Inverter ID</span>
+              <span>{t('catalog.field.inverter_id')}</span>
               <p className="muted">
                 {selectedInverter ? selectedInverter.inverter_id : (draft.model.trim() ? generateUniqueCatalogId(draft.model.trim(), data.entities.inverter_types.map((inverter) => inverter.inverter_id)) : t('catalog.ui.generated_after_save'))}
               </p>
             </div>
             <label className="field">
-              <span>Model</span>
+              <span>{t('catalog.field.model')}</span>
               <input
                 value={draft.model}
                 onChange={(event) => setDraft((current) => ({ ...current, model: event.target.value }))}
@@ -5801,16 +5801,16 @@ function InverterCatalogPage({
               />
             </label>
             <div className="detail-grid two-col">
-              <label className="field"><span>Input voltage</span><input type="number" value={draft.input_voltage_v} onChange={(event) => setDraft((current) => ({ ...current, input_voltage_v: event.target.value }))} /></label>
-              <label className="field"><span>Output voltage</span><input type="number" value={draft.output_voltage_v} onChange={(event) => setDraft((current) => ({ ...current, output_voltage_v: event.target.value }))} /></label>
+              <label className="field"><span>{t('catalog.field.input_voltage')}</span><input type="number" value={draft.input_voltage_v} onChange={(event) => setDraft((current) => ({ ...current, input_voltage_v: event.target.value }))} /></label>
+              <label className="field"><span>{t('catalog.field.output_voltage')}</span><input type="number" value={draft.output_voltage_v} onChange={(event) => setDraft((current) => ({ ...current, output_voltage_v: event.target.value }))} /></label>
             </div>
             <div className="detail-grid two-col">
-              <label className="field"><span>Continuous power</span><input type="number" value={draft.continuous_power_w} onChange={(event) => setDraft((current) => ({ ...current, continuous_power_w: event.target.value }))} /></label>
-              <label className="field"><span>Peak power</span><input type="number" value={draft.peak_power_va} onChange={(event) => setDraft((current) => ({ ...current, peak_power_va: event.target.value }))} /></label>
+              <label className="field"><span>{t('catalog.field.continuous_power')}</span><input type="number" value={draft.continuous_power_w} onChange={(event) => setDraft((current) => ({ ...current, continuous_power_w: event.target.value }))} /></label>
+              <label className="field"><span>{t('catalog.field.peak_power')}</span><input type="number" value={draft.peak_power_va} onChange={(event) => setDraft((current) => ({ ...current, peak_power_va: event.target.value }))} /></label>
             </div>
             <div className="detail-grid two-col">
-              <label className="field"><span>Max charge current</span><input type="number" value={draft.max_charge_current_a} onChange={(event) => setDraft((current) => ({ ...current, max_charge_current_a: event.target.value }))} /></label>
-              <label className="field"><span>Efficiency %</span><input type="number" value={draft.efficiency_pct} onChange={(event) => setDraft((current) => ({ ...current, efficiency_pct: event.target.value }))} /></label>
+              <label className="field"><span>{t('catalog.field.max_charge_current')}</span><input type="number" value={draft.max_charge_current_a} onChange={(event) => setDraft((current) => ({ ...current, max_charge_current_a: event.target.value }))} /></label>
+              <label className="field"><span>{t('catalog.field.efficiency_pct')}</span><input type="number" value={draft.efficiency_pct} onChange={(event) => setDraft((current) => ({ ...current, efficiency_pct: event.target.value }))} /></label>
             </div>
             <div className="detail-grid two-col">
               <label className="field"><span>{t('catalog.ui.price_per_unit')}</span><input type="number" value={draft.price} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} /></label>
@@ -5835,12 +5835,12 @@ function InverterCatalogPage({
           </div>
           {selectedInverter ? (
             <dl className="detail-stats panel-spec-grid" style={{ marginTop: 16 }}>
-              <div><dt>Input voltage</dt><dd>{selectedInverter.input_voltage_v} V</dd></div>
-              <div><dt>Output voltage</dt><dd>{selectedInverter.output_voltage_v} V</dd></div>
-              <div><dt>Continuous power</dt><dd>{selectedInverter.continuous_power_w} W</dd></div>
-              <div><dt>Peak power</dt><dd>{selectedInverter.peak_power_va} VA</dd></div>
-              <div><dt>Max current</dt><dd>{selectedInverter.max_charge_current_a} A</dd></div>
-              <div><dt>Efficiency</dt><dd>{selectedInverter.efficiency_pct != null ? `${selectedInverter.efficiency_pct}%` : 'n/a'}</dd></div>
+              <div><dt>{t('catalog.stat.input_voltage')}</dt><dd>{selectedInverter.input_voltage_v} V</dd></div>
+              <div><dt>{t('catalog.stat.output_voltage')}</dt><dd>{selectedInverter.output_voltage_v} V</dd></div>
+              <div><dt>{t('catalog.stat.continuous_power')}</dt><dd>{selectedInverter.continuous_power_w} W</dd></div>
+              <div><dt>{t('catalog.stat.peak_power')}</dt><dd>{selectedInverter.peak_power_va} VA</dd></div>
+              <div><dt>{t('catalog.stat.max_current')}</dt><dd>{selectedInverter.max_charge_current_a} A</dd></div>
+              <div><dt>{t('catalog.stat.efficiency')}</dt><dd>{selectedInverter.efficiency_pct != null ? `${selectedInverter.efficiency_pct}%` : 'n/a'}</dd></div>
             </dl>
           ) : null}
         </section>

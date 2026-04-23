@@ -160,6 +160,30 @@ h1, h2, h3, p, dl, dd, dt {
   gap: 6px;
 }
 
+.sidebar-language {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 0 8px;
+}
+
+.sidebar-language-label {
+  font-size: 0.68rem;
+  color: var(--sidebar-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sidebar-language-select {
+  width: 100%;
+  border: 1px solid rgba(255 255 255 / 0.12);
+  background: rgba(255 255 255 / 0.04);
+  color: var(--sidebar-text);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+}
+
 .sidebar-footer-stamp {
   font-size: 0.68rem;
   color: var(--sidebar-muted);
@@ -173,6 +197,39 @@ h1, h2, h3, p, dl, dd, dt {
   min-width: 0;
   max-width: 1440px;
   padding: 32px;
+}
+
+.app-shell-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+
+.app-language {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 8px 12px;
+}
+
+.app-language-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.app-language-select {
+  border: 1px solid var(--border);
+  background: var(--surface-low);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font: inherit;
 }
 
 /* ── Top bar ── */
@@ -191,6 +248,14 @@ h1, h2, h3, p, dl, dd, dt {
   font-weight: 700;
   letter-spacing: 0.04em;
   color: var(--text);
+}
+
+.topbar-meta {
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 /* ── Panels ── */
