@@ -221,6 +221,10 @@ interface InverterConfiguration {
   inverter_id?: string;
   name: string;
   provisional: boolean;
+  title?: string | null;
+  description?: string | null;
+  image_data_url?: string | null;
+  notes?: string | null;
 }
 
 interface ArrayToMpptRelationship {
@@ -2714,6 +2718,12 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
 }
 
 function AboutPage() {
+  const buildInfo = typeof __BUILD_INFO__ !== 'undefined' ? __BUILD_INFO__ : '';
+  const [buildVersion, buildCommit] = buildInfo.includes(' @ ')
+    ? buildInfo.split(' @ ')
+    : [buildInfo, ''];
+  const shortCommit = buildCommit.slice(0, 7);
+
   return (
     <>
       <div className="topbar">
@@ -2721,32 +2731,72 @@ function AboutPage() {
       </div>
 
       <section className="detail-shell">
-        <div className="detail-grid detail-intro-grid">
-          <section className="panel panel-span-2">
-            <div className="section-head">
-              <h2>About OffGridOS</h2>
-              <p>OffGridOS is designed and maintained by Joost Okkinga.</p>
+        <div className="panel">
+          <h2 style={{ fontSize: 'clamp(1.1rem, 2vw, 1.4rem)', fontWeight: 700, margin: '0 0 14px', lineHeight: 1.25, color: 'var(--text)' }}>
+            Designed and built by Joost Okkinga
+          </h2>
+          <p style={{ color: 'var(--muted)', maxWidth: 680, lineHeight: 1.65, margin: 0 }}>
+            OffGridOS is personal software — not a commercial product, not a SaaS, not a white-label tool.
+            It has been built to plan and model a specific off-grid installation, with the intention
+            to reuse and adapt it for future properties. If you're working on something similar,
+            you're welcome to explore the source on Codeberg.
+          </p>
+        </div>
+
+        <div className="detail-grid-2">
+          <div className="panel">
+            <div className="section-head" style={{ marginBottom: 14 }}>
+              <h2>Stack</h2>
             </div>
-            <div className="stack" style={{ gap: 16 }}>
-              <p style={{ margin: 0, maxWidth: 760, color: 'var(--muted)' }}>
-                It is a single-project planning tool for the 18Mad Boerderij digital twin, built around a local-first SQLite database, a Node server, and a React interface.
-              </p>
-              <div className="hero-strip">
-                <SummaryCard label="Maintained by" value="Joost Okkinga" />
-                <SummaryCard label="Source code" value="Codeberg" detail="codeberg.org/okkingaj/OffGridOS" />
-              </div>
-              <div className="button-row">
-                <a
-                  className="button button-secondary"
-                  href="https://codeberg.org/okkingaj/OffGridOS"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Open Codeberg repo
-                </a>
-              </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+              {['React', 'TypeScript', 'Node.js', 'SQLite', 'Vite'].map(tech => (
+                <span key={tech} style={{
+                  padding: '4px 10px',
+                  background: 'var(--surface-low)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 6,
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  color: 'var(--text)',
+                  fontFamily: 'inherit',
+                }}>
+                  {tech}
+                </span>
+              ))}
             </div>
-          </section>
+            <p style={{ color: 'var(--muted)', fontSize: '0.84rem', lineHeight: 1.6, margin: 0 }}>
+              Local-first: the database lives on the machine, the server runs locally, and the UI is a React SPA.
+              No cloud, no accounts, no runtime dependencies outside the LAN.
+            </p>
+          </div>
+
+          <div className="panel" style={{ display: 'flex', flexDirection: 'column' }}>
+            <div className="section-head" style={{ marginBottom: 14 }}>
+              <h2>Source code</h2>
+            </div>
+            <p style={{ color: 'var(--muted)', fontSize: '0.84rem', lineHeight: 1.6, margin: '0 0 20px' }}>
+              The full source is publicly available on Codeberg. You're welcome to browse it,
+              learn from it, or adapt it for your own off-grid setup — though it's tailored
+              to one specific site.
+            </p>
+            <div style={{ marginTop: 'auto' }}>
+              <a
+                className="button button-secondary"
+                href="https://codeberg.org/okkingaj/OffGridOS"
+                target="_blank"
+                rel="noreferrer"
+              >
+                View on Codeberg →
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div className="panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 24px' }}>
+          <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontFamily: 'monospace', letterSpacing: 0 }}>
+            {buildVersion}{shortCommit ? ` @ ${shortCommit}` : ''}
+          </span>
+          <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>offgridos.eu</span>
         </div>
       </section>
     </>
