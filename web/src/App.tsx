@@ -1034,11 +1034,11 @@ function isMatchingRsMppt(inverterType: InverterType | null, mpptType: MpptType 
   return inverterType.model.trim() !== '' && inverterType.model === mpptType.model && inverterType.model.toLowerCase().includes('rs');
 }
 
-function SummaryCard({ label, value, detail }: { label: string; value: string; detail?: string }) {
+function SummaryCard({ label, value, detail, tone }: { label: string; value: string; detail?: string; tone?: 'good' | 'ok' | 'warn' | 'cool' | 'danger' | 'muted' }) {
   return (
     <article className="summary-card">
       <div className="summary-label">{label}</div>
-      <div className="summary-value">{value}</div>
+      <div className={`summary-value${tone ? ` summary-value-${tone}` : ''}`}>{value}</div>
       {detail ? <div className="summary-detail">{detail}</div> : null}
     </article>
   );
@@ -4747,6 +4747,27 @@ function VerdictSummaryPage({
       : batteryRows.some((row) => row.fit === 'optimal')
         ? t('report.verdict.optimal')
         : t('status.not_evaluated');
+  const surfaceAggregateTone = surfaceRows.some((row) => row.status === 'outside_limits')
+    ? 'danger'
+    : surfaceRows.some((row) => row.fit === 'clipping_expected')
+      ? 'warn'
+      : surfaceRows.some((row) => row.fit === 'underutilized')
+        ? 'cool'
+        : surfaceRows.some((row) => row.fit === 'acceptable')
+          ? 'ok'
+          : 'muted';
+  const batteryAggregateTone = batteryRows.some((row) => row.status === 'outside_limits')
+    ? 'danger'
+    : batteryRows.some((row) => row.fit === 'acceptable')
+      ? 'ok'
+      : batteryRows.some((row) => row.fit === 'optimal')
+        ? 'good'
+        : 'muted';
+  const inverterAggregateTone = !batteryToInverter
+    ? 'muted'
+    : batteryToInverter.evaluation.electrical_status === 'outside_limits'
+      ? 'danger'
+      : 'good';
 
   return (
     <>
@@ -4761,9 +4782,9 @@ function VerdictSummaryPage({
       </section>
 
       <div className="hero-strip" style={{ marginBottom: 20 }}>
-        <SummaryCard label={t('report.verdict.surface_verdicts')} value={surfaceAggregate} detail={t('report.verdict.surfaces_count', { count: surfaceRows.length })} />
-        <SummaryCard label={t('report.verdict.battery_verdict')} value={batteryAggregate} detail={batteryRows.length > 0 ? t('report.verdict.project_level_mppt_relationships', { count: batteryRows.length, suffix: batteryRows.length === 1 ? '' : 's' }) : t('solar_yield.table.not_evaluated')} />
-        <SummaryCard label={t('report.verdict.inverter_verdict')} value={inverterVerdictLabel} detail={batteryToInverter ? t('report.verdict.project_level_battery_to_inverter') : t('solar_yield.table.not_evaluated')} />
+        <SummaryCard label={t('report.verdict.surface_verdicts')} value={surfaceAggregate} tone={surfaceAggregateTone} detail={t('report.verdict.surfaces_count', { count: surfaceRows.length })} />
+        <SummaryCard label={t('report.verdict.battery_verdict')} value={batteryAggregate} tone={batteryAggregateTone} detail={batteryRows.length > 0 ? t('report.verdict.project_level_mppt_relationships', { count: batteryRows.length, suffix: batteryRows.length === 1 ? '' : 's' }) : t('solar_yield.table.not_evaluated')} />
+        <SummaryCard label={t('report.verdict.inverter_verdict')} value={inverterVerdictLabel} tone={inverterAggregateTone} detail={batteryToInverter ? t('report.verdict.project_level_battery_to_inverter') : t('solar_yield.table.not_evaluated')} />
       </div>
 
       <section className="panel" style={{ marginBottom: 20 }}>
@@ -4789,7 +4810,7 @@ function VerdictSummaryPage({
                     <th>{surface.name}</th>
                     <td>{panelType?.model ? `${panelType.model} × ${surface.panel_count}` : 'n/a'}</td>
                     <td>{mpptType?.model ?? 'n/a'}</td>
-                    <td>{verdictLabel}</td>
+                    <td><StatusBadge status={relation.evaluation.electrical_status} fit={relation.evaluation.fit_status} /></td>
                     <td>{verdictSummary ?? t('solar_yield.table.not_evaluated')}</td>
                   </tr>
                 ))}
@@ -4828,7 +4849,7 @@ function VerdictSummaryPage({
                 {batteryRows.map(({ relation, mpptName, verdictLabel, verdictSummary }) => (
                   <tr key={relation.relationship_id}>
                     <th>{mpptName}</th>
-                    <td>{verdictLabel}</td>
+                    <td><StatusBadge status={relation.evaluation.electrical_status} fit={relation.evaluation.fit_status} /></td>
                     <td>{verdictSummary ?? t('solar_yield.table.not_evaluated')}</td>
                   </tr>
                 ))}
@@ -4856,7 +4877,7 @@ function VerdictSummaryPage({
               {t('report.label.selected_inverter')}: {projectInverter.name}
             </p>
             <dl className="detail-stats panel-spec-grid" style={{ marginTop: 0, marginBottom: 16 }}>
-              <div><dt>{t('report.table.verdict')}</dt><dd>{inverterVerdictLabel}</dd></div>
+              <div><dt>{t('report.table.verdict')}</dt><dd>{batteryToInverter ? <StatusBadge status={batteryToInverter.evaluation.electrical_status} /> : inverterVerdictLabel}</dd></div>
               <div><dt>{t('report.table.why')}</dt><dd>{inverterVerdictSummary ?? t('solar_yield.table.not_evaluated')}</dd></div>
             </dl>
           </>

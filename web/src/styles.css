@@ -328,6 +328,30 @@ h1, h2, h3, p, dl, dd, dt {
   font-weight: 700;
 }
 
+.summary-value-good {
+  color: var(--accent-strong);
+}
+
+.summary-value-ok {
+  color: var(--success);
+}
+
+.summary-value-warn {
+  color: var(--warning);
+}
+
+.summary-value-cool {
+  color: var(--info);
+}
+
+.summary-value-danger {
+  color: var(--danger);
+}
+
+.summary-value-muted {
+  color: var(--muted);
+}
+
 .summary-detail {
   margin-top: 4px;
   color: var(--muted);
@@ -761,7 +785,7 @@ h1, h2, h3, p, dl, dd, dt {
 .yield-table td {
   border: 1px solid var(--border);
   padding: 10px 8px;
-  text-align: center;
+  text-align: left;
   white-space: nowrap;
 }
 
@@ -782,7 +806,7 @@ h1, h2, h3, p, dl, dd, dt {
 .yield-verdict-cell {
   display: grid;
   gap: 6px;
-  justify-items: center;
+  justify-items: start;
 }
 
 /* ── Warnings ── */
