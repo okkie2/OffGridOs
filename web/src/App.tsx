@@ -1,5 +1,6 @@
 import React from 'react';
 import { useEffect, useState, type ChangeEvent, type MouseEvent } from 'react';
+import { LANGUAGE_OPTIONS, LanguageProvider, useTranslation, type TranslationKey } from './i18n';
 
 declare const __BUILD_INFO__: string;
 
@@ -77,6 +78,7 @@ interface BatteryType {
   cooling: 'active' | 'passive';
   price?: number | null;
   price_per_kwh?: number | null;
+  price_source_url?: string | null;
   source?: string | null;
   url?: string | null;
   notes?: string;
@@ -94,7 +96,7 @@ interface BatteryTypeDraft {
   victron_can: boolean;
   cooling: 'active' | 'passive';
   price: string;
-  source: string;
+  price_source_url: string;
   notes: string;
 }
 
@@ -448,10 +450,13 @@ function getProjectStorageKey(data: DigitalTwinExport): string {
   return data.project.project_id ?? 'offgridos-project';
 }
 
-function getLocationDisplayName(data: DigitalTwinExport): string {
+function getLocationDisplayName(
+  data: DigitalTwinExport,
+  t?: (key: TranslationKey, variables?: Record<string, string | number>) => string,
+): string {
   return data.project.location?.title?.trim()
     || data.project.location?.place_name
-    || 'Location not set';
+    || (t ? t('location.not_set') : 'Location not set');
 }
 
 function buildLocalSurfaceSummaries(data: DigitalTwinExport): LocalSurfaceSummary[] {
@@ -531,12 +536,12 @@ type Route =
 
 const CATALOG_ROUTES: Array<{
   catalog: 'panel-types' | 'mppt-types' | 'battery-types' | 'inverter-types';
-  label: string;
+  labelKey: TranslationKey;
 }> = [
-  { catalog: 'panel-types', label: 'Panel types' },
-  { catalog: 'mppt-types', label: 'MPPT types' },
-  { catalog: 'battery-types', label: 'Battery types' },
-  { catalog: 'inverter-types', label: 'Inverter types' },
+  { catalog: 'panel-types', labelKey: 'nav.catalog.panel_types' },
+  { catalog: 'mppt-types', labelKey: 'nav.catalog.mppt_types' },
+  { catalog: 'battery-types', labelKey: 'nav.catalog.battery_types' },
+  { catalog: 'inverter-types', labelKey: 'nav.catalog.inverter_types' },
 ];
 
 const MONTH_LABELS: Record<string, string> = {
@@ -553,6 +558,15 @@ const MONTH_LABELS: Record<string, string> = {
   november: 'Nov',
   december: 'Dec',
 };
+
+function getMonthLabel(month: string, t?: (key: TranslationKey, variables?: Record<string, string | number>) => string): string {
+  if (!t) {
+    return MONTH_LABELS[month] ?? month;
+  }
+
+  const key = `month.${month}` as TranslationKey;
+  return t(key);
+}
 
 const MONTH_KEYS = [
   'january',
@@ -678,7 +692,7 @@ function emptyBatteryDraft(): BatteryTypeDraft {
     victron_can: true,
     cooling: 'passive',
     price: '',
-    source: '',
+    price_source_url: '',
     notes: '',
   };
 }
@@ -698,7 +712,7 @@ function batteryDraftFromType(battery: BatteryType | null): BatteryTypeDraft {
     victron_can: battery.victron_can,
     cooling: battery.cooling,
     price: battery.price != null ? String(battery.price) : '',
-    source: battery.source ?? battery.url ?? '',
+    price_source_url: battery.price_source_url ?? battery.source ?? battery.url ?? '',
     notes: battery.notes ?? '',
   };
 }
@@ -1547,6 +1561,7 @@ function routeHref(route: Route): string {
 }
 
 function Sidebar({ route, data }: { route: Route; data: DigitalTwinExport | null }) {
+  const { language, setLanguage, t } = useTranslation();
   const go = (next: Route) => (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
     navigateTo(next);
@@ -1560,7 +1575,7 @@ function Sidebar({ route, data }: { route: Route; data: DigitalTwinExport | null
       </div>
       <nav className="sidebar-nav">
         <a href={routeHref({ kind: 'location' })} onClick={go({ kind: 'location' })} className={`sidebar-nav-item ${route.kind === 'location' || route.kind === 'surface' ? 'active' : ''}`}>
-          Location
+          {t('nav.location')}
         </a>
         {data && (route.kind === 'location' || route.kind === 'surface') ? (
           <div className="sidebar-subnav">
@@ -1577,18 +1592,18 @@ function Sidebar({ route, data }: { route: Route; data: DigitalTwinExport | null
           </div>
         ) : null}
         <a href={routeHref({ kind: 'solar-yield' })} onClick={go({ kind: 'solar-yield' })} className={`sidebar-nav-item ${route.kind === 'solar-yield' ? 'active' : ''}`}>
-          Solar yield
+          {t('nav.solar_yield')}
         </a>
         <a href={routeHref({ kind: 'battery-array' })} onClick={go({ kind: 'battery-array' })} className={`sidebar-nav-item ${route.kind === 'battery-array' ? 'active' : ''}`}>
-          Battery array
+          {t('nav.battery_array')}
         </a>
         <a href={routeHref({ kind: 'inverter-array' })} onClick={go({ kind: 'inverter-array' })} className={`sidebar-nav-item ${route.kind === 'inverter-array' ? 'active' : ''}`}>
-          Inverter array
+          {t('nav.inverter_array')}
         </a>
-        <span className="sidebar-nav-item sidebar-nav-disabled">Loads</span>
-        <span className="sidebar-nav-item sidebar-nav-disabled">Alerts</span>
+        <span className="sidebar-nav-item sidebar-nav-disabled">{t('nav.loads')}</span>
+        <span className="sidebar-nav-item sidebar-nav-disabled">{t('nav.alerts')}</span>
         <a href={routeHref({ kind: 'catalogs' })} onClick={go({ kind: 'catalogs' })} className={`sidebar-nav-item ${route.kind === 'catalogs' || route.kind === 'catalog' ? 'active' : ''}`}>
-          Catalogs
+          {t('nav.catalogs')}
         </a>
         {data && (route.kind === 'catalogs' || route.kind === 'catalog') ? (
           <div className="sidebar-subnav">
@@ -1599,20 +1614,30 @@ function Sidebar({ route, data }: { route: Route; data: DigitalTwinExport | null
                 onClick={go({ kind: 'catalog', catalog: catalog.catalog })}
                 className={`sidebar-subnav-item ${route.kind === 'catalog' && route.catalog === catalog.catalog ? 'active' : ''}`}
               >
-                {catalog.label}
+                {t(catalog.labelKey)}
               </a>
             ))}
           </div>
         ) : null}
       </nav>
       <div className="sidebar-footer">
-        <span className="sidebar-nav-item sidebar-nav-disabled">New project</span>
+        <label className="sidebar-language">
+          <span className="sidebar-language-label">{t('ui.language')}</span>
+          <select value={language} onChange={(event) => setLanguage(event.target.value as typeof language)} className="sidebar-language-select">
+            {LANGUAGE_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {t(`language.${option}` as TranslationKey)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <span className="sidebar-nav-item sidebar-nav-disabled">{t('nav.new_project')}</span>
         <a
           href={routeHref({ kind: 'about' })}
           onClick={go({ kind: 'about' })}
           className={`sidebar-nav-item ${route.kind === 'about' ? 'active' : ''}`}
         >
-          About
+          {t('nav.about')}
         </a>
         <span className="sidebar-footer-stamp">{typeof __BUILD_INFO__ !== 'undefined' ? __BUILD_INFO__ : ''}</span>
       </div>
@@ -1621,12 +1646,13 @@ function Sidebar({ route, data }: { route: Route; data: DigitalTwinExport | null
 }
 
 function Breadcrumbs({ route, surfaceName }: { route: Route; surfaceName?: string }) {
+  const { t } = useTranslation();
   return (
     <nav className="breadcrumbs" aria-label="Breadcrumb">
       {route.kind === 'surface' ? (
         <>
           <button type="button" className="crumb crumb-link" onClick={() => navigateTo({ kind: 'location' })}>
-            Location
+            {t('breadcrumbs.location')}
           </button>
           <span className="crumb-sep">/</span>
           <span className="crumb crumb-current">{surfaceName ?? route.surfaceId}</span>
@@ -1635,7 +1661,7 @@ function Breadcrumbs({ route, surfaceName }: { route: Route; surfaceName?: strin
       {route.kind === 'solar-yield' ? (
         <>
           <span className="crumb-sep">/</span>
-          <span className="crumb crumb-current">Solar yield</span>
+          <span className="crumb crumb-current">{t('breadcrumbs.solar_yield')}</span>
         </>
       ) : null}
     </nav>
@@ -1651,6 +1677,7 @@ function SurfaceDetail({
   surfaceId: string;
   refreshProjectData: () => Promise<void>;
 }) {
+  const { t } = useTranslation();
   const surface = data.entities.surfaces.find((item) => item.surface_id === surfaceId);
   const persistedConfiguration = data.entities.surface_configurations.find((item) => item.surface_id === surfaceId) ?? null;
   const array = (data.entities.pv_arrays ?? data.entities.arrays).find((item) => item.surface_id === surfaceId);
@@ -1741,8 +1768,8 @@ function SurfaceDetail({
     return (
       <section className="panel error-panel">
         <Breadcrumbs route={{ kind: 'surface', surfaceId }} surfaceName={surfaceId} />
-        <h1>Surface not found</h1>
-        <p>No surface detail is available for `{surfaceId}` in the current export.</p>
+        <h1>{t('surface.not_found.title')}</h1>
+        <p>{t('surface.not_found.description', { surfaceId })}</p>
       </section>
     );
   }
@@ -1797,7 +1824,7 @@ function SurfaceDetail({
     const areaWidthM = surfaceAreaWidthDraft.trim() === '' ? null : Number(surfaceAreaWidthDraft);
 
     if (!nameToPersist) {
-      setSurfaceSaveError('Surface name is required before saving.');
+      setSurfaceSaveError(t('surface.save.error.required_name'));
       setSurfaceSaveMessage(null);
       return;
     }
@@ -1838,10 +1865,10 @@ function SurfaceDetail({
         // Keep the save successful even if local draft syncing fails.
       }
 
-      setSurfaceSaveMessage('Surface details saved to the project database.');
+      setSurfaceSaveMessage(t('surface.save.success'));
       await refreshProjectData();
     } catch (error) {
-      setSurfaceSaveError(error instanceof Error ? error.message : 'Failed to save surface details.');
+      setSurfaceSaveError(error instanceof Error ? error.message : t('surface.save.error.failed'));
       setSurfaceSaveMessage(null);
     } finally {
       setIsSavingSurface(false);
@@ -1850,7 +1877,7 @@ function SurfaceDetail({
 
   async function handleSavePanelSetup() {
     if (configuredPanelCount > 0 && !selectedPanelTypeId) {
-      setPanelSaveError('Choose a panel type before saving panel setup.');
+      setPanelSaveError(t('surface.panel.save.error.required'));
       setPanelSaveMessage(null);
       return;
     }
@@ -1887,12 +1914,12 @@ function SurfaceDetail({
 
       setPanelSaveMessage(
         configuredPanelCount > 0
-          ? 'Panel configuration and count saved to the project database.'
-          : 'Panels removed from this surface in the project database.',
+          ? t('surface.panel.save.success')
+          : t('surface.panel.save.success.removed'),
       );
       await refreshProjectData();
     } catch (error) {
-      setPanelSaveError(error instanceof Error ? error.message : 'Failed to save panel setup.');
+      setPanelSaveError(error instanceof Error ? error.message : t('surface.panel.save.error.failed'));
       setPanelSaveMessage(null);
     } finally {
       setIsSavingPanels(false);
@@ -1902,12 +1929,12 @@ function SurfaceDetail({
   async function handleSaveSurfaceDesign() {
     if (configuredPanelCount === 0) {
       if (panelsPerString !== 0 || parallelStrings !== 0) {
-        setSurfaceDesignSaveError('Surfaces with 0 panels must also use 0 panels per string and 0 parallel strings.');
+        setSurfaceDesignSaveError(t('surface.panel_array.save.error.zero_layout'));
         setSurfaceDesignSaveMessage(null);
         return;
       }
     } else if (panelsPerString <= 0 || parallelStrings <= 0 || panelsPerString * parallelStrings !== configuredPanelCount) {
-      setSurfaceDesignSaveError('Panels per string multiplied by parallel strings must match the configured panel count before saving.');
+      setSurfaceDesignSaveError(t('surface.panel_array.save.error.mismatch'));
       setSurfaceDesignSaveMessage(null);
       return;
     }
@@ -1944,10 +1971,10 @@ function SurfaceDetail({
         // Keep the save successful even if local draft syncing fails.
       }
 
-      setSurfaceDesignSaveMessage('Panel array layout and MPPT choice saved to the project database.');
+      setSurfaceDesignSaveMessage(t('surface.panel_array.save.success'));
       await refreshProjectData();
     } catch (error) {
-      setSurfaceDesignSaveError(error instanceof Error ? error.message : 'Failed to save surface configuration.');
+      setSurfaceDesignSaveError(error instanceof Error ? error.message : t('surface.panel_array.save.error.failed'));
       setSurfaceDesignSaveMessage(null);
     } finally {
       setIsSavingSurfaceDesign(false);
@@ -1972,14 +1999,14 @@ function SurfaceDetail({
         <section className="panel panel-span-2 panel-with-actions">
           <Breadcrumbs route={{ kind: 'surface', surfaceId }} surfaceName={surface.name} />
           <div className="section-head">
-            <h2>Surface information</h2>
+            <h2>{t('surface.info.title')}</h2>
           </div>
           <h1 className="detail-page-title">{surface.name}</h1>
           {surfaceSaveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{surfaceSaveError}</p> : null}
           {surfaceSaveMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{surfaceSaveMessage}</p> : null}
           <div className="roof-config-inline">
             <label className="config-field">
-              <span>Surface name</span>
+              <span>{t('surface.name')}</span>
               <input
                 type="text"
                 value={surfaceNameDraft}
@@ -1987,7 +2014,7 @@ function SurfaceDetail({
               />
             </label>
             <label className="config-field config-field-span-2">
-              <span>Description</span>
+              <span>{t('surface.description')}</span>
               <input
                 type="text"
                 value={surfaceDescription}
@@ -1995,7 +2022,7 @@ function SurfaceDetail({
               />
             </label>
             <label className="config-field">
-              <span>Height (m)</span>
+              <span>{t('surface.height')}</span>
               <input
                 type="number"
                 min={0}
@@ -2005,7 +2032,7 @@ function SurfaceDetail({
               />
             </label>
             <label className="config-field">
-              <span>Width (m)</span>
+              <span>{t('surface.width')}</span>
               <input
                 type="number"
                 min={0}
@@ -2015,7 +2042,7 @@ function SurfaceDetail({
               />
             </label>
             <label className="config-field">
-              <span>Azimuth</span>
+              <span>{t('surface.azimuth')}</span>
               <input
                 type="number"
                 min={0}
@@ -2026,7 +2053,7 @@ function SurfaceDetail({
               />
             </label>
             <label className="config-field">
-              <span>Tilt</span>
+              <span>{t('surface.tilt')}</span>
               <input
                 type="number"
                 min={0}
@@ -2039,15 +2066,15 @@ function SurfaceDetail({
           </div>
           <div className="button-row button-row-end">
             <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveSurfaceDetails()} disabled={isSavingSurface}>
-              {isSavingSurface ? 'Saving...' : 'Save'}
+              {isSavingSurface ? t('common.saving') : t('common.save')}
             </button>
           </div>
         </section>
 
         <section className="panel panel-with-actions">
           <div className="section-head">
-            <h2>Surface photo</h2>
-            <p>Optional visual reference for this surface, saved in the project database when you click Save.</p>
+            <h2>{t('surface.photo.title')}</h2>
+            <p>{t('surface.photo.description')}</p>
           </div>
           {photo ? (
             <div className="photo-frame">
@@ -2060,18 +2087,18 @@ function SurfaceDetail({
                   void handleSaveSurfaceDetails({ photoOverride: null });
                 }}
               >
-                Remove
+                {t('common.remove')}
               </button>
             </div>
           ) : (
             <label className="upload-dropzone">
-              <span>Click to upload a photo</span>
+              <span>{t('surface.photo.upload')}</span>
               <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoChange} />
             </label>
           )}
           <div className="button-row button-row-end">
             <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveSurfaceDetails()} disabled={isSavingSurface}>
-              {isSavingSurface ? 'Saving...' : 'Save'}
+              {isSavingSurface ? t('common.saving') : t('common.save')}
             </button>
           </div>
         </section>
@@ -2080,15 +2107,15 @@ function SurfaceDetail({
       <section className="detail-grid storage-detail-grid">
         <section className="panel panel-with-actions">
           <div className="section-head">
-            <h2>Panel</h2>
-            <p>Choose panel type and count.</p>
+            <h2>{t('surface.panel.title')}</h2>
+            <p>{t('surface.panel.description')}</p>
           </div>
           {panelSaveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{panelSaveError}</p> : null}
           {panelSaveMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{panelSaveMessage}</p> : null}
           <div className="fit-card">
             <div className="panel-config-grid config-control-row">
               <label className="config-field config-field-span-2">
-                <span>Selected panel</span>
+                <span>{t('surface.panel.selected')}</span>
                 <select
                   value={selectedPanelTypeId}
                   onChange={(event) => setSelectedPanelTypeId(event.target.value)}
@@ -2101,7 +2128,7 @@ function SurfaceDetail({
                 </select>
               </label>
               <label className="config-field">
-                <span>Panel count</span>
+                <span>{t('surface.panel.count')}</span>
                 <input
                   type="number"
                   min={0}
@@ -2146,20 +2173,20 @@ function SurfaceDetail({
                 </div>
               </dl>
             ) : (
-              <p className="fit-note">Choose a panel type to see its panel attributes.</p>
+              <p className="fit-note">{t('surface.panel.empty')}</p>
             )}
           </div>
           <div className="button-row button-row-end">
             <button type="button" className="button button-secondary button-sm" onClick={() => void handleSavePanelSetup()} disabled={isSavingPanels}>
-              {isSavingPanels ? 'Saving...' : 'Save'}
+              {isSavingPanels ? t('common.saving') : t('common.save')}
             </button>
           </div>
         </section>
 
         <section className="panel panel-with-actions">
           <div className="section-head">
-            <h2>Panel array</h2>
-            <p>Set the preferred string layout for this surface array.</p>
+            <h2>{t('surface.panel_array.title')}</h2>
+            <p>{t('surface.panel_array.description')}</p>
           </div>
           {surfaceDesignSaveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{surfaceDesignSaveError}</p> : null}
           {surfaceDesignSaveMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{surfaceDesignSaveMessage}</p> : null}
@@ -2168,7 +2195,7 @@ function SurfaceDetail({
               <div className="fit-card">
                 <div className="config-grid config-control-row">
                   <label className="config-field">
-                    <span>Panels per string</span>
+                    <span>{t('surface.panel_array.panels_per_string')}</span>
                     <select
                       value={panelsPerString}
                       onChange={(event) => {
@@ -2185,7 +2212,7 @@ function SurfaceDetail({
                     </select>
                   </label>
                   <label className="config-field">
-                    <span>Parallel strings</span>
+                    <span>{t('surface.panel_array.parallel_strings')}</span>
                     <select
                       value={parallelStrings}
                       onChange={(event) => {
@@ -2204,47 +2231,45 @@ function SurfaceDetail({
                 </div>
                 <dl className="detail-stats compact-stats">
                   <div>
-                    <dt>Array Voc</dt>
+                    <dt>{t('surface.panel_array.stat.voc')}</dt>
                     <dd>{formatVolts(arrayConfig.stringVoc)}</dd>
                   </div>
                   <div>
-                    <dt>Array voltage</dt>
+                    <dt>{t('surface.panel_array.stat.voltage')}</dt>
                     <dd>{formatVolts(arrayConfig.stringVmp)}</dd>
                   </div>
                   <div>
-                    <dt>Array Isc</dt>
+                    <dt>{t('surface.panel_array.stat.isc')}</dt>
                     <dd>{formatAmps(arrayConfig.arrayIsc)}</dd>
                   </div>
                   <div>
-                    <dt>Array power</dt>
+                    <dt>{t('surface.panel_array.stat.power')}</dt>
                     <dd>{formatWp(arrayConfig.arrayPower)}</dd>
                   </div>
                 </dl>
               </div>
               <div className="button-row button-row-end">
                 <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveSurfaceDesign()} disabled={isSavingSurfaceDesign}>
-                  {isSavingSurfaceDesign ? 'Saving...' : 'Save'}
+                  {isSavingSurfaceDesign ? t('common.saving') : t('common.save')}
                 </button>
               </div>
             </>
           ) : (
-            <p className="fit-note">
-              Configure and save at least one panel before configuring string layout.
-            </p>
+            <p className="fit-note">{t('surface.panel_array.empty')}</p>
           )}
         </section>
 
         <section className="panel panel-with-actions">
           <div className="section-head">
-            <h2>MPPT</h2>
-            <p>Choose the MPPT.</p>
+            <h2>{t('surface.mppt.title')}</h2>
+            <p>{t('surface.mppt.description')}</p>
           </div>
           {arrayConfig?.configuredPanelCount ? (
             <>
               <div className="fit-card">
                 <div className="config-grid config-control-row mppt-config-row">
                   <label className="config-field config-field-span-2">
-                    <span>Selected MPPT</span>
+                    <span>{t('surface.mppt.selected')}</span>
                     <select
                       value={selectedMpptTypeId}
                       onChange={(event) => setSelectedMpptTypeId(event.target.value)}
@@ -2260,47 +2285,45 @@ function SurfaceDetail({
                 {selectedMpptType ? (
                   <dl className="detail-stats mppt-limits">
                     <div>
-                      <dt>Max Voc</dt>
+                      <dt>{t('surface.mppt.stat.max_voc')}</dt>
                       <dd>{formatVolts(selectedMpptType.max_voc)}</dd>
                     </div>
                     <div>
-                      <dt>Trackers</dt>
+                      <dt>{t('surface.mppt.stat.trackers')}</dt>
                       <dd>{selectedMpptType.tracker_count}</dd>
                     </div>
                     <div>
-                      <dt>PV power / tracker</dt>
+                      <dt>{t('surface.mppt.stat.power_per_tracker')}</dt>
                       <dd>{formatWp(selectedMpptType.max_pv_power / Math.max(selectedMpptType.tracker_count, 1))}</dd>
                     </div>
                     <div>
-                      <dt>Max PV power</dt>
+                      <dt>{t('surface.mppt.stat.max_power')}</dt>
                       <dd>{formatWp(selectedMpptType.max_pv_power)}</dd>
                     </div>
                     <div>
-                      <dt>Max charge current</dt>
+                      <dt>{t('surface.mppt.stat.max_charge_current')}</dt>
                       <dd>{formatAmps(selectedMpptType.max_charge_current)}</dd>
                     </div>
                   </dl>
                 ) : (
-                  <p className="fit-note">Choose an MPPT to see its MPPT attributes.</p>
+                  <p className="fit-note">{t('surface.mppt.attributes.empty')}</p>
                 )}
               </div>
               <div className="button-row button-row-end">
                 <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveSurfaceDesign()} disabled={isSavingSurfaceDesign}>
-                  {isSavingSurfaceDesign ? 'Saving...' : 'Save'}
+                  {isSavingSurfaceDesign ? t('common.saving') : t('common.save')}
                 </button>
               </div>
             </>
           ) : (
-            <p className="fit-note">
-              Configure and save at least one panel before selecting an MPPT.
-            </p>
+            <p className="fit-note">{t('surface.mppt.empty')}</p>
           )}
         </section>
 
         <section className="panel panel-span-2 balanced-row-panel summary-panel">
           <div className="section-head">
-            <h2>Evaluation</h2>
-            <p>Evaluation of the panel-array and MPPT combination.</p>
+            <h2>{t('surface.evaluation.title')}</h2>
+            <p>{t('surface.evaluation.description')}</p>
           </div>
           {panelType ? (
             <div className="fit-card">
@@ -2309,7 +2332,7 @@ function SurfaceDetail({
                   <div className="outcome-panel">
                     <div className="outcome-summary">
                       <div className="outcome-status-line">
-                        <p className="result-label">Evaluation</p>
+                        <p className="result-label">{t('surface.evaluation.label')}</p>
                         <StatusBadge status={mpptCompatibility?.status ?? 'outside_limits'} fit={mpptCompatibility?.fit} />
                       </div>
                       {mpptVerdictSummary ? <p className="fit-note">{mpptVerdictSummary}</p> : null}
@@ -2320,23 +2343,23 @@ function SurfaceDetail({
                     {mpptCompatibility && selectedMpptType ? (
                       <dl className="detail-stats outcome-checks">
                         <div className={arrayConfig.stringVoc > selectedMpptType.max_voc ? 'check-fail' : 'check-pass'}>
-                          <dt>Voltage check</dt>
+                          <dt>{t('surface.evaluation.check.voltage')}</dt>
                           <dd>{formatVolts(arrayConfig.stringVoc)} / {formatVolts(selectedMpptType.max_voc)}</dd>
                         </div>
                         <div className={arrayConfig.arrayPower > selectedMpptType.max_pv_power / Math.max(selectedMpptType.tracker_count, 1) * 1.1 ? 'check-fail' : 'check-pass'}>
-                          <dt>Power check / tracker</dt>
+                          <dt>{t('surface.evaluation.check.power_per_tracker')}</dt>
                           <dd>{formatWp(arrayConfig.arrayPower)} / {formatWp(selectedMpptType.max_pv_power / Math.max(selectedMpptType.tracker_count, 1))}</dd>
                         </div>
                         <div className={selectedMpptType.max_pv_input_current_a != null && arrayConfig.arrayCurrent > selectedMpptType.max_pv_input_current_a ? 'check-fail' : 'check-pass'}>
-                          <dt>PV input current / tracker</dt>
+                          <dt>{t('surface.evaluation.check.input_current')}</dt>
                           <dd>{formatAmps(arrayConfig.arrayCurrent)} / {selectedMpptType.max_pv_input_current_a != null ? formatAmps(selectedMpptType.max_pv_input_current_a) : 'n/a'}</dd>
                         </div>
                         <div className={selectedMpptType.max_pv_short_circuit_current_a != null && arrayConfig.arrayIsc > selectedMpptType.max_pv_short_circuit_current_a ? 'check-fail' : 'check-pass'}>
-                          <dt>PV short-circuit current / tracker</dt>
+                          <dt>{t('surface.evaluation.check.short_circuit_current')}</dt>
                           <dd>{formatAmps(arrayConfig.arrayIsc)} / {selectedMpptType.max_pv_short_circuit_current_a != null ? formatAmps(selectedMpptType.max_pv_short_circuit_current_a) : 'n/a'}</dd>
                         </div>
                         <div>
-                          <dt>Battery charge current</dt>
+                          <dt>{t('surface.evaluation.check.battery_charge_current')}</dt>
                           <dd>{formatAmps(mpptCompatibility.chargeCurrent)}</dd>
                         </div>
                       </dl>
@@ -2346,26 +2369,26 @@ function SurfaceDetail({
               ) : null}
             </div>
           ) : (
-            <p className="fit-note">Choose a panel type before the technical summary can be calculated.</p>
+            <p className="fit-note">{t('surface.evaluation.empty')}</p>
           )}
         </section>
         <section className="panel balanced-row-panel notes-panel">
           <div className="section-head">
-            <h2>Notes</h2>
-            <p>Notes for this surface, saved in the project database when you click Save.</p>
+            <h2>{t('surface.notes.title')}</h2>
+            <p>{t('surface.notes.description')}</p>
           </div>
           <label className="field">
-            <span>Notes</span>
+            <span>{t('surface.notes.title')}</span>
             <textarea
               value={surfaceNotes}
               onChange={(event) => setSurfaceNotes(event.target.value)}
               rows={8}
-              placeholder="Add installation notes, shading observations, access constraints, or design intent here."
+              placeholder={t('surface.notes.placeholder')}
             />
           </label>
           <div className="button-row button-row-end">
             <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveSurfaceDetails()} disabled={isSavingSurface}>
-              {isSavingSurface ? 'Saving...' : 'Save'}
+              {isSavingSurface ? t('common.saving') : t('common.save')}
             </button>
           </div>
         </section>
@@ -2373,28 +2396,28 @@ function SurfaceDetail({
 
       <section className="panel">
         <div className="section-head">
-          <h2>Expected yield</h2>
-          <p>Estimated from location latitude, face azimuth, tilt, and installed PV. This is a planning estimate, not a measured result.</p>
+          <h2>{t('surface.yield.title')}</h2>
+          <p>{t('surface.yield.description')}</p>
         </div>
         <div className="yield-table-wrap">
           <table className="yield-table">
             <thead>
               <tr>
-                <th>Metric</th>
+                <th>{t('surface.yield.metric')}</th>
                 {estimatedYieldRows.map((row) => (
-                  <th key={row.month}>{MONTH_LABELS[row.month]}</th>
+                  <th key={row.month}>{getMonthLabel(row.month, t)}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               <tr>
-                <th>kWh/day</th>
+                <th>{t('surface.yield.kwh_day')}</th>
                 {estimatedYieldRows.map((row) => (
                   <td key={`day-${row.month}`}>{formatDailyYield(row.averageDailyKwh)}</td>
                 ))}
               </tr>
               <tr>
-                <th>kWh/month</th>
+                <th>{t('surface.yield.kwh_month')}</th>
                 {estimatedYieldRows.map((row) => (
                   <td key={`month-${row.month}`}>{row.monthlyKwh.toLocaleString('en-US', { maximumFractionDigits: 1 })}</td>
                 ))}
@@ -2434,6 +2457,7 @@ type PageContext = {
 };
 
 function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageContext) {
+  const { t } = useTranslation();
   const storagePrefix = `${data.project.project_id}:location`;
   const defaultLocationName = data.project.location?.title ?? '18Mad Boerderij';
   const defaultLatitude = data.project.location?.latitude ?? 53.126579;
@@ -2471,19 +2495,19 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
     const nextPhoto = photoOverride === undefined ? photo : photoOverride;
 
     if (!country.trim()) {
-      setSaveError('Country is required before saving.');
+      setSaveError(t('location.save.error.country_required'));
       setSaveMessage(null);
       return;
     }
 
     if (!Number.isFinite(numericLatitude) || numericLatitude < -90 || numericLatitude > 90) {
-      setSaveError('Latitude must be a number between -90 and 90.');
+      setSaveError(t('location.save.error.latitude_invalid'));
       setSaveMessage(null);
       return;
     }
 
     if (!Number.isFinite(numericLongitude) || numericLongitude < -180 || numericLongitude > 180) {
-      setSaveError('Longitude must be a number between -180 and 180.');
+      setSaveError(t('location.save.error.longitude_invalid'));
       setSaveMessage(null);
       return;
     }
@@ -2516,11 +2540,11 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
         throw new Error(payload.error ?? `Failed to save location (${response.status})`);
       }
 
-      setSaveMessage('Shared location saved to the project database.');
+      setSaveMessage(t('location.save.success'));
       setSaveError(null);
       await refreshProjectData();
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Failed to save location.');
+      setSaveError(error instanceof Error ? error.message : t('location.save.error.failed'));
       setSaveMessage(null);
     } finally {
       setIsSaving(false);
@@ -2558,12 +2582,12 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
         throw new Error(payload.error ?? `Failed to create surface (${response.status})`);
       }
 
-      setSurfaceMessage('Surface created in the project database.');
+      setSurfaceMessage(t('location.surface.create.success'));
       setSurfaceError(null);
       setFocusedSurfaceId(surfaceId);
       await refreshProjectData();
     } catch (error) {
-      setSurfaceError(error instanceof Error ? error.message : 'Failed to create surface.');
+      setSurfaceError(error instanceof Error ? error.message : t('location.surface.create.error'));
       setSurfaceMessage(null);
     } finally {
       setIsCreatingSurface(false);
@@ -2571,7 +2595,7 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
   }
 
   async function handleDeleteSurface(surfaceId: string, surfaceLabel: string) {
-    const confirmed = window.confirm(`Delete surface "${surfaceLabel}"? This will remove its panels, topology, and configuration.`);
+    const confirmed = window.confirm(t('location.surface.delete.confirm', { name: surfaceLabel }));
     if (!confirmed) {
       return;
     }
@@ -2590,10 +2614,10 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
         throw new Error(payload.error ?? `Failed to delete surface (${response.status})`);
       }
 
-      setSurfaceMessage('Surface deleted from the project database.');
+      setSurfaceMessage(t('location.surface.delete.success'));
       await refreshProjectData();
     } catch (error) {
-      setSurfaceError(error instanceof Error ? error.message : 'Failed to delete surface.');
+      setSurfaceError(error instanceof Error ? error.message : t('location.surface.delete.error'));
     }
   }
 
@@ -2662,34 +2686,35 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
     <>
       <div className="topbar">
         <h1 className="topbar-title">{title.trim() || defaultLocationName}</h1>
+        <span className="topbar-meta">{t('page.location')}</span>
       </div>
 
       <div className="detail-grid" style={{ marginBottom: 16 }}>
         <section className="panel" style={{ gridColumn: 'span 2' }}>
           <div className="section-head">
-            <h2>Start information</h2>
-            <p>Shared location inputs for the whole site and all configured surfaces.</p>
+            <h2>{t('location.start_information.title')}</h2>
+            <p>{t('location.start_information.description')}</p>
           </div>
           <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--muted)', fontSize: '0.86rem' }}>
-            Location name, country, description, notes, coordinates, and location image save to SQLite.
+            {t('location.start_information.help')}
           </p>
           {saveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{saveError}</p> : null}
           {saveMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{saveMessage}</p> : null}
           <div className="roof-config-inline">
             <label className="config-field">
-              <span>Location name</span>
+              <span>{t('location.name')}</span>
               <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. 18Mad Boerderij" />
             </label>
             <label className="config-field">
-              <span>Country</span>
+              <span>{t('location.country')}</span>
               <input type="text" value={country} onChange={(e) => setCountry(e.target.value)} placeholder="e.g. Netherlands" />
             </label>
             <label className="config-field config-field-span-2">
-              <span>Description</span>
+              <span>{t('location.description')}</span>
               <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Short shared description of the location" />
             </label>
             <label className="config-field">
-              <span>Latitude</span>
+              <span>{t('location.latitude')}</span>
               <input
                 type="number"
                 step="0.0001"
@@ -2699,7 +2724,7 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
               />
             </label>
             <label className="config-field">
-              <span>Longitude</span>
+              <span>{t('location.longitude')}</span>
               <input
                 type="number"
                 step="0.0001"
@@ -2710,26 +2735,26 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
             </label>
           </div>
           <label className="field" style={{ marginTop: 16 }}>
-            <span>Notes</span>
+            <span>{t('location.notes')}</span>
             <textarea
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
               onInput={(event) => setNotes(event.currentTarget.value)}
               rows={5}
-              placeholder="Shared context for the whole location, such as access, shading context, planning assumptions, or owner notes."
+              placeholder={t('location.notes.placeholder')}
             />
           </label>
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
             <button type="button" className="button button-secondary" onClick={() => void handleSaveLocation()} disabled={isSaving}>
-              {isSaving ? 'Saving...' : 'Save'}
+              {isSaving ? t('common.saving') : t('common.save')}
             </button>
           </div>
         </section>
 
         <section className="panel">
           <div className="section-head">
-            <h2>Site photo</h2>
-            <p>Optional visual reference for the location and configured surfaces.</p>
+            <h2>{t('location.photo.title')}</h2>
+            <p>{t('location.photo.description')}</p>
           </div>
           {photo ? (
             <div className="photo-frame">
@@ -2742,23 +2767,23 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
                   void handleSaveLocation(null);
                 }}
               >
-                Remove
+                {t('common.remove')}
               </button>
             </div>
           ) : (
             <label className="upload-dropzone">
-              <span>Click to upload a photo</span>
+              <span>{t('location.photo.upload')}</span>
               <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoChange} />
             </label>
           )}
           <div className="button-row button-row-end">
             <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveLocation()} disabled={isSaving}>
-              {isSaving ? 'Saving...' : 'Save'}
+              {isSaving ? t('common.saving') : t('common.save')}
             </button>
           </div>
           <div className="section-head" style={{ marginTop: 20 }}>
-            <h2>Satellite map</h2>
-            <p>Google Maps centered on the saved coordinates.</p>
+            <h2>{t('location.map.title')}</h2>
+            <p>{t('location.map.description')}</p>
           </div>
           {hasMapCoordinates ? (
             <div className="map-frame">
@@ -2771,25 +2796,25 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
               />
             </div>
           ) : (
-            <p style={{ margin: 0, color: 'var(--muted)' }}>Add valid latitude and longitude values to show the map.</p>
+            <p style={{ margin: 0, color: 'var(--muted)' }}>{t('location.map.empty')}</p>
           )}
         </section>
       </div>
 
       <section className="panel">
         <div className="section-head">
-          <h2>Surfaces</h2>
-          <p>{localSurfaceSummaries.length} configured surfaces</p>
+          <h2>{t('location.surfaces.title')}</h2>
+          <p>{t('location.surfaces.count', { count: localSurfaceSummaries.length })}</p>
         </div>
         <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--muted)', fontSize: '0.86rem' }}>
-          A surface is one usable plane for PV placement, such as one roof side, dormer face, wall face, or flat roof zone.
+          {t('location.surfaces.help')}
         </p>
         {surfaceError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{surfaceError}</p> : null}
         {surfaceMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{surfaceMessage}</p> : null}
         <div className="surface-grid">
           {localSurfaceSummaries.length === 0 ? (
             <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
-              <p style={{ marginTop: 0, marginBottom: 0 }}>No surfaces yet. Add the first one below.</p>
+              <p style={{ marginTop: 0, marginBottom: 0 }}>{t('location.surfaces.empty')}</p>
             </div>
           ) : null}
           {localSurfaceSummaries.map((surface) => {
@@ -2813,7 +2838,7 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
                         navigateTo({ kind: 'surface', surfaceId: surface.surface_id });
                       }}
                     >
-                      Detail
+                      {t('common.detail')}
                     </button>
                     <button
                       type="button"
@@ -2822,7 +2847,7 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
                         void handleDeleteSurface(surface.surface_id, surface.name);
                       }}
                     >
-                      Delete
+                      {t('common.delete')}
                     </button>
                   </div>
                 </div>
@@ -2834,7 +2859,7 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
           <div className="config-field" style={{ alignSelf: 'end' }}>
             <span>&nbsp;</span>
             <button type="button" className="button button-secondary" onClick={() => void handleCreateSurface()} disabled={isCreatingSurface}>
-              {isCreatingSurface ? 'Creating...' : 'Add surface'}
+              {isCreatingSurface ? t('common.creating') : t('common.add_surface')}
             </button>
           </div>
         </div>
@@ -2844,6 +2869,7 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
 }
 
 function AboutPage() {
+  const { t } = useTranslation();
   const buildInfo = typeof __BUILD_INFO__ !== 'undefined' ? __BUILD_INFO__ : '';
   const [buildVersion, buildCommit] = buildInfo.includes(' @ ')
     ? buildInfo.split(' @ ')
@@ -2853,7 +2879,7 @@ function AboutPage() {
   return (
     <>
       <div className="topbar">
-        <h1 className="topbar-title">About</h1>
+        <h1 className="topbar-title">{t('page.about')}</h1>
       </div>
 
       <section className="detail-shell">
@@ -2934,6 +2960,7 @@ function SolarYieldPage({
   localSurfaceSummaries,
   localTotalInstalledWp,
 }: Pick<PageContext, 'data' | 'localSurfaceSummaries' | 'localTotalInstalledWp'>) {
+  const { t } = useTranslation();
   const projectStorageKey = getProjectStorageKey(data);
   const storedLatitude = readPersistentState<string>(
     `${projectStorageKey}:location:latitude`,
@@ -2980,7 +3007,8 @@ function SolarYieldPage({
   return (
     <>
       <div className="topbar">
-        <h1 className="topbar-title">{data.project.name}</h1>
+        <h1 className="topbar-title">{getLocationDisplayName(data, t)}</h1>
+        <span className="topbar-meta">{t('page.solar_yield')}</span>
       </div>
 
       <section className="detail-shell">
@@ -2988,36 +3016,43 @@ function SolarYieldPage({
           <section className="panel panel-span-2">
             <Breadcrumbs route={{ kind: 'solar-yield' }} />
             <div className="section-head">
-              <h2>Start information</h2>
-              <p>Solar yield is derived from the location latitude plus all configured surfaces and their PV setup.</p>
+              <h2>{t('solar_yield.start_information.title')}</h2>
+              <p>{t('solar_yield.start_information.description')}</p>
             </div>
             <div className="hero-strip">
-              <SummaryCard label="Location" value={getLocationDisplayName(data)} detail={data.project.location?.country ?? 'No country set'} />
-              <SummaryCard label="Latitude" value={effectiveLatitude.toLocaleString('en-US', { maximumFractionDigits: 4 })} />
-              <SummaryCard label="Surfaces" value={String(localSurfaceSummaries.length)} />
-              <SummaryCard label="Installed PV" value={formatWp(localTotalInstalledWp)} />
-              <SummaryCard label="Avg daily yield" value={formatKwh(totalAverageDailyKwh)} />
-              <SummaryCard label="Annual yield" value={formatKwh(totalAnnualKwh)} />
+              <SummaryCard
+                label={t('solar_yield.summary.location')}
+                value={getLocationDisplayName(data, t)}
+                detail={data.project.location?.country ?? t('solar_yield.no_country')}
+              />
+              <SummaryCard
+                label={t('solar_yield.summary.latitude')}
+                value={effectiveLatitude.toLocaleString('en-US', { maximumFractionDigits: 4 })}
+              />
+              <SummaryCard label={t('solar_yield.summary.surfaces')} value={String(localSurfaceSummaries.length)} />
+              <SummaryCard label={t('solar_yield.summary.installed_pv')} value={formatWp(localTotalInstalledWp)} />
+              <SummaryCard label={t('solar_yield.summary.avg_daily_yield')} value={formatKwh(totalAverageDailyKwh)} />
+              <SummaryCard label={t('solar_yield.summary.annual_yield')} value={formatKwh(totalAnnualKwh)} />
             </div>
           </section>
         </div>
 
         <section className="panel">
           <div className="section-head">
-            <h2>Surface summary</h2>
-            <p>One row per surface, including the current verdict and total expected yield.</p>
+            <h2>{t('solar_yield.surface_summary.title')}</h2>
+            <p>{t('solar_yield.surface_summary.description')}</p>
           </div>
           <div className="yield-table-wrap">
             <table className="yield-table">
               <thead>
                 <tr>
-                  <th>Surface</th>
-                  <th>Verdict</th>
-                  <th>Installed PV</th>
-                  <th>Azimuth</th>
-                  <th>Tilt</th>
-                  <th>Avg kWh/day</th>
-                  <th>Annual kWh</th>
+                  <th>{t('solar_yield.table.surface')}</th>
+                  <th>{t('solar_yield.table.verdict')}</th>
+                  <th>{t('solar_yield.table.installed_pv')}</th>
+                  <th>{t('solar_yield.table.azimuth')}</th>
+                  <th>{t('solar_yield.table.tilt')}</th>
+                  <th>{t('solar_yield.table.avg_kwh_day')}</th>
+                  <th>{t('solar_yield.table.annual_kwh')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -3044,8 +3079,8 @@ function SolarYieldPage({
                   </tr>
                 ))}
                 <tr>
-                  <th>Total</th>
-                  <td>{localSurfaceSummaries.some((surface) => surface.status != null) ? 'Mixed' : 'Not evaluated'}</td>
+                  <th>{t('solar_yield.table.total')}</th>
+                  <td>{localSurfaceSummaries.some((surface) => surface.status != null) ? t('solar_yield.table.mixed') : t('solar_yield.table.not_evaluated')}</td>
                   <td>{formatWp(localTotalInstalledWp)}</td>
                   <td>-</td>
                   <td>-</td>
@@ -3059,16 +3094,16 @@ function SolarYieldPage({
 
         <section className="panel">
           <div className="section-head">
-            <h2>Monthly expected yield</h2>
-            <p>Columns show months. Rows show each surface, with the last row giving the average daily yield total for that month.</p>
+            <h2>{t('solar_yield.monthly.title')}</h2>
+            <p>{t('solar_yield.monthly.description')}</p>
           </div>
           <div className="yield-table-wrap">
             <table className="yield-table">
               <thead>
                 <tr>
-                  <th>Expected yield</th>
+                  <th>{t('solar_yield.monthly.expected_yield')}</th>
                   {MONTH_KEYS.map((month) => (
-                    <th key={month}>{MONTH_LABELS[month]}</th>
+                    <th key={month}>{getMonthLabel(month, t)}</th>
                   ))}
                 </tr>
               </thead>
@@ -3082,7 +3117,7 @@ function SolarYieldPage({
                   </tr>
                 ))}
                 <tr>
-                  <th>Total avg kWh/day</th>
+                  <th>{t('solar_yield.monthly.total_avg_kwh_day')}</th>
                   {monthlyTotals.map((row) => (
                     <td key={`total-day-${row.month}`}>{formatDailyYield(row.averageDailyKwh)}</td>
                   ))}
@@ -3102,6 +3137,7 @@ function BatteryArrayPage({
   batteryBankState,
   refreshProjectData,
 }: PageContext) {
+  const { t } = useTranslation();
   const storagePrefix = `${data.project.project_id}:battery-array`;
   const persistedDesign = data.entities.battery_bank_configurations.find((item) => item.battery_bank_id === 'battery-bank-main') ?? null;
   const [batteryTitle, setBatteryTitle] = useState(persistedDesign?.title ?? batteryBank?.name ?? '');
@@ -3313,7 +3349,8 @@ function BatteryArrayPage({
   return (
     <>
       <div className="topbar">
-        <h1 className="topbar-title">{data.project.name}</h1>
+        <h1 className="topbar-title">{getLocationDisplayName(data, t)}</h1>
+        <span className="topbar-meta">{t('page.battery_array')}</span>
       </div>
 
       <section className="detail-shell">
@@ -3694,6 +3731,7 @@ function InverterArrayPage({
   batteryBankState,
   refreshProjectData,
 }: PageContext) {
+  const { t } = useTranslation();
   const batteryStoragePrefix = `${data.project.project_id}:battery-array`;
   const [selectedBatteryTypeId] = usePersistentState(
     `${batteryStoragePrefix}:battery-type`,
@@ -3819,7 +3857,8 @@ function InverterArrayPage({
   return (
     <>
       <div className="topbar">
-        <h1 className="topbar-title">{data.project.name}</h1>
+        <h1 className="topbar-title">{getLocationDisplayName(data, t)}</h1>
+        <span className="topbar-meta">{t('page.inverter_array')}</span>
       </div>
 
       <section className="detail-shell">
@@ -3995,6 +4034,7 @@ function BatteryCatalogPage({
   data: DigitalTwinExport;
   refreshProjectData: () => Promise<void>;
 }) {
+  const { t } = useTranslation();
   const [selectedBatteryTypeId, setSelectedBatteryTypeId] = useState(() => data.entities.battery_types[0]?.battery_type_id ?? '');
   const [draft, setDraft] = useState<BatteryTypeDraft>(() => batteryDraftFromType(data.entities.battery_types[0] ?? null));
   const [isSaving, setIsSaving] = useState(false);
@@ -4031,7 +4071,7 @@ function BatteryCatalogPage({
     const maxChargeRate = draft.max_charge_rate.trim() === '' ? null : Number(draft.max_charge_rate);
     const maxDischargeRate = draft.max_discharge_rate.trim() === '' ? null : Number(draft.max_discharge_rate);
     const price = draft.price.trim() === '' ? null : Number(draft.price);
-    const source = draft.source.trim() === '' ? null : draft.source.trim();
+    const priceSourceUrl = draft.price_source_url.trim() === '' ? null : draft.price_source_url.trim();
     const notes = draft.notes.trim() === '' ? null : draft.notes.trim();
 
     if (!model || !chemistry || !Number.isFinite(nominalVoltage) || nominalVoltage <= 0 || !Number.isFinite(capacityAh) || capacityAh <= 0 || !Number.isFinite(capacityKwh) || capacityKwh <= 0) {
@@ -4065,7 +4105,7 @@ function BatteryCatalogPage({
           victron_can: draft.victron_can,
           cooling: draft.cooling,
           price,
-          source,
+          price_source_url: priceSourceUrl,
           notes,
         }),
       });
@@ -4090,8 +4130,9 @@ function BatteryCatalogPage({
         cooling: draft.cooling,
         price,
         price_per_kwh: null,
-        source,
-        url: source,
+        price_source_url: priceSourceUrl,
+        source: priceSourceUrl,
+        url: priceSourceUrl,
         notes,
       }));
       setSaveMessage(`Battery type "${batteryTypeId}" saved.`);
@@ -4136,7 +4177,7 @@ function BatteryCatalogPage({
       <section className="hero">
         <div>
           <p className="eyebrow">Configuration data</p>
-          <h1>Battery catalog</h1>
+          <h1>{t('page.catalog.battery_types')}</h1>
           <p className="hero-copy">
             Edit the reusable battery catalog that the battery-array flow and export use for project configuration.
           </p>
@@ -4275,7 +4316,7 @@ function BatteryCatalogPage({
             </div>
             <div className="detail-grid two-col">
               <label className="field">
-                <span>Price</span>
+                <span>Price per unit</span>
                 <input
                   type="number"
                   value={draft.price}
@@ -4285,8 +4326,8 @@ function BatteryCatalogPage({
               <label className="field">
                 <span>Price source URL</span>
                 <input
-                  value={draft.source}
-                  onChange={(event) => setDraft((current) => ({ ...current, source: event.target.value }))}
+                  value={draft.price_source_url}
+                  onChange={(event) => setDraft((current) => ({ ...current, price_source_url: event.target.value }))}
                   placeholder="https://..."
                 />
               </label>
@@ -4347,12 +4388,13 @@ function BatteryCatalogPage({
 }
 
 function CatalogsPage() {
+  const { t } = useTranslation();
   return (
     <>
       <section className="hero">
         <div>
           <p className="eyebrow">Configuration data</p>
-          <h1>Catalogs</h1>
+          <h1>{t('page.catalogs')}</h1>
           <p className="hero-copy">
             Manage the reusable product catalogs used by the project configuration: panels, MPPTs, batteries, and inverters.
           </p>
@@ -4362,12 +4404,12 @@ function CatalogsPage() {
         {CATALOG_ROUTES.map((catalog) => (
           <section className="panel" key={catalog.catalog}>
             <div className="section-head">
-              <h2>{catalog.label}</h2>
-              <p>Open the CRUD screen for {catalog.label.toLowerCase()}.</p>
+              <h2>{t(catalog.labelKey)}</h2>
+              <p>Open the CRUD screen for {t(catalog.labelKey).toLowerCase()}.</p>
             </div>
             <div className="stack" style={{ gap: 12 }}>
               <button type="button" className="button button-secondary" onClick={() => navigateTo({ kind: 'catalog', catalog: catalog.catalog })}>
-                Open {catalog.label}
+                Open {t(catalog.labelKey)}
               </button>
             </div>
           </section>
@@ -4384,6 +4426,7 @@ function PanelCatalogPage({
   data: DigitalTwinExport;
   refreshProjectData: () => Promise<void>;
 }) {
+  const { t } = useTranslation();
   const [selectedPanelTypeId, setSelectedPanelTypeId] = useState(() => data.entities.panel_types[0]?.panel_type_id ?? '');
   const [draft, setDraft] = useState<PanelTypeDraft>(() => panelDraftFromType(data.entities.panel_types[0] ?? null));
   const [isSaving, setIsSaving] = useState(false);
@@ -4522,7 +4565,7 @@ function PanelCatalogPage({
       <section className="hero">
         <div>
           <p className="eyebrow">Configuration data</p>
-          <h1>Panel types</h1>
+          <h1>{t('page.catalog.panel_types')}</h1>
           <p className="hero-copy">
             Edit the reusable panel catalog used by the surface configuration and export flow.
           </p>
@@ -4651,6 +4694,7 @@ function MpptCatalogPage({
   data: DigitalTwinExport;
   refreshProjectData: () => Promise<void>;
 }) {
+  const { t } = useTranslation();
   const [selectedMpptTypeId, setSelectedMpptTypeId] = useState(() => data.entities.mppt_types[0]?.mppt_type_id ?? '');
   const [draft, setDraft] = useState<MpptTypeDraft>(() => mpptDraftFromType(data.entities.mppt_types[0] ?? null));
   const [isSaving, setIsSaving] = useState(false);
@@ -4794,7 +4838,7 @@ function MpptCatalogPage({
       <section className="hero">
         <div>
           <p className="eyebrow">Configuration data</p>
-          <h1>MPPT types</h1>
+          <h1>{t('page.catalog.mppt_types')}</h1>
           <p className="hero-copy">
             Edit the reusable MPPT catalog used by the surface configuration and charging checks.
           </p>
@@ -4922,6 +4966,7 @@ function InverterCatalogPage({
   data: DigitalTwinExport;
   refreshProjectData: () => Promise<void>;
 }) {
+  const { t } = useTranslation();
   const [selectedInverterTypeId, setSelectedInverterTypeId] = useState(() => data.entities.inverter_types[0]?.inverter_id ?? '');
   const [draft, setDraft] = useState<InverterTypeDraft>(() => inverterDraftFromType(data.entities.inverter_types[0] ?? null));
   const [isSaving, setIsSaving] = useState(false);
@@ -5057,7 +5102,7 @@ function InverterCatalogPage({
       <section className="hero">
         <div>
           <p className="eyebrow">Configuration data</p>
-          <h1>Inverter types</h1>
+          <h1>{t('page.catalog.inverter_types')}</h1>
           <p className="hero-copy">
             Edit the reusable inverter catalog used by the battery and inverter configuration flow.
           </p>
@@ -5169,10 +5214,11 @@ function InverterCatalogPage({
   );
 }
 
-export function App() {
+function AppContent() {
   const [data, setData] = useState<DigitalTwinExport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [route, setRoute] = useState<Route>(() => getRoute());
+  const { t } = useTranslation();
   useLocalStorageRevision();
 
   async function refreshProjectData(): Promise<void> {
@@ -5202,7 +5248,7 @@ export function App() {
         <main className="app-shell">
           <section className="panel error-panel">
             <p>{error}</p>
-            <p>Start the OffGridOS server and reload.</p>
+            <p>{t('app.server_reload')}</p>
           </section>
         </main>
       </div>
@@ -5215,7 +5261,7 @@ export function App() {
         <Sidebar route={route} data={data} />
         <main className="app-shell">
           <section className="panel error-panel">
-            <p>Loading project data...</p>
+            <p>{t('app.loading')}</p>
           </section>
         </main>
       </div>
@@ -5306,5 +5352,13 @@ export function App() {
         )}
       </main>
     </div>
+  );
+}
+
+export function App() {
+  return (
+    <LanguageProvider>
+      <AppContent />
+    </LanguageProvider>
   );
 }
