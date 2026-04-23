@@ -3,19 +3,13 @@ import chalk from 'chalk';
 import Database from 'better-sqlite3';
 import { listBatteryTypes, getBatteryType, insertBatteryType, updateBatteryType, deleteBatteryType } from '../../db/queries.js';
 import type { BatteryType } from '../../domain/types.js';
+import { generateUniqueCatalogId } from '../../domain/panel-type-id.js';
 
 const CHEMISTRIES = ['LiFePO4', 'Li-ion', 'AGM', 'GEL', 'FLA'];
 const COOLING = ['passive', 'active'] as const;
 
-async function promptBattery(existing?: BatteryType): Promise<Omit<BatteryType, 'id'>> {
+async function promptBattery(existing?: BatteryType, existingIds: string[] = []): Promise<Omit<BatteryType, 'id'>> {
   const ans = await inquirer.prompt([
-    {
-      type: 'input',
-      name: 'battery_type_id',
-      message: 'Battery ID (unique key, e.g. pylontech-us5000):',
-      when: !existing,
-      validate: (v: string) => v.trim().length > 0 || 'Required',
-    },
     {
       type: 'input',
       name: 'model',
@@ -104,7 +98,7 @@ async function promptBattery(existing?: BatteryType): Promise<Omit<BatteryType, 
   ]);
 
   return {
-    battery_type_id: existing?.battery_type_id ?? ans.battery_type_id,
+    battery_type_id: existing?.battery_type_id ?? generateUniqueCatalogId(ans.model, existingIds),
     model: ans.model,
     chemistry: ans.chemistry,
     nominal_voltage: ans.nominal_voltage,
@@ -158,13 +152,9 @@ export async function batteryTypesFlow(db: Database.Database): Promise<void> {
     }
 
     if (action === 'add') {
-      const data = await promptBattery();
-      if (getBatteryType(db, data.battery_type_id)) {
-        console.log(chalk.red(`Battery ID "${data.battery_type_id}" already exists.`));
-      } else {
-        insertBatteryType(db, data);
-        console.log(chalk.green('Battery saved.'));
-      }
+      const data = await promptBattery(undefined, batteries.map((battery) => battery.battery_type_id));
+      insertBatteryType(db, data);
+      console.log(chalk.green(`Battery saved as "${data.battery_type_id}".`));
       continue;
     }
 

@@ -3,17 +3,10 @@ import chalk from 'chalk';
 import Database from 'better-sqlite3';
 import { listPanelTypes, getPanelType, insertPanelType, updatePanelType, deletePanelType } from '../../db/queries.js';
 import type { PanelType } from '../../domain/types.js';
+import { generateUniqueCatalogId } from '../../domain/panel-type-id.js';
 
-async function promptPanel(existing?: PanelType): Promise<Omit<PanelType, 'id'>> {
+async function promptPanel(existing?: PanelType, existingIds: string[] = []): Promise<Omit<PanelType, 'id'>> {
   const ans = await inquirer.prompt([
-    {
-      type: 'input',
-      name: 'panel_type_id',
-      message: 'Panel type ID (unique key, e.g. jinko-400w):',
-      default: existing?.panel_type_id,
-      when: !existing,
-      validate: (v: string) => v.trim().length > 0 || 'Required',
-    },
     {
       type: 'input',
       name: 'model',
@@ -90,7 +83,7 @@ async function promptPanel(existing?: PanelType): Promise<Omit<PanelType, 'id'>>
   ]);
 
   return {
-    panel_type_id: existing?.panel_type_id ?? ans.panel_type_id,
+    panel_type_id: existing?.panel_type_id ?? generateUniqueCatalogId(ans.model, existingIds),
     model: ans.model,
     wp: ans.wp,
     voc: ans.voc,
@@ -135,12 +128,12 @@ export async function panelTypesFlow(db: Database.Database): Promise<void> {
     }
 
     if (action === 'add') {
-      const data = await promptPanel();
+      const data = await promptPanel(undefined, panels.map((panel) => panel.panel_type_id));
       if (getPanelType(db, data.panel_type_id)) {
         console.log(chalk.red(`Panel type ID "${data.panel_type_id}" already exists.`));
       } else {
         insertPanelType(db, data);
-        console.log(chalk.green('Panel type saved.'));
+        console.log(chalk.green(`Panel type saved as "${data.panel_type_id}".`));
       }
       continue;
     }

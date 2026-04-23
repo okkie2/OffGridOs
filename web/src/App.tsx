@@ -3,6 +3,24 @@ import { useEffect, useState, type ChangeEvent, type MouseEvent } from 'react';
 
 declare const __BUILD_INFO__: string;
 
+function generateCatalogId(model: string): string {
+  return model.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'catalog-item';
+}
+
+function generateUniqueCatalogId(model: string, existingIds: string[]): string {
+  const baseId = generateCatalogId(model);
+  const usedIds = new Set(existingIds);
+  let candidate = baseId;
+  let suffix = 2;
+
+  while (usedIds.has(candidate)) {
+    candidate = `${baseId}-${suffix}`;
+    suffix += 1;
+  }
+
+  return candidate;
+}
+
 type Status = 'within_limits' | 'outside_limits';
 type FitStatus = 'optimal' | 'acceptable' | 'clipping_expected' | 'underutilized';
 
@@ -4062,8 +4080,8 @@ function BatteryCatalogPage({
   }
 
   async function handleSave() {
-    const batteryTypeId = draft.battery_type_id.trim();
     const model = draft.model.trim();
+    const batteryTypeId = selectedBattery ? selectedBatteryTypeId : generateUniqueCatalogId(model, data.entities.battery_types.map((battery) => battery.battery_type_id));
     const chemistry = draft.chemistry.trim();
     const nominalVoltage = Number(draft.nominal_voltage);
     const capacityAh = Number(draft.capacity_ah);
@@ -4074,8 +4092,8 @@ function BatteryCatalogPage({
     const source = draft.source.trim() === '' ? null : draft.source.trim();
     const notes = draft.notes.trim() === '' ? null : draft.notes.trim();
 
-    if (!batteryTypeId || !model || !chemistry || !Number.isFinite(nominalVoltage) || nominalVoltage <= 0 || !Number.isFinite(capacityAh) || capacityAh <= 0 || !Number.isFinite(capacityKwh) || capacityKwh <= 0) {
-      setSaveError('Fill in the battery ID, model, chemistry, nominal voltage, capacity Ah, and capacity kWh.');
+    if (!model || !chemistry || !Number.isFinite(nominalVoltage) || nominalVoltage <= 0 || !Number.isFinite(capacityAh) || capacityAh <= 0 || !Number.isFinite(capacityKwh) || capacityKwh <= 0) {
+      setSaveError('Fill in the model, chemistry, nominal voltage, capacity Ah, and capacity kWh.');
       return;
     }
 
@@ -4225,15 +4243,12 @@ function BatteryCatalogPage({
             <p>Changes update the SQLite catalog and are available after refresh.</p>
           </div>
           <div className="stack" style={{ gap: 16 }}>
-            <label className="field">
+            <div className="field">
               <span>Battery type ID</span>
-              <input
-                value={draft.battery_type_id}
-                onChange={(event) => setDraft((current) => ({ ...current, battery_type_id: event.target.value }))}
-                placeholder="pylontech-us5000-1c"
-                disabled={Boolean(selectedBattery)}
-              />
-            </label>
+              <p className="muted">
+                {selectedBattery ? selectedBattery.battery_type_id : (draft.model.trim() ? generateUniqueCatalogId(draft.model.trim(), data.entities.battery_types.map((battery) => battery.battery_type_id)) : 'Generated after save')}
+              </p>
+            </div>
             <label className="field">
               <span>Model</span>
               <input
@@ -4343,7 +4358,7 @@ function BatteryCatalogPage({
               />
             </label>
             <div className="stack" style={{ gap: 8 }}>
-              <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.battery_type_id.trim()}>
+              <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.model.trim()}>
                 {isSaving ? 'Saving…' : selectedBattery ? 'Save battery type' : 'Create battery type'}
               </button>
               {selectedBattery ? (
@@ -4454,8 +4469,8 @@ function PanelCatalogPage({
   }
 
   async function handleSave() {
-    const panelTypeId = draft.panel_type_id.trim();
     const model = draft.model.trim();
+    const panelTypeId = selectedPanel ? selectedPanelTypeId : generateUniqueCatalogId(model, data.entities.panel_types.map((panel) => panel.panel_type_id));
     const wp = Number(draft.wp);
     const voc = Number(draft.voc);
     const vmp = Number(draft.vmp);
@@ -4465,8 +4480,8 @@ function PanelCatalogPage({
     const widthMm = Number(draft.width_mm);
     const notes = draft.notes.trim() === '' ? null : draft.notes.trim();
 
-    if (!panelTypeId || !model || !Number.isFinite(wp) || wp <= 0 || !Number.isFinite(voc) || voc <= 0 || !Number.isFinite(vmp) || vmp <= 0 || !Number.isFinite(isc) || isc <= 0 || !Number.isFinite(imp) || imp <= 0 || !Number.isFinite(lengthMm) || lengthMm <= 0 || !Number.isFinite(widthMm) || widthMm <= 0) {
-      setSaveError('Fill in the panel ID, model, WP, Voc, Vmp, Isc, Imp, length, and width.');
+    if (!model || !Number.isFinite(wp) || wp <= 0 || !Number.isFinite(voc) || voc <= 0 || !Number.isFinite(vmp) || vmp <= 0 || !Number.isFinite(isc) || isc <= 0 || !Number.isFinite(imp) || imp <= 0 || !Number.isFinite(lengthMm) || lengthMm <= 0 || !Number.isFinite(widthMm) || widthMm <= 0) {
+      setSaveError('Fill in the model, WP, Voc, Vmp, Isc, Imp, length, and width.');
       return;
     }
 
@@ -4603,15 +4618,12 @@ function PanelCatalogPage({
             <p>Changes update the SQLite catalog and are available after refresh.</p>
           </div>
           <div className="stack" style={{ gap: 16 }}>
-            <label className="field">
+            <div className="field">
               <span>Panel type ID</span>
-              <input
-                value={draft.panel_type_id}
-                onChange={(event) => setDraft((current) => ({ ...current, panel_type_id: event.target.value }))}
-                placeholder="aiko-475-all-black"
-                disabled={Boolean(selectedPanel)}
-              />
-            </label>
+              <p className="muted">
+                {selectedPanel ? selectedPanel.panel_type_id : (draft.model.trim() ? generateUniqueCatalogId(draft.model.trim(), data.entities.panel_types.map((panel) => panel.panel_type_id)) : 'Generated after save')}
+              </p>
+            </div>
             <label className="field">
               <span>Model</span>
               <input
@@ -4641,7 +4653,7 @@ function PanelCatalogPage({
               <textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={4} />
             </label>
             <div className="stack" style={{ gap: 8 }}>
-              <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.panel_type_id.trim()}>
+              <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.model.trim()}>
                 {isSaving ? 'Saving…' : selectedPanel ? 'Save panel type' : 'Create panel type'}
               </button>
               {selectedPanel ? (
@@ -4703,8 +4715,8 @@ function MpptCatalogPage({
   }
 
   async function handleSave() {
-    const mpptTypeId = draft.mppt_type_id.trim();
     const model = draft.model.trim();
+    const mpptTypeId = selectedMppt ? selectedMpptTypeId : generateUniqueCatalogId(model, data.entities.mppt_types.map((mppt) => mppt.mppt_type_id));
     const trackerCount = Number(draft.tracker_count);
     const maxVoc = Number(draft.max_voc);
     const maxPvPower = Number(draft.max_pv_power);
@@ -4714,8 +4726,8 @@ function MpptCatalogPage({
     const nominalBatteryVoltage = Number(draft.nominal_battery_voltage);
     const notes = draft.notes.trim() === '' ? null : draft.notes.trim();
 
-    if (!mpptTypeId || !model || !Number.isInteger(trackerCount) || trackerCount < 1 || !Number.isFinite(maxVoc) || maxVoc <= 0 || !Number.isFinite(maxPvPower) || maxPvPower <= 0 || !Number.isFinite(maxChargeCurrent) || maxChargeCurrent <= 0 || !Number.isFinite(nominalBatteryVoltage) || nominalBatteryVoltage <= 0) {
-      setSaveError('Fill in the MPPT ID, model, tracker count, max Voc, max PV power, max charge current, and nominal battery voltage.');
+    if (!model || !Number.isInteger(trackerCount) || trackerCount < 1 || !Number.isFinite(maxVoc) || maxVoc <= 0 || !Number.isFinite(maxPvPower) || maxPvPower <= 0 || !Number.isFinite(maxChargeCurrent) || maxChargeCurrent <= 0 || !Number.isFinite(nominalBatteryVoltage) || nominalBatteryVoltage <= 0) {
+      setSaveError('Fill in the model, tracker count, max Voc, max PV power, max charge current, and nominal battery voltage.');
       return;
     }
 
@@ -4857,15 +4869,12 @@ function MpptCatalogPage({
             <p>Changes update the SQLite catalog and are available after refresh.</p>
           </div>
           <div className="stack" style={{ gap: 16 }}>
-            <label className="field">
+            <div className="field">
               <span>MPPT type ID</span>
-              <input
-                value={draft.mppt_type_id}
-                onChange={(event) => setDraft((current) => ({ ...current, mppt_type_id: event.target.value }))}
-                placeholder="victron-smartsolar-250"
-                disabled={Boolean(selectedMppt)}
-              />
-            </label>
+              <p className="muted">
+                {selectedMppt ? selectedMppt.mppt_type_id : (draft.model.trim() ? generateUniqueCatalogId(draft.model.trim(), data.entities.mppt_types.map((mppt) => mppt.mppt_type_id)) : 'Generated after save')}
+              </p>
+            </div>
             <label className="field">
               <span>Model</span>
               <input
@@ -4895,7 +4904,7 @@ function MpptCatalogPage({
               <textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={4} />
             </label>
             <div className="stack" style={{ gap: 8 }}>
-              <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.mppt_type_id.trim()}>
+              <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.model.trim()}>
                 {isSaving ? 'Saving…' : selectedMppt ? 'Save MPPT type' : 'Create MPPT type'}
               </button>
               {selectedMppt ? (
@@ -4957,8 +4966,8 @@ function InverterCatalogPage({
   }
 
   async function handleSave() {
-    const inverterId = draft.inverter_id.trim();
     const model = draft.model.trim();
+    const inverterId = selectedInverter ? selectedInverterTypeId : generateUniqueCatalogId(model, data.entities.inverter_types.map((inverter) => inverter.inverter_id));
     const inputVoltageV = Number(draft.input_voltage_v);
     const outputVoltageV = Number(draft.output_voltage_v);
     const continuousPowerW = Number(draft.continuous_power_w);
@@ -4968,8 +4977,8 @@ function InverterCatalogPage({
     const price = draft.price.trim() === '' ? null : Number(draft.price);
     const notes = draft.notes.trim() === '' ? null : draft.notes.trim();
 
-    if (!inverterId || !model || !Number.isFinite(inputVoltageV) || inputVoltageV <= 0 || !Number.isFinite(outputVoltageV) || outputVoltageV <= 0 || !Number.isFinite(continuousPowerW) || continuousPowerW <= 0 || !Number.isFinite(peakPowerVA) || peakPowerVA <= 0 || !Number.isFinite(maxChargeCurrentA) || maxChargeCurrentA <= 0) {
-      setSaveError('Fill in the inverter ID, model, input voltage, output voltage, continuous power, peak power, and max charge current.');
+    if (!model || !Number.isFinite(inputVoltageV) || inputVoltageV <= 0 || !Number.isFinite(outputVoltageV) || outputVoltageV <= 0 || !Number.isFinite(continuousPowerW) || continuousPowerW <= 0 || !Number.isFinite(peakPowerVA) || peakPowerVA <= 0 || !Number.isFinite(maxChargeCurrentA) || maxChargeCurrentA <= 0) {
+      setSaveError('Fill in the model, input voltage, output voltage, continuous power, peak power, and max charge current.');
       return;
     }
 
@@ -5111,15 +5120,12 @@ function InverterCatalogPage({
             <p>Changes update the SQLite catalog and are available after refresh.</p>
           </div>
           <div className="stack" style={{ gap: 16 }}>
-            <label className="field">
+            <div className="field">
               <span>Inverter ID</span>
-              <input
-                value={draft.inverter_id}
-                onChange={(event) => setDraft((current) => ({ ...current, inverter_id: event.target.value }))}
-                placeholder="victron-mp2-48-10000"
-                disabled={Boolean(selectedInverter)}
-              />
-            </label>
+              <p className="muted">
+                {selectedInverter ? selectedInverter.inverter_id : (draft.model.trim() ? generateUniqueCatalogId(draft.model.trim(), data.entities.inverter_types.map((inverter) => inverter.inverter_id)) : 'Generated after save')}
+              </p>
+            </div>
             <label className="field">
               <span>Model</span>
               <input
@@ -5149,7 +5155,7 @@ function InverterCatalogPage({
               <textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={4} />
             </label>
             <div className="stack" style={{ gap: 8 }}>
-              <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.inverter_id.trim()}>
+              <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.model.trim()}>
                 {isSaving ? 'Saving…' : selectedInverter ? 'Save inverter type' : 'Create inverter type'}
               </button>
               {selectedInverter ? (

@@ -3,6 +3,7 @@ import path from 'path';
 import http, { type IncomingMessage, type ServerResponse } from 'http';
 import { createSurface, deleteSurface, deleteSurfacePanelAssignmentsForSurface, getBatteryBankConfiguration, getBatteryType, getInverterType, getMpptType, getPreferences, getPanelType, getSurface, getSurfaceConfiguration, insertBatteryType, insertInverterType, insertMpptType, insertPanelType, listArrayToMpptMappings, listBatteryBankConfigurations, listBatteryTypes, listInverterConfigurations, listInverterTypes, listMpptTypes, listPanelTypes, listPvArrays, listSurfaceConfigurations, listSurfacePanelAssignments, setPref, updateBatteryType, updateInverterType, updateMpptType, updatePanelType, updateSurface, upsertBatteryBankConfiguration, upsertInverterConfiguration, upsertLocation, upsertSurfaceConfiguration, upsertSurfacePanelAssignment, syncPvTopologyForSurface } from './db/queries.js';
 import { buildDigitalTwinExport } from './output/exportDigitalTwin.js';
+import { generateUniqueCatalogId } from './domain/panel-type-id.js';
 import { resolveDatabasePath, resolveServerHost, resolveServerPort, resolveWebDistPath } from './config/runtime.js';
 import { ensureDatabaseReady, withDb } from './server/bootstrap.js';
 import { DATABASE_PUBLISH_TOKEN_HEADER, hasValidDatabasePublishToken, publishDatabaseFile, resolveDatabasePublishToken } from './server/database-publish.js';
@@ -217,9 +218,9 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         const source = isValidNonEmptyText(payload.source) ? payload.source.trim() : null;
         const notes = isValidNonEmptyText(payload.notes) ? payload.notes.trim() : undefined;
 
-        if (!batteryTypeId || !model || !chemistry || !Number.isFinite(nominalVoltage) || nominalVoltage <= 0 || !Number.isFinite(capacityAh) || capacityAh <= 0 || !Number.isFinite(capacityKwh) || capacityKwh <= 0) {
+        if (!model || !chemistry || !Number.isFinite(nominalVoltage) || nominalVoltage <= 0 || !Number.isFinite(capacityAh) || capacityAh <= 0 || !Number.isFinite(capacityKwh) || capacityKwh <= 0) {
           sendJson(response, 400, {
-            error: 'Invalid battery type payload. Provide a unique battery_type_id, model, chemistry, nominal_voltage, capacity_ah, and capacity_kwh.',
+            error: 'Invalid battery type payload. Provide model, chemistry, nominal_voltage, capacity_ah, and capacity_kwh.',
           });
           return;
         }
@@ -230,12 +231,13 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         }
 
         const updated = withDb(databasePath, (db) => {
-          if (getBatteryType(db, batteryTypeId)) {
-            return { status: 409 as const, body: { error: `Battery type "${batteryTypeId}" already exists.` } };
+          const resolvedBatteryTypeId = batteryTypeId || generateUniqueCatalogId(model, listBatteryTypes(db).map((battery) => battery.battery_type_id));
+          if (getBatteryType(db, resolvedBatteryTypeId)) {
+            return { status: 409 as const, body: { error: `Battery type "${resolvedBatteryTypeId}" already exists.` } };
           }
 
           insertBatteryType(db, {
-            battery_type_id: batteryTypeId,
+            battery_type_id: resolvedBatteryTypeId,
             model,
             chemistry,
             nominal_voltage: nominalVoltage,
@@ -423,8 +425,8 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           notes?: unknown;
         }>(request);
 
-        const panelTypeId = typeof payload.panel_type_id === 'string' ? payload.panel_type_id.trim() : '';
         const model = typeof payload.model === 'string' ? payload.model.trim() : '';
+        const panelTypeId = typeof payload.panel_type_id === 'string' ? payload.panel_type_id.trim() : '';
         const wp = typeof payload.wp === 'number' ? payload.wp : Number(payload.wp);
         const voc = typeof payload.voc === 'number' ? payload.voc : Number(payload.voc);
         const vmp = typeof payload.vmp === 'number' ? payload.vmp : Number(payload.vmp);
@@ -434,20 +436,21 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         const widthMm = typeof payload.width_mm === 'number' ? payload.width_mm : Number(payload.width_mm);
         const notes = isValidNonEmptyText(payload.notes) ? payload.notes.trim() : undefined;
 
-        if (!panelTypeId || !model || !Number.isFinite(wp) || wp <= 0 || !Number.isFinite(voc) || voc <= 0 || !Number.isFinite(vmp) || vmp <= 0 || !Number.isFinite(isc) || isc <= 0 || !Number.isFinite(imp) || imp <= 0 || !Number.isFinite(lengthMm) || lengthMm <= 0 || !Number.isFinite(widthMm) || widthMm <= 0) {
+        if (!model || !Number.isFinite(wp) || wp <= 0 || !Number.isFinite(voc) || voc <= 0 || !Number.isFinite(vmp) || vmp <= 0 || !Number.isFinite(isc) || isc <= 0 || !Number.isFinite(imp) || imp <= 0 || !Number.isFinite(lengthMm) || lengthMm <= 0 || !Number.isFinite(widthMm) || widthMm <= 0) {
           sendJson(response, 400, {
-            error: 'Invalid panel type payload. Provide a unique panel_type_id, model, wp, voc, vmp, isc, imp, length_mm, and width_mm.',
+            error: 'Invalid panel type payload. Provide model, wp, voc, vmp, isc, imp, length_mm, and width_mm.',
           });
           return;
         }
 
         const updated = withDb(databasePath, (db) => {
-          if (getPanelType(db, panelTypeId)) {
-            return { status: 409 as const, body: { error: `Panel type "${panelTypeId}" already exists.` } };
+          const resolvedPanelTypeId = panelTypeId || generateUniqueCatalogId(model, listPanelTypes(db).map((panel) => panel.panel_type_id));
+          if (getPanelType(db, resolvedPanelTypeId)) {
+            return { status: 409 as const, body: { error: `Panel type "${resolvedPanelTypeId}" already exists.` } };
           }
 
           insertPanelType(db, {
-            panel_type_id: panelTypeId,
+            panel_type_id: resolvedPanelTypeId,
             model,
             wp,
             voc,
@@ -607,8 +610,8 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           notes?: unknown;
         }>(request);
 
-        const mpptTypeId = typeof payload.mppt_type_id === 'string' ? payload.mppt_type_id.trim() : '';
         const model = typeof payload.model === 'string' ? payload.model.trim() : '';
+        const mpptTypeId = typeof payload.mppt_type_id === 'string' ? payload.mppt_type_id.trim() : '';
         const trackerCount = typeof payload.tracker_count === 'number' ? payload.tracker_count : Number(payload.tracker_count);
         const maxVoc = typeof payload.max_voc === 'number' ? payload.max_voc : Number(payload.max_voc);
         const maxPvPower = typeof payload.max_pv_power === 'number' ? payload.max_pv_power : Number(payload.max_pv_power);
@@ -622,9 +625,9 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         const nominalBatteryVoltage = typeof payload.nominal_battery_voltage === 'number' ? payload.nominal_battery_voltage : Number(payload.nominal_battery_voltage);
         const notes = isValidNonEmptyText(payload.notes) ? payload.notes.trim() : undefined;
 
-        if (!mpptTypeId || !model || !Number.isInteger(trackerCount) || trackerCount < 1 || !Number.isFinite(maxVoc) || maxVoc <= 0 || !Number.isFinite(maxPvPower) || maxPvPower <= 0 || !Number.isFinite(maxChargeCurrent) || maxChargeCurrent <= 0 || !Number.isFinite(nominalBatteryVoltage) || nominalBatteryVoltage <= 0) {
+        if (!model || !Number.isInteger(trackerCount) || trackerCount < 1 || !Number.isFinite(maxVoc) || maxVoc <= 0 || !Number.isFinite(maxPvPower) || maxPvPower <= 0 || !Number.isFinite(maxChargeCurrent) || maxChargeCurrent <= 0 || !Number.isFinite(nominalBatteryVoltage) || nominalBatteryVoltage <= 0) {
           sendJson(response, 400, {
-            error: 'Invalid MPPT type payload. Provide a unique mppt_type_id, model, tracker_count, max_voc, max_pv_power, max_charge_current, and nominal_battery_voltage.',
+            error: 'Invalid MPPT type payload. Provide model, tracker_count, max_voc, max_pv_power, max_charge_current, and nominal_battery_voltage.',
           });
           return;
         }
@@ -635,12 +638,13 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         }
 
         const updated = withDb(databasePath, (db) => {
-          if (getMpptType(db, mpptTypeId)) {
-            return { status: 409 as const, body: { error: `MPPT type "${mpptTypeId}" already exists.` } };
+          const resolvedMpptTypeId = mpptTypeId || generateUniqueCatalogId(model, listMpptTypes(db).map((mppt) => mppt.mppt_type_id));
+          if (getMpptType(db, resolvedMpptTypeId)) {
+            return { status: 409 as const, body: { error: `MPPT type "${resolvedMpptTypeId}" already exists.` } };
           }
 
           insertMpptType(db, {
-            mppt_type_id: mpptTypeId,
+            mppt_type_id: resolvedMpptTypeId,
             model,
             tracker_count: trackerCount,
             max_voc: maxVoc,
@@ -809,8 +813,8 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           notes?: unknown;
         }>(request);
 
-        const inverterId = typeof payload.inverter_id === 'string' ? payload.inverter_id.trim() : '';
         const model = typeof payload.model === 'string' ? payload.model.trim() : '';
+        const inverterId = typeof payload.inverter_id === 'string' ? payload.inverter_id.trim() : '';
         const inputVoltageV = typeof payload.input_voltage_v === 'number' ? payload.input_voltage_v : Number(payload.input_voltage_v);
         const outputVoltageV = typeof payload.output_voltage_v === 'number' ? payload.output_voltage_v : Number(payload.output_voltage_v);
         const continuousPowerW = typeof payload.continuous_power_w === 'number' ? payload.continuous_power_w : Number(payload.continuous_power_w);
@@ -824,9 +828,9 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           : (typeof payload.price === 'number' ? payload.price : Number(payload.price));
         const notes = isValidNonEmptyText(payload.notes) ? payload.notes.trim() : undefined;
 
-        if (!inverterId || !model || !Number.isFinite(inputVoltageV) || inputVoltageV <= 0 || !Number.isFinite(outputVoltageV) || outputVoltageV <= 0 || !Number.isFinite(continuousPowerW) || continuousPowerW <= 0 || !Number.isFinite(peakPowerVA) || peakPowerVA <= 0 || !Number.isFinite(maxChargeCurrentA) || maxChargeCurrentA <= 0) {
+        if (!model || !Number.isFinite(inputVoltageV) || inputVoltageV <= 0 || !Number.isFinite(outputVoltageV) || outputVoltageV <= 0 || !Number.isFinite(continuousPowerW) || continuousPowerW <= 0 || !Number.isFinite(peakPowerVA) || peakPowerVA <= 0 || !Number.isFinite(maxChargeCurrentA) || maxChargeCurrentA <= 0) {
           sendJson(response, 400, {
-            error: 'Invalid inverter type payload. Provide a unique inverter_id, model, input_voltage_v, output_voltage_v, continuous_power_w, peak_power_va, and max_charge_current_a.',
+            error: 'Invalid inverter type payload. Provide model, input_voltage_v, output_voltage_v, continuous_power_w, peak_power_va, and max_charge_current_a.',
           });
           return;
         }
@@ -837,12 +841,13 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         }
 
         const updated = withDb(databasePath, (db) => {
-          if (getInverterType(db, inverterId)) {
-            return { status: 409 as const, body: { error: `Inverter type "${inverterId}" already exists.` } };
+          const resolvedInverterId = inverterId || generateUniqueCatalogId(model, listInverterTypes(db).map((inverter) => inverter.inverter_id));
+          if (getInverterType(db, resolvedInverterId)) {
+            return { status: 409 as const, body: { error: `Inverter type "${resolvedInverterId}" already exists.` } };
           }
 
           insertInverterType(db, {
-            inverter_id: inverterId,
+            inverter_id: resolvedInverterId,
             model,
             input_voltage_v: inputVoltageV,
             output_voltage_v: outputVoltageV,

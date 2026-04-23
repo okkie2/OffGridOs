@@ -3,16 +3,10 @@ import chalk from 'chalk';
 import Database from 'better-sqlite3';
 import { listMpptTypes, getMpptType, insertMpptType, updateMpptType, deleteMpptType } from '../../db/queries.js';
 import type { MpptType } from '../../domain/types.js';
+import { generateUniqueCatalogId } from '../../domain/panel-type-id.js';
 
-async function promptMppt(existing?: MpptType): Promise<Omit<MpptType, 'id'>> {
+async function promptMppt(existing?: MpptType, existingIds: string[] = []): Promise<Omit<MpptType, 'id'>> {
   const ans = await inquirer.prompt([
-    {
-      type: 'input',
-      name: 'mppt_type_id',
-      message: 'MPPT ID (unique key, e.g. my-mppt-150-60):',
-      when: !existing,
-      validate: (v: string) => v.trim().length > 0 || 'Required',
-    },
     {
       type: 'input',
       name: 'model',
@@ -85,7 +79,7 @@ async function promptMppt(existing?: MpptType): Promise<Omit<MpptType, 'id'>> {
   ]);
 
   return {
-    mppt_type_id: existing?.mppt_type_id ?? ans.mppt_type_id,
+    mppt_type_id: existing?.mppt_type_id ?? generateUniqueCatalogId(ans.model, existingIds),
     model: ans.model,
     tracker_count: ans.tracker_count,
     max_voc: ans.max_voc,
@@ -134,13 +128,9 @@ export async function mpptTypesFlow(db: Database.Database): Promise<void> {
     }
 
     if (action === 'add') {
-      const data = await promptMppt();
-      if (getMpptType(db, data.mppt_type_id)) {
-        console.log(chalk.red(`MPPT ID "${data.mppt_type_id}" already exists.`));
-      } else {
-        insertMpptType(db, data);
-        console.log(chalk.green('MPPT saved.'));
-      }
+      const data = await promptMppt(undefined, controllers.map((mppt) => mppt.mppt_type_id));
+      insertMpptType(db, data);
+      console.log(chalk.green(`MPPT saved as "${data.mppt_type_id}".`));
       continue;
     }
 
