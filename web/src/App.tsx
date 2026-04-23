@@ -2552,9 +2552,10 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
   const [surfaceMessage, setSurfaceMessage] = useState<string | null>(null);
   const [surfaceError, setSurfaceError] = useState<string | null>(null);
 
-  async function handleSaveLocation() {
+  async function handleSaveLocation(photoOverride?: string | null) {
     const numericLatitude = Number(latitude);
     const numericLongitude = Number(longitude);
+    const nextPhoto = photoOverride === undefined ? photo : photoOverride;
 
     if (!title.trim() || !country.trim()) {
       setSaveError('Location and country are required before saving.');
@@ -2591,7 +2592,7 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
           notes: notes.trim(),
           latitude: numericLatitude,
           longitude: numericLongitude,
-          site_photo_data_url: photo,
+          site_photo_data_url: nextPhoto,
         }),
       });
 
@@ -2686,7 +2687,11 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
     const file = event.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (e) => setPhoto(e.target?.result as string);
+    reader.onload = (e) => {
+      const nextPhoto = e.target?.result as string;
+      setPhoto(nextPhoto);
+      void handleSaveLocation(nextPhoto);
+    };
     reader.readAsDataURL(file);
   }
 
@@ -2774,6 +2779,7 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
             <textarea
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
+              onInput={(event) => setNotes(event.currentTarget.value)}
               rows={5}
               placeholder="Shared context for the whole location, such as access, shading context, planning assumptions, or owner notes."
             />
@@ -2796,7 +2802,10 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
               <button
                 type="button"
                 className="button button-secondary button-sm photo-remove"
-                onClick={() => setPhoto(null)}
+                onClick={() => {
+                  setPhoto(null);
+                  void handleSaveLocation(null);
+                }}
               >
                 Remove
               </button>

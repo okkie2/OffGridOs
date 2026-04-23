@@ -29,6 +29,7 @@ class NavigationWorld extends World {
   dbDir: string | null = null;
   projectData: DigitalTwinExport | null = null;
   latestEnteredSurfaceNotes = '';
+  latestEnteredLocationNotes = '';
   storedGlobals: StoredGlobal[] = [];
 
   installDom(): void {
@@ -87,6 +88,85 @@ class NavigationWorld extends World {
 
       if (url.pathname === '/api/digital-twin' && method === 'GET') {
         return new Response(JSON.stringify(this.readProjectData()), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (url.pathname === '/api/location' && method === 'PUT') {
+        const rawBody = typeof init?.body === 'string' ? init.body : '{}';
+        const payload = JSON.parse(rawBody) as {
+          place_name?: unknown;
+          country?: unknown;
+          description?: unknown;
+          notes?: unknown;
+          latitude?: unknown;
+          longitude?: unknown;
+          northing?: unknown;
+          easting?: unknown;
+          site_photo_data_url?: unknown;
+        };
+
+        const placeName = typeof payload.place_name === 'string' ? payload.place_name.trim() : '';
+        const country = typeof payload.country === 'string' ? payload.country.trim() : '';
+        const description = payload.description === undefined
+          ? undefined
+          : (typeof payload.description === 'string' ? payload.description.trim() : String(payload.description));
+        const notes = payload.notes === undefined
+          ? undefined
+          : (typeof payload.notes === 'string' ? payload.notes : String(payload.notes));
+        const latitude = typeof payload.latitude === 'number' ? payload.latitude : Number(payload.latitude);
+        const longitude = typeof payload.longitude === 'number' ? payload.longitude : Number(payload.longitude);
+        const northing = payload.northing == null || payload.northing === ''
+          ? null
+          : (typeof payload.northing === 'number' ? payload.northing : Number(payload.northing));
+        const easting = payload.easting == null || payload.easting === ''
+          ? null
+          : (typeof payload.easting === 'number' ? payload.easting : Number(payload.easting));
+        const sitePhotoDataUrl = payload.site_photo_data_url === undefined
+          ? undefined
+          : (payload.site_photo_data_url == null || payload.site_photo_data_url === ''
+              ? null
+              : String(payload.site_photo_data_url));
+
+        const db = openDb(this.requireDbPath());
+        try {
+          const existing = db.prepare('SELECT * FROM locations LIMIT 1').get() as {
+            id: number;
+            place_name: string;
+            country: string;
+            description?: string | null;
+            notes?: string | null;
+            latitude: number;
+            longitude: number;
+            northing?: number | null;
+            easting?: number | null;
+            site_photo_data_url?: string | null;
+          } | undefined;
+          if (!existing) {
+            return new Response(JSON.stringify({ error: 'Location row not found.' }), { status: 404 });
+          }
+
+          db.prepare('UPDATE locations SET country=@country, place_name=@place_name, description=@description, notes=@notes, latitude=@latitude, longitude=@longitude, northing=@northing, easting=@easting, site_photo_data_url=@site_photo_data_url WHERE id=@id')
+            .run({
+              id: existing.id,
+              place_name: placeName,
+              country,
+              description: description === undefined ? (existing.description ?? null) : description,
+              notes: notes === undefined ? (existing.notes ?? null) : notes,
+              latitude,
+              longitude,
+              northing,
+              easting,
+              site_photo_data_url: sitePhotoDataUrl === undefined ? (existing.site_photo_data_url ?? null) : sitePhotoDataUrl,
+            });
+
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
+        } finally {
+          db.close();
+        }
+
+        return new Response(JSON.stringify(this.projectData), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
@@ -357,6 +437,38 @@ class NavigationWorld extends World {
     await this.waitForTextareaValue('.notes-panel textarea', notes);
   }
 
+  async setLocationNotes(notes: string): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const textarea = Array.from(this.dom.window.document.querySelectorAll('textarea'))
+      .find((node) => node.closest('.panel')?.querySelector('h2')?.textContent?.trim() === 'Start information') as HTMLTextAreaElement | null;
+    if (!textarea) {
+      throw new Error('Could not find the location notes textarea.');
+    }
+
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(this.dom.window.HTMLTextAreaElement.prototype, 'value')?.set;
+      if (!setter) {
+        throw new Error('Could not find textarea value setter.');
+      }
+      setter.call(textarea, notes);
+      textarea.dispatchEvent(new this.dom.window.InputEvent('input', {
+        bubbles: true,
+        data: notes,
+        inputType: 'insertText',
+      }));
+      textarea.dispatchEvent(new this.dom.window.Event('change', { bubbles: true }));
+    });
+
+    this.latestEnteredLocationNotes = notes;
+    await this.waitForTextareaValue('.field textarea', notes);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  }
+
   async uploadSurfacePhoto(): Promise<void> {
     if (!this.dom) {
       throw new Error('Navigation test DOM is not ready.');
@@ -378,6 +490,79 @@ class NavigationWorld extends World {
     });
 
     await this.waitForSelector('.detail-intro-grid .photo-image');
+  }
+
+  async uploadLocationPhoto(): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const panel = Array.from(this.dom.window.document.querySelectorAll('.panel'))
+      .find((node) => node.querySelector('h2')?.textContent?.trim() === 'Site photo') as HTMLElement | undefined;
+    const input = panel?.querySelector('input[type="file"]') as HTMLInputElement | null;
+    if (!input) {
+      throw new Error('Could not find the location photo upload input.');
+    }
+
+    const file = new this.dom.window.File(['location-photo'], 'location-photo.txt', { type: 'text/plain' });
+    Object.defineProperty(input, 'files', {
+      configurable: true,
+      value: [file],
+    });
+
+    await act(async () => {
+      input.dispatchEvent(new this.dom.window.Event('change', { bubbles: true }));
+    });
+
+    await this.waitForSelector('.photo-frame .photo-image[alt="Location"]');
+  }
+
+  async saveLocationPhoto(): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const panel = Array.from(this.dom.window.document.querySelectorAll('.panel'))
+      .find((node) => node.querySelector('h2')?.textContent?.trim() === 'Site photo') as HTMLElement | undefined;
+    const saveButton = Array.from(panel?.querySelectorAll('button') ?? [])
+      .find((node) => node.textContent?.trim() === 'Save') as HTMLElement | undefined;
+    if (!saveButton) {
+      throw new Error('Could not find the Save button for the location photo.');
+    }
+
+    await act(async () => {
+      saveButton.dispatchEvent(new this.dom.window.MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+      }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    await this.waitForText('Shared location saved to the project database.');
+  }
+
+  async saveLocationInformation(): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const panel = Array.from(this.dom.window.document.querySelectorAll('.panel'))
+      .find((node) => node.querySelector('h2')?.textContent?.trim() === 'Start information') as HTMLElement | undefined;
+    const saveButton = Array.from(panel?.querySelectorAll('button') ?? [])
+      .find((node) => node.textContent?.trim() === 'Save') as HTMLElement | undefined;
+    if (!saveButton) {
+      throw new Error('Could not find the Save button for the location information.');
+    }
+
+    await act(async () => {
+      saveButton.dispatchEvent(new this.dom.window.MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+      }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    await this.waitForText('Shared location saved to the project database.');
   }
 
   async removeSurfacePhoto(): Promise<void> {
@@ -494,6 +679,28 @@ class NavigationWorld extends World {
     }
   }
 
+  assertLocationInDatabase(expectedNotes: string, expectPhoto: boolean): void {
+    const db = openDb(this.requireDbPath());
+    try {
+      const row = db.prepare('SELECT notes, site_photo_data_url FROM locations ORDER BY id LIMIT 1').get() as {
+        notes: string | null;
+        site_photo_data_url: string | null;
+      } | undefined;
+      if (!row) {
+        throw new Error('Location row not found in database.');
+      }
+
+      assert.equal(row.notes ?? '', expectedNotes);
+      if (expectPhoto) {
+        assert.ok(row.site_photo_data_url && row.site_photo_data_url.length > 0);
+      } else {
+        assert.equal(row.site_photo_data_url, null);
+      }
+    } finally {
+      db.close();
+    }
+  }
+
   readCurrentSurfaceId(): string {
     if (!this.dom) {
       throw new Error('Navigation test DOM is not ready.');
@@ -520,7 +727,7 @@ After(async function () {
 
 Given('OffGridOS is rendered with project data', async function () {
   await this.renderApp();
-  await this.waitForText('System chain');
+  await this.waitForText('Start information');
 });
 
 When('I open Location from the menu', async function () {
@@ -528,9 +735,9 @@ When('I open Location from the menu', async function () {
   await this.waitForText('Start information');
 });
 
-When('I go back to Dashboard using the menu', async function () {
-  await this.clickByText('Overview');
-  await this.waitForText('System chain');
+When('I go back to Location using the menu', async function () {
+  await this.clickByText('Location');
+  await this.waitForText('Start information');
 });
 
 When('I open Catalogs from the menu', async function () {
@@ -568,11 +775,6 @@ When('I go back to Catalogs using the menu', async function () {
   await this.waitForText('Manage the reusable product catalogs');
 });
 
-When('I go back to Dashboard using the breadcrumb', async function () {
-  await this.clickByText('Overview', '.breadcrumbs .crumb-link');
-  await this.waitForText('System chain');
-});
-
 When('I go back to Location using the breadcrumb', async function () {
   await this.clickByText('Location', '.breadcrumbs .crumb-link');
   await this.waitForText('Start information');
@@ -585,10 +787,6 @@ When('I open the first surface detail from the page', async function () {
 
 Then('I should see the Location page', async function () {
   assert.ok(this.dom?.window.document.body.textContent?.includes('Start information'));
-});
-
-Then('I should see the Dashboard page', async function () {
-  assert.ok(this.dom?.window.document.body.textContent?.includes('System chain'));
 });
 
 Then('I should see the Catalogs page', async function () {
@@ -637,7 +835,7 @@ When('I save the surface information', async function () {
 
 When('I reload OffGridOS', async function () {
   await this.reloadApp();
-  await this.waitForText('Overview');
+  await this.waitForText('OffGridOS');
 });
 
 Then('the active surface should persist notes {string} with a stored photo', function (notes: string) {
@@ -648,4 +846,36 @@ Then('the active surface should persist notes {string} with a stored photo', fun
 Then('the active surface should persist notes {string} without a stored photo', function (notes: string) {
   const surfaceId = this.readCurrentSurfaceId();
   this.assertSurfaceInDatabase(surfaceId, notes, false);
+});
+
+When('I enter location notes {string}', async function (notes: string) {
+  await this.setLocationNotes(notes);
+});
+
+When('I upload a location photo', async function () {
+  await this.uploadLocationPhoto();
+});
+
+When('I save the location photo', async function () {
+  await this.saveLocationPhoto();
+});
+
+When('I save the location information', async function () {
+  await this.saveLocationInformation();
+});
+
+Then('the location should persist notes {string} with a stored photo', function (notes: string) {
+  this.assertLocationInDatabase(notes, true);
+});
+
+Then('the location should persist notes {string} without a stored photo', function (notes: string) {
+  this.assertLocationInDatabase(notes, false);
+});
+
+Then('the location photo should still be visible', async function () {
+  await this.waitForSelector('.photo-frame .photo-image[alt="Location"]');
+});
+
+Then('the location notes should still be visible', async function () {
+  await this.waitForTextareaValue('.field textarea', this.latestEnteredLocationNotes);
 });
