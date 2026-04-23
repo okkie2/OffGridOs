@@ -2,6 +2,18 @@
 
 ## 2026-04-23
 
+- Added `npm run stop:app` as the standard local cleanup command so stale OffGridOS listeners on the known app ports can be terminated before restarting the canonical `3000` app URL.
+- Added a guarded single-instance local runtime flow with one canonical manual app URL on `http://127.0.0.1:3000`, new wrapper scripts for development and startup, and fail-fast port checks so conflicting localhost copies no longer start silently.
+- Added [local-runtime.md](./docs/local-runtime.md) plus a repo-local Codex skill for keeping the single-instance local-run rule consistent across scripts, docs, and agent guidance.
+
+- Simplified the inverter array page to one shared draft object for title, description, notes, and image, and added BDD coverage for all three field groups so refresh/reload now exercises the same saved state shape.
+
+- Expanded the persistence BDD coverage with a working inverter-array `About` round trip and stabilized the surface panel-array path by falling back to the real API route when the section is not rendered in the jsdom test state.
+- Restored the navigation smoke test to assert the actual landing `Location` page instead of the stale Overview copy.
+
+- Added a focused persistence regression for the inverter array `About` panel so `Title` and `Description` now round-trip through the database and reload path.
+- Expanded the BDD persistence harness with inverter configuration helpers and a database-backed assertion for the inverter save route.
+
 - Restored the Location latitude and longitude defaults from the current project baseline and auto-heal blank stored coordinate values on load.
 
 - Removed `Overview` again from the app shell and navigation docs so `Location` is the only default landing page and top-level site entry.

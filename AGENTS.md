@@ -22,3 +22,6 @@ Repository-specific guidance for OffGridOS.
 - Prefer small, focused changes.
 - Do not rename domain concepts casually; check [UBIQUITOUS_LANGUAGE.md](./UBIQUITOUS_LANGUAGE.md) first.
 - When adding new durable repository conventions, record them here so future work follows them automatically.
+- Treat `http://127.0.0.1:3000` as the only supported manual local app URL for OffGridOS.
+- Prefer the guarded wrapper commands `npm run dev:app` and `npm run start` for local interactive runs, and do not introduce or document alternate manual localhost app ports.
+- Use `npm run stop:app` as the standard cleanup path for stale local OffGridOS listeners instead of ad hoc port hunting.

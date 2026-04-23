@@ -19,10 +19,16 @@ Create or verify the local database:
 npx tsx src/cli/index.ts init
 ```
 
-Run the web UI in development:
+Run the local app in development:
 
 ```bash
-npm run dev:web
+npm run dev:app
+```
+
+Stop stale local OffGridOS listeners before restarting, if needed:
+
+```bash
+npm run stop:app
 ```
 
 Build the production app:
@@ -36,6 +42,14 @@ Start the production server:
 ```bash
 npm run start
 ```
+
+OffGridOS now uses one canonical manual browser URL for local work:
+
+```text
+http://127.0.0.1:3000
+```
+
+Do not use alternate localhost ports for manual app testing. See [local-runtime.md](./docs/local-runtime.md) for the enforced single-instance rule.
 
 For deployment, persistent-storage requirements, and the recommended local-first SQLite publishing workflow, see [deployment.md](./docs/deployment.md).
 
@@ -56,6 +70,7 @@ The current publish workflow keeps `project.db` as the local source of truth and
 ### Operations
 
 - [deployment.md](./docs/deployment.md): deployment guide for running the Node server, React frontend, and persistent SQLite database, with Railway as the current target.
+- [local-runtime.md](./docs/local-runtime.md): canonical local app URL, guarded startup commands, and the single-instance rule for local development.
 
 ### Domain and schema
 
@@ -83,3 +98,9 @@ The current publish workflow keeps `project.db` as the local source of truth and
 - [battery-inverter-screen.md](./docs/battery-inverter-screen.md): detailed screen for the battery bank, inverter, and their evaluated relationships.
 - [monthly-balance-screen.md](./docs/monthly-balance-screen.md): seasonal system screen for monthly surplus, deficit, battery pressure, and generator dependence.
 - [branch-circuit-consumer-screen.md](./docs/branch-circuit-consumer-screen.md): future screen for downstream branch circuits, consumers, and AC-side distribution.
+
+### Testing and quality
+
+- [persistence-testing-strategy.md](./docs/persistence-testing-strategy.md): save-box persistence strategy, dependency-aware test approach, and field-coverage guidance for all editable fields.
+- [persistence-field-coverage-matrix.md](./docs/persistence-field-coverage-matrix.md): field-by-field save coverage matrix with routes, valid and invalid examples, and recommended primary test layers.
+- [docs/skills/offgridos-single-local-instance/SKILL.md](./docs/skills/offgridos-single-local-instance/SKILL.md): repo-local Codex skill for keeping the single-instance local runtime rule consistent.

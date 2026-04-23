@@ -2,6 +2,8 @@ import { execSync } from 'child_process';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
+const localApiTarget = process.env.OFFGRIDOS_API_TARGET ?? 'http://127.0.0.1:3001';
+
 function getBuildInfo(): string {
   const version = process.env.npm_package_version ?? '0.1.0';
   const envSha = [
@@ -36,10 +38,10 @@ export default defineConfig({
   },
   server: {
     host: '127.0.0.1',
-    port: 4173,
+    port: 3000,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:3000',
+        target: localApiTarget,
         changeOrigin: true,
       },
     },
