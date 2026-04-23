@@ -405,9 +405,8 @@ async function fetchProjectData(): Promise<DigitalTwinExport> {
   return response.json() as Promise<DigitalTwinExport>;
 }
 
-function readStoredSurfaceLabel(projectId: string, surface: Surface): string {
-  const stored = readPersistentState<string>(`${projectId}:surface:${surface.surface_id}:name`, surface.name);
-  return stored.trim() || surface.name;
+function readSurfaceLabel(surface: Surface): string {
+  return surface.name;
 }
 
 function buildGoogleMapsIframeSrc(latitude: number, longitude: number): string {
@@ -1455,7 +1454,7 @@ function Sidebar({ route, data }: { route: Route; data: DigitalTwinExport | null
                 onClick={go({ kind: 'surface', surfaceId: surface.surface_id })}
                 className={`sidebar-subnav-item ${route.kind === 'surface' && route.surfaceId === surface.surface_id ? 'active' : ''}`}
               >
-                {readStoredSurfaceLabel(data.project.project_id, surface)}
+                {readSurfaceLabel(surface)}
               </a>
             ))}
           </div>
@@ -1551,7 +1550,7 @@ function SurfaceDetail({
     : null;
   const installedPanelCount = arrayState?.panel_count ?? array?.panel_count ?? 0;
   const storagePrefix = `${data.project.project_id}:surface:${surfaceId}`;
-  const [surfaceNameDraft, setSurfaceNameDraft] = usePersistentState(`${storagePrefix}:name`, surface?.name ?? surfaceId);
+  const [surfaceNameDraft, setSurfaceNameDraft] = useState(surface?.name ?? surfaceId);
   const [surfaceDescription, setSurfaceDescription] = useState(surface?.description ?? '');
   const [surfaceAzimuthDraft, setSurfaceAzimuthDraft] = usePersistentState(`${storagePrefix}:azimuth`, surface?.orientation_deg ?? 0);
   const [surfaceTiltDraft, setSurfaceTiltDraft] = usePersistentState(`${storagePrefix}:tilt`, surface?.tilt_deg ?? 0);
@@ -1617,12 +1616,13 @@ function SurfaceDetail({
   }, [configuredPanelCount, panelsPerString, parallelStrings, panelsPerStringOptions]);
 
   useEffect(() => {
+    setSurfaceNameDraft(surface?.name ?? surfaceId);
     setSurfaceDescription(surface?.description ?? '');
     setPhoto(surface?.photo_data_url ?? null);
     setSurfaceAreaHeightDraft(surface?.area_height_m != null ? String(surface.area_height_m) : '');
     setSurfaceAreaWidthDraft(surface?.area_width_m != null ? String(surface.area_width_m) : '');
     setSurfaceNotes(surface?.notes ?? '');
-  }, [surface?.surface_id, surface?.description, surface?.photo_data_url, surface?.area_height_m, surface?.area_width_m, surface?.notes]);
+  }, [surface?.surface_id, surface?.name, surface?.description, surface?.photo_data_url, surface?.area_height_m, surface?.area_width_m, surface?.notes, surfaceId]);
 
   if (!surface) {
     return (
@@ -1716,7 +1716,6 @@ function SurfaceDetail({
       }
 
       try {
-        window.localStorage.setItem(`${storagePrefix}:name`, JSON.stringify(nameToPersist));
         window.localStorage.setItem(`${storagePrefix}:azimuth`, JSON.stringify(surfaceAzimuthDraft));
         window.localStorage.setItem(`${storagePrefix}:tilt`, JSON.stringify(surfaceTiltDraft));
         window.dispatchEvent(new Event('offgridos-local-storage-change'));
@@ -1856,11 +1855,11 @@ function SurfaceDetail({
     <section className="detail-shell">
       <div className="detail-grid detail-intro-grid">
         <section className="panel panel-span-2 panel-with-actions">
-          <Breadcrumbs route={{ kind: 'surface', surfaceId }} surfaceName={surfaceNameDraft || surface.name} />
+          <Breadcrumbs route={{ kind: 'surface', surfaceId }} surfaceName={surface.name} />
           <div className="section-head">
             <h2>Surface information</h2>
           </div>
-          <h1 className="detail-page-title">{surfaceNameDraft || surface.name}</h1>
+          <h1 className="detail-page-title">{surface.name}</h1>
           {surfaceSaveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{surfaceSaveError}</p> : null}
           {surfaceSaveMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{surfaceSaveMessage}</p> : null}
           <div className="roof-config-inline">

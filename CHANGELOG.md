@@ -2,6 +2,8 @@
 
 ## 2026-04-23
 
+- Stopped using browser-local overrides for surface names so sidebar labels and surface titles now come from SQLite only, while the name field remains editable in the form until Save.
+
 - Restored the Overview landing route and sidebar entry, and prefixed surface breadcrumbs with `Overview / Location / ...` so the navigation matches the older overview-first layout again.
 
 - Added a token-protected database publish endpoint so the local `project.db` can be uploaded to Railway as an explicit operational step, with SQLite validation before replacing the live database file.
