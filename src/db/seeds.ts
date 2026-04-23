@@ -498,7 +498,7 @@ const VICTRON_MPPT: Array<{
     max_charge_current: 100,
     nominal_battery_voltage: 48,
     max_pv_power: 6000,
-    max_pv_input_current_a: 12,
+    max_pv_input_current_a: 13,
     max_pv_short_circuit_current_a: 16,
     price: 1635,
     price_source_url: VICTRON_PRICE_LIST_URL,
@@ -529,9 +529,9 @@ export function seedMpptTypes(db: Database.Database): void {
   db.prepare(`
     UPDATE mppt_types
     SET tracker_count = 2,
-        max_pv_input_current_a = 12,
+        max_pv_input_current_a = 13,
         max_pv_short_circuit_current_a = 16,
-        notes = COALESCE(notes, 'Victron Multi RS Solar. Official specs: 2 independent MPPT trackers; 6000 W total / 3000 W per tracker; 450 V max PV voltage; 65-450 V MPPT range; 12 A max operational PV input current per tracker; 16 A max PV short-circuit current per tracker; 100 A combined charge current; 50 A transfer switch.')
+        notes = COALESCE(notes, 'Victron Multi RS Solar. Official specs: 2 independent MPPT trackers; 6000 W total / 3000 W per tracker; 450 V max PV voltage; 65-450 V MPPT range; 13 A max operational PV input current per tracker; 16 A max PV short-circuit current per tracker; 100 A combined charge current; 50 A transfer switch.')
     WHERE mppt_type_id = 'victron-mrs-48-6000-100-450-100'
   `).run();
 }
