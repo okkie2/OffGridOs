@@ -422,6 +422,8 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           imp?: unknown;
           length_mm?: unknown;
           width_mm?: unknown;
+          price?: unknown;
+          price_source_url?: unknown;
           notes?: unknown;
         }>(request);
 
@@ -434,12 +436,21 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         const imp = typeof payload.imp === 'number' ? payload.imp : Number(payload.imp);
         const lengthMm = typeof payload.length_mm === 'number' ? payload.length_mm : Number(payload.length_mm);
         const widthMm = typeof payload.width_mm === 'number' ? payload.width_mm : Number(payload.width_mm);
+        const price = payload.price == null || payload.price === ''
+          ? null
+          : (typeof payload.price === 'number' ? payload.price : Number(payload.price));
+        const priceSourceUrl = isValidNonEmptyText(payload.price_source_url) ? payload.price_source_url.trim() : null;
         const notes = isValidNonEmptyText(payload.notes) ? payload.notes.trim() : undefined;
 
         if (!model || !Number.isFinite(wp) || wp <= 0 || !Number.isFinite(voc) || voc <= 0 || !Number.isFinite(vmp) || vmp <= 0 || !Number.isFinite(isc) || isc <= 0 || !Number.isFinite(imp) || imp <= 0 || !Number.isFinite(lengthMm) || lengthMm <= 0 || !Number.isFinite(widthMm) || widthMm <= 0) {
           sendJson(response, 400, {
             error: 'Invalid panel type payload. Provide model, wp, voc, vmp, isc, imp, length_mm, and width_mm.',
           });
+          return;
+        }
+
+        if (price != null && !Number.isFinite(price)) {
+          sendJson(response, 400, { error: 'Invalid panel type payload. Price must be a valid number when provided.' });
           return;
         }
 
@@ -459,6 +470,8 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             imp,
             length_mm: lengthMm,
             width_mm: widthMm,
+            price,
+            price_source_url: priceSourceUrl,
             notes,
           });
 
@@ -493,6 +506,8 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           imp?: unknown;
           length_mm?: unknown;
           width_mm?: unknown;
+          price?: unknown;
+          price_source_url?: unknown;
           notes?: unknown;
         }>(request);
 
@@ -505,6 +520,10 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         const imp = typeof payload.imp === 'number' ? payload.imp : Number(payload.imp);
         const lengthMm = typeof payload.length_mm === 'number' ? payload.length_mm : Number(payload.length_mm);
         const widthMm = typeof payload.width_mm === 'number' ? payload.width_mm : Number(payload.width_mm);
+        const price = payload.price == null || payload.price === ''
+          ? null
+          : (typeof payload.price === 'number' ? payload.price : Number(payload.price));
+        const priceSourceUrl = isValidNonEmptyText(payload.price_source_url) ? payload.price_source_url.trim() : null;
         const notes = isValidNonEmptyText(payload.notes) ? payload.notes.trim() : undefined;
 
         if (bodyPanelTypeId !== panelTypeId) {
@@ -516,6 +535,11 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           sendJson(response, 400, {
             error: 'Invalid panel type payload. Provide model, wp, voc, vmp, isc, imp, length_mm, and width_mm.',
           });
+          return;
+        }
+
+        if (price != null && !Number.isFinite(price)) {
+          sendJson(response, 400, { error: 'Invalid panel type payload. Price must be a valid number when provided.' });
           return;
         }
 
@@ -535,6 +559,8 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             imp,
             length_mm: lengthMm,
             width_mm: widthMm,
+            price,
+            price_source_url: priceSourceUrl,
             notes,
           });
 
@@ -607,6 +633,8 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           max_pv_short_circuit_current_a?: unknown;
           max_charge_current?: unknown;
           nominal_battery_voltage?: unknown;
+          price?: unknown;
+          price_source_url?: unknown;
           notes?: unknown;
         }>(request);
 
@@ -623,6 +651,10 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           : (typeof payload.max_pv_short_circuit_current_a === 'number' ? payload.max_pv_short_circuit_current_a : Number(payload.max_pv_short_circuit_current_a));
         const maxChargeCurrent = typeof payload.max_charge_current === 'number' ? payload.max_charge_current : Number(payload.max_charge_current);
         const nominalBatteryVoltage = typeof payload.nominal_battery_voltage === 'number' ? payload.nominal_battery_voltage : Number(payload.nominal_battery_voltage);
+        const price = payload.price == null || payload.price === ''
+          ? null
+          : (typeof payload.price === 'number' ? payload.price : Number(payload.price));
+        const priceSourceUrl = isValidNonEmptyText(payload.price_source_url) ? payload.price_source_url.trim() : null;
         const notes = isValidNonEmptyText(payload.notes) ? payload.notes.trim() : undefined;
 
         if (!model || !Number.isInteger(trackerCount) || trackerCount < 1 || !Number.isFinite(maxVoc) || maxVoc <= 0 || !Number.isFinite(maxPvPower) || maxPvPower <= 0 || !Number.isFinite(maxChargeCurrent) || maxChargeCurrent <= 0 || !Number.isFinite(nominalBatteryVoltage) || nominalBatteryVoltage <= 0) {
@@ -634,6 +666,11 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
         if ((maxPvInputCurrentA != null && !Number.isFinite(maxPvInputCurrentA)) || (maxPvShortCircuitCurrentA != null && !Number.isFinite(maxPvShortCircuitCurrentA))) {
           sendJson(response, 400, { error: 'Invalid MPPT type payload. Optional PV current fields must be valid numbers when provided.' });
+          return;
+        }
+
+        if (price != null && !Number.isFinite(price)) {
+          sendJson(response, 400, { error: 'Invalid MPPT type payload. Price must be a valid number when provided.' });
           return;
         }
 
@@ -653,6 +690,8 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             max_pv_short_circuit_current_a: maxPvShortCircuitCurrentA,
             max_charge_current: maxChargeCurrent,
             nominal_battery_voltage: nominalBatteryVoltage,
+            price,
+            price_source_url: priceSourceUrl,
             notes,
           });
 
@@ -687,6 +726,8 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           max_pv_short_circuit_current_a?: unknown;
           max_charge_current?: unknown;
           nominal_battery_voltage?: unknown;
+          price?: unknown;
+          price_source_url?: unknown;
           notes?: unknown;
         }>(request);
 
@@ -703,6 +744,10 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           : (typeof payload.max_pv_short_circuit_current_a === 'number' ? payload.max_pv_short_circuit_current_a : Number(payload.max_pv_short_circuit_current_a));
         const maxChargeCurrent = typeof payload.max_charge_current === 'number' ? payload.max_charge_current : Number(payload.max_charge_current);
         const nominalBatteryVoltage = typeof payload.nominal_battery_voltage === 'number' ? payload.nominal_battery_voltage : Number(payload.nominal_battery_voltage);
+        const price = payload.price == null || payload.price === ''
+          ? null
+          : (typeof payload.price === 'number' ? payload.price : Number(payload.price));
+        const priceSourceUrl = isValidNonEmptyText(payload.price_source_url) ? payload.price_source_url.trim() : null;
         const notes = isValidNonEmptyText(payload.notes) ? payload.notes.trim() : undefined;
 
         if (bodyMpptTypeId !== mpptTypeId) {
@@ -722,6 +767,11 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           return;
         }
 
+        if (price != null && !Number.isFinite(price)) {
+          sendJson(response, 400, { error: 'Invalid MPPT type payload. Price must be a valid number when provided.' });
+          return;
+        }
+
         const updated = withDb(databasePath, (db) => {
           const existing = getMpptType(db, mpptTypeId);
           if (!existing) {
@@ -738,6 +788,8 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             max_pv_short_circuit_current_a: maxPvShortCircuitCurrentA,
             max_charge_current: maxChargeCurrent,
             nominal_battery_voltage: nominalBatteryVoltage,
+            price,
+            price_source_url: priceSourceUrl,
             notes,
           });
 
@@ -810,6 +862,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           max_charge_current_a?: unknown;
           efficiency_pct?: unknown;
           price?: unknown;
+          price_source_url?: unknown;
           notes?: unknown;
         }>(request);
 
@@ -826,6 +879,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         const price = payload.price == null || payload.price === ''
           ? null
           : (typeof payload.price === 'number' ? payload.price : Number(payload.price));
+        const priceSourceUrl = isValidNonEmptyText(payload.price_source_url) ? payload.price_source_url.trim() : null;
         const notes = isValidNonEmptyText(payload.notes) ? payload.notes.trim() : undefined;
 
         if (!model || !Number.isFinite(inputVoltageV) || inputVoltageV <= 0 || !Number.isFinite(outputVoltageV) || outputVoltageV <= 0 || !Number.isFinite(continuousPowerW) || continuousPowerW <= 0 || !Number.isFinite(peakPowerVA) || peakPowerVA <= 0 || !Number.isFinite(maxChargeCurrentA) || maxChargeCurrentA <= 0) {
@@ -855,9 +909,10 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             peak_power_va: peakPowerVA,
             max_charge_current_a: maxChargeCurrentA,
             efficiency_pct: efficiencyPct,
-            price,
-            notes,
-          });
+          price,
+          price_source_url: priceSourceUrl,
+          notes,
+        });
 
           return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath) };
         });
@@ -890,6 +945,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           max_charge_current_a?: unknown;
           efficiency_pct?: unknown;
           price?: unknown;
+          price_source_url?: unknown;
           notes?: unknown;
         }>(request);
 
@@ -906,6 +962,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         const price = payload.price == null || payload.price === ''
           ? null
           : (typeof payload.price === 'number' ? payload.price : Number(payload.price));
+        const priceSourceUrl = isValidNonEmptyText(payload.price_source_url) ? payload.price_source_url.trim() : null;
         const notes = isValidNonEmptyText(payload.notes) ? payload.notes.trim() : undefined;
 
         if (bodyInverterId !== inverterId) {
@@ -940,9 +997,10 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             peak_power_va: peakPowerVA,
             max_charge_current_a: maxChargeCurrentA,
             efficiency_pct: efficiencyPct,
-            price,
-            notes,
-          });
+          price,
+          price_source_url: priceSourceUrl,
+          notes,
+        });
 
           return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
         });

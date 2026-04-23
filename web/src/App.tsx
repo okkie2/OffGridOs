@@ -52,6 +52,9 @@ interface PanelType {
   imp: number;
   length_mm?: number | null;
   width_mm?: number | null;
+  price?: number | null;
+  price_source_url?: string | null;
+  notes?: string;
 }
 
 interface SurfaceConfiguration {
@@ -105,6 +108,8 @@ interface PanelTypeDraft {
   imp: string;
   length_mm: string;
   width_mm: string;
+  price: string;
+  price_source_url: string;
   notes: string;
 }
 
@@ -118,6 +123,8 @@ interface MpptTypeDraft {
   max_pv_short_circuit_current_a: string;
   max_charge_current: string;
   nominal_battery_voltage: string;
+  price: string;
+  price_source_url: string;
   notes: string;
 }
 
@@ -131,6 +138,7 @@ interface InverterTypeDraft {
   max_charge_current_a: string;
   efficiency_pct: string;
   price: string;
+  price_source_url: string;
   notes: string;
 }
 
@@ -156,6 +164,9 @@ interface MpptType {
   max_pv_short_circuit_current_a?: number | null;
   max_charge_current: number;
   nominal_battery_voltage: number;
+  price?: number | null;
+  price_source_url?: string | null;
+  notes?: string;
 }
 
 interface InverterType {
@@ -168,6 +179,7 @@ interface InverterType {
   max_charge_current_a: number;
   efficiency_pct?: number | null;
   price?: number | null;
+  price_source_url?: string | null;
   notes?: string;
 }
 
@@ -702,6 +714,8 @@ function emptyPanelDraft(): PanelTypeDraft {
     imp: '13',
     length_mm: '',
     width_mm: '',
+    price: '',
+    price_source_url: '',
     notes: '',
   };
 }
@@ -719,6 +733,8 @@ function panelDraftFromType(panel: PanelType | null): PanelTypeDraft {
     imp: String(panel.imp),
     length_mm: panel.length_mm != null ? String(panel.length_mm) : '',
     width_mm: panel.width_mm != null ? String(panel.width_mm) : '',
+    price: panel.price != null ? String(panel.price) : '',
+    price_source_url: panel.price_source_url ?? '',
     notes: panel.notes ?? '',
   };
 }
@@ -734,6 +750,8 @@ function emptyMpptDraft(): MpptTypeDraft {
     max_pv_short_circuit_current_a: '',
     max_charge_current: '120',
     nominal_battery_voltage: '48',
+    price: '',
+    price_source_url: '',
     notes: '',
   };
 }
@@ -751,6 +769,8 @@ function mpptDraftFromType(mppt: MpptType | null): MpptTypeDraft {
     max_pv_short_circuit_current_a: mppt.max_pv_short_circuit_current_a != null ? String(mppt.max_pv_short_circuit_current_a) : '',
     max_charge_current: String(mppt.max_charge_current),
     nominal_battery_voltage: String(mppt.nominal_battery_voltage),
+    price: mppt.price != null ? String(mppt.price) : '',
+    price_source_url: mppt.price_source_url ?? '',
     notes: mppt.notes ?? '',
   };
 }
@@ -766,6 +786,7 @@ function emptyInverterDraft(): InverterTypeDraft {
     max_charge_current_a: '100',
     efficiency_pct: '',
     price: '',
+    price_source_url: '',
     notes: '',
   };
 }
@@ -783,6 +804,7 @@ function inverterDraftFromType(inverter: InverterType | null): InverterTypeDraft
     max_charge_current_a: String(inverter.max_charge_current_a),
     efficiency_pct: inverter.efficiency_pct != null ? String(inverter.efficiency_pct) : '',
     price: inverter.price != null ? String(inverter.price) : '',
+    price_source_url: inverter.price_source_url ?? '',
     notes: inverter.notes ?? '',
   };
 }
@@ -875,6 +897,105 @@ function verdictLabel(status: Status | null, fit?: FitStatus): string {
   }
 
   return 'Within limits';
+}
+
+type RelationshipKind = 'array_to_mppt' | 'battery_to_inverter';
+
+function formatReasonFallback(reason: string): string {
+  const sentence = reason.replaceAll('_', ' ');
+  return sentence.charAt(0).toUpperCase() + sentence.slice(1) + '.';
+}
+
+function getRelationshipVerdictSummary(kind: RelationshipKind, status: Status | null, fit?: FitStatus): string | null {
+  if (!status) return null;
+
+  if (kind === 'array_to_mppt') {
+    if (status === 'outside_limits') return 'This array is not electrically compatible with the selected MPPT.';
+    if (fit === 'optimal') return 'This array is closely matched to the selected MPPT.';
+    if (fit === 'acceptable') return 'This array is a workable match for the selected MPPT, with some headroom or tradeoff.';
+    if (fit === 'clipping_expected') return 'This array is intentionally large relative to the selected MPPT, so clipping is expected in stronger conditions.';
+    if (fit === 'underutilized') return 'The selected MPPT has significant unused PV capacity relative to this array.';
+    return 'This array stays within the selected MPPT electrical limits.';
+  }
+
+  if (status === 'outside_limits') return 'This battery bank is not electrically compatible with the selected inverter.';
+  if (fit === 'optimal') return 'This battery bank is closely matched to the selected inverter.';
+  if (fit === 'acceptable') return 'This battery bank can support the selected inverter, with some headroom or tradeoff.';
+  if (fit === 'underutilized') return 'The selected inverter has significant unused capacity relative to this battery bank.';
+  return 'This battery bank stays within the selected inverter electrical limits.';
+}
+
+function getRelationshipVerdictLabel(kind: RelationshipKind, status: Status | null, fit?: FitStatus): string {
+  if (!status) return 'Not evaluated';
+
+  if (kind === 'array_to_mppt') {
+    if (status === 'outside_limits') return 'Array outside MPPT limits';
+    if (fit === 'optimal') return 'Array well matched to MPPT';
+    if (fit === 'acceptable') return 'Array acceptable for MPPT';
+    if (fit === 'clipping_expected') return 'Array clipping at MPPT';
+    if (fit === 'underutilized') return 'MPPT underutilized by array';
+    return 'Array within MPPT limits';
+  }
+
+  if (status === 'outside_limits') return 'Battery outside inverter limits';
+  if (fit === 'optimal') return 'Battery well matched to inverter';
+  if (fit === 'acceptable') return 'Battery acceptable for inverter';
+  if (fit === 'underutilized') return 'Inverter underutilized by battery';
+  return 'Battery within inverter limits';
+}
+
+function explainRelationshipReason(kind: RelationshipKind, reason: string): string {
+  if (kind === 'array_to_mppt') {
+    switch (reason) {
+      case 'voltage_too_high':
+        return 'String voltage exceeds the MPPT voltage limit.';
+      case 'pv_input_current_too_high':
+        return 'Array input current exceeds the MPPT input-current limit.';
+      case 'pv_short_circuit_current_too_high':
+        return 'Array short-circuit current exceeds the MPPT short-circuit limit.';
+      case 'charge_current_too_high':
+        return 'Estimated charge current exceeds the MPPT charge-current limit.';
+      case 'power_too_high':
+        return 'Array power exceeds the selected MPPT power window.';
+      case 'clipping_expected':
+        return 'Peak solar conditions are expected to clip against the selected MPPT.';
+      case 'well_matched':
+        return 'Array power and MPPT capacity are closely aligned.';
+      case 'acceptable_headroom':
+        return 'The selected MPPT still has some useful headroom above the current array.';
+      case 'low_utilization':
+        return 'The array uses only a small share of the MPPT\'s available PV capacity.';
+      case 'missing_mppt_type':
+        return 'Choose an MPPT before this relationship can be evaluated.';
+      default:
+        return formatReasonFallback(reason);
+    }
+  }
+
+  switch (reason) {
+    case 'voltage_too_high':
+      return 'Battery-bank voltage is above the inverter DC input range.';
+    case 'voltage_too_low':
+      return 'Battery-bank voltage is below the inverter DC input range.';
+    case 'inverter_current_too_high_for_battery':
+      return 'The inverter can demand more current than this battery bank should supply.';
+    case 'inverter_power_too_high_for_battery':
+      return 'The inverter is too large for this battery bank\'s available power.';
+    case 'well_matched':
+      return 'Battery-bank voltage and power capability are closely aligned with the inverter.';
+    case 'acceptable_headroom':
+      return 'The selected inverter fits this battery bank with some remaining headroom.';
+    case 'low_utilization':
+      return 'The selected inverter is larger than this battery bank currently justifies.';
+    case 'missing_inverter_type':
+      return 'Choose an inverter before this relationship can be evaluated.';
+    default:
+      return formatReasonFallback(reason);
+  }
+}
+
+function buildRelationshipReasonList(kind: RelationshipKind, reasons: string[]): string[] {
+  return [...new Set(reasons.map((reason) => explainRelationshipReason(kind, reason)))];
 }
 
 function SummaryCard({ label, value, detail }: { label: string; value: string; detail?: string }) {
@@ -1643,6 +1764,8 @@ function SurfaceDetail({
   const mpptCompatibility = arrayConfig
     ? evaluateMpptCompatibility(arrayConfig, data.entities.mppt_types.find((item) => item.mppt_type_id === selectedMpptTypeId) ?? null)
     : null;
+  const mpptVerdictSummary = getRelationshipVerdictSummary('array_to_mppt', mpptCompatibility?.status ?? null, mpptCompatibility?.fit);
+  const mpptReasonLines = mpptCompatibility ? buildRelationshipReasonList('array_to_mppt', mpptCompatibility.reasons) : [];
   const selectedMpptType = selectedMpptTypeId
     ? data.entities.mppt_types.find((item) => item.mppt_type_id === selectedMpptTypeId) ?? null
     : null;
@@ -2189,10 +2312,9 @@ function SurfaceDetail({
                         <p className="result-label">Evaluation</p>
                         <StatusBadge status={mpptCompatibility?.status ?? 'outside_limits'} fit={mpptCompatibility?.fit} />
                       </div>
+                      {mpptVerdictSummary ? <p className="fit-note">{mpptVerdictSummary}</p> : null}
                       <ul className="reason-list">
-                        {mpptCompatibility?.reasons.map((reason) => (
-                          <li key={reason}>{reason.replaceAll('_', ' ')}</li>
-                        )) ?? null}
+                        {mpptReasonLines.map((reason) => <li key={reason}>{reason}</li>)}
                       </ul>
                     </div>
                     {mpptCompatibility && selectedMpptType ? (
@@ -2903,10 +3025,16 @@ function SolarYieldPage({
                   <tr key={surface.surface_id}>
                     <th>{surface.name}</th>
                     <td>
+                      {(() => {
+                        const verdictSummary = getRelationshipVerdictSummary('array_to_mppt', surface.status, surface.fit ?? undefined);
+                        const verdictText = getRelationshipVerdictLabel('array_to_mppt', surface.status, surface.fit ?? undefined);
+                        return (
                       <div className="yield-verdict-cell">
                         <StatusBadge status={surface.status} fit={surface.fit} />
-                        <span>{verdictLabel(surface.status, surface.fit)}</span>
+                        <span title={verdictSummary ?? verdictText}>{verdictText}</span>
                       </div>
+                        );
+                      })()}
                     </td>
                     <td>{formatWp(surface.installed_wp)}</td>
                     <td>{surface.orientation_deg}°</td>
@@ -3629,6 +3757,8 @@ function InverterArrayPage({
   const inverterCompatibility = batteryArrayConfig
     ? evaluateInverterCompatibility(batteryArrayConfig, selectedInverterType)
     : null;
+  const inverterVerdictSummary = getRelationshipVerdictSummary('battery_to_inverter', inverterCompatibility?.status ?? null, inverterCompatibility?.fit);
+  const inverterReasonLines = inverterCompatibility ? buildRelationshipReasonList('battery_to_inverter', inverterCompatibility.reasons) : [];
   async function handleSaveInverterDesign(options?: { imageOverride?: string | null }) {
     if (!selectedInverterTypeId) {
       setInverterDesignSaveError('Choose an inverter type before saving the inverter configuration.');
@@ -3829,10 +3959,9 @@ function InverterArrayPage({
                   <strong>{selectedInverterType.model}</strong>
                   <StatusBadge status={inverterCompatibility?.status ?? 'outside_limits'} fit={inverterCompatibility?.fit} />
                 </div>
+                {inverterVerdictSummary ? <p className="fit-note">{inverterVerdictSummary}</p> : null}
                 <ul className="reason-list">
-                  {inverterCompatibility?.reasons.map((reason) => (
-                    <li key={reason}>{reason.replaceAll('_', ' ')}</li>
-                  )) ?? null}
+                  {inverterReasonLines.map((reason) => <li key={reason}>{reason}</li>)}
                 </ul>
                 <dl className="detail-stats mppt-checks">
                   <div className={batteryArrayConfig.stringVoltage > selectedInverterType.input_voltage_v * 1.1 || batteryArrayConfig.stringVoltage < selectedInverterType.input_voltage_v * 0.85 ? 'check-fail' : 'check-pass'}>
@@ -4154,7 +4283,7 @@ function BatteryCatalogPage({
                 />
               </label>
               <label className="field">
-                <span>Source URL</span>
+                <span>Price source URL</span>
                 <input
                   value={draft.source}
                   onChange={(event) => setDraft((current) => ({ ...current, source: event.target.value }))}
@@ -4291,10 +4420,17 @@ function PanelCatalogPage({
     const imp = Number(draft.imp);
     const lengthMm = Number(draft.length_mm);
     const widthMm = Number(draft.width_mm);
+    const price = draft.price.trim() === '' ? null : Number(draft.price);
+    const priceSourceUrl = draft.price_source_url.trim() === '' ? null : draft.price_source_url.trim();
     const notes = draft.notes.trim() === '' ? null : draft.notes.trim();
 
     if (!model || !Number.isFinite(wp) || wp <= 0 || !Number.isFinite(voc) || voc <= 0 || !Number.isFinite(vmp) || vmp <= 0 || !Number.isFinite(isc) || isc <= 0 || !Number.isFinite(imp) || imp <= 0 || !Number.isFinite(lengthMm) || lengthMm <= 0 || !Number.isFinite(widthMm) || widthMm <= 0) {
       setSaveError('Fill in the model, WP, Voc, Vmp, Isc, Imp, length, and width.');
+      return;
+    }
+
+    if ((price != null && !Number.isFinite(price)) || (priceSourceUrl != null && priceSourceUrl.length === 0)) {
+      setSaveError('Optional price fields must be valid when provided.');
       return;
     }
 
@@ -4317,6 +4453,8 @@ function PanelCatalogPage({
           imp,
           length_mm: lengthMm,
           width_mm: widthMm,
+          price,
+          price_source_url: priceSourceUrl,
           notes,
         }),
       });
@@ -4338,6 +4476,8 @@ function PanelCatalogPage({
         imp,
         length_mm: lengthMm,
         width_mm: widthMm,
+        price,
+        price_source_url: priceSourceUrl,
         notes,
       } as PanelType));
       setSaveMessage(`Panel type "${panelTypeId}" saved.`);
@@ -4459,8 +4599,16 @@ function PanelCatalogPage({
             </div>
             <div className="detail-grid two-col">
               <label className="field"><span>Width (mm)</span><input type="number" value={draft.width_mm} onChange={(event) => setDraft((current) => ({ ...current, width_mm: event.target.value }))} /></label>
-              <span />
+              <label className="field"><span>Price per unit</span><input type="number" value={draft.price} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} /></label>
             </div>
+            <label className="field">
+              <span>Price source URL</span>
+              <input
+                value={draft.price_source_url}
+                onChange={(event) => setDraft((current) => ({ ...current, price_source_url: event.target.value }))}
+                placeholder="https://..."
+              />
+            </label>
             <label className="field">
               <span>Notes</span>
               <textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={4} />
@@ -4485,6 +4633,8 @@ function PanelCatalogPage({
               <div><dt>Vmp</dt><dd>{selectedPanel.vmp} V</dd></div>
               <div><dt>Isc</dt><dd>{selectedPanel.isc} A</dd></div>
               <div><dt>Imp</dt><dd>{selectedPanel.imp} A</dd></div>
+              <div><dt>Price</dt><dd>{selectedPanel.price != null ? `€${selectedPanel.price.toLocaleString('en-US')}` : 'n/a'}</dd></div>
+              <div><dt>Price / Wp</dt><dd>{selectedPanel.price != null ? `€${(selectedPanel.price / selectedPanel.wp).toFixed(2)}` : 'n/a'}</dd></div>
               <div><dt>Size</dt><dd>{selectedPanel.length_mm != null && selectedPanel.width_mm != null ? `${selectedPanel.length_mm} × ${selectedPanel.width_mm} mm` : 'n/a'}</dd></div>
             </dl>
           ) : null}
@@ -4537,6 +4687,8 @@ function MpptCatalogPage({
     const maxPvShortCircuitCurrentA = draft.max_pv_short_circuit_current_a.trim() === '' ? null : Number(draft.max_pv_short_circuit_current_a);
     const maxChargeCurrent = Number(draft.max_charge_current);
     const nominalBatteryVoltage = Number(draft.nominal_battery_voltage);
+    const price = draft.price.trim() === '' ? null : Number(draft.price);
+    const priceSourceUrl = draft.price_source_url.trim() === '' ? null : draft.price_source_url.trim();
     const notes = draft.notes.trim() === '' ? null : draft.notes.trim();
 
     if (!model || !Number.isInteger(trackerCount) || trackerCount < 1 || !Number.isFinite(maxVoc) || maxVoc <= 0 || !Number.isFinite(maxPvPower) || maxPvPower <= 0 || !Number.isFinite(maxChargeCurrent) || maxChargeCurrent <= 0 || !Number.isFinite(nominalBatteryVoltage) || nominalBatteryVoltage <= 0) {
@@ -4546,6 +4698,11 @@ function MpptCatalogPage({
 
     if ((maxPvInputCurrentA != null && !Number.isFinite(maxPvInputCurrentA)) || (maxPvShortCircuitCurrentA != null && !Number.isFinite(maxPvShortCircuitCurrentA))) {
       setSaveError('Optional PV current fields must be valid numbers when provided.');
+      return;
+    }
+
+    if (price != null && !Number.isFinite(price)) {
+      setSaveError('Price must be a valid number when provided.');
       return;
     }
 
@@ -4568,6 +4725,8 @@ function MpptCatalogPage({
           max_pv_short_circuit_current_a: maxPvShortCircuitCurrentA,
           max_charge_current: maxChargeCurrent,
           nominal_battery_voltage: nominalBatteryVoltage,
+          price,
+          price_source_url: priceSourceUrl,
           notes,
         }),
       });
@@ -4589,6 +4748,8 @@ function MpptCatalogPage({
         max_pv_short_circuit_current_a: maxPvShortCircuitCurrentA,
         max_charge_current: maxChargeCurrent,
         nominal_battery_voltage: nominalBatteryVoltage,
+        price,
+        price_source_url: priceSourceUrl,
         notes,
       } as MpptType));
       setSaveMessage(`MPPT type "${mpptTypeId}" saved.`);
@@ -4710,8 +4871,16 @@ function MpptCatalogPage({
             </div>
             <div className="detail-grid two-col">
               <label className="field"><span>Nominal battery voltage</span><input type="number" value={draft.nominal_battery_voltage} onChange={(event) => setDraft((current) => ({ ...current, nominal_battery_voltage: event.target.value }))} /></label>
-              <span />
+              <label className="field"><span>Price per unit</span><input type="number" value={draft.price} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} /></label>
             </div>
+            <label className="field">
+              <span>Price source URL</span>
+              <input
+                value={draft.price_source_url}
+                onChange={(event) => setDraft((current) => ({ ...current, price_source_url: event.target.value }))}
+                placeholder="https://..."
+              />
+            </label>
             <label className="field">
               <span>Notes</span>
               <textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={4} />
@@ -4736,6 +4905,7 @@ function MpptCatalogPage({
               <div><dt>Max PV power</dt><dd>{selectedMppt.max_pv_power} W</dd></div>
               <div><dt>Max charge current</dt><dd>{selectedMppt.max_charge_current} A</dd></div>
               <div><dt>Nominal battery voltage</dt><dd>{selectedMppt.nominal_battery_voltage} V</dd></div>
+              <div><dt>Price</dt><dd>{selectedMppt.price != null ? `€${selectedMppt.price.toLocaleString('en-US')}` : 'n/a'}</dd></div>
               <div><dt>PV input current</dt><dd>{selectedMppt.max_pv_input_current_a != null ? `${selectedMppt.max_pv_input_current_a} A` : 'n/a'}</dd></div>
             </dl>
           ) : null}
@@ -4788,6 +4958,7 @@ function InverterCatalogPage({
     const maxChargeCurrentA = Number(draft.max_charge_current_a);
     const efficiencyPct = draft.efficiency_pct.trim() === '' ? null : Number(draft.efficiency_pct);
     const price = draft.price.trim() === '' ? null : Number(draft.price);
+    const priceSourceUrl = draft.price_source_url.trim() === '' ? null : draft.price_source_url.trim();
     const notes = draft.notes.trim() === '' ? null : draft.notes.trim();
 
     if (!model || !Number.isFinite(inputVoltageV) || inputVoltageV <= 0 || !Number.isFinite(outputVoltageV) || outputVoltageV <= 0 || !Number.isFinite(continuousPowerW) || continuousPowerW <= 0 || !Number.isFinite(peakPowerVA) || peakPowerVA <= 0 || !Number.isFinite(maxChargeCurrentA) || maxChargeCurrentA <= 0) {
@@ -4819,6 +4990,7 @@ function InverterCatalogPage({
           max_charge_current_a: maxChargeCurrentA,
           efficiency_pct: efficiencyPct,
           price,
+          price_source_url: priceSourceUrl,
           notes,
         }),
       });
@@ -4840,6 +5012,7 @@ function InverterCatalogPage({
         max_charge_current_a: maxChargeCurrentA,
         efficiency_pct: efficiencyPct,
         price,
+        price_source_url: priceSourceUrl,
         notes,
       } as InverterType));
       setSaveMessage(`Inverter type "${inverterId}" saved.`);
@@ -4960,8 +5133,8 @@ function InverterCatalogPage({
               <label className="field"><span>Efficiency %</span><input type="number" value={draft.efficiency_pct} onChange={(event) => setDraft((current) => ({ ...current, efficiency_pct: event.target.value }))} /></label>
             </div>
             <div className="detail-grid two-col">
-              <label className="field"><span>Price</span><input type="number" value={draft.price} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} /></label>
-              <span />
+              <label className="field"><span>Price per unit</span><input type="number" value={draft.price} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} /></label>
+              <label className="field"><span>Price source URL</span><input value={draft.price_source_url} onChange={(event) => setDraft((current) => ({ ...current, price_source_url: event.target.value }))} placeholder="https://..." /></label>
             </div>
             <label className="field">
               <span>Notes</span>

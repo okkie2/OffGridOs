@@ -105,6 +105,17 @@ function ensureInverterConfigurationColumns(db: Database.Database): void {
   }
 }
 
+function ensureInverterTypesColumns(db: Database.Database): void {
+  const cols = new Set((db.prepare("PRAGMA table_info('inverter_types')").all() as { name: string }[]).map((row) => row.name));
+  const additions = [
+    !cols.has('price_source_url') ? 'ALTER TABLE inverter_types ADD COLUMN price_source_url TEXT;' : '',
+  ].filter(Boolean);
+
+  if (additions.length > 0) {
+    db.exec(additions.join('\n'));
+  }
+}
+
 function ensureBatteryBankConfigurationColumns(db: Database.Database): void {
   const cols = new Set((db.prepare("PRAGMA table_info('battery_bank_configurations')").all() as { name: string }[]).map((row) => row.name));
   const additions = [
@@ -125,11 +136,25 @@ function ensureMpptTypesColumns(db: Database.Database): void {
     !cols.has('tracker_count') ? 'ALTER TABLE mppt_types ADD COLUMN tracker_count INTEGER NOT NULL DEFAULT 1;' : '',
     !cols.has('max_pv_input_current_a') ? 'ALTER TABLE mppt_types ADD COLUMN max_pv_input_current_a REAL;' : '',
     !cols.has('max_pv_short_circuit_current_a') ? 'ALTER TABLE mppt_types ADD COLUMN max_pv_short_circuit_current_a REAL;' : '',
+    !cols.has('price') ? 'ALTER TABLE mppt_types ADD COLUMN price REAL;' : '',
+    !cols.has('price_source_url') ? 'ALTER TABLE mppt_types ADD COLUMN price_source_url TEXT;' : '',
   ].filter(Boolean);
 
   if (additions.length > 0) {
     db.exec(additions.join('\n'));
     db.prepare("UPDATE mppt_types SET tracker_count = COALESCE(tracker_count, 1)").run();
+  }
+}
+
+function ensurePanelTypesColumns(db: Database.Database): void {
+  const cols = new Set((db.prepare("PRAGMA table_info('panel_types')").all() as { name: string }[]).map((row) => row.name));
+  const additions = [
+    !cols.has('price') ? 'ALTER TABLE panel_types ADD COLUMN price REAL;' : '',
+    !cols.has('price_source_url') ? 'ALTER TABLE panel_types ADD COLUMN price_source_url TEXT;' : '',
+  ].filter(Boolean);
+
+  if (additions.length > 0) {
+    db.exec(additions.join('\n'));
   }
 }
 
@@ -175,6 +200,7 @@ export function initSchema(db: Database.Database): void {
       width_mm      REAL NOT NULL,
       notes         TEXT,
       price         REAL,
+      price_source_url TEXT,
       wp_per_m2     REAL GENERATED ALWAYS AS (ROUND(wp / (length_mm * width_mm / 1000000.0), 1)) VIRTUAL,
       price_per_wp  REAL GENERATED ALWAYS AS (CASE WHEN price IS NOT NULL THEN ROUND(price / wp, 2) ELSE NULL END) VIRTUAL
     );
@@ -248,6 +274,8 @@ export function initSchema(db: Database.Database): void {
       max_pv_short_circuit_current_a REAL,
       max_charge_current     REAL NOT NULL,
       nominal_battery_voltage REAL NOT NULL,
+      price                  REAL,
+      price_source_url       TEXT,
       notes                  TEXT
     );
 
@@ -286,6 +314,7 @@ export function initSchema(db: Database.Database): void {
       max_charge_current_a REAL NOT NULL,
       efficiency_pct       REAL,
       price                REAL,
+      price_source_url     TEXT,
       notes                TEXT
     );
 
@@ -302,7 +331,9 @@ export function initSchema(db: Database.Database): void {
   ensureBatteryBankConfigurationColumns(db);
   ensureInverterConfigurationColumns(db);
   ensureBatteryTypesColumns(db);
+  ensurePanelTypesColumns(db);
   ensureMpptTypesColumns(db);
+  ensureInverterTypesColumns(db);
   seedLocation(db);
   seedSurfaces(db);
   seedPanelTypes(db);

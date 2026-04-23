@@ -1,7 +1,14 @@
 # CHANGELOG
 
+## 2026-04-24
+
+- Added `price_source_url` to the panel, MPPT, and inverter catalog tables, and wired the React CRUD screens so catalog entries can store both a unit price and a source URL.
+- Seeded the Victron MPPT and inverter catalogs from the current Victron 2026-Q1 price list, and added current retailer URLs for the panel catalog entries that already carry prices.
+
 ## 2026-04-23
 
+- Added `price per unit` and `price source URL` fields to the panel, MPPT, battery, and inverter catalog editors so product pricing can now be stored directly from the UI.
+- Added [verdict-language-guide.md](./docs/verdict-language-guide.md) so relationship verdicts now have one canonical wording guide that explains what is underutilized, acceptable, optimal, or outside limits relative to what.
 - Fixed the battery-bank-to-inverter verdict so a battery bank larger than the inverter is no longer treated as outside limits; the page now only flags cases where the inverter can demand more than the battery bank can supply.
 
 - Added `npm run stop:app` as the standard local cleanup command so stale OffGridOS listeners on the known app ports can be terminated before restarting the canonical `3000` app URL.

@@ -117,8 +117,8 @@ export function getPanelType(db: Database.Database, panel_type_id: string): Pane
 
 export function insertPanelType(db: Database.Database, data: Omit<PanelType, 'id'>): void {
   db.prepare(`
-    INSERT INTO panel_types (panel_type_id, model, wp, voc, vmp, isc, imp, length_mm, width_mm, notes)
-    VALUES (@panel_type_id, @model, @wp, @voc, @vmp, @isc, @imp, @length_mm, @width_mm, @notes)
+    INSERT INTO panel_types (panel_type_id, model, wp, voc, vmp, isc, imp, length_mm, width_mm, price, price_source_url, notes)
+    VALUES (@panel_type_id, @model, @wp, @voc, @vmp, @isc, @imp, @length_mm, @width_mm, @price, @price_source_url, @notes)
   `).run(data);
 }
 
@@ -126,7 +126,7 @@ export function updatePanelType(db: Database.Database, data: Omit<PanelType, 'id
   db.prepare(`
     UPDATE panel_types
     SET model=@model, wp=@wp, voc=@voc, vmp=@vmp, isc=@isc, imp=@imp,
-        length_mm=@length_mm, width_mm=@width_mm, notes=@notes
+        length_mm=@length_mm, width_mm=@width_mm, price=@price, price_source_url=@price_source_url, notes=@notes
     WHERE panel_type_id=@panel_type_id
   `).run(data);
 }
@@ -490,6 +490,8 @@ export function insertMpptType(db: Database.Database, data: Omit<MpptType, 'id'>
       max_pv_short_circuit_current_a,
       max_charge_current,
       nominal_battery_voltage,
+      price,
+      price_source_url,
       notes
     )
     VALUES (
@@ -502,6 +504,8 @@ export function insertMpptType(db: Database.Database, data: Omit<MpptType, 'id'>
       @max_pv_short_circuit_current_a,
       @max_charge_current,
       @nominal_battery_voltage,
+      @price,
+      @price_source_url,
       @notes
     )
   `).run(data);
@@ -518,6 +522,8 @@ export function updateMpptType(db: Database.Database, data: Omit<MpptType, 'id'>
         max_pv_short_circuit_current_a=@max_pv_short_circuit_current_a,
         max_charge_current=@max_charge_current,
         nominal_battery_voltage=@nominal_battery_voltage,
+        price=@price,
+        price_source_url=@price_source_url,
         notes=@notes
     WHERE mppt_type_id=@mppt_type_id
   `).run(data);
@@ -607,6 +613,7 @@ export function insertInverterType(db: Database.Database, data: Omit<InverterTyp
       max_charge_current_a,
       efficiency_pct,
       price,
+      price_source_url,
       notes
     )
     VALUES (
@@ -619,12 +626,14 @@ export function insertInverterType(db: Database.Database, data: Omit<InverterTyp
       @max_charge_current_a,
       @efficiency_pct,
       @price,
+      @price_source_url,
       @notes
     )
   `).run({
     ...data,
     efficiency_pct: data.efficiency_pct ?? null,
     price: data.price ?? null,
+    price_source_url: data.price_source_url ?? null,
     notes: data.notes ?? null,
   });
 }
@@ -640,12 +649,14 @@ export function updateInverterType(db: Database.Database, data: Omit<InverterTyp
         max_charge_current_a=@max_charge_current_a,
         efficiency_pct=@efficiency_pct,
         price=@price,
+        price_source_url=@price_source_url,
         notes=@notes
     WHERE inverter_id=@inverter_id
   `).run({
     ...data,
     efficiency_pct: data.efficiency_pct ?? null,
     price: data.price ?? null,
+    price_source_url: data.price_source_url ?? null,
     notes: data.notes ?? null,
   });
 }

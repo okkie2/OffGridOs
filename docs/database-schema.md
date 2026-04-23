@@ -40,6 +40,7 @@ erDiagram
         REAL width_mm
         TEXT notes
         REAL price
+        TEXT price_source_url
     }
 
     SURFACE_PANEL_ASSIGNMENTS {
@@ -98,6 +99,8 @@ erDiagram
         REAL max_pv_short_circuit_current_a
         REAL max_charge_current
         REAL nominal_battery_voltage
+        REAL price
+        TEXT price_source_url
         TEXT notes
     }
 
@@ -138,6 +141,7 @@ erDiagram
         REAL max_charge_current_a
         REAL efficiency_pct
         REAL price
+        TEXT price_source_url
         TEXT notes
     }
 

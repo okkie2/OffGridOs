@@ -39,6 +39,8 @@ export interface PanelType {
   imp: number;
   length_mm: number;
   width_mm: number;
+  price?: number | null;
+  price_source_url?: string | null;
   notes?: string;
 }
 
@@ -111,6 +113,8 @@ export interface MpptType {
   max_pv_short_circuit_current_a?: number | null;
   max_charge_current: number;
   nominal_battery_voltage: number;
+  price?: number | null;
+  price_source_url?: string | null;
   notes?: string;
 }
 
@@ -144,6 +148,7 @@ export interface InverterType {
   max_charge_current_a: number;
   efficiency_pct?: number | null;
   price?: number | null;
+  price_source_url?: string | null;
   notes?: string;
 }
 
