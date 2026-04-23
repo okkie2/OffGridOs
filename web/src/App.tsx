@@ -4805,12 +4805,12 @@ function VerdictSummaryPage({
                 </tr>
               </thead>
               <tbody>
-                {surfaceRows.map(({ surface, panelType, mpptType, verdictLabel, verdictSummary }) => (
+                {surfaceRows.map(({ surface, panelType, mpptType, status, fit, verdictSummary }) => (
                   <tr key={surface.surface_id}>
                     <th>{surface.name}</th>
                     <td>{panelType?.model ? `${panelType.model} × ${surface.panel_count}` : 'n/a'}</td>
                     <td>{mpptType?.model ?? 'n/a'}</td>
-                    <td><StatusBadge status={relation.evaluation.electrical_status} fit={relation.evaluation.fit_status} /></td>
+                    <td><StatusBadge status={status} fit={fit} /></td>
                     <td>{verdictSummary ?? t('solar_yield.table.not_evaluated')}</td>
                   </tr>
                 ))}
