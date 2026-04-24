@@ -452,6 +452,7 @@ type LocalSurfaceSummary = {
   mppt_name: string;
   status: Status | null;
   fit?: FitStatus;
+  reasons: string[];
 };
 
 function getProjectStorageKey(data: DigitalTwinExport): string {
@@ -547,6 +548,7 @@ function buildLocalSurfaceSummaries(data: DigitalTwinExport): LocalSurfaceSummar
       mppt_name: selectedMpptType?.model ?? '',
       status: mpptCompatibility?.status ?? null,
       fit: mpptCompatibility?.fit ?? null,
+      reasons: mpptCompatibility?.reasons ?? [],
     };
   });
 }
@@ -1048,10 +1050,17 @@ function getRelationshipVerdictSummary(
   status: Status | null,
   fit: FitStatus | undefined,
   t: (key: TranslationKey, variables?: Record<string, string | number>) => string,
+  reasons?: string[],
 ): string | null {
   if (!status) return null;
   const prefix = `relationship.${kind}.summary`;
-  if (status === 'outside_limits') return t(`${prefix}.outside_limits` as TranslationKey);
+  if (status === 'outside_limits') {
+    const reason = reasons?.[0];
+    if (reason) {
+      return t(`relationship.${kind}.reason.${reason}` as TranslationKey);
+    }
+    return t(`${prefix}.outside_limits` as TranslationKey);
+  }
   if (fit === 'optimal') return t(`${prefix}.optimal` as TranslationKey);
   if (fit === 'clipping_expected') return t(`${prefix}.clipping_expected` as TranslationKey);
   if (fit === 'underutilized') return t(`${prefix}.underutilized` as TranslationKey);
@@ -2456,7 +2465,7 @@ function SurfaceDetail({
   const mpptCompatibility = arrayConfig
     ? evaluateMpptCompatibility(arrayConfig, data.entities.mppt_types.find((item) => item.mppt_type_id === selectedMpptTypeId) ?? null)
     : null;
-  const mpptVerdictSummary = getRelationshipVerdictSummary('array_to_mppt', mpptCompatibility?.status ?? null, mpptCompatibility?.fit, t);
+  const mpptVerdictSummary = getRelationshipVerdictSummary('array_to_mppt', mpptCompatibility?.status ?? null, mpptCompatibility?.fit, t, mpptCompatibility?.reasons);
   const mpptReasonLines = mpptCompatibility ? buildRelationshipReasonList('array_to_mppt', mpptCompatibility.reasons, t) : [];
   const selectedMpptType = selectedMpptTypeId
     ? data.entities.mppt_types.find((item) => item.mppt_type_id === selectedMpptTypeId) ?? null
@@ -3745,7 +3754,7 @@ function SolarYieldPage({
                     <th>{surface.name}</th>
                     <td>
                       {(() => {
-                        const verdictSummary = getRelationshipVerdictSummary('array_to_mppt', surface.status, surface.fit ?? undefined, t);
+                        const verdictSummary = getRelationshipVerdictSummary('array_to_mppt', surface.status, surface.fit ?? undefined, t, surface.reasons);
                         const verdictText = getRelationshipVerdictLabel('array_to_mppt', surface.status, surface.fit ?? undefined, t);
                         return (
                       <div className="yield-verdict-cell">
@@ -5202,7 +5211,7 @@ function VerdictSummaryPage({
     const mpptType = mpptConfiguration?.mppt_type_id
       ? data.entities.mppt_types.find((item) => item.mppt_type_id === mpptConfiguration.mppt_type_id) ?? null
       : null;
-    const verdictSummary = getRelationshipVerdictSummary('array_to_mppt', relation?.evaluation.electrical_status ?? null, relation?.evaluation.fit_status, t);
+    const verdictSummary = getRelationshipVerdictSummary('array_to_mppt', relation?.evaluation.electrical_status ?? null, relation?.evaluation.fit_status, t, relation?.evaluation.reasons);
     const verdictLabel = getRelationshipVerdictLabel('array_to_mppt', relation?.evaluation.electrical_status ?? null, relation?.evaluation.fit_status, t);
 
     return {
