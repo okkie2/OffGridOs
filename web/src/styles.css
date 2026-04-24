@@ -5,7 +5,8 @@
   --sidebar-muted: #83958c;
   --sidebar-active-bg: #171f33;
   --sidebar-active-text: #00ffc2;
-  --sidebar-width: 200px;
+  --sidebar-width: max-content;
+  --sidebar-width-collapsed: 72px;
 
   /* Main surface */
   --bg: #f5f7fa;
@@ -62,6 +63,8 @@ h1, h2, h3, p, dl, dd, dt {
 
 .sidebar {
   width: var(--sidebar-width);
+  min-width: 220px;
+  max-width: 320px;
   min-height: 100vh;
   background: var(--sidebar-bg);
   display: flex;
@@ -70,6 +73,13 @@ h1, h2, h3, p, dl, dd, dt {
   position: sticky;
   top: 0;
   height: 100vh;
+  overflow: hidden;
+}
+
+.sidebar.sidebar-collapsed {
+  width: var(--sidebar-width-collapsed);
+  min-width: var(--sidebar-width-collapsed);
+  max-width: var(--sidebar-width-collapsed);
 }
 
 .sidebar-logo {
@@ -79,6 +89,12 @@ h1, h2, h3, p, dl, dd, dt {
   align-items: start;
   justify-content: space-between;
   gap: 12px;
+}
+
+.sidebar-logo-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .sidebar-logo-text {
@@ -103,7 +119,9 @@ h1, h2, h3, p, dl, dd, dt {
 }
 
 .sidebar-nav-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 10px 16px;
   font-size: 0.82rem;
   font-weight: 500;
@@ -116,6 +134,10 @@ h1, h2, h3, p, dl, dd, dt {
   background: none;
   width: 100%;
   text-align: left;
+  white-space: nowrap;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sidebar-nav-item.active {
@@ -135,7 +157,9 @@ h1, h2, h3, p, dl, dd, dt {
 }
 
 .sidebar-subnav-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 7px 14px;
   font-size: 0.73rem;
   font-weight: 500;
@@ -143,7 +167,11 @@ h1, h2, h3, p, dl, dd, dt {
   text-transform: uppercase;
   color: var(--sidebar-muted);
   text-decoration: none;
-  border-radius: 999px 0 0 999px;
+  border-radius: 6px;
+  white-space: nowrap;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sidebar-subnav-item.active {
@@ -162,6 +190,23 @@ h1, h2, h3, p, dl, dd, dt {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.sidebar-nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  flex-shrink: 0;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--sidebar-active-text);
+}
+
+.sidebar-nav-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sidebar-language {
@@ -208,6 +253,54 @@ h1, h2, h3, p, dl, dd, dt {
   font: inherit;
   font-size: 1rem;
   line-height: 1;
+}
+
+.sidebar-collapse-button {
+  border: 1px solid rgba(255 255 255 / 0.1);
+  background: rgba(255 255 255 / 0.04);
+  color: var(--sidebar-text);
+  border-radius: 999px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.sidebar.sidebar-collapsed .sidebar-logo {
+  justify-content: center;
+}
+
+.sidebar.sidebar-collapsed .sidebar-logo > :first-child,
+.sidebar.sidebar-collapsed .sidebar-footer-stamp,
+.sidebar.sidebar-collapsed .sidebar-nav-label {
+  display: none;
+}
+
+.sidebar.sidebar-collapsed .sidebar-nav-item,
+.sidebar.sidebar-collapsed .sidebar-nav-disabled,
+.sidebar.sidebar-collapsed .sidebar-subnav-item {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.sidebar.sidebar-collapsed .sidebar-subnav {
+  margin-left: 0;
+  padding-left: 0;
+  border-left: 0;
+}
+
+.sidebar.sidebar-collapsed .sidebar-subnav-item {
+  border-radius: 0;
+}
+
+.sidebar.sidebar-collapsed .sidebar-collapse-button {
+  display: inline-flex;
 }
 
 .sidebar-backdrop {
@@ -1438,6 +1531,8 @@ h1, h2, h3, p, dl, dd, dt {
     position: fixed;
     inset: 0 auto 0 0;
     width: min(86vw, 320px);
+    min-width: min(86vw, 320px);
+    max-width: min(86vw, 320px);
     min-height: 100vh;
     height: 100vh;
     transform: translateX(-102%);
@@ -1454,6 +1549,10 @@ h1, h2, h3, p, dl, dd, dt {
   .sidebar-close-button {
     display: inline-flex;
     flex-shrink: 0;
+  }
+
+  .sidebar-collapse-button {
+    display: none;
   }
 
   .sidebar-backdrop {

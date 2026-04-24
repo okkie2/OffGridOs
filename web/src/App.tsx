@@ -1781,15 +1781,47 @@ function routeHref(route: Route, options?: { language?: LanguageCode; locationSl
   );
 }
 
+function sidebarIcon(kind: 'location' | 'surface' | 'solar-yield' | 'battery-array' | 'inverter-array' | 'loads' | 'alerts' | 'catalogs' | 'catalog' | 'reports' | 'about' | 'new-project'): string {
+  switch (kind) {
+    case 'location':
+      return '⌂';
+    case 'surface':
+      return '◦';
+    case 'solar-yield':
+      return '☼';
+    case 'battery-array':
+      return '▣';
+    case 'inverter-array':
+      return '⚡';
+    case 'loads':
+      return 'Σ';
+    case 'alerts':
+      return '⚠';
+    case 'catalogs':
+    case 'catalog':
+      return '▤';
+    case 'reports':
+      return '≣';
+    case 'about':
+      return 'ⓘ';
+    case 'new-project':
+      return '+';
+  }
+}
+
 function Sidebar({
   route,
   data,
   isMobileOpen,
+  isCollapsed,
+  onToggleCollapse,
   onNavigate,
 }: {
   route: Route;
   data: DigitalTwinExport | null;
   isMobileOpen: boolean;
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
   onNavigate: () => void;
 }) {
   const { t } = useTranslation();
@@ -1798,27 +1830,86 @@ function Sidebar({
     navigateTo(next);
     onNavigate();
   };
+  const labelFor = (label: string) => (isCollapsed ? label : undefined);
+
+  function NavLink({
+    href,
+    label,
+    icon,
+    active,
+    onClick,
+    className = '',
+  }: {
+    href: string;
+    label: string;
+    icon: string;
+    active: boolean;
+    onClick: (event: MouseEvent<HTMLAnchorElement>) => void;
+    className?: string;
+  }) {
+    return (
+      <a
+        href={href}
+        onClick={onClick}
+        className={`sidebar-nav-item ${active ? 'active' : ''} ${className}`.trim()}
+        aria-label={label}
+        title={labelFor(label)}
+        aria-current={active ? 'page' : undefined}
+      >
+        <span className="sidebar-nav-icon" aria-hidden="true">{icon}</span>
+        <span className="sidebar-nav-label">{label}</span>
+      </a>
+    );
+  }
+
+  function DisabledItem({ label, icon }: { label: string; icon: string }) {
+    return (
+      <span
+        className="sidebar-nav-item sidebar-nav-disabled"
+        aria-label={label}
+        title={labelFor(label)}
+      >
+        <span className="sidebar-nav-icon" aria-hidden="true">{icon}</span>
+        <span className="sidebar-nav-label">{label}</span>
+      </span>
+    );
+  }
 
   return (
-    <aside className={`sidebar ${isMobileOpen ? 'sidebar-open' : ''}`}>
+    <aside className={`sidebar ${isMobileOpen ? 'sidebar-open' : ''} ${isCollapsed ? 'sidebar-collapsed' : ''}`}>
       <div className="sidebar-logo">
         <div>
           <div className="sidebar-logo-text">OffGridOS</div>
           <div className="sidebar-logo-sub">Digital Twin</div>
         </div>
-        <button
-          type="button"
-          className="sidebar-close-button"
-          onClick={onNavigate}
-          aria-label={t('ui.close_menu')}
-        >
-          ×
-        </button>
+        <div className="sidebar-logo-actions">
+          <button
+            type="button"
+            className="sidebar-collapse-button"
+            onClick={onToggleCollapse}
+            aria-label={isCollapsed ? t('ui.expand_menu') : t('ui.collapse_menu')}
+            title={isCollapsed ? t('ui.expand_menu') : t('ui.collapse_menu')}
+          >
+            <span aria-hidden="true">{isCollapsed ? '▸' : '◂'}</span>
+          </button>
+          <button
+            type="button"
+            className="sidebar-close-button"
+            onClick={onNavigate}
+            aria-label={t('ui.close_menu')}
+          >
+            ×
+          </button>
+        </div>
       </div>
       <nav className="sidebar-nav">
-        <a href={routeHref({ kind: 'location' })} onClick={go({ kind: 'location' })} className={`sidebar-nav-item ${route.kind === 'location' || route.kind === 'surface' ? 'active' : ''}`}>
-          {t('nav.location')}
-        </a>
+        <NavLink
+          href={routeHref({ kind: 'location' })}
+          onClick={go({ kind: 'location' })}
+          label={t('nav.location')}
+          icon={sidebarIcon('location')}
+          active={route.kind === 'location' || route.kind === 'surface'}
+        />
         {data && (route.kind === 'location' || route.kind === 'surface') ? (
           <div className="sidebar-subnav">
             {data.entities.surfaces.map((surface) => (
@@ -1827,26 +1918,46 @@ function Sidebar({
                 href={routeHref({ kind: 'surface', surfaceId: surface.surface_id })}
                 onClick={go({ kind: 'surface', surfaceId: surface.surface_id })}
                 className={`sidebar-subnav-item ${route.kind === 'surface' && route.surfaceId === surface.surface_id ? 'active' : ''}`}
+                aria-label={readSurfaceLabel(surface)}
+                title={labelFor(readSurfaceLabel(surface))}
+                aria-current={route.kind === 'surface' && route.surfaceId === surface.surface_id ? 'page' : undefined}
               >
-                {readSurfaceLabel(surface)}
+                <span className="sidebar-nav-icon" aria-hidden="true">{sidebarIcon('surface')}</span>
+                <span className="sidebar-nav-label">{readSurfaceLabel(surface)}</span>
               </a>
             ))}
           </div>
         ) : null}
-        <a href={routeHref({ kind: 'solar-yield' })} onClick={go({ kind: 'solar-yield' })} className={`sidebar-nav-item ${route.kind === 'solar-yield' ? 'active' : ''}`}>
-          {t('nav.solar_yield')}
-        </a>
-        <a href={routeHref({ kind: 'battery-array' })} onClick={go({ kind: 'battery-array' })} className={`sidebar-nav-item ${route.kind === 'battery-array' ? 'active' : ''}`}>
-          {t('nav.battery_array')}
-        </a>
-        <a href={routeHref({ kind: 'inverter-array' })} onClick={go({ kind: 'inverter-array' })} className={`sidebar-nav-item ${route.kind === 'inverter-array' ? 'active' : ''}`}>
-          {t('nav.inverter_array')}
-        </a>
-        <span className="sidebar-nav-item sidebar-nav-disabled">{t('nav.loads')}</span>
-        <span className="sidebar-nav-item sidebar-nav-disabled">{t('nav.alerts')}</span>
-        <a href={routeHref({ kind: 'catalogs' })} onClick={go({ kind: 'catalogs' })} className={`sidebar-nav-item ${route.kind === 'catalogs' || route.kind === 'catalog' ? 'active' : ''}`}>
-          {t('nav.catalogs')}
-        </a>
+        <NavLink
+          href={routeHref({ kind: 'solar-yield' })}
+          onClick={go({ kind: 'solar-yield' })}
+          label={t('nav.solar_yield')}
+          icon={sidebarIcon('solar-yield')}
+          active={route.kind === 'solar-yield'}
+        />
+        <NavLink
+          href={routeHref({ kind: 'battery-array' })}
+          onClick={go({ kind: 'battery-array' })}
+          label={t('nav.battery_array')}
+          icon={sidebarIcon('battery-array')}
+          active={route.kind === 'battery-array'}
+        />
+        <NavLink
+          href={routeHref({ kind: 'inverter-array' })}
+          onClick={go({ kind: 'inverter-array' })}
+          label={t('nav.inverter_array')}
+          icon={sidebarIcon('inverter-array')}
+          active={route.kind === 'inverter-array'}
+        />
+        <DisabledItem label={t('nav.loads')} icon={sidebarIcon('loads')} />
+        <DisabledItem label={t('nav.alerts')} icon={sidebarIcon('alerts')} />
+        <NavLink
+          href={routeHref({ kind: 'catalogs' })}
+          onClick={go({ kind: 'catalogs' })}
+          label={t('nav.catalogs')}
+          icon={sidebarIcon('catalogs')}
+          active={route.kind === 'catalogs' || route.kind === 'catalog'}
+        />
         {data && (route.kind === 'catalogs' || route.kind === 'catalog') ? (
           <div className="sidebar-subnav">
             {CATALOG_ROUTES.map((catalog) => (
@@ -1855,15 +1966,23 @@ function Sidebar({
                 href={routeHref({ kind: 'catalog', catalog: catalog.catalog })}
                 onClick={go({ kind: 'catalog', catalog: catalog.catalog })}
                 className={`sidebar-subnav-item ${route.kind === 'catalog' && route.catalog === catalog.catalog ? 'active' : ''}`}
+                aria-label={t(catalog.labelKey)}
+                title={t(catalog.labelKey)}
+                aria-current={route.kind === 'catalog' && route.catalog === catalog.catalog ? 'page' : undefined}
               >
-                {t(catalog.labelKey)}
+                <span className="sidebar-nav-icon" aria-hidden="true">{sidebarIcon('catalog')}</span>
+                <span className="sidebar-nav-label">{t(catalog.labelKey)}</span>
               </a>
             ))}
           </div>
         ) : null}
-        <a href={routeHref({ kind: 'reports' })} onClick={go({ kind: 'reports' })} className={`sidebar-nav-item ${route.kind === 'reports' || route.kind === 'verdict-summary' || route.kind === 'cost-summary' ? 'active' : ''}`}>
-          {t('nav.reports')}
-        </a>
+        <NavLink
+          href={routeHref({ kind: 'reports' })}
+          onClick={go({ kind: 'reports' })}
+          label={t('nav.reports')}
+          icon={sidebarIcon('reports')}
+          active={route.kind === 'reports' || route.kind === 'verdict-summary' || route.kind === 'cost-summary'}
+        />
         {data && (route.kind === 'reports' || route.kind === 'verdict-summary' || route.kind === 'cost-summary') ? (
           <div className="sidebar-subnav">
             {REPORT_ROUTES.map((report) => (
@@ -1872,23 +1991,27 @@ function Sidebar({
                 href={routeHref({ kind: report.kind })}
                 onClick={go({ kind: report.kind })}
                 className={`sidebar-subnav-item ${route.kind === report.kind ? 'active' : ''}`}
+                aria-label={t(report.labelKey)}
+                title={t(report.labelKey)}
+                aria-current={route.kind === report.kind ? 'page' : undefined}
               >
-                {t(report.labelKey)}
+                <span className="sidebar-nav-icon" aria-hidden="true">{sidebarIcon('reports')}</span>
+                <span className="sidebar-nav-label">{t(report.labelKey)}</span>
               </a>
             ))}
           </div>
         ) : null}
       </nav>
       <div className="sidebar-footer">
-        <span className="sidebar-nav-item sidebar-nav-disabled">{t('nav.new_project')}</span>
-        <a
+        <DisabledItem label={t('nav.new_project')} icon={sidebarIcon('new-project')} />
+        <NavLink
           href={routeHref({ kind: 'about' })}
           onClick={go({ kind: 'about' })}
-          className={`sidebar-nav-item ${route.kind === 'about' ? 'active' : ''}`}
-        >
-          {t('nav.about')}
-        </a>
-      <span className="sidebar-footer-stamp">{typeof __BUILD_INFO__ !== 'undefined' ? __BUILD_INFO__ : ''}</span>
+          label={t('nav.about')}
+          icon={sidebarIcon('about')}
+          active={route.kind === 'about'}
+        />
+        <span className="sidebar-footer-stamp">{typeof __BUILD_INFO__ !== 'undefined' ? __BUILD_INFO__ : ''}</span>
       </div>
     </aside>
   );
@@ -1923,16 +2046,20 @@ function AppFrame({
   data,
   locationSlug,
   isMobileSidebarOpen,
+  isSidebarCollapsed,
   openMobileSidebar,
   closeMobileSidebar,
+  toggleSidebarCollapsed,
   children,
 }: {
   route: Route;
   data: DigitalTwinExport | null;
   locationSlug: string;
   isMobileSidebarOpen: boolean;
+  isSidebarCollapsed: boolean;
   openMobileSidebar: () => void;
   closeMobileSidebar: () => void;
+  toggleSidebarCollapsed: () => void;
   children: React.ReactNode;
 }) {
   const { t } = useTranslation();
@@ -1947,7 +2074,14 @@ function AppFrame({
           aria-label={t('ui.close_menu')}
         />
       ) : null}
-      <Sidebar route={route} data={data} isMobileOpen={isMobileSidebarOpen} onNavigate={closeMobileSidebar} />
+      <Sidebar
+        route={route}
+        data={data}
+        isMobileOpen={isMobileSidebarOpen}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={toggleSidebarCollapsed}
+        onNavigate={closeMobileSidebar}
+      />
       <main className="app-shell">
         <div className="app-shell-header">
           <button
@@ -6117,6 +6251,7 @@ function AppContent() {
   const [route, setRoute] = useState<Route>(() => parseAppUrl(window.location.pathname, window.location.hash).route);
   const { language, setLanguage, t } = useTranslation();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = usePersistentState('offgridos:sidebar-collapsed', false);
   useLocalStorageRevision();
 
   async function refreshProjectData(): Promise<void> {
@@ -6148,6 +6283,10 @@ function AppContent() {
   }, [language, setLanguage]);
 
   const locationSlug = data ? getLocationSlug(data) : 'project';
+
+  const toggleSidebarCollapsed = () => {
+    setIsSidebarCollapsed((current) => !current);
+  };
 
   useEffect(() => {
     setIsMobileSidebarOpen(false);
@@ -6205,8 +6344,10 @@ function AppContent() {
         data={data}
         locationSlug="project"
         isMobileSidebarOpen={isMobileSidebarOpen}
+        isSidebarCollapsed={isSidebarCollapsed}
         openMobileSidebar={() => setIsMobileSidebarOpen(true)}
         closeMobileSidebar={() => setIsMobileSidebarOpen(false)}
+        toggleSidebarCollapsed={toggleSidebarCollapsed}
       >
           <section className="panel error-panel">
             <p>{error}</p>
@@ -6223,8 +6364,10 @@ function AppContent() {
         data={data}
         locationSlug="project"
         isMobileSidebarOpen={isMobileSidebarOpen}
+        isSidebarCollapsed={isSidebarCollapsed}
         openMobileSidebar={() => setIsMobileSidebarOpen(true)}
         closeMobileSidebar={() => setIsMobileSidebarOpen(false)}
+        toggleSidebarCollapsed={toggleSidebarCollapsed}
       >
           <section className="panel error-panel">
             <p>{t('app.loading')}</p>
@@ -6281,8 +6424,10 @@ function AppContent() {
         data={data}
         locationSlug={locationSlug}
         isMobileSidebarOpen={isMobileSidebarOpen}
+        isSidebarCollapsed={isSidebarCollapsed}
         openMobileSidebar={() => setIsMobileSidebarOpen(true)}
         closeMobileSidebar={() => setIsMobileSidebarOpen(false)}
+        toggleSidebarCollapsed={toggleSidebarCollapsed}
       >
           <SurfaceDetail
             key={`surface:${route.surfaceId}`}
@@ -6300,8 +6445,10 @@ function AppContent() {
       data={data}
       locationSlug={locationSlug}
       isMobileSidebarOpen={isMobileSidebarOpen}
+      isSidebarCollapsed={isSidebarCollapsed}
       openMobileSidebar={() => setIsMobileSidebarOpen(true)}
       closeMobileSidebar={() => setIsMobileSidebarOpen(false)}
+      toggleSidebarCollapsed={toggleSidebarCollapsed}
     >
         {route.kind === 'location' ? (
           <LocationPage {...context} />
