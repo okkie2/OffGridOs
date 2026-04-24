@@ -2,6 +2,11 @@
 
 ## 2026-04-24
 
+- Expanded the `Panel types` table to full page width and moved the editor below the table so browsing and CRUD stay available without a split layout.
+- Turned the `Panel types` catalog into the first real table-based browse page with search, row highlighting, and source links while keeping the editor pane intact.
+- Removed the helper sentences from the `Catalogs` and `Reports` landing rows and switched the navigation actions to fixed-width links.
+- Reduced the `Catalogs` and `Reports` landing pages one step further into plain list rows with the button and description on a single line.
+- Simplified the `Catalogs` and `Reports` landing pages into plain list-style menus with one row per destination and short helper copy.
 - Searched for remaining catalog price sources, set `Eurener 280W` to a zero-price placeholder with no source URL, and refreshed the checked-in digital-twin export so it matches the updated database.
 - Reworked the `Verdict summary` and `Cost summary` pages into table-first reports so the overview, battery, inverter, and pricing sections follow the documented read-only report layout.
 - Corrected the Victron `Multi RS Solar 48/6000/100-450/100` MPPT catalog entry from `12 A` to `13 A` max PV input current per tracker so valid 6-panel strings no longer fail the input-current check.
