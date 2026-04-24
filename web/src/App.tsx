@@ -1781,7 +1781,7 @@ function routeHref(route: Route, options?: { language?: LanguageCode; locationSl
   );
 }
 
-function sidebarIcon(kind: 'location' | 'surface' | 'solar-yield' | 'battery-array' | 'inverter-array' | 'loads' | 'alerts' | 'catalogs' | 'catalog' | 'reports' | 'about' | 'new-project'): string {
+function sidebarIcon(kind: 'location' | 'surface' | 'solar-yield' | 'battery-array' | 'inverter-array' | 'loads' | 'alerts' | 'catalogs' | 'catalog' | 'reports' | 'report-verdict' | 'report-cost' | 'about' | 'new-project'): string {
   switch (kind) {
     case 'location':
       return '⌂';
@@ -1790,18 +1790,22 @@ function sidebarIcon(kind: 'location' | 'surface' | 'solar-yield' | 'battery-arr
     case 'solar-yield':
       return '☼';
     case 'battery-array':
-      return '▣';
+      return '▮';
     case 'inverter-array':
-      return '⚡';
+      return '▭';
     case 'loads':
-      return 'Σ';
+      return '⚙';
     case 'alerts':
       return '⚠';
     case 'catalogs':
     case 'catalog':
       return '▤';
     case 'reports':
-      return '≣';
+      return '☰';
+    case 'report-verdict':
+      return '⚖';
+    case 'report-cost':
+      return '€';
     case 'about':
       return 'ⓘ';
     case 'new-project':
@@ -1995,7 +1999,7 @@ function Sidebar({
                 title={t(report.labelKey)}
                 aria-current={route.kind === report.kind ? 'page' : undefined}
               >
-                <span className="sidebar-nav-icon" aria-hidden="true">{sidebarIcon('reports')}</span>
+                <span className="sidebar-nav-icon" aria-hidden="true">{sidebarIcon('report-verdict')}</span>
                 <span className="sidebar-nav-label">{t(report.labelKey)}</span>
               </a>
             ))}
