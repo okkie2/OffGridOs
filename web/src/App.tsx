@@ -2934,7 +2934,7 @@ type PageContext = {
   refreshProjectData: () => Promise<void>;
 };
 
-function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageContext) {
+function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refreshProjectData }: PageContext) {
   const { t } = useTranslation();
   const storagePrefix = `${data.project.project_id}:location`;
   const defaultLocationName = data.project.location?.title ?? '18Mad Boerderij';
@@ -2966,6 +2966,36 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
   const numericLatitude = Number(latitude);
   const numericLongitude = Number(longitude);
   const hasMapCoordinates = Number.isFinite(numericLatitude) && Number.isFinite(numericLongitude);
+  const locationDisplayName = title.trim() || defaultLocationName;
+  const locationCountry = country.trim() || t('location.not_set');
+  const coordinateDisplay = `${numericLatitude.toLocaleString('en-US', { maximumFractionDigits: 4 })}, ${numericLongitude.toLocaleString('en-US', { maximumFractionDigits: 4 })}`;
+  const surfaceYieldRows = localSurfaceSummaries.map((surface) => {
+    const yieldRows = estimateFaceYieldTable({
+      installedWp: surface.installed_wp,
+      azimuthDeg: surface.orientation_deg,
+      tiltDeg: surface.tilt_deg,
+      latitudeDeg: Number.isFinite(numericLatitude) && latitude.trim() !== ''
+        ? numericLatitude
+        : defaultLatitude,
+    });
+    const annualKwh = Number(yieldRows.reduce((sum, row) => sum + row.monthlyKwh, 0).toFixed(1));
+    return { surface, yieldRows, annualKwh };
+  });
+  const monthlyTotals = MONTH_KEYS.map((month) => ({
+    month,
+    monthlyKwh: Number(surfaceYieldRows.reduce((sum, item) => {
+      const match = item.yieldRows.find((row) => row.month === month);
+      return sum + (match?.monthlyKwh ?? 0);
+    }, 0).toFixed(1)),
+  }));
+  const totalAnnualKwh = Number(surfaceYieldRows.reduce((sum, item) => sum + item.annualKwh, 0).toFixed(1));
+  const totalAverageDailyKwh = Number((totalAnnualKwh / 365).toFixed(2));
+  const bestMonth = surfaceYieldRows.length > 0
+    ? monthlyTotals.reduce((best, current) => (current.monthlyKwh > best.monthlyKwh ? current : best), monthlyTotals[0] ?? { month: 'january', monthlyKwh: 0 })
+    : null;
+  const worstMonth = surfaceYieldRows.length > 0
+    ? monthlyTotals.reduce((worst, current) => (current.monthlyKwh < worst.monthlyKwh ? current : worst), monthlyTotals[0] ?? { month: 'january', monthlyKwh: 0 })
+    : null;
 
   async function handleSaveLocation(photoOverride?: string | null) {
     const numericLatitude = Number(latitude);
@@ -3159,8 +3189,66 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
 
   return (
     <>
-      <div className="topbar">
-        <h1 className="topbar-title">{title.trim() || defaultLocationName}</h1>
+      <div className="detail-grid-2" style={{ marginBottom: 16 }}>
+        <section className="panel">
+          <div className="section-head">
+            <h2>{t('solar_yield.start_information.title')}</h2>
+            <p>{t('solar_yield.start_information.description')}</p>
+          </div>
+          <div className="hero-strip">
+            <SummaryCard
+              label={t('solar_yield.summary.latitude')}
+              value={numericLatitude.toLocaleString('en-US', { maximumFractionDigits: 4 })}
+            />
+            <SummaryCard label={t('solar_yield.summary.installed_pv')} value={formatWp(localTotalInstalledWp)} />
+            <SummaryCard label={t('solar_yield.summary.surfaces')} value={String(localSurfaceSummaries.length)} />
+            <SummaryCard label={t('solar_yield.summary.avg_daily_yield')} value={formatKwh(totalAverageDailyKwh)} />
+            <SummaryCard label={t('solar_yield.summary.annual_yield')} value={formatKwh(totalAnnualKwh)} />
+            <SummaryCard
+              label={t('solar_yield.summary.best_month')}
+              value={bestMonth ? getMonthLabel(bestMonth.month, t) : 'n/a'}
+              detail={bestMonth ? formatKwh(bestMonth.monthlyKwh) : undefined}
+            />
+            <SummaryCard
+              label={t('solar_yield.summary.worst_month')}
+              value={worstMonth ? getMonthLabel(worstMonth.month, t) : 'n/a'}
+              detail={worstMonth ? formatKwh(worstMonth.monthlyKwh) : undefined}
+            />
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="section-head">
+            <h2>{t('location.context.title')}</h2>
+            <p>{t('location.context.description')}</p>
+          </div>
+          <dl className="detail-stats compact-stats">
+            <div>
+              <dt>{t('location.name')}</dt>
+              <dd>{locationDisplayName}</dd>
+            </div>
+            <div>
+              <dt>{t('location.country')}</dt>
+              <dd>{locationCountry}</dd>
+            </div>
+            <div>
+              <dt>{t('location.latitude')}</dt>
+              <dd>{numericLatitude.toLocaleString('en-US', { maximumFractionDigits: 4 })}</dd>
+            </div>
+            <div>
+              <dt>{t('location.longitude')}</dt>
+              <dd>{numericLongitude.toLocaleString('en-US', { maximumFractionDigits: 4 })}</dd>
+            </div>
+            <div>
+              <dt>{t('location.surfaces.title')}</dt>
+              <dd>{localSurfaceSummaries.length}</dd>
+            </div>
+            <div>
+              <dt>{t('location.coordinates')}</dt>
+              <dd>{coordinateDisplay}</dd>
+            </div>
+          </dl>
+        </section>
       </div>
 
       <div className="detail-grid" style={{ marginBottom: 16 }}>
