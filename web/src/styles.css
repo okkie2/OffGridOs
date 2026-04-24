@@ -464,6 +464,14 @@ h1, h2, h3, p, dl, dd, dt {
   color: var(--text);
 }
 
+.page-header-context {
+  margin: 0;
+  max-width: 58ch;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
 /* ── Panels ── */
 
 .panel {
@@ -501,8 +509,10 @@ h1, h2, h3, p, dl, dd, dt {
 }
 
 .menu-row-action {
-  width: 220px;
-  flex: 0 0 220px;
+  width: 280px;
+  flex: 0 0 280px;
+  justify-content: center;
+  white-space: nowrap;
 }
 
 /* ── Hero / summary ── */
@@ -1041,12 +1051,68 @@ h1, h2, h3, p, dl, dd, dt {
   white-space: nowrap;
 }
 
+.catalog-table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.catalog-table th:first-child,
+.catalog-table td:first-child {
+  width: 41%;
+}
+
+.catalog-table th:nth-child(2),
+.catalog-table td:nth-child(2) {
+  width: 12%;
+}
+
+.catalog-table th:nth-child(3),
+.catalog-table td:nth-child(3) {
+  width: 12%;
+}
+
+.catalog-table th:nth-child(4),
+.catalog-table td:nth-child(4) {
+  width: 13%;
+}
+
+.catalog-table th:nth-child(5),
+.catalog-table td:nth-child(5) {
+  width: 12%;
+}
+
+.catalog-table th:last-child,
+.catalog-table td:last-child {
+  width: 10%;
+  text-align: center;
+}
+
+.catalog-table td:first-child {
+  white-space: normal;
+}
+
+.catalog-table td:nth-child(4),
+.catalog-table td:nth-child(5) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.catalog-table td:last-child .button-sm {
+  width: 100%;
+  min-width: 0;
+  padding-left: 8px;
+  padding-right: 8px;
+  white-space: nowrap;
+}
+
 .yield-table thead th {
   background: var(--surface-low);
   font-family: 'Inter', 'Segoe UI', sans-serif;
   font-size: 0.76rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+  white-space: normal;
+  line-height: 1.2;
 }
 
 .yield-table tbody th {
@@ -1459,6 +1525,32 @@ h1, h2, h3, p, dl, dd, dt {
 
 .compact-stats {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.solar-yield-context-hero {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(0, 201, 160, 0.08), rgba(0, 201, 160, 0.03));
+  border: 1px solid rgba(0, 201, 160, 0.16);
+}
+
+.solar-yield-context-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--text);
+}
+
+.solar-yield-context-coordinates {
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+
+.solar-yield-context-stats {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 /* ── MPPT panel ── */

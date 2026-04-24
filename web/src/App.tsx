@@ -1356,9 +1356,9 @@ function evaluateBatteryArraySizing(
 
   if (estimatedDaysToFull != null && estimatedDaysToFull < 1) {
     reasons.push(`In ${estimatedDailyYieldKwh.toLocaleString('en-US', { maximumFractionDigits: 1 })} kWh/day conditions the bank could fill in about ${estimatedDaysToFull} day.`);
-    reasons.push('This points to a relatively small battery array for the selected month.');
+    reasons.push('This points to a small battery array for the selected month.');
     return {
-      headline: 'Battery array is relatively small',
+      headline: 'Battery array is small',
       tone: 'warn',
       estimatedChargeCurrentA,
       estimatedHoursToFull,
@@ -1368,9 +1368,9 @@ function evaluateBatteryArraySizing(
 
   if (estimatedDaysToFull != null && estimatedDaysToFull > 4) {
     reasons.push(`In ${estimatedDailyYieldKwh.toLocaleString('en-US', { maximumFractionDigits: 1 })} kWh/day conditions the bank would need about ${estimatedDaysToFull} days to fill.`);
-    reasons.push('This points to a relatively large battery array for the selected month.');
+    reasons.push('This points to a large battery array for the selected month.');
     return {
-      headline: 'Battery array is relatively large',
+      headline: 'Battery array is large',
       tone: 'cool',
       estimatedChargeCurrentA,
       estimatedHoursToFull,
@@ -1384,9 +1384,9 @@ function evaluateBatteryArraySizing(
   if (estimatedHoursToFull != null) {
     reasons.push(`At peak upstream power the bank would fill in about ${estimatedHoursToFull} hours.`);
   }
-  reasons.push('The battery array is in a reasonable range for the selected month and current upstream MPPT charging power.');
+  reasons.push('The battery array fits the selected month and upstream MPPT charging power.');
   return {
-    headline: 'Battery array is in a reasonable range',
+    headline: 'Battery array in range',
     tone: 'good',
     estimatedChargeCurrentA,
     estimatedHoursToFull,
@@ -1427,8 +1427,8 @@ function evaluateBatteryRefillRule(input: {
 
   const refillRatio = Number((input.sunniestMonthDailyYieldKwh / requiredRefillKwh).toFixed(2));
   const reasons: string[] = [
-    `20% to 80% refill needs about ${requiredRefillKwh.toLocaleString('en-US', { maximumFractionDigits: 2 })} kWh.`,
-    `Best-month daily solar is estimated at ${input.sunniestMonthDailyYieldKwh.toLocaleString('en-US', { maximumFractionDigits: 2 })} kWh/day.`,
+    `20% to 80% refill needs ${requiredRefillKwh.toLocaleString('en-US', { maximumFractionDigits: 2 })} kWh.`,
+    `Best-month daily estimate is ${input.sunniestMonthDailyYieldKwh.toLocaleString('en-US', { maximumFractionDigits: 2 })} kWh/day.`,
   ];
 
   if (refillRatio < 0.9) {
@@ -1443,9 +1443,9 @@ function evaluateBatteryRefillRule(input: {
   }
 
   if (refillRatio > 1.5) {
-    reasons.push('The battery array is relatively small compared with the best-month daily solar yield.');
+    reasons.push('The battery array is small compared with the best-month daily solar yield.');
     return {
-      headline: 'Battery array is relatively small',
+      headline: 'Battery array is small',
       tone: 'warn',
       requiredRefillKwh,
       refillRatio,
@@ -1537,11 +1537,11 @@ function getBatteryEvaluationCopy(input: {
     };
   }
 
-  if (batteryRefillRule.headline === 'Battery array is relatively small') {
+  if (batteryRefillRule.headline === 'Battery array is small') {
     return {
-      headline: t('battery.evaluation.headline.relatively_small'),
+      headline: t('battery.evaluation.headline.small'),
       tone: batteryRefillRule.tone,
-      reasons: [...reasons, t('battery.evaluation.reason.relatively_small')],
+      reasons: [...reasons, t('battery.evaluation.reason.small')],
     };
   }
 
@@ -1831,10 +1831,35 @@ function Sidebar({
   onNavigate: () => void;
 }) {
   const { t } = useTranslation();
+  const [openSections, setOpenSections] = useState<{ location: boolean; catalogs: boolean; reports: boolean }>({
+    location: route.kind === 'location' || route.kind === 'surface',
+    catalogs: route.kind === 'catalogs' || route.kind === 'catalog',
+    reports: route.kind === 'reports' || route.kind === 'verdict-summary' || route.kind === 'cost-summary',
+  });
+
+  useEffect(() => {
+    setOpenSections((current) => ({
+      location: current.location || route.kind === 'location' || route.kind === 'surface',
+      catalogs: current.catalogs || route.kind === 'catalogs' || route.kind === 'catalog',
+      reports: current.reports || route.kind === 'reports' || route.kind === 'verdict-summary' || route.kind === 'cost-summary',
+    }));
+  }, [route.kind]);
+
   const go = (next: Route) => (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
     navigateTo(next);
     onNavigate();
+  };
+  const toggleSection = (section: keyof typeof openSections) => {
+    setOpenSections((current) => ({ ...current, [section]: !current[section] }));
+  };
+  const sectionClick = (section: keyof typeof openSections, next: Route) => (event: MouseEvent<HTMLAnchorElement>) => {
+    if (isCollapsed) {
+      event.preventDefault();
+      toggleSection(section);
+      return;
+    }
+    go(next)(event);
   };
   const labelFor = (label: string) => (isCollapsed ? label : undefined);
 
@@ -1918,14 +1943,14 @@ function Sidebar({
       <nav className="sidebar-nav">
         <NavLink
           href={routeHref({ kind: 'location' })}
-          onClick={go({ kind: 'location' })}
+          onClick={sectionClick('location', { kind: 'location' })}
           label={t('nav.location')}
           icon={sidebarIcon('location')}
           active={route.kind === 'location' || route.kind === 'surface'}
           hasChildren
-          childOpen={route.kind === 'location' || route.kind === 'surface'}
+          childOpen={openSections.location || route.kind === 'location' || route.kind === 'surface'}
         />
-        {data && (route.kind === 'location' || route.kind === 'surface') ? (
+        {data && (openSections.location || route.kind === 'location' || route.kind === 'surface') ? (
           <div className="sidebar-subnav">
             {data.entities.surfaces.map((surface) => (
               <a
@@ -1967,14 +1992,14 @@ function Sidebar({
         <DisabledItem label={t('nav.loads')} icon={sidebarIcon('loads')} />
         <NavLink
           href={routeHref({ kind: 'catalogs' })}
-          onClick={go({ kind: 'catalogs' })}
+          onClick={sectionClick('catalogs', { kind: 'catalogs' })}
           label={t('nav.catalogs')}
           icon={sidebarIcon('catalogs')}
           active={route.kind === 'catalogs' || route.kind === 'catalog'}
           hasChildren
-          childOpen={route.kind === 'catalogs' || route.kind === 'catalog'}
+          childOpen={openSections.catalogs || route.kind === 'catalogs' || route.kind === 'catalog'}
         />
-        {data && (route.kind === 'catalogs' || route.kind === 'catalog') ? (
+        {data && (openSections.catalogs || route.kind === 'catalogs' || route.kind === 'catalog') ? (
           <div className="sidebar-subnav">
             {CATALOG_ROUTES.map((catalog) => (
               <a
@@ -1994,14 +2019,14 @@ function Sidebar({
         ) : null}
         <NavLink
           href={routeHref({ kind: 'reports' })}
-          onClick={go({ kind: 'reports' })}
+          onClick={sectionClick('reports', { kind: 'reports' })}
           label={t('nav.reports')}
           icon={sidebarIcon('reports')}
           active={route.kind === 'reports' || route.kind === 'verdict-summary' || route.kind === 'cost-summary'}
           hasChildren
-          childOpen={route.kind === 'reports' || route.kind === 'verdict-summary' || route.kind === 'cost-summary'}
+          childOpen={openSections.reports || route.kind === 'reports' || route.kind === 'verdict-summary' || route.kind === 'cost-summary'}
         />
-        {data && (route.kind === 'reports' || route.kind === 'verdict-summary' || route.kind === 'cost-summary') ? (
+        {data && (openSections.reports || route.kind === 'reports' || route.kind === 'verdict-summary' || route.kind === 'cost-summary') ? (
           <div className="sidebar-subnav">
             {REPORT_ROUTES.map((report) => (
               <a
@@ -2094,23 +2119,70 @@ function getRouteTitle(route: Route, data: DigitalTwinExport | null, t: (key: Tr
   }
 }
 
+function getRouteContext(route: Route, data: DigitalTwinExport | null, t: (key: TranslationKey, variables?: Record<string, string | number>) => string): string {
+  switch (route.kind) {
+    case 'location':
+      return t('page.location.context');
+    case 'solar-yield':
+      return t('page.solar_yield.context');
+    case 'battery-array':
+      return t('page.battery_array.context');
+    case 'inverter-array':
+      return t('page.inverter_array.context');
+    case 'catalogs':
+      return t('page.catalogs.context');
+    case 'reports':
+      return t('page.reports.context');
+    case 'about':
+      return t('page.about.context');
+    case 'catalog': {
+      const catalog = CATALOG_ROUTES.find((item) => item.catalog === route.catalog);
+      if (!catalog) return t('page.catalogs.context');
+      switch (catalog.catalog) {
+        case 'panel-types':
+          return t('page.catalog.panel_types.context');
+        case 'mppt-types':
+          return t('page.catalog.mppt_types.context');
+        case 'battery-types':
+          return t('page.catalog.battery_types.context');
+        case 'inverter-types':
+          return t('page.catalog.inverter_types.context');
+      }
+    }
+    case 'verdict-summary':
+      return t('page.report.verdict_summary.context');
+    case 'cost-summary':
+      return t('page.report.cost_summary.context');
+    case 'surface':
+      return t('page.surface.context');
+    default:
+      return data ? t('page.location.context') : t('page.location.context');
+  }
+}
+
 function PageHeader({
   route,
   data,
   locationSlug,
+  title,
+  context,
 }: {
   route: Route;
   data: DigitalTwinExport | null;
   locationSlug: string;
+  title?: string;
+  context?: string;
 }) {
   const { t } = useTranslation();
-  const title = getRouteTitle(route, data, t);
+  const resolvedTitle = title ?? getRouteTitle(route, data, t);
+  const resolvedContext = context ?? getRouteContext(route, data, t);
 
   return (
     <div className="page-header">
       <div className="page-header-main">
         <Breadcrumbs route={route} data={data} />
-        <h2 className="topbar-title">{title}</h2>
+        <h2 className="topbar-title">{resolvedTitle}</h2>
+        {resolvedContext ? <p className="page-header-context">{resolvedContext}</p> : null}
       </div>
       <AppLanguageControl route={route} locationSlug={locationSlug} />
     </div>
@@ -2170,9 +2242,7 @@ function AppFrame({
             <span aria-hidden="true">☰</span>
           </button>
         </div>
-        {route.kind !== 'surface' ? (
-          <PageHeader route={route} data={data} locationSlug={locationSlug} />
-        ) : null}
+        {route.kind !== 'surface' ? <PageHeader route={route} data={data} locationSlug={locationSlug} /> : null}
         {children}
       </main>
     </div>
@@ -2336,11 +2406,18 @@ function SurfaceDetail({
 
   if (!surface) {
     return (
-      <section className="panel error-panel">
-        <Breadcrumbs route={{ kind: 'surface', surfaceId }} data={data} />
-        <h1>{t('surface.not_found.title')}</h1>
-        <p>{t('surface.not_found.description', { surfaceId })}</p>
-      </section>
+      <>
+        <PageHeader
+          route={{ kind: 'surface', surfaceId }}
+          data={data}
+          locationSlug={getLocationSlug(data)}
+          title={t('surface.not_found.title')}
+          context={t('surface.not_found.description', { surfaceId })}
+        />
+        <section className="panel error-panel">
+          <p style={{ margin: 0 }}>{t('surface.not_found.description', { surfaceId })}</p>
+        </section>
+      </>
     );
   }
 
@@ -2564,14 +2641,20 @@ function SurfaceDetail({
   }
 
   return (
-    <section className="detail-shell">
+    <>
+      <PageHeader
+        route={{ kind: 'surface', surfaceId }}
+        data={data}
+        locationSlug={getLocationSlug(data)}
+        title={surface.name}
+        context={t('page.surface.context')}
+      />
+      <section className="detail-shell">
       <div className="detail-grid detail-intro-grid">
         <section className="panel panel-span-2 panel-with-actions">
-          <Breadcrumbs route={{ kind: 'surface', surfaceId }} data={data} />
           <div className="section-head">
             <h2>{t('surface.info.title')}</h2>
           </div>
-          <h1 className="detail-page-title">{surface.name}</h1>
           {surfaceSaveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{surfaceSaveError}</p> : null}
           {surfaceSaveMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{surfaceSaveMessage}</p> : null}
           <div className="roof-config-inline">
@@ -2996,8 +3079,8 @@ function SurfaceDetail({
           </table>
         </div>
       </section>
-
     </section>
+    </>
   );
 }
 
@@ -3282,68 +3365,6 @@ function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refr
 
   return (
     <>
-      <div className="detail-grid-2" style={{ marginBottom: 16 }}>
-        <section className="panel">
-          <div className="section-head">
-            <h2>{t('solar_yield.start_information.title')}</h2>
-            <p>{t('solar_yield.start_information.description')}</p>
-          </div>
-          <div className="hero-strip">
-            <SummaryCard
-              label={t('solar_yield.summary.latitude')}
-              value={numericLatitude.toLocaleString('en-US', { maximumFractionDigits: 4 })}
-            />
-            <SummaryCard label={t('solar_yield.summary.installed_pv')} value={formatWp(localTotalInstalledWp)} />
-            <SummaryCard label={t('solar_yield.summary.surfaces')} value={String(localSurfaceSummaries.length)} />
-            <SummaryCard label={t('solar_yield.summary.avg_daily_yield')} value={formatKwh(totalAverageDailyKwh)} />
-            <SummaryCard label={t('solar_yield.summary.annual_yield')} value={formatKwh(totalAnnualKwh)} />
-            <SummaryCard
-              label={t('solar_yield.summary.best_month')}
-              value={bestMonth ? getMonthLabel(bestMonth.month, t) : 'n/a'}
-              detail={bestMonth ? formatKwh(bestMonth.monthlyKwh) : undefined}
-            />
-            <SummaryCard
-              label={t('solar_yield.summary.worst_month')}
-              value={worstMonth ? getMonthLabel(worstMonth.month, t) : 'n/a'}
-              detail={worstMonth ? formatKwh(worstMonth.monthlyKwh) : undefined}
-            />
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="section-head">
-            <h2>{t('location.context.title')}</h2>
-            <p>{t('location.context.description')}</p>
-          </div>
-          <dl className="detail-stats compact-stats">
-            <div>
-              <dt>{t('location.name')}</dt>
-              <dd>{locationDisplayName}</dd>
-            </div>
-            <div>
-              <dt>{t('location.country')}</dt>
-              <dd>{locationCountry}</dd>
-            </div>
-            <div>
-              <dt>{t('location.latitude')}</dt>
-              <dd>{numericLatitude.toLocaleString('en-US', { maximumFractionDigits: 4 })}</dd>
-            </div>
-            <div>
-              <dt>{t('location.longitude')}</dt>
-              <dd>{numericLongitude.toLocaleString('en-US', { maximumFractionDigits: 4 })}</dd>
-            </div>
-            <div>
-              <dt>{t('location.surfaces.title')}</dt>
-              <dd>{localSurfaceSummaries.length}</dd>
-            </div>
-            <div>
-              <dt>{t('location.coordinates')}</dt>
-              <dd>{coordinateDisplay}</dd>
-            </div>
-          </dl>
-        </section>
-      </div>
-
       <div className="detail-grid" style={{ marginBottom: 16 }}>
         <section className="panel" style={{ gridColumn: 'span 2' }}>
           <div className="section-head">
@@ -3654,6 +3675,13 @@ function SolarYieldPage({
 
   const totalAnnualKwh = Number(surfaceYieldRows.reduce((sum, item) => sum + item.annualKwh, 0).toFixed(1));
   const totalAverageDailyKwh = Number((totalAnnualKwh / 365).toFixed(2));
+  const totalMaxDailyYieldMonth = monthlyTotals.length > 0
+    ? monthlyTotals.reduce((best, current) => (current.averageDailyKwh > best.averageDailyKwh ? current : best), monthlyTotals[0])
+    : null;
+  const totalMinDailyYieldMonth = monthlyTotals.length > 0
+    ? monthlyTotals.reduce((worst, current) => (current.averageDailyKwh < worst.averageDailyKwh ? current : worst), monthlyTotals[0])
+    : null;
+  const totalPanelCount = localSurfaceSummaries.reduce((sum, surface) => sum + surface.panel_count, 0);
 
   return (
     <>
@@ -3662,23 +3690,41 @@ function SolarYieldPage({
           <section className="panel panel-span-2">
             <div className="section-head">
               <h2>{t('solar_yield.start_information.title')}</h2>
-              <p>{t('solar_yield.start_information.description')}</p>
             </div>
             <div className="hero-strip">
               <SummaryCard
-                label={t('solar_yield.summary.location')}
-                value={getLocationDisplayName(data, t)}
-                detail={data.project.location?.country ?? t('solar_yield.no_country')}
+                label={t('solar_yield.summary.total_max_avg_daily_yield')}
+                value={totalMaxDailyYieldMonth ? formatDailyYield(totalMaxDailyYieldMonth.averageDailyKwh) : 'n/a'}
+                detail={totalMaxDailyYieldMonth ? getMonthLabel(totalMaxDailyYieldMonth.month, t) : undefined}
               />
               <SummaryCard
-                label={t('solar_yield.summary.latitude')}
-                value={effectiveLatitude.toLocaleString('en-US', { maximumFractionDigits: 4 })}
+                label={t('solar_yield.summary.total_min_avg_daily_yield')}
+                value={totalMinDailyYieldMonth ? formatDailyYield(totalMinDailyYieldMonth.averageDailyKwh) : 'n/a'}
+                detail={totalMinDailyYieldMonth ? getMonthLabel(totalMinDailyYieldMonth.month, t) : undefined}
               />
-              <SummaryCard label={t('solar_yield.summary.surfaces')} value={String(localSurfaceSummaries.length)} />
               <SummaryCard label={t('solar_yield.summary.installed_pv')} value={formatWp(localTotalInstalledWp)} />
-              <SummaryCard label={t('solar_yield.summary.avg_daily_yield')} value={formatKwh(totalAverageDailyKwh)} />
-              <SummaryCard label={t('solar_yield.summary.annual_yield')} value={formatKwh(totalAnnualKwh)} />
+              <SummaryCard label={t('solar_yield.summary.total_panels')} value={String(totalPanelCount)} />
             </div>
+          </section>
+
+          <section className="panel">
+            <div className="section-head">
+              <h2>{t('solar_yield.context.title')}</h2>
+            </div>
+            <dl className="detail-stats compact-stats solar-yield-context-stats">
+              <div>
+                <dt>{t('location.surfaces.title')}</dt>
+                <dd>{localSurfaceSummaries.length}</dd>
+              </div>
+              <div>
+                <dt>{t('solar_yield.summary.avg_daily_yield')}</dt>
+                <dd>{formatKwh(totalAverageDailyKwh)}</dd>
+              </div>
+              <div>
+                <dt>{t('solar_yield.summary.annual_yield')}</dt>
+                <dd>{formatKwh(totalAnnualKwh)}</dd>
+              </div>
+            </dl>
           </section>
         </div>
 
@@ -4824,38 +4870,80 @@ function BatteryCatalogPage({
         </div>
       </section>
 
-      <section className="detail-grid">
+      <section className="detail-shell">
         <section className="panel">
           <div className="section-head">
             <h2>{t('catalog.ui.entries_title')}</h2>
             <p>{t('catalog.ui.entries_description', { item: t('catalog.entry.battery_type') })}</p>
           </div>
-          <div className="stack" style={{ gap: 8 }}>
-            <button type="button" className="button button-secondary" onClick={startAddNew}>{t('catalog.ui.add_item', { item: t('catalog.entry.battery_type') })}</button>
-            <div className="catalog-list">
-              {data.entities.battery_types.map((battery) => (
-                <div
-                  key={battery.battery_type_id}
-                  className={`catalog-card ${selectedBatteryTypeId === battery.battery_type_id ? 'active' : ''}`}
-                >
-                  <strong>{battery.model}</strong>
-                  <span>{battery.battery_type_id}</span>
-                  <span>{battery.capacity_kwh} kWh · {battery.nominal_voltage} V · {battery.cooling}</span>
-                  <div className="button-row button-row-start">
-                    <button
-                      type="button"
-                      className="button button-secondary button-sm"
+          <div className="stack" style={{ gap: 12 }}>
+            <div className="button-row button-row-between">
+              <button type="button" className="button button-secondary" onClick={startAddNew}>
+                {t('catalog.ui.add_item', { item: t('catalog.entry.battery_type') })}
+              </button>
+            </div>
+            <div className="yield-table-wrap">
+              <table className="yield-table catalog-table">
+                <thead>
+                  <tr>
+                    <th>{t('catalog.field.model')}</th>
+                    <th>{t('catalog.stat.capacity')}</th>
+                    <th>{t('catalog.stat.voltage')}</th>
+                    <th>{t('catalog.stat.price')}</th>
+                    <th>{t('catalog.ui.source')}</th>
+                    <th>{t('common.edit')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.entities.battery_types.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="catalog-table-empty">
+                        {t('catalog.ui.no_entries')}
+                      </td>
+                    </tr>
+                  ) : data.entities.battery_types.map((battery) => (
+                    <tr
+                      key={battery.battery_type_id}
+                      className={`catalog-table-row ${selectedBatteryTypeId === battery.battery_type_id ? 'catalog-table-row-active' : ''}`}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => {
                         setSelectedBatteryTypeId(battery.battery_type_id);
                         setSaveError(null);
                         setSaveMessage(null);
                       }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          setSelectedBatteryTypeId(battery.battery_type_id);
+                          setSaveError(null);
+                          setSaveMessage(null);
+                        }
+                      }}
                     >
-                      {t('common.edit')}
-                    </button>
-                  </div>
-                </div>
-              ))}
+                      <td>{battery.model}</td>
+                      <td>{battery.capacity_kwh} kWh</td>
+                      <td>{battery.nominal_voltage} V</td>
+                      <td>{renderPrice(battery.price, battery.price_source_url)}</td>
+                      <td>{battery.price_source_url ? <a className="price-link" href={battery.price_source_url} target="_blank" rel="noreferrer">{formatPriceSourceName(battery.price_source_url) ?? t('common.open')}</a> : '—'}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="button button-secondary button-sm"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setSelectedBatteryTypeId(battery.battery_type_id);
+                            setSaveError(null);
+                            setSaveMessage(null);
+                          }}
+                        >
+                          {t('common.edit')}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </section>
@@ -5222,17 +5310,13 @@ function VerdictSummaryPage({
     <>
       <section className="hero">
         <div>
-          <p className="eyebrow">{t('ui.configuration_data')}</p>
-          <p className="hero-copy">
-            {t('report.verdict.hero')}
-          </p>
+          <h1>{t('page.report.verdict_summary')}</h1>
         </div>
       </section>
 
       <section className="panel" style={{ marginBottom: 20 }}>
         <div className="section-head">
           <h2>{t('page.report.verdict_summary')}</h2>
-          <p>{t('report.verdict.hero')}</p>
         </div>
         <dl className="detail-stats panel-spec-grid" style={{ marginTop: 0 }}>
           <div>
@@ -5652,16 +5736,9 @@ function PanelCatalogPage({
   const { t } = useTranslation();
   const [selectedPanelTypeId, setSelectedPanelTypeId] = useState(() => data.entities.panel_types[0]?.panel_type_id ?? '');
   const [draft, setDraft] = useState<PanelTypeDraft>(() => panelDraftFromType(data.entities.panel_types[0] ?? null));
-  const [search, setSearch] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-
-  const filteredPanels = data.entities.panel_types.filter((panel) => {
-    const query = search.trim().toLowerCase();
-    if (!query) return true;
-    return [panel.model, panel.panel_type_id].some((value) => value.toLowerCase().includes(query));
-  });
 
   const selectedPanel = selectedPanelTypeId
     ? data.entities.panel_types.find((item) => item.panel_type_id === selectedPanelTypeId) ?? null
@@ -5812,13 +5889,6 @@ function PanelCatalogPage({
               <button type="button" className="button button-secondary" onClick={startAddNew}>
                 {t('catalog.ui.add_item', { item: t('catalog.entry.panel_type') })}
               </button>
-              <label className="field" style={{ margin: 0, minWidth: 220, flex: '0 1 320px' }}>
-                <span>{t('common.search')}</span>
-                <input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                />
-              </label>
             </div>
             <div className="yield-table-wrap">
               <table className="yield-table catalog-table">
@@ -5827,18 +5897,18 @@ function PanelCatalogPage({
                     <th>{t('catalog.field.model')}</th>
                     <th>{t('catalog.stat.power')}</th>
                     <th>{t('catalog.stat.price')}</th>
-                    <th>{t('catalog.ui.price_source_url')}</th>
+                    <th>{t('catalog.ui.source')}</th>
                     <th>{t('common.edit')}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredPanels.length === 0 ? (
+                  {data.entities.panel_types.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="catalog-table-empty">
                         {t('catalog.ui.no_entries')}
                       </td>
                     </tr>
-                  ) : filteredPanels.map((panel) => (
+                  ) : data.entities.panel_types.map((panel) => (
                     <tr
                       key={panel.panel_type_id}
                       className={`catalog-table-row ${selectedPanelTypeId === panel.panel_type_id ? 'catalog-table-row-active' : ''}`}
@@ -6126,38 +6196,80 @@ function MpptCatalogPage({
         </div>
       </section>
 
-      <section className="detail-grid">
+      <section className="detail-shell">
         <section className="panel">
           <div className="section-head">
             <h2>{t('catalog.ui.entries_title')}</h2>
             <p>{t('catalog.ui.entries_description', { item: t('catalog.entry.mppt_type') })}</p>
           </div>
-          <div className="stack" style={{ gap: 8 }}>
-            <button type="button" className="button button-secondary" onClick={startAddNew}>{t('catalog.ui.add_item', { item: t('catalog.entry.mppt_type') })}</button>
-            <div className="catalog-list">
-              {data.entities.mppt_types.map((mppt) => (
-                <div
-                  key={mppt.mppt_type_id}
-                  className={`catalog-card ${selectedMpptTypeId === mppt.mppt_type_id ? 'active' : ''}`}
-                >
-                  <strong>{mppt.model}</strong>
-                  <span>{mppt.mppt_type_id}</span>
-                  <span>{mppt.tracker_count} trackers · {mppt.max_voc} V max</span>
-                  <div className="button-row button-row-start">
-                    <button
-                      type="button"
-                      className="button button-secondary button-sm"
+          <div className="stack" style={{ gap: 12 }}>
+            <div className="button-row button-row-between">
+              <button type="button" className="button button-secondary" onClick={startAddNew}>
+                {t('catalog.ui.add_item', { item: t('catalog.entry.mppt_type') })}
+              </button>
+            </div>
+            <div className="yield-table-wrap">
+              <table className="yield-table catalog-table">
+                <thead>
+                  <tr>
+                    <th>{t('catalog.field.model')}</th>
+                    <th>{t('catalog.stat.tracker_count')}</th>
+                    <th>{t('catalog.stat.max_pv_power')}</th>
+                    <th>{t('catalog.stat.price')}</th>
+                    <th>{t('catalog.ui.source')}</th>
+                    <th>{t('common.edit')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.entities.mppt_types.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="catalog-table-empty">
+                        {t('catalog.ui.no_entries')}
+                      </td>
+                    </tr>
+                  ) : data.entities.mppt_types.map((mppt) => (
+                    <tr
+                      key={mppt.mppt_type_id}
+                      className={`catalog-table-row ${selectedMpptTypeId === mppt.mppt_type_id ? 'catalog-table-row-active' : ''}`}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => {
                         setSelectedMpptTypeId(mppt.mppt_type_id);
                         setSaveError(null);
                         setSaveMessage(null);
                       }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          setSelectedMpptTypeId(mppt.mppt_type_id);
+                          setSaveError(null);
+                          setSaveMessage(null);
+                        }
+                      }}
                     >
-                      {t('common.edit')}
-                    </button>
-                  </div>
-                </div>
-              ))}
+                      <td>{mppt.model}</td>
+                      <td>{mppt.tracker_count}</td>
+                      <td>{mppt.max_pv_power} W</td>
+                      <td>{renderPrice(mppt.price, mppt.price_source_url)}</td>
+                      <td>{mppt.price_source_url ? <a className="price-link" href={mppt.price_source_url} target="_blank" rel="noreferrer">{formatPriceSourceName(mppt.price_source_url) ?? t('common.open')}</a> : '—'}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="button button-secondary button-sm"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setSelectedMpptTypeId(mppt.mppt_type_id);
+                            setSaveError(null);
+                            setSaveMessage(null);
+                          }}
+                        >
+                          {t('common.edit')}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </section>
@@ -6389,38 +6501,80 @@ function InverterCatalogPage({
         </div>
       </section>
 
-      <section className="detail-grid">
+      <section className="detail-shell">
         <section className="panel">
           <div className="section-head">
             <h2>{t('catalog.ui.entries_title')}</h2>
             <p>{t('catalog.ui.entries_description', { item: t('catalog.entry.inverter_type') })}</p>
           </div>
-          <div className="stack" style={{ gap: 8 }}>
-            <button type="button" className="button button-secondary" onClick={startAddNew}>{t('catalog.ui.add_item', { item: t('catalog.entry.inverter_type') })}</button>
-            <div className="catalog-list">
-              {data.entities.inverter_types.map((inverter) => (
-                <div
-                  key={inverter.inverter_id}
-                  className={`catalog-card ${selectedInverterTypeId === inverter.inverter_id ? 'active' : ''}`}
-                >
-                  <strong>{inverter.model}</strong>
-                  <span>{inverter.inverter_id}</span>
-                  <span>{inverter.input_voltage_v} V · {inverter.continuous_power_w} W</span>
-                  <div className="button-row button-row-start">
-                    <button
-                      type="button"
-                      className="button button-secondary button-sm"
+          <div className="stack" style={{ gap: 12 }}>
+            <div className="button-row button-row-between">
+              <button type="button" className="button button-secondary" onClick={startAddNew}>
+                {t('catalog.ui.add_item', { item: t('catalog.entry.inverter_type') })}
+              </button>
+            </div>
+            <div className="yield-table-wrap">
+              <table className="yield-table catalog-table">
+                <thead>
+                  <tr>
+                    <th>{t('catalog.field.model')}</th>
+                    <th>{t('catalog.stat.input_voltage_short')}</th>
+                    <th>{t('catalog.stat.continuous_power')}</th>
+                    <th>{t('catalog.stat.price')}</th>
+                    <th>{t('catalog.ui.source')}</th>
+                    <th>{t('common.edit')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.entities.inverter_types.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="catalog-table-empty">
+                        {t('catalog.ui.no_entries')}
+                      </td>
+                    </tr>
+                  ) : data.entities.inverter_types.map((inverter) => (
+                    <tr
+                      key={inverter.inverter_id}
+                      className={`catalog-table-row ${selectedInverterTypeId === inverter.inverter_id ? 'catalog-table-row-active' : ''}`}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => {
                         setSelectedInverterTypeId(inverter.inverter_id);
                         setSaveError(null);
                         setSaveMessage(null);
                       }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          setSelectedInverterTypeId(inverter.inverter_id);
+                          setSaveError(null);
+                          setSaveMessage(null);
+                        }
+                      }}
                     >
-                      {t('common.edit')}
-                    </button>
-                  </div>
-                </div>
-              ))}
+                      <td>{inverter.model}</td>
+                      <td>{inverter.input_voltage_v} V</td>
+                      <td>{inverter.continuous_power_w} W</td>
+                      <td>{renderPrice(inverter.price, inverter.price_source_url)}</td>
+                      <td>{inverter.price_source_url ? <a className="price-link" href={inverter.price_source_url} target="_blank" rel="noreferrer">{formatPriceSourceName(inverter.price_source_url) ?? t('common.open')}</a> : '—'}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="button button-secondary button-sm"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setSelectedInverterTypeId(inverter.inverter_id);
+                            setSaveError(null);
+                            setSaveMessage(null);
+                          }}
+                        >
+                          {t('common.edit')}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </section>

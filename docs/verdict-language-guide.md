@@ -82,7 +82,7 @@ Reason-level wording:
 - `startup_voltage_too_low`: `String voltage is too low for reliable MPPT startup.`
 - `input_current_too_high`: `Array input current exceeds the MPPT input-current limit.`
 - `low_utilization`: `The array uses only a small share of the MPPT's available PV capacity.`
-- `well_matched`: `Array power and MPPT capacity are closely aligned.`
+- `well_matched`: `Array power and MPPT capacity are aligned.`
 
 ### MPPT -> battery bank
 
@@ -94,9 +94,9 @@ Reason-level wording:
 Reason-level wording:
 
 - `battery_voltage_mismatch`: `The MPPT battery voltage does not match the battery bank voltage.`
-- `charge_current_too_high`: `The MPPT can deliver more charge current than this battery bank should accept.`
+- `charge_current_too_high`: `The MPPT can deliver too much charge current for this battery bank.`
 - `battery_charge_path_underutilized`: `The available MPPT charging capability is more than this battery bank meaningfully uses.`
-- `well_matched`: `MPPT charging capability and battery-bank acceptance are closely aligned.`
+- `well_matched`: `MPPT charging capability and battery-bank acceptance are aligned.`
 
 ### Battery bank -> inverter
 
@@ -111,7 +111,7 @@ Reason-level wording:
 - `inverter_current_too_high_for_battery`: `The inverter can draw more current than this battery bank should supply.`
 - `inverter_power_too_high_for_battery`: `The inverter is too large for this battery bank's available power.`
 - `inverter_underutilized`: `The selected inverter is larger than this battery bank currently justifies.`
-- `well_matched`: `Battery-bank voltage and power capability are closely aligned with the inverter.`
+- `well_matched`: `Battery-bank voltage and power capability are aligned with the inverter.`
 
 ### Inverter -> branch circuit
 
