@@ -45,6 +45,7 @@ interface ArrayState {
 
 interface PanelType {
   panel_type_id: string;
+  brand: string;
   model: string;
   wp: number;
   voc: number;
@@ -67,6 +68,7 @@ interface SurfaceConfiguration {
 
 interface BatteryType {
   battery_type_id: string;
+  brand: string;
   model: string;
   chemistry: string;
   nominal_voltage: number;
@@ -86,6 +88,7 @@ interface BatteryType {
 
 interface BatteryTypeDraft {
   battery_type_id: string;
+  brand: string;
   model: string;
   chemistry: string;
   nominal_voltage: string;
@@ -102,6 +105,7 @@ interface BatteryTypeDraft {
 
 interface PanelTypeDraft {
   panel_type_id: string;
+  brand: string;
   model: string;
   wp: string;
   voc: string;
@@ -117,6 +121,7 @@ interface PanelTypeDraft {
 
 interface MpptTypeDraft {
   mppt_type_id: string;
+  brand: string;
   model: string;
   tracker_count: string;
   max_voc: string;
@@ -132,6 +137,7 @@ interface MpptTypeDraft {
 
 interface InverterTypeDraft {
   inverter_id: string;
+  brand: string;
   model: string;
   input_voltage_v: string;
   output_voltage_v: string;
@@ -158,6 +164,7 @@ interface BatteryBankConfiguration {
 
 interface MpptType {
   mppt_type_id: string;
+  brand: string;
   model: string;
   tracker_count: number;
   max_voc: number;
@@ -173,6 +180,7 @@ interface MpptType {
 
 interface InverterType {
   inverter_id: string;
+  brand: string;
   model: string;
   input_voltage_v: number;
   output_voltage_v: number;
@@ -771,9 +779,25 @@ function formatWholeKwh(kwh: number | null | undefined): string {
   return kwh.toLocaleString('en-US', { maximumFractionDigits: 0 });
 }
 
+function formatBrandModel(brand: string | null | undefined, model: string): string {
+  const trimmedBrand = brand?.trim() ?? '';
+  const trimmedModel = model.trim();
+
+  if (!trimmedBrand) {
+    return trimmedModel;
+  }
+
+  if (!trimmedModel) {
+    return trimmedBrand;
+  }
+
+  return `${trimmedBrand} ${trimmedModel}`;
+}
+
 function emptyBatteryDraft(): BatteryTypeDraft {
   return {
     battery_type_id: '',
+    brand: '',
     model: '',
     chemistry: 'LiFePO4',
     nominal_voltage: '48',
@@ -794,6 +818,7 @@ function batteryDraftFromType(battery: BatteryType | null): BatteryTypeDraft {
 
   return {
     battery_type_id: battery.battery_type_id,
+    brand: battery.brand,
     model: battery.model,
     chemistry: battery.chemistry,
     nominal_voltage: String(battery.nominal_voltage),
@@ -812,6 +837,7 @@ function batteryDraftFromType(battery: BatteryType | null): BatteryTypeDraft {
 function emptyPanelDraft(): PanelTypeDraft {
   return {
     panel_type_id: '',
+    brand: '',
     model: '',
     wp: '450',
     voc: '40',
@@ -831,6 +857,7 @@ function panelDraftFromType(panel: PanelType | null): PanelTypeDraft {
 
   return {
     panel_type_id: panel.panel_type_id,
+    brand: panel.brand,
     model: panel.model,
     wp: String(panel.wp),
     voc: String(panel.voc),
@@ -848,6 +875,7 @@ function panelDraftFromType(panel: PanelType | null): PanelTypeDraft {
 function emptyMpptDraft(): MpptTypeDraft {
   return {
     mppt_type_id: '',
+    brand: '',
     model: '',
     tracker_count: '2',
     max_voc: '250',
@@ -867,6 +895,7 @@ function mpptDraftFromType(mppt: MpptType | null): MpptTypeDraft {
 
   return {
     mppt_type_id: mppt.mppt_type_id,
+    brand: mppt.brand,
     model: mppt.model,
     tracker_count: String(mppt.tracker_count),
     max_voc: String(mppt.max_voc),
@@ -884,6 +913,7 @@ function mpptDraftFromType(mppt: MpptType | null): MpptTypeDraft {
 function emptyInverterDraft(): InverterTypeDraft {
   return {
     inverter_id: '',
+    brand: '',
     model: '',
     input_voltage_v: '48',
     output_voltage_v: '230',
@@ -902,6 +932,7 @@ function inverterDraftFromType(inverter: InverterType | null): InverterTypeDraft
 
   return {
     inverter_id: inverter.inverter_id,
+    brand: inverter.brand,
     model: inverter.model,
     input_voltage_v: String(inverter.input_voltage_v),
     output_voltage_v: String(inverter.output_voltage_v),
@@ -4690,6 +4721,7 @@ function BatteryCatalogPage({
   }
 
   async function handleSave() {
+    const brand = draft.brand.trim();
     const model = draft.model.trim();
     const batteryTypeId = selectedBattery ? selectedBatteryTypeId : generateUniqueCatalogId(model, data.entities.battery_types.map((battery) => battery.battery_type_id));
     const chemistry = draft.chemistry.trim();
@@ -4702,7 +4734,7 @@ function BatteryCatalogPage({
     const priceSourceUrl = draft.price_source_url.trim() === '' ? null : draft.price_source_url.trim();
     const notes = draft.notes.trim() === '' ? null : draft.notes.trim();
 
-    if (!model || !chemistry || !Number.isFinite(nominalVoltage) || nominalVoltage <= 0 || !Number.isFinite(capacityAh) || capacityAh <= 0 || !Number.isFinite(capacityKwh) || capacityKwh <= 0) {
+    if (!brand || !model || !chemistry || !Number.isFinite(nominalVoltage) || nominalVoltage <= 0 || !Number.isFinite(capacityAh) || capacityAh <= 0 || !Number.isFinite(capacityKwh) || capacityKwh <= 0) {
       setSaveError(t('catalog.validation.battery_required'));
       return;
     }
@@ -4723,6 +4755,7 @@ function BatteryCatalogPage({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           battery_type_id: batteryTypeId,
+          brand,
           model,
           chemistry,
           nominal_voltage: nominalVoltage,
@@ -4747,6 +4780,7 @@ function BatteryCatalogPage({
       setSelectedBatteryTypeId(batteryTypeId);
       setDraft(batteryDraftFromType({
         battery_type_id: batteryTypeId,
+        brand,
         model,
         chemistry,
         nominal_voltage: nominalVoltage,
@@ -4826,10 +4860,12 @@ function BatteryCatalogPage({
               <table className="yield-table catalog-table">
                 <thead>
                   <tr>
-                    <th>{t('catalog.field.model')}</th>
+                    <th className="catalog-table-brand-col">{t('catalog.field.brand')}</th>
+                    <th className="catalog-table-model-col">{t('catalog.field.model')}</th>
                     <th>{t('catalog.stat.capacity')}</th>
                     <th>{t('catalog.stat.voltage')}</th>
                     <th>{t('catalog.stat.price')}</th>
+                    <th>{t('catalog.stat.price_per_kwh')}</th>
                     <th>{t('catalog.ui.source')}</th>
                     <th>{t('common.edit')}</th>
                   </tr>
@@ -4837,7 +4873,7 @@ function BatteryCatalogPage({
                 <tbody>
                   {data.entities.battery_types.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="catalog-table-empty">
+                      <td colSpan={8} className="catalog-table-empty">
                         {t('catalog.ui.no_entries')}
                       </td>
                     </tr>
@@ -4861,10 +4897,12 @@ function BatteryCatalogPage({
                         }
                       }}
                     >
-                      <td>{battery.model}</td>
+                      <td className="catalog-table-brand-col">{battery.brand}</td>
+                      <td className="catalog-table-model-col">{battery.model}</td>
                       <td>{battery.capacity_kwh} kWh</td>
                       <td>{battery.nominal_voltage} V</td>
                       <td>{renderPrice(battery.price, battery.price_source_url)}</td>
+                      <td>{renderPrice(battery.price_per_kwh, battery.price_source_url)}</td>
                       <td>{battery.price_source_url ? <a className="price-link" href={battery.price_source_url} target="_blank" rel="noreferrer">{formatPriceSourceName(battery.price_source_url) ?? t('common.open')}</a> : '—'}</td>
                       <td>
                         <button
@@ -4901,11 +4939,19 @@ function BatteryCatalogPage({
               </p>
             </div>
             <label className="field">
+              <span>{t('catalog.field.brand')}</span>
+              <input
+                value={draft.brand}
+                onChange={(event) => setDraft((current) => ({ ...current, brand: event.target.value }))}
+                placeholder="Pylontech"
+              />
+            </label>
+            <label className="field">
               <span>{t('catalog.field.model')}</span>
               <input
                 value={draft.model}
                 onChange={(event) => setDraft((current) => ({ ...current, model: event.target.value }))}
-                placeholder="Pylontech US5000-1C"
+                placeholder="US5000-1C"
               />
             </label>
             <div className="detail-grid two-col">
@@ -5023,6 +5069,10 @@ function BatteryCatalogPage({
           </div>
           {selectedBattery ? (
             <dl className="detail-stats panel-spec-grid" style={{ marginTop: 16 }}>
+              <div>
+                <dt>{t('catalog.field.brand')}</dt>
+                <dd>{selectedBattery.brand}</dd>
+              </div>
               <div>
                 <dt>{t('catalog.stat.capacity')}</dt>
                 <dd>{selectedBattery.capacity_kwh} kWh</dd>
@@ -5696,6 +5746,7 @@ function PanelCatalogPage({
   }
 
   async function handleSave() {
+    const brand = draft.brand.trim();
     const model = draft.model.trim();
     const panelTypeId = selectedPanel ? selectedPanelTypeId : generateUniqueCatalogId(model, data.entities.panel_types.map((panel) => panel.panel_type_id));
     const wp = Number(draft.wp);
@@ -5709,7 +5760,7 @@ function PanelCatalogPage({
     const priceSourceUrl = draft.price_source_url.trim() === '' ? null : draft.price_source_url.trim();
     const notes = draft.notes.trim() === '' ? null : draft.notes.trim();
 
-    if (!model || !Number.isFinite(wp) || wp <= 0 || !Number.isFinite(voc) || voc <= 0 || !Number.isFinite(vmp) || vmp <= 0 || !Number.isFinite(isc) || isc <= 0 || !Number.isFinite(imp) || imp <= 0 || !Number.isFinite(lengthMm) || lengthMm <= 0 || !Number.isFinite(widthMm) || widthMm <= 0) {
+    if (!brand || !model || !Number.isFinite(wp) || wp <= 0 || !Number.isFinite(voc) || voc <= 0 || !Number.isFinite(vmp) || vmp <= 0 || !Number.isFinite(isc) || isc <= 0 || !Number.isFinite(imp) || imp <= 0 || !Number.isFinite(lengthMm) || lengthMm <= 0 || !Number.isFinite(widthMm) || widthMm <= 0) {
       setSaveError(t('catalog.validation.panel_required'));
       return;
     }
@@ -5730,6 +5781,7 @@ function PanelCatalogPage({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           panel_type_id: panelTypeId,
+          brand,
           model,
           wp,
           voc,
@@ -5753,6 +5805,7 @@ function PanelCatalogPage({
       setSelectedPanelTypeId(panelTypeId);
       setDraft(panelDraftFromType({
         panel_type_id: panelTypeId,
+        brand,
         model,
         wp,
         voc,
@@ -5828,9 +5881,11 @@ function PanelCatalogPage({
               <table className="yield-table catalog-table">
                 <thead>
                   <tr>
-                    <th>{t('catalog.field.model')}</th>
+                    <th className="catalog-table-brand-col">{t('catalog.field.brand')}</th>
+                    <th className="catalog-table-model-col">{t('catalog.field.model')}</th>
                     <th>{t('catalog.stat.power')}</th>
                     <th>{t('catalog.stat.price')}</th>
+                    <th>{t('catalog.stat.price_per_wp')}</th>
                     <th>{t('catalog.ui.source')}</th>
                     <th>{t('common.edit')}</th>
                   </tr>
@@ -5838,7 +5893,7 @@ function PanelCatalogPage({
                 <tbody>
                   {data.entities.panel_types.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="catalog-table-empty">
+                      <td colSpan={7} className="catalog-table-empty">
                         {t('catalog.ui.no_entries')}
                       </td>
                     </tr>
@@ -5862,9 +5917,11 @@ function PanelCatalogPage({
                         }
                       }}
                     >
-                      <td>{panel.model}</td>
+                      <td className="catalog-table-brand-col">{panel.brand}</td>
+                      <td className="catalog-table-model-col">{panel.model}</td>
                       <td>{panel.wp} Wp</td>
                       <td>{renderPrice(panel.price, panel.price_source_url)}</td>
+                      <td>{panel.price != null ? renderPrice(panel.price / panel.wp, panel.price_source_url) : 'n/a'}</td>
                       <td>{panel.price_source_url ? <a className="price-link" href={panel.price_source_url} target="_blank" rel="noreferrer">{formatPriceSourceName(panel.price_source_url) ?? t('common.open')}</a> : '—'}</td>
                       <td>
                         <button
@@ -5900,6 +5957,14 @@ function PanelCatalogPage({
                 {selectedPanel ? selectedPanel.panel_type_id : (draft.model.trim() ? generateUniqueCatalogId(draft.model.trim(), data.entities.panel_types.map((panel) => panel.panel_type_id)) : t('catalog.ui.generated_after_save'))}
               </p>
             </div>
+            <label className="field">
+              <span>{t('catalog.field.brand')}</span>
+              <input
+                value={draft.brand}
+                onChange={(event) => setDraft((current) => ({ ...current, brand: event.target.value }))}
+                placeholder="Aiko"
+              />
+            </label>
             <label className="field">
               <span>{t('catalog.field.model')}</span>
               <input
@@ -5956,6 +6021,7 @@ function PanelCatalogPage({
                 <p>{t('catalog.ui.changes_saved')}</p>
               </div>
               <dl className="detail-stats panel-spec-grid" style={{ marginTop: 0 }}>
+                <div><dt>{t('catalog.field.brand')}</dt><dd>{selectedPanel.brand}</dd></div>
                 <div><dt>{t('catalog.stat.power')}</dt><dd>{selectedPanel.wp} Wp</dd></div>
                 <div><dt>{t('catalog.field.voc')}</dt><dd>{selectedPanel.voc} V</dd></div>
                 <div><dt>{t('catalog.field.vmp')}</dt><dd>{selectedPanel.vmp} V</dd></div>
@@ -5963,7 +6029,8 @@ function PanelCatalogPage({
                 <div><dt>{t('catalog.field.imp')}</dt><dd>{selectedPanel.imp} A</dd></div>
                 <div><dt>{t('catalog.stat.price')}</dt><dd>{renderPrice(selectedPanel.price, selectedPanel.price_source_url)}</dd></div>
                 <div><dt>{t('catalog.stat.price_per_wp')}</dt><dd>{selectedPanel.price != null ? renderPrice(selectedPanel.price / selectedPanel.wp, selectedPanel.price_source_url) : 'n/a'}</dd></div>
-                <div><dt>{t('catalog.stat.size')}</dt><dd>{selectedPanel.length_mm != null && selectedPanel.width_mm != null ? `${selectedPanel.length_mm} × ${selectedPanel.width_mm} mm` : 'n/a'}</dd></div>
+                <div><dt>{t('catalog.field.length_mm')}</dt><dd>{selectedPanel.length_mm != null ? `${selectedPanel.length_mm} mm` : 'n/a'}</dd></div>
+                <div><dt>{t('catalog.field.width_mm')}</dt><dd>{selectedPanel.width_mm != null ? `${selectedPanel.width_mm} mm` : 'n/a'}</dd></div>
               </dl>
             </div>
           ) : null}
@@ -6008,6 +6075,7 @@ function MpptCatalogPage({
   }
 
   async function handleSave() {
+    const brand = draft.brand.trim();
     const model = draft.model.trim();
     const mpptTypeId = selectedMppt ? selectedMpptTypeId : generateUniqueCatalogId(model, data.entities.mppt_types.map((mppt) => mppt.mppt_type_id));
     const trackerCount = Number(draft.tracker_count);
@@ -6021,7 +6089,7 @@ function MpptCatalogPage({
     const priceSourceUrl = draft.price_source_url.trim() === '' ? null : draft.price_source_url.trim();
     const notes = draft.notes.trim() === '' ? null : draft.notes.trim();
 
-    if (!model || !Number.isInteger(trackerCount) || trackerCount < 1 || !Number.isFinite(maxVoc) || maxVoc <= 0 || !Number.isFinite(maxPvPower) || maxPvPower <= 0 || !Number.isFinite(maxChargeCurrent) || maxChargeCurrent <= 0 || !Number.isFinite(nominalBatteryVoltage) || nominalBatteryVoltage <= 0) {
+    if (!brand || !model || !Number.isInteger(trackerCount) || trackerCount < 1 || !Number.isFinite(maxVoc) || maxVoc <= 0 || !Number.isFinite(maxPvPower) || maxPvPower <= 0 || !Number.isFinite(maxChargeCurrent) || maxChargeCurrent <= 0 || !Number.isFinite(nominalBatteryVoltage) || nominalBatteryVoltage <= 0) {
       setSaveError(t('catalog.validation.mppt_required'));
       return;
     }
@@ -6047,6 +6115,7 @@ function MpptCatalogPage({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mppt_type_id: mpptTypeId,
+          brand,
           model,
           tracker_count: trackerCount,
           max_voc: maxVoc,
@@ -6070,6 +6139,7 @@ function MpptCatalogPage({
       setSelectedMpptTypeId(mpptTypeId);
       setDraft(mpptDraftFromType({
         mppt_type_id: mpptTypeId,
+        brand,
         model,
         tracker_count: trackerCount,
         max_voc: maxVoc,
@@ -6145,7 +6215,8 @@ function MpptCatalogPage({
               <table className="yield-table catalog-table">
                 <thead>
                   <tr>
-                    <th>{t('catalog.field.model')}</th>
+                    <th className="catalog-table-brand-col">{t('catalog.field.brand')}</th>
+                    <th className="catalog-table-model-col">{t('catalog.field.model')}</th>
                     <th>{t('catalog.stat.tracker_count')}</th>
                     <th>{t('catalog.stat.max_pv_power')}</th>
                     <th>{t('catalog.stat.price')}</th>
@@ -6156,7 +6227,7 @@ function MpptCatalogPage({
                 <tbody>
                   {data.entities.mppt_types.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="catalog-table-empty">
+                      <td colSpan={7} className="catalog-table-empty">
                         {t('catalog.ui.no_entries')}
                       </td>
                     </tr>
@@ -6180,7 +6251,8 @@ function MpptCatalogPage({
                         }
                       }}
                     >
-                      <td>{mppt.model}</td>
+                      <td className="catalog-table-brand-col">{mppt.brand}</td>
+                      <td className="catalog-table-model-col">{mppt.model}</td>
                       <td>{mppt.tracker_count}</td>
                       <td>{mppt.max_pv_power} W</td>
                       <td>{renderPrice(mppt.price, mppt.price_source_url)}</td>
@@ -6220,11 +6292,19 @@ function MpptCatalogPage({
               </p>
             </div>
             <label className="field">
+              <span>{t('catalog.field.brand')}</span>
+              <input
+                value={draft.brand}
+                onChange={(event) => setDraft((current) => ({ ...current, brand: event.target.value }))}
+                placeholder="Victron"
+              />
+            </label>
+            <label className="field">
               <span>{t('catalog.field.model')}</span>
               <input
                 value={draft.model}
                 onChange={(event) => setDraft((current) => ({ ...current, model: event.target.value }))}
-                placeholder="Victron SmartSolar 250/100"
+                placeholder="SmartSolar 250/100"
               />
             </label>
             <div className="detail-grid two-col">
@@ -6270,6 +6350,7 @@ function MpptCatalogPage({
           </div>
           {selectedMppt ? (
             <dl className="detail-stats panel-spec-grid" style={{ marginTop: 16 }}>
+              <div><dt>{t('catalog.field.brand')}</dt><dd>{selectedMppt.brand}</dd></div>
               <div><dt>{t('catalog.stat.tracker_count')}</dt><dd>{selectedMppt.tracker_count}</dd></div>
               <div><dt>{t('catalog.stat.max_voc')}</dt><dd>{selectedMppt.max_voc} V</dd></div>
               <div><dt>{t('catalog.stat.max_pv_power')}</dt><dd>{selectedMppt.max_pv_power} W</dd></div>
@@ -6320,6 +6401,7 @@ function InverterCatalogPage({
   }
 
   async function handleSave() {
+    const brand = draft.brand.trim();
     const model = draft.model.trim();
     const inverterId = selectedInverter ? selectedInverterTypeId : generateUniqueCatalogId(model, data.entities.inverter_types.map((inverter) => inverter.inverter_id));
     const inputVoltageV = Number(draft.input_voltage_v);
@@ -6332,7 +6414,7 @@ function InverterCatalogPage({
     const priceSourceUrl = draft.price_source_url.trim() === '' ? null : draft.price_source_url.trim();
     const notes = draft.notes.trim() === '' ? null : draft.notes.trim();
 
-    if (!model || !Number.isFinite(inputVoltageV) || inputVoltageV <= 0 || !Number.isFinite(outputVoltageV) || outputVoltageV <= 0 || !Number.isFinite(continuousPowerW) || continuousPowerW <= 0 || !Number.isFinite(peakPowerVA) || peakPowerVA <= 0 || !Number.isFinite(maxChargeCurrentA) || maxChargeCurrentA <= 0) {
+    if (!brand || !model || !Number.isFinite(inputVoltageV) || inputVoltageV <= 0 || !Number.isFinite(outputVoltageV) || outputVoltageV <= 0 || !Number.isFinite(continuousPowerW) || continuousPowerW <= 0 || !Number.isFinite(peakPowerVA) || peakPowerVA <= 0 || !Number.isFinite(maxChargeCurrentA) || maxChargeCurrentA <= 0) {
       setSaveError(t('catalog.validation.inverter_required'));
       return;
     }
@@ -6353,6 +6435,7 @@ function InverterCatalogPage({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           inverter_id: inverterId,
+          brand,
           model,
           input_voltage_v: inputVoltageV,
           output_voltage_v: outputVoltageV,
@@ -6375,6 +6458,7 @@ function InverterCatalogPage({
       setSelectedInverterTypeId(inverterId);
       setDraft(inverterDraftFromType({
         inverter_id: inverterId,
+        brand,
         model,
         input_voltage_v: inputVoltageV,
         output_voltage_v: outputVoltageV,
@@ -6449,7 +6533,8 @@ function InverterCatalogPage({
               <table className="yield-table catalog-table">
                 <thead>
                   <tr>
-                    <th>{t('catalog.field.model')}</th>
+                    <th className="catalog-table-brand-col">{t('catalog.field.brand')}</th>
+                    <th className="catalog-table-model-col">{t('catalog.field.model')}</th>
                     <th>{t('catalog.stat.input_voltage_short')}</th>
                     <th>{t('catalog.stat.continuous_power')}</th>
                     <th>{t('catalog.stat.price')}</th>
@@ -6460,7 +6545,7 @@ function InverterCatalogPage({
                 <tbody>
                   {data.entities.inverter_types.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="catalog-table-empty">
+                      <td colSpan={7} className="catalog-table-empty">
                         {t('catalog.ui.no_entries')}
                       </td>
                     </tr>
@@ -6484,7 +6569,8 @@ function InverterCatalogPage({
                         }
                       }}
                     >
-                      <td>{inverter.model}</td>
+                      <td className="catalog-table-brand-col">{inverter.brand}</td>
+                      <td className="catalog-table-model-col">{inverter.model}</td>
                       <td>{inverter.input_voltage_v} V</td>
                       <td>{inverter.continuous_power_w} W</td>
                       <td>{renderPrice(inverter.price, inverter.price_source_url)}</td>
@@ -6524,11 +6610,19 @@ function InverterCatalogPage({
               </p>
             </div>
             <label className="field">
+              <span>{t('catalog.field.brand')}</span>
+              <input
+                value={draft.brand}
+                onChange={(event) => setDraft((current) => ({ ...current, brand: event.target.value }))}
+                placeholder="Victron"
+              />
+            </label>
+            <label className="field">
               <span>{t('catalog.field.model')}</span>
               <input
                 value={draft.model}
                 onChange={(event) => setDraft((current) => ({ ...current, model: event.target.value }))}
-                placeholder="Victron MultiPlus-II 48/10000/140-100"
+                placeholder="MultiPlus-II 48/10000/140-100"
               />
             </label>
             <div className="detail-grid two-col">
@@ -6566,6 +6660,7 @@ function InverterCatalogPage({
           </div>
           {selectedInverter ? (
             <dl className="detail-stats panel-spec-grid" style={{ marginTop: 16 }}>
+              <div><dt>{t('catalog.field.brand')}</dt><dd>{selectedInverter.brand}</dd></div>
               <div><dt>{t('catalog.stat.input_voltage')}</dt><dd>{selectedInverter.input_voltage_v} V</dd></div>
               <div><dt>{t('catalog.stat.output_voltage')}</dt><dd>{selectedInverter.output_voltage_v} V</dd></div>
               <div><dt>{t('catalog.stat.continuous_power')}</dt><dd>{selectedInverter.continuous_power_w} W</dd></div>

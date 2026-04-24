@@ -9,6 +9,13 @@ async function promptPanel(existing?: PanelType, existingIds: string[] = []): Pr
   const ans = await inquirer.prompt([
     {
       type: 'input',
+      name: 'brand',
+      message: 'Brand name:',
+      default: existing?.brand ?? '',
+      validate: (v: string) => v.trim().length > 0 || 'Required',
+    },
+    {
+      type: 'input',
       name: 'model',
       message: 'Model name:',
       default: existing?.model,
@@ -84,6 +91,7 @@ async function promptPanel(existing?: PanelType, existingIds: string[] = []): Pr
 
   return {
     panel_type_id: existing?.panel_type_id ?? generateUniqueCatalogId(ans.model, existingIds),
+    brand: ans.brand,
     model: ans.model,
     wp: ans.wp,
     voc: ans.voc,

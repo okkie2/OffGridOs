@@ -2,6 +2,11 @@
 
 ## 2026-04-24
 
+- Added a `brand` field to the panel, MPPT, battery, and inverter catalogs so the UI and database now store `brand + model` separately, and updated the live SQLite catalog rows to match.
+- Added the Dynastart `MG LFP Battery 25.6V/230Ah/5800Wh` as a Victron-compatible battery catalog entry with the page price and specs, and synced it into the live project database.
+- Added an `RS Series (RS230)` industrial battery catalog entry with the user-provided 51.2 V, 230 Ah, ~11.8 kWh module specs and modular stacking note, and synced it into the live project database.
+- Updated `BISOL-rood` to the BISOL Spectrum 400 Wp N-type TOPCon red panel from Planet Soar Shop and synced the live project database to the newer red option.
+- Refreshed the Victron catalog to current Stroomwinkel pricing, added MultiPlus-II 48/3000, 48/8000, and 48/15000 rows, and synced the live project database so the cost summary recalculates from the new values.
 - Reworked the `Surface costs` table so each surface now shows separate panel and MPPT rows with a grand total footer.
 - Changed the `Cost summary` top block to show `Panels`, `Battery bank`, `Inverter`, `Materials`, `Work`, and a summed `Total`, with `Materials` and `Work` set to `0` for now.
 - Made the page breadcrumbs clickable so mobile users can jump back to the project or parent section faster.

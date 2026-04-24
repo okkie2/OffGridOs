@@ -8,7 +8,7 @@ const baseInput: ProjectInput = {
     { id: 1, surface_id: 'south', name: 'South', orientation_deg: 180, tilt_deg: 35, usable_area_m2: 20 },
   ],
   panelTypes: [
-    { id: 1, panel_type_id: 'p1', model: 'TestPanel 400', wp: 400, voc: 37.5, vmp: 31.2, isc: 13.5, imp: 12.8, length_mm: 1722, width_mm: 1134 },
+    { id: 1, panel_type_id: 'p1', brand: 'TestBrand', model: 'TestPanel 400', wp: 400, voc: 37.5, vmp: 31.2, isc: 13.5, imp: 12.8, length_mm: 1722, width_mm: 1134 },
   ],
   surfacePanelAssignments: [
     { id: 1, surface_id: 'south', panel_type_id: 'p1', count: 10 },
@@ -17,6 +17,7 @@ const baseInput: ProjectInput = {
     {
       id: 1,
       mppt_type_id: 'mppt1',
+      brand: 'Victron',
       model: 'SmartSolar 150/35',
       tracker_count: 1,
       max_voc: 150,
@@ -28,7 +29,7 @@ const baseInput: ProjectInput = {
     },
   ],
   batteryTypes: [
-    { id: 1, battery_type_id: 'b1', model: 'Pylontech US5000-1C', chemistry: 'LiFePO4', nominal_voltage: 48, capacity_ah: 100, capacity_kwh: 4.8, victron_can: true, cooling: 'passive' },
+    { id: 1, battery_type_id: 'b1', brand: 'Pylontech', model: 'US5000-1C', chemistry: 'LiFePO4', nominal_voltage: 48, capacity_ah: 100, capacity_kwh: 4.8, victron_can: true, cooling: 'passive' },
   ],
   projectPreferences: {
     target_battery_voltage: 48,

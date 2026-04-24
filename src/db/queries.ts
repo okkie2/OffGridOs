@@ -117,15 +117,15 @@ export function getPanelType(db: Database.Database, panel_type_id: string): Pane
 
 export function insertPanelType(db: Database.Database, data: Omit<PanelType, 'id'>): void {
   db.prepare(`
-    INSERT INTO panel_types (panel_type_id, model, wp, voc, vmp, isc, imp, length_mm, width_mm, price, price_source_url, notes)
-    VALUES (@panel_type_id, @model, @wp, @voc, @vmp, @isc, @imp, @length_mm, @width_mm, @price, @price_source_url, @notes)
+    INSERT INTO panel_types (panel_type_id, brand, model, wp, voc, vmp, isc, imp, length_mm, width_mm, price, price_source_url, notes)
+    VALUES (@panel_type_id, @brand, @model, @wp, @voc, @vmp, @isc, @imp, @length_mm, @width_mm, @price, @price_source_url, @notes)
   `).run(data);
 }
 
 export function updatePanelType(db: Database.Database, data: Omit<PanelType, 'id'>): void {
   db.prepare(`
     UPDATE panel_types
-    SET model=@model, wp=@wp, voc=@voc, vmp=@vmp, isc=@isc, imp=@imp,
+    SET brand=@brand, model=@model, wp=@wp, voc=@voc, vmp=@vmp, isc=@isc, imp=@imp,
         length_mm=@length_mm, width_mm=@width_mm, price=@price, price_source_url=@price_source_url, notes=@notes
     WHERE panel_type_id=@panel_type_id
   `).run(data);
@@ -482,6 +482,7 @@ export function insertMpptType(db: Database.Database, data: Omit<MpptType, 'id'>
   db.prepare(`
     INSERT INTO mppt_types (
       mppt_type_id,
+      brand,
       model,
       tracker_count,
       max_voc,
@@ -496,6 +497,7 @@ export function insertMpptType(db: Database.Database, data: Omit<MpptType, 'id'>
     )
     VALUES (
       @mppt_type_id,
+      @brand,
       @model,
       @tracker_count,
       @max_voc,
@@ -514,7 +516,7 @@ export function insertMpptType(db: Database.Database, data: Omit<MpptType, 'id'>
 export function updateMpptType(db: Database.Database, data: Omit<MpptType, 'id'>): void {
   db.prepare(`
     UPDATE mppt_types
-    SET model=@model,
+    SET brand=@brand, model=@model,
         tracker_count=@tracker_count,
         max_voc=@max_voc,
         max_pv_power=@max_pv_power,
@@ -561,10 +563,10 @@ export function insertBatteryType(db: Database.Database, data: Omit<BatteryType,
     : null;
   db.prepare(`
     INSERT INTO battery_types
-      (battery_type_id, model, chemistry, nominal_voltage, capacity_ah, capacity_kwh,
+      (battery_type_id, brand, model, chemistry, nominal_voltage, capacity_ah, capacity_kwh,
        max_charge_rate, max_discharge_rate, victron_can, cooling, price, price_per_kwh, price_source_url, source, url, notes)
     VALUES
-      (@battery_type_id, @model, @chemistry, @nominal_voltage, @capacity_ah, @capacity_kwh,
+      (@battery_type_id, @brand, @model, @chemistry, @nominal_voltage, @capacity_ah, @capacity_kwh,
        @max_charge_rate, @max_discharge_rate, @victron_can, @cooling, @price, @price_per_kwh, @price_source_url, @source, @url, @notes)
   `).run({
     ...data,
@@ -584,7 +586,7 @@ export function updateBatteryType(db: Database.Database, data: Omit<BatteryType,
     : null;
   db.prepare(`
     UPDATE battery_types
-    SET model=@model, chemistry=@chemistry, nominal_voltage=@nominal_voltage,
+    SET brand=@brand, model=@model, chemistry=@chemistry, nominal_voltage=@nominal_voltage,
         capacity_ah=@capacity_ah, capacity_kwh=@capacity_kwh,
         max_charge_rate=@max_charge_rate, max_discharge_rate=@max_discharge_rate,
         victron_can=@victron_can, cooling=@cooling, price=@price, price_per_kwh=@price_per_kwh, price_source_url=@price_source_url, source=@source, url=@url, notes=@notes
@@ -619,6 +621,7 @@ export function insertInverterType(db: Database.Database, data: Omit<InverterTyp
   db.prepare(`
     INSERT INTO inverter_types (
       inverter_id,
+      brand,
       model,
       input_voltage_v,
       output_voltage_v,
@@ -632,6 +635,7 @@ export function insertInverterType(db: Database.Database, data: Omit<InverterTyp
     )
     VALUES (
       @inverter_id,
+      @brand,
       @model,
       @input_voltage_v,
       @output_voltage_v,
@@ -655,7 +659,7 @@ export function insertInverterType(db: Database.Database, data: Omit<InverterTyp
 export function updateInverterType(db: Database.Database, data: Omit<InverterType, 'id'>): void {
   db.prepare(`
     UPDATE inverter_types
-    SET model=@model,
+    SET brand=@brand, model=@model,
         input_voltage_v=@input_voltage_v,
         output_voltage_v=@output_voltage_v,
         continuous_power_w=@continuous_power_w,

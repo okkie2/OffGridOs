@@ -10,6 +10,7 @@ function hasTable(db: Database.Database, tableName: string): boolean {
 function ensureBatteryTypesColumns(db: Database.Database): void {
   const cols = new Set((db.prepare("PRAGMA table_info('battery_types')").all() as { name: string }[]).map((row) => row.name));
   const additions = [
+    !cols.has('brand') ? "ALTER TABLE battery_types ADD COLUMN brand TEXT NOT NULL DEFAULT '';" : '',
     !cols.has('victron_can') ? "ALTER TABLE battery_types ADD COLUMN victron_can INTEGER NOT NULL DEFAULT 0;" : '',
     !cols.has('cooling') ? "ALTER TABLE battery_types ADD COLUMN cooling TEXT NOT NULL DEFAULT 'passive';" : '',
     !cols.has('price') ? 'ALTER TABLE battery_types ADD COLUMN price REAL;' : '',
@@ -22,12 +23,55 @@ function ensureBatteryTypesColumns(db: Database.Database): void {
   if (additions.length > 0) {
     db.exec(additions.join('\n'));
     db.prepare("UPDATE battery_types SET cooling = COALESCE(cooling, 'passive')").run();
+    db.prepare("UPDATE battery_types SET brand = COALESCE(brand, '')").run();
   }
 
   db.prepare(`
     UPDATE battery_types
     SET price_source_url = COALESCE(price_source_url, source, url)
     WHERE price_source_url IS NULL AND (source IS NOT NULL OR url IS NOT NULL)
+  `).run();
+  db.prepare(`
+    UPDATE battery_types
+    SET brand = CASE battery_type_id
+      WHEN 'pylontech-us5000-1c' THEN 'Pylontech'
+      WHEN 'byd-bbox-lv' THEN 'BYD'
+      WHEN 'dyness-b4850' THEN 'Dyness'
+      WHEN 'pylontech-pelio-l' THEN 'Pylontech'
+      WHEN 'mg-lfp-25-6v-230ah-5800wh' THEN 'MG'
+      WHEN 'pytes-ebox-48100r' THEN 'Pytes'
+      WHEN 'bslbatt-b-lfp48-100e' THEN 'BSLBATT'
+      WHEN 'zyc-simpo-5000' THEN 'ZYC'
+      WHEN 'rs-series-rs230' THEN 'RS'
+      ELSE brand
+    END
+    WHERE COALESCE(brand, '') = ''
+  `).run();
+  db.prepare(`
+    UPDATE battery_types
+    SET model = CASE battery_type_id
+      WHEN 'pylontech-us5000-1c' THEN 'US5000-1C'
+      WHEN 'byd-bbox-lv' THEN 'B-Box LV (per module)'
+      WHEN 'dyness-b4850' THEN 'B4850 (per module)'
+      WHEN 'pylontech-pelio-l' THEN 'Pelio-L (per module)'
+      WHEN 'mg-lfp-25-6v-230ah-5800wh' THEN 'LFP Battery 25.6V/230Ah/5800Wh'
+      WHEN 'pytes-ebox-48100r' THEN 'E-BOX-48100R (per module)'
+      WHEN 'bslbatt-b-lfp48-100e' THEN 'B-LFP48-100E'
+      WHEN 'zyc-simpo-5000' THEN 'SIMPO 5000 LiFePO4 51.2V/100Ah 5.12kWh'
+      WHEN 'rs-series-rs230' THEN 'RS230'
+      ELSE model
+    END
+    WHERE battery_type_id IN (
+      'pylontech-us5000-1c',
+      'byd-bbox-lv',
+      'dyness-b4850',
+      'pylontech-pelio-l',
+      'mg-lfp-25-6v-230ah-5800wh',
+      'pytes-ebox-48100r',
+      'bslbatt-b-lfp48-100e',
+      'zyc-simpo-5000',
+      'rs-series-rs230'
+    )
   `).run();
 }
 
@@ -45,6 +89,27 @@ function ensureLocationColumns(db: Database.Database): void {
   if (additions.length > 0) {
     db.exec(additions.join('\n'));
   }
+  db.prepare(`
+    UPDATE panel_types
+    SET brand = CASE panel_type_id
+      WHEN 'aiko-475-all-black' THEN 'Aiko'
+      WHEN 'BISOL-rood' THEN 'BISOL'
+      WHEN 'canadian-bihiku6-rood' THEN 'Canadian Solar'
+      WHEN 'canadian-hiku6' THEN 'Canadian Solar'
+      WHEN 'eurener-280' THEN 'Eurener'
+      WHEN 'ja-deepblue-3-rood' THEN 'JA Solar'
+      WHEN 'ja-deepblue-4' THEN 'JA Solar'
+      WHEN 'jinko-tiger-neo' THEN 'Jinko'
+      WHEN 'longi-hi-mo-6' THEN 'LONGi'
+      WHEN 'qcells-qpeak-duo-g10' THEN 'Qcells'
+      WHEN 'rec-alpha-pure-r' THEN 'REC'
+      WHEN 'sunpower-maxeon6' THEN 'SunPower'
+      WHEN 'trina-vertex-s-plus' THEN 'Trina Solar'
+      WHEN 'trina-vertex-s-plus-rood' THEN 'Trina Solar'
+      ELSE brand
+    END
+    WHERE COALESCE(brand, '') = ''
+  `).run();
 }
 
 function ensureSurfaceColumns(db: Database.Database): void {
@@ -115,6 +180,7 @@ function ensureInverterConfigurationColumns(db: Database.Database): void {
 function ensureInverterTypesColumns(db: Database.Database): void {
   const cols = new Set((db.prepare("PRAGMA table_info('inverter_types')").all() as { name: string }[]).map((row) => row.name));
   const additions = [
+    !cols.has('brand') ? "ALTER TABLE inverter_types ADD COLUMN brand TEXT NOT NULL DEFAULT '';" : '',
     !cols.has('price_source_url') ? 'ALTER TABLE inverter_types ADD COLUMN price_source_url TEXT;' : '',
   ].filter(Boolean);
 
@@ -140,6 +206,7 @@ function ensureBatteryBankConfigurationColumns(db: Database.Database): void {
 function ensureMpptTypesColumns(db: Database.Database): void {
   const cols = new Set((db.prepare("PRAGMA table_info('mppt_types')").all() as { name: string }[]).map((row) => row.name));
   const additions = [
+    !cols.has('brand') ? "ALTER TABLE mppt_types ADD COLUMN brand TEXT NOT NULL DEFAULT '';" : '',
     !cols.has('tracker_count') ? 'ALTER TABLE mppt_types ADD COLUMN tracker_count INTEGER NOT NULL DEFAULT 1;' : '',
     !cols.has('max_pv_input_current_a') ? 'ALTER TABLE mppt_types ADD COLUMN max_pv_input_current_a REAL;' : '',
     !cols.has('max_pv_short_circuit_current_a') ? 'ALTER TABLE mppt_types ADD COLUMN max_pv_short_circuit_current_a REAL;' : '',
@@ -150,12 +217,15 @@ function ensureMpptTypesColumns(db: Database.Database): void {
   if (additions.length > 0) {
     db.exec(additions.join('\n'));
     db.prepare("UPDATE mppt_types SET tracker_count = COALESCE(tracker_count, 1)").run();
+    db.prepare("UPDATE mppt_types SET brand = COALESCE(brand, '')").run();
   }
+  db.prepare("UPDATE mppt_types SET brand = 'Victron' WHERE COALESCE(brand, '') = ''").run();
 }
 
 function ensurePanelTypesColumns(db: Database.Database): void {
   const cols = new Set((db.prepare("PRAGMA table_info('panel_types')").all() as { name: string }[]).map((row) => row.name));
   const additions = [
+    !cols.has('brand') ? "ALTER TABLE panel_types ADD COLUMN brand TEXT NOT NULL DEFAULT '';" : '',
     !cols.has('price') ? 'ALTER TABLE panel_types ADD COLUMN price REAL;' : '',
     !cols.has('price_source_url') ? 'ALTER TABLE panel_types ADD COLUMN price_source_url TEXT;' : '',
   ].filter(Boolean);
@@ -163,6 +233,7 @@ function ensurePanelTypesColumns(db: Database.Database): void {
   if (additions.length > 0) {
     db.exec(additions.join('\n'));
   }
+  db.prepare("UPDATE inverter_types SET brand = 'Victron' WHERE COALESCE(brand, '') = ''").run();
 }
 
 export function initSchema(db: Database.Database): void {
@@ -197,6 +268,7 @@ export function initSchema(db: Database.Database): void {
     CREATE TABLE IF NOT EXISTS panel_types (
       id            INTEGER PRIMARY KEY AUTOINCREMENT,
       panel_type_id TEXT UNIQUE NOT NULL,
+      brand         TEXT NOT NULL DEFAULT '',
       model         TEXT NOT NULL,
       wp            REAL NOT NULL,
       voc           REAL NOT NULL,
@@ -273,6 +345,7 @@ export function initSchema(db: Database.Database): void {
     CREATE TABLE IF NOT EXISTS mppt_types (
       id                     INTEGER PRIMARY KEY AUTOINCREMENT,
       mppt_type_id           TEXT UNIQUE NOT NULL,
+      brand                  TEXT NOT NULL DEFAULT '',
       model                  TEXT NOT NULL,
       tracker_count          INTEGER NOT NULL DEFAULT 1,
       max_voc                REAL NOT NULL,
@@ -289,6 +362,7 @@ export function initSchema(db: Database.Database): void {
     CREATE TABLE IF NOT EXISTS battery_types (
       id                  INTEGER PRIMARY KEY AUTOINCREMENT,
       battery_type_id     TEXT UNIQUE NOT NULL,
+      brand               TEXT NOT NULL DEFAULT '',
       model               TEXT NOT NULL,
       chemistry           TEXT NOT NULL,
       nominal_voltage     REAL NOT NULL,
@@ -314,6 +388,7 @@ export function initSchema(db: Database.Database): void {
     CREATE TABLE IF NOT EXISTS inverter_types (
       id                   INTEGER PRIMARY KEY AUTOINCREMENT,
       inverter_id          TEXT UNIQUE NOT NULL,
+      brand                TEXT NOT NULL DEFAULT '',
       model                TEXT NOT NULL,
       input_voltage_v      REAL NOT NULL,
       output_voltage_v     REAL NOT NULL,

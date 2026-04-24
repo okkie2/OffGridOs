@@ -1040,15 +1040,16 @@ h1, h2, h3, p, dl, dd, dt {
 .yield-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.84rem;
+  font-size: 0.8rem;
 }
 
 .yield-table th,
 .yield-table td {
   border: 1px solid var(--border);
-  padding: 10px 8px;
+  padding: 8px 7px;
   text-align: left;
   white-space: nowrap;
+  line-height: 1.25;
 }
 
 .catalog-table {
@@ -1056,45 +1057,25 @@ h1, h2, h3, p, dl, dd, dt {
   table-layout: fixed;
 }
 
-.catalog-table th:first-child,
-.catalog-table td:first-child {
-  width: 41%;
+.catalog-table th,
+.catalog-table td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
-.catalog-table th:nth-child(2),
-.catalog-table td:nth-child(2) {
-  width: 12%;
+.catalog-table-brand-col {
+  width: 11.2%;
 }
 
-.catalog-table th:nth-child(3),
-.catalog-table td:nth-child(3) {
-  width: 12%;
-}
-
-.catalog-table th:nth-child(4),
-.catalog-table td:nth-child(4) {
-  width: 13%;
-}
-
-.catalog-table th:nth-child(5),
-.catalog-table td:nth-child(5) {
-  width: 12%;
+.catalog-table-model-col {
+  width: 22.4%;
 }
 
 .catalog-table th:last-child,
 .catalog-table td:last-child {
   width: 10%;
   text-align: center;
-}
-
-.catalog-table td:first-child {
-  white-space: normal;
-}
-
-.catalog-table td:nth-child(4),
-.catalog-table td:nth-child(5) {
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .catalog-table td:last-child .button-sm {

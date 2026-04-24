@@ -9,6 +9,13 @@ async function promptMppt(existing?: MpptType, existingIds: string[] = []): Prom
   const ans = await inquirer.prompt([
     {
       type: 'input',
+      name: 'brand',
+      message: 'Brand name:',
+      default: existing?.brand ?? 'Victron',
+      validate: (v: string) => v.trim().length > 0 || 'Required',
+    },
+    {
+      type: 'input',
       name: 'model',
       message: 'Model name:',
       default: existing?.model,
@@ -80,6 +87,7 @@ async function promptMppt(existing?: MpptType, existingIds: string[] = []): Prom
 
   return {
     mppt_type_id: existing?.mppt_type_id ?? generateUniqueCatalogId(ans.model, existingIds),
+    brand: ans.brand,
     model: ans.model,
     tracker_count: ans.tracker_count,
     max_voc: ans.max_voc,

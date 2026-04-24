@@ -184,6 +184,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
       try {
         const payload = await readJsonBody<{
           battery_type_id?: unknown;
+          brand?: unknown;
           model?: unknown;
           chemistry?: unknown;
           nominal_voltage?: unknown;
@@ -199,6 +200,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         }>(request);
 
         const batteryTypeId = typeof payload.battery_type_id === 'string' ? payload.battery_type_id.trim() : '';
+        const brand = typeof payload.brand === 'string' ? payload.brand.trim() : '';
         const model = typeof payload.model === 'string' ? payload.model.trim() : '';
         const chemistry = typeof payload.chemistry === 'string' ? payload.chemistry.trim() : '';
         const nominalVoltage = typeof payload.nominal_voltage === 'number' ? payload.nominal_voltage : Number(payload.nominal_voltage);
@@ -238,6 +240,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
           insertBatteryType(db, {
             battery_type_id: resolvedBatteryTypeId,
+            brand,
             model,
             chemistry,
             nominal_voltage: nominalVoltage,
@@ -277,6 +280,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
         const payload = await readJsonBody<{
           battery_type_id?: unknown;
+          brand?: unknown;
           model?: unknown;
           chemistry?: unknown;
           nominal_voltage?: unknown;
@@ -292,6 +296,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         }>(request);
 
         const bodyBatteryTypeId = typeof payload.battery_type_id === 'string' ? payload.battery_type_id.trim() : batteryTypeId;
+        const brand = typeof payload.brand === 'string' ? payload.brand.trim() : '';
         const model = typeof payload.model === 'string' ? payload.model.trim() : '';
         const chemistry = typeof payload.chemistry === 'string' ? payload.chemistry.trim() : '';
         const nominalVoltage = typeof payload.nominal_voltage === 'number' ? payload.nominal_voltage : Number(payload.nominal_voltage);
@@ -336,6 +341,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
           updateBatteryType(db, {
             battery_type_id: batteryTypeId,
+            brand,
             model,
             chemistry,
             nominal_voltage: nominalVoltage,
@@ -416,6 +422,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
       try {
         const payload = await readJsonBody<{
           panel_type_id?: unknown;
+          brand?: unknown;
           model?: unknown;
           wp?: unknown;
           voc?: unknown;
@@ -429,6 +436,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           notes?: unknown;
         }>(request);
 
+        const brand = typeof payload.brand === 'string' ? payload.brand.trim() : '';
         const model = typeof payload.model === 'string' ? payload.model.trim() : '';
         const panelTypeId = typeof payload.panel_type_id === 'string' ? payload.panel_type_id.trim() : '';
         const wp = typeof payload.wp === 'number' ? payload.wp : Number(payload.wp);
@@ -464,6 +472,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
           insertPanelType(db, {
             panel_type_id: resolvedPanelTypeId,
+            brand,
             model,
             wp,
             voc,
@@ -500,6 +509,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
         const payload = await readJsonBody<{
           panel_type_id?: unknown;
+          brand?: unknown;
           model?: unknown;
           wp?: unknown;
           voc?: unknown;
@@ -514,6 +524,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         }>(request);
 
         const bodyPanelTypeId = typeof payload.panel_type_id === 'string' ? payload.panel_type_id.trim() : panelTypeId;
+        const brand = typeof payload.brand === 'string' ? payload.brand.trim() : '';
         const model = typeof payload.model === 'string' ? payload.model.trim() : '';
         const wp = typeof payload.wp === 'number' ? payload.wp : Number(payload.wp);
         const voc = typeof payload.voc === 'number' ? payload.voc : Number(payload.voc);
@@ -553,6 +564,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
           updatePanelType(db, {
             panel_type_id: panelTypeId,
+            brand,
             model,
             wp,
             voc,
@@ -627,6 +639,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
       try {
         const payload = await readJsonBody<{
           mppt_type_id?: unknown;
+          brand?: unknown;
           model?: unknown;
           tracker_count?: unknown;
           max_voc?: unknown;
@@ -640,6 +653,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           notes?: unknown;
         }>(request);
 
+        const brand = typeof payload.brand === 'string' ? payload.brand.trim() : '';
         const model = typeof payload.model === 'string' ? payload.model.trim() : '';
         const mpptTypeId = typeof payload.mppt_type_id === 'string' ? payload.mppt_type_id.trim() : '';
         const trackerCount = typeof payload.tracker_count === 'number' ? payload.tracker_count : Number(payload.tracker_count);
@@ -684,6 +698,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
           insertMpptType(db, {
             mppt_type_id: resolvedMpptTypeId,
+            brand,
             model,
             tracker_count: trackerCount,
             max_voc: maxVoc,
@@ -720,6 +735,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
         const payload = await readJsonBody<{
           mppt_type_id?: unknown;
+          brand?: unknown;
           model?: unknown;
           tracker_count?: unknown;
           max_voc?: unknown;
@@ -734,6 +750,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         }>(request);
 
         const bodyMpptTypeId = typeof payload.mppt_type_id === 'string' ? payload.mppt_type_id.trim() : mpptTypeId;
+        const brand = typeof payload.brand === 'string' ? payload.brand.trim() : '';
         const model = typeof payload.model === 'string' ? payload.model.trim() : '';
         const trackerCount = typeof payload.tracker_count === 'number' ? payload.tracker_count : Number(payload.tracker_count);
         const maxVoc = typeof payload.max_voc === 'number' ? payload.max_voc : Number(payload.max_voc);
@@ -782,6 +799,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
           updateMpptType(db, {
             mppt_type_id: mpptTypeId,
+            brand,
             model,
             tracker_count: trackerCount,
             max_voc: maxVoc,
@@ -856,6 +874,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
       try {
         const payload = await readJsonBody<{
           inverter_id?: unknown;
+          brand?: unknown;
           model?: unknown;
           input_voltage_v?: unknown;
           output_voltage_v?: unknown;
@@ -868,6 +887,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           notes?: unknown;
         }>(request);
 
+        const brand = typeof payload.brand === 'string' ? payload.brand.trim() : '';
         const model = typeof payload.model === 'string' ? payload.model.trim() : '';
         const inverterId = typeof payload.inverter_id === 'string' ? payload.inverter_id.trim() : '';
         const inputVoltageV = typeof payload.input_voltage_v === 'number' ? payload.input_voltage_v : Number(payload.input_voltage_v);
@@ -904,6 +924,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
           insertInverterType(db, {
             inverter_id: resolvedInverterId,
+            brand,
             model,
             input_voltage_v: inputVoltageV,
             output_voltage_v: outputVoltageV,
@@ -939,6 +960,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
         const payload = await readJsonBody<{
           inverter_id?: unknown;
+          brand?: unknown;
           model?: unknown;
           input_voltage_v?: unknown;
           output_voltage_v?: unknown;
@@ -952,6 +974,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         }>(request);
 
         const bodyInverterId = typeof payload.inverter_id === 'string' ? payload.inverter_id.trim() : inverterId;
+        const brand = typeof payload.brand === 'string' ? payload.brand.trim() : '';
         const model = typeof payload.model === 'string' ? payload.model.trim() : '';
         const inputVoltageV = typeof payload.input_voltage_v === 'number' ? payload.input_voltage_v : Number(payload.input_voltage_v);
         const outputVoltageV = typeof payload.output_voltage_v === 'number' ? payload.output_voltage_v : Number(payload.output_voltage_v);
@@ -992,6 +1015,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
           updateInverterType(db, {
             inverter_id: inverterId,
+            brand,
             model,
             input_voltage_v: inputVoltageV,
             output_voltage_v: outputVoltageV,

@@ -32,6 +32,7 @@ describe('battery type catalog helpers', () => {
 
       insertBatteryType(db, {
         battery_type_id: 'test-battery-1',
+        brand: 'TestBrand',
         model: 'Test Battery 1',
         chemistry: 'LiFePO4',
         nominal_voltage: 48,
@@ -54,6 +55,7 @@ describe('battery type catalog helpers', () => {
 
       updateBatteryType(db, {
         battery_type_id: 'test-battery-1',
+        brand: 'TestBrand',
         model: 'Test Battery 1 Updated',
         chemistry: 'LiFePO4',
         nominal_voltage: 48,

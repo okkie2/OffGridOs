@@ -31,6 +31,7 @@ export interface Surface {
 export interface PanelType {
   id: number;
   panel_type_id: string;
+  brand: string;
   model: string;
   wp: number;
   voc: number;
@@ -105,6 +106,7 @@ export interface BatteryBankConfiguration {
 export interface MpptType {
   id: number;
   mppt_type_id: string;
+  brand: string;
   model: string;
   tracker_count: number;
   max_voc: number;
@@ -121,6 +123,7 @@ export interface MpptType {
 export interface BatteryType {
   id: number;
   battery_type_id: string;
+  brand: string;
   model: string;
   chemistry: string;
   nominal_voltage: number;
@@ -141,6 +144,7 @@ export interface BatteryType {
 export interface InverterType {
   id: number;
   inverter_id: string;
+  brand: string;
   model: string;
   input_voltage_v: number;
   output_voltage_v: number;

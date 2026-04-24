@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 
 const BATTERY_TYPES: Array<{
   battery_type_id: string;
+  brand: string;
   model: string;
   chemistry: string;
   nominal_voltage: number;
@@ -18,7 +19,8 @@ const BATTERY_TYPES: Array<{
 }> = [
   {
     battery_type_id: 'pylontech-us5000-1c',
-    model: 'Pylontech US5000-1C',
+    brand: 'Pylontech',
+    model: 'US5000-1C',
     chemistry: 'LiFePO4',
     nominal_voltage: 48,
     capacity_ah: 100,
@@ -33,7 +35,8 @@ const BATTERY_TYPES: Array<{
   },
   {
     battery_type_id: 'byd-bbox-lv',
-    model: 'BYD B-Box LV (per module)',
+    brand: 'BYD',
+    model: 'B-Box LV (per module)',
     chemistry: 'LiFePO4',
     nominal_voltage: 48,
     capacity_ah: 83,
@@ -48,7 +51,8 @@ const BATTERY_TYPES: Array<{
   },
   {
     battery_type_id: 'dyness-b4850',
-    model: 'Dyness B4850 (per module)',
+    brand: 'Dyness',
+    model: 'B4850 (per module)',
     chemistry: 'LiFePO4',
     nominal_voltage: 48,
     capacity_ah: 50,
@@ -63,7 +67,8 @@ const BATTERY_TYPES: Array<{
   },
   {
     battery_type_id: 'pylontech-pelio-l',
-    model: 'Pylontech Pelio-L (per module)',
+    brand: 'Pylontech',
+    model: 'Pelio-L (per module)',
     chemistry: 'LiFePO4',
     nominal_voltage: 51.2,
     capacity_ah: 100,
@@ -77,8 +82,25 @@ const BATTERY_TYPES: Array<{
     notes: 'Victron CAN gecertificeerd, cheapest found via Google search: ITS Technologies. Price shown as GBP + VAT.',
   },
   {
+    battery_type_id: 'mg-lfp-25-6v-230ah-5800wh',
+    brand: 'MG',
+    model: 'LFP Battery 25.6V/230Ah/5800Wh',
+    chemistry: 'LiFePO4',
+    nominal_voltage: 25.6,
+    capacity_ah: 230,
+    capacity_kwh: 5.8,
+    victron_can: 1,
+    cooling: 'passive',
+    price: 1769.6,
+    price_per_kwh: 305.1,
+    source: 'https://www.dynastart.nl/mg-lfp-battery-25-6v-230ah-5800wh',
+    url: 'https://www.dynastart.nl/mg-lfp-battery-25-6v-230ah-5800wh',
+    notes: 'Dynastart product page. Article number MGLFP240230. LiFePO4 module with integrated slave BMS, CAN-Bus communication and Victron compatibility; 25.6 V, 230 Ah, 5.8 kWh, approx. 41 kg, modular stackable system.',
+  },
+  {
     battery_type_id: 'pytes-ebox-48100r',
-    model: 'Pytes E-BOX-48100R (per module)',
+    brand: 'Pytes',
+    model: 'E-BOX-48100R (per module)',
     chemistry: 'LiFePO4',
     nominal_voltage: 51.2,
     capacity_ah: 100,
@@ -93,7 +115,8 @@ const BATTERY_TYPES: Array<{
   },
   {
     battery_type_id: 'bslbatt-b-lfp48-100e',
-    model: 'BSLBATT B-LFP48-100E',
+    brand: 'BSLBATT',
+    model: 'B-LFP48-100E',
     chemistry: 'LiFePO4',
     nominal_voltage: 48,
     capacity_ah: 100,
@@ -108,7 +131,8 @@ const BATTERY_TYPES: Array<{
   },
   {
     battery_type_id: 'zyc-simpo-5000',
-    model: 'ZYC SIMPO 5000 LiFePO4 51.2V/100Ah 5.12kWh',
+    brand: 'ZYC',
+    model: 'SIMPO 5000 LiFePO4 51.2V/100Ah 5.12kWh',
     chemistry: 'LiFePO4',
     nominal_voltage: 51.2,
     capacity_ah: 100,
@@ -121,12 +145,29 @@ const BATTERY_TYPES: Array<{
     url: 'https://panpower.eu/pl/systemy-magazynowania/5059-zyc-energy-simpo-5000-5kwh-512v.html',
     notes: 'Victron-compatible battery module. Cheapest found via Google search: Panpower.',
   },
+  {
+    battery_type_id: 'rs-series-rs230',
+    brand: 'RS',
+    model: 'RS230',
+    chemistry: 'LiFePO4',
+    nominal_voltage: 51.2,
+    capacity_ah: 230,
+    capacity_kwh: 11.78,
+    victron_can: 0,
+    cooling: 'passive',
+    price: null,
+    price_per_kwh: null,
+    source: null,
+    url: null,
+    notes: 'Industrial modular battery system. User brief: 51.2 V, 230 Ah, approx. 11.8 kWh per module, about 95 kg, stackable to larger high-voltage systems.',
+  },
 ];
 
 const VICTRON_PRICE_LIST_URL = 'https://www.victronenergy.nl/media/pricelist/Pricelist_Victron_EUR_C_2026-Q1_Web.pdf';
 
 const INVERTER_TYPES: Array<{
   inverter_id: string;
+  brand?: string;
   model: string;
   input_voltage_v: number;
   output_voltage_v: number;
@@ -139,6 +180,19 @@ const INVERTER_TYPES: Array<{
   notes?: string | null;
 }> = [
   {
+    inverter_id: 'victron-mp2-48-3000',
+    model: 'Multiplus-II 48/3000/35-32',
+    input_voltage_v: 48,
+    output_voltage_v: 230,
+    continuous_power_w: 2400,
+    peak_power_va: 3000,
+    max_charge_current_a: 35,
+    efficiency_pct: 96,
+    price: 1007,
+    price_source_url: 'https://stroomwinkel.nl/victron-multiplus-ii-48-3000-35-32-5096.html',
+    notes: 'Single AC input',
+  },
+  {
     inverter_id: 'victron-mp2-48-5000',
     model: 'Multiplus-II 48/5000/70-50',
     input_voltage_v: 48,
@@ -147,8 +201,21 @@ const INVERTER_TYPES: Array<{
     peak_power_va: 5000,
     max_charge_current_a: 70,
     efficiency_pct: 96,
-    price: 889,
-    price_source_url: VICTRON_PRICE_LIST_URL,
+    price: 1701.45,
+    price_source_url: 'https://stroomwinkel.nl/victron-multiplus-ii-48-5000-70-50-230v.html',
+    notes: 'Single AC input',
+  },
+  {
+    inverter_id: 'victron-mp2-48-8000',
+    model: 'Multiplus-II 48/8000/110-100',
+    input_voltage_v: 48,
+    output_voltage_v: 230,
+    continuous_power_w: 6400,
+    peak_power_va: 8000,
+    max_charge_current_a: 110,
+    efficiency_pct: 96,
+    price: 1473.45,
+    price_source_url: 'https://stroomwinkel.nl/omv-la/omv-la-combis/victron-multiplus-ii-48-8000-110-100-100-230v.html',
     notes: 'Single AC input',
   },
   {
@@ -160,8 +227,8 @@ const INVERTER_TYPES: Array<{
     peak_power_va: 6000,
     max_charge_current_a: 100,
     efficiency_pct: 96.5,
-    price: 1635,
-    price_source_url: VICTRON_PRICE_LIST_URL,
+    price: 2367.4,
+    price_source_url: 'https://stroomwinkel.nl/victron-multi-rs-solar-48-6000-230v.html',
     notes: 'Victron Multi RS Solar. Official specs: DC input 38-62 V, AC output 230 VAC, max continuous inverter current 25 A AC, peak 9 kW for 3 s / 7 kW for 4 min, solar: 450 V max, MPPT range 65-450 V, 2 x 3000 W trackers, 12 A max PV input current, 100 A combined charge current, 50 A transfer switch.',
   },
   {
@@ -173,8 +240,21 @@ const INVERTER_TYPES: Array<{
     peak_power_va: 10000,
     max_charge_current_a: 140,
     efficiency_pct: 96,
-    price: 1551,
-    price_source_url: VICTRON_PRICE_LIST_URL,
+    price: 1760.35,
+    price_source_url: 'https://stroomwinkel.nl/victron-multiplus-ii-48-10000-140-100-100-230v-4237.html',
+    notes: 'Single AC input',
+  },
+  {
+    inverter_id: 'victron-mp2-48-15000',
+    model: 'Multiplus-II 48/15000/200-100',
+    input_voltage_v: 48,
+    output_voltage_v: 230,
+    continuous_power_w: 12000,
+    peak_power_va: 15000,
+    max_charge_current_a: 200,
+    efficiency_pct: 96,
+    price: 2455.75,
+    price_source_url: 'https://stroomwinkel.nl/omv-la/omv-la-combis/victron-multiplus-ii-48-15000-200-100-100-230v.html',
     notes: 'Single AC input',
   },
 ];
@@ -256,6 +336,7 @@ const BASELINE_SURFACES: Array<{
 
 const BASELINE_PANEL_TYPES: Array<{
   panel_type_id: string;
+  brand: string;
   model: string;
   wp: number;
   voc: number;
@@ -270,6 +351,7 @@ const BASELINE_PANEL_TYPES: Array<{
 }> = [
   {
     panel_type_id: 'aiko-475-all-black',
+    brand: 'Aiko',
     model: 'Aiko 475Wp All Black Glas-Glas',
     wp: 475,
     voc: 45,
@@ -283,7 +365,23 @@ const BASELINE_PANEL_TYPES: Array<{
     price_source_url: 'https://www.solardeals.nl/product/aiko-475wp-glas-glas-all-black/',
   },
   {
+    panel_type_id: 'BISOL-rood',
+    brand: 'BISOL',
+    model: 'BISOL BDO Spectrum 400 Wp N-type TOPCon Red',
+    wp: 400,
+    voc: 40,
+    vmp: 34,
+    isc: 14,
+    imp: 13,
+    length_mm: 1722,
+    width_mm: 1134,
+    notes: 'Deep red BISOL Spectrum panel; 400 Wp, 20.48% efficiency, N-type TOPCon, 20-year product warranty and 25-year linear performance guarantee, 1722 x 1134 x 30 mm, based on Planet Soar Shop.',
+    price: 290,
+    price_source_url: 'https://www.planetsoarshop.com/en/products/bisol-bdo-spectrum-400-wp-n-type-topcon-red-solar-panel',
+  },
+  {
     panel_type_id: 'canadian-bihiku6-rood',
+    brand: 'Canadian Solar',
     model: 'Canadian Solar BiHiKu6 (Rood)',
     wp: 390,
     voc: 41,
@@ -298,6 +396,7 @@ const BASELINE_PANEL_TYPES: Array<{
   },
   {
     panel_type_id: 'canadian-hiku6',
+    brand: 'Canadian Solar',
     model: 'Canadian Solar HiKu6',
     wp: 400,
     voc: 41.1,
@@ -312,6 +411,7 @@ const BASELINE_PANEL_TYPES: Array<{
   },
   {
     panel_type_id: 'eurener-280',
+    brand: 'Eurener',
     model: 'Eurener 280W',
     wp: 280,
     voc: 38,
@@ -325,6 +425,7 @@ const BASELINE_PANEL_TYPES: Array<{
   },
   {
     panel_type_id: 'ja-deepblue-3-rood',
+    brand: 'JA Solar',
     model: 'JA Solar DeepBlue 3.0 (Rood)',
     wp: 390,
     voc: 41.4,
@@ -339,6 +440,7 @@ const BASELINE_PANEL_TYPES: Array<{
   },
   {
     panel_type_id: 'ja-deepblue-4',
+    brand: 'JA Solar',
     model: 'JA Solar DeepBlue 4.0',
     wp: 410,
     voc: 41.6,
@@ -353,6 +455,7 @@ const BASELINE_PANEL_TYPES: Array<{
   },
   {
     panel_type_id: 'jinko-tiger-neo',
+    brand: 'Jinko',
     model: 'Jinko Solar Tiger Neo N-Type',
     wp: 420,
     voc: 42.6,
@@ -366,6 +469,7 @@ const BASELINE_PANEL_TYPES: Array<{
   },
   {
     panel_type_id: 'longi-hi-mo-6',
+    brand: 'LONGi',
     model: 'LONGi Hi-MO 6',
     wp: 410,
     voc: 41.5,
@@ -379,6 +483,7 @@ const BASELINE_PANEL_TYPES: Array<{
   },
   {
     panel_type_id: 'qcells-qpeak-duo-g10',
+    brand: 'Qcells',
     model: 'Qcells Q.Peak Duo G10+',
     wp: 390,
     voc: 41.8,
@@ -392,6 +497,7 @@ const BASELINE_PANEL_TYPES: Array<{
   },
   {
     panel_type_id: 'rec-alpha-pure-r',
+    brand: 'REC',
     model: 'REC Alpha Pure-R',
     wp: 410,
     voc: 42.4,
@@ -405,6 +511,7 @@ const BASELINE_PANEL_TYPES: Array<{
   },
   {
     panel_type_id: 'sunpower-maxeon6',
+    brand: 'SunPower',
     model: 'SunPower Maxeon 6',
     wp: 430,
     voc: 43.4,
@@ -418,6 +525,7 @@ const BASELINE_PANEL_TYPES: Array<{
   },
   {
     panel_type_id: 'trina-vertex-s-plus',
+    brand: 'Trina Solar',
     model: 'Trina Solar Vertex S+',
     wp: 410,
     voc: 41.8,
@@ -431,6 +539,7 @@ const BASELINE_PANEL_TYPES: Array<{
   },
   {
     panel_type_id: 'trina-vertex-s-plus-rood',
+    brand: 'Trina Solar',
     model: 'Trina Solar Vertex S+ (Rood)',
     wp: 400,
     voc: 41.8,
@@ -464,6 +573,7 @@ const BASELINE_SURFACE_PANEL_ASSIGNMENTS: Array<{
  */
 const VICTRON_MPPT: Array<{
   mppt_type_id: string;
+  brand?: string;
   model: string;
   tracker_count: number;
   max_voc: number;
@@ -476,20 +586,20 @@ const VICTRON_MPPT: Array<{
   price_source_url?: string | null;
   notes?: string;
 }> = [
-  { mppt_type_id: 'victron-75-10',   model: 'SmartSolar 75/10',   tracker_count: 1, max_voc: 75,  max_charge_current: 10,  nominal_battery_voltage: 48, max_pv_power: 10  * 48, price: 63,  price_source_url: VICTRON_PRICE_LIST_URL },
-  { mppt_type_id: 'victron-75-15',   model: 'SmartSolar 75/15',   tracker_count: 1, max_voc: 75,  max_charge_current: 15,  nominal_battery_voltage: 48, max_pv_power: 15  * 48, price: 68,  price_source_url: VICTRON_PRICE_LIST_URL },
-  { mppt_type_id: 'victron-100-15',  model: 'SmartSolar 100/15',  tracker_count: 1, max_voc: 100, max_charge_current: 15,  nominal_battery_voltage: 48, max_pv_power: 15  * 48, price: 84,  price_source_url: VICTRON_PRICE_LIST_URL },
-  { mppt_type_id: 'victron-100-20',  model: 'SmartSolar 100/20',  tracker_count: 1, max_voc: 100, max_charge_current: 20,  nominal_battery_voltage: 48, max_pv_power: 20  * 48, price: 96,  price_source_url: VICTRON_PRICE_LIST_URL },
-  { mppt_type_id: 'victron-150-35',  model: 'SmartSolar 150/35',  tracker_count: 1, max_voc: 150, max_charge_current: 35,  nominal_battery_voltage: 48, max_pv_power: 35  * 48, price: 197, price_source_url: VICTRON_PRICE_LIST_URL },
-  { mppt_type_id: 'victron-150-45',  model: 'SmartSolar 150/45',  tracker_count: 1, max_voc: 150, max_charge_current: 45,  nominal_battery_voltage: 48, max_pv_power: 45  * 48, price: 233, price_source_url: VICTRON_PRICE_LIST_URL },
-  { mppt_type_id: 'victron-150-60',  model: 'SmartSolar 150/60',  tracker_count: 1, max_voc: 150, max_charge_current: 60,  nominal_battery_voltage: 48, max_pv_power: 60  * 48, price: 375, price_source_url: VICTRON_PRICE_LIST_URL },
-  { mppt_type_id: 'victron-150-70',  model: 'SmartSolar 150/70',  tracker_count: 1, max_voc: 150, max_charge_current: 70,  nominal_battery_voltage: 48, max_pv_power: 70  * 48, price: 409, price_source_url: VICTRON_PRICE_LIST_URL },
-  { mppt_type_id: 'victron-150-85',  model: 'SmartSolar 150/85',  tracker_count: 1, max_voc: 150, max_charge_current: 85,  nominal_battery_voltage: 48, max_pv_power: 85  * 48, price: 483, price_source_url: VICTRON_PRICE_LIST_URL },
-  { mppt_type_id: 'victron-150-100', model: 'SmartSolar 150/100', tracker_count: 1, max_voc: 150, max_charge_current: 100, nominal_battery_voltage: 48, max_pv_power: 100 * 48, price: 552, price_source_url: VICTRON_PRICE_LIST_URL },
-  { mppt_type_id: 'victron-250-60',  model: 'SmartSolar 250/60',  tracker_count: 1, max_voc: 250, max_charge_current: 60,  nominal_battery_voltage: 48, max_pv_power: 60  * 48, price: 399.95, price_source_url: 'https://www.ab-marineservice.com/product/smartsolar-mppt-250-60-tr/' },
-  { mppt_type_id: 'victron-250-70',  model: 'SmartSolar 250/70',  tracker_count: 1, max_voc: 250, max_charge_current: 70,  nominal_battery_voltage: 48, max_pv_power: 70  * 48, price: 459.95, price_source_url: 'https://www.ab-marineservice.com/product/smartsolar-mppt-250-70-tr/' },
-  { mppt_type_id: 'victron-250-85',  model: 'SmartSolar 250/85',  tracker_count: 1, max_voc: 250, max_charge_current: 85,  nominal_battery_voltage: 48, max_pv_power: 85  * 48, price: 519.95, price_source_url: 'https://www.ab-marineservice.com/product/smartsolar-mppt-250-85-tr-ve-can/' },
-  { mppt_type_id: 'victron-250-100', model: 'SmartSolar 250/100', tracker_count: 1, max_voc: 250, max_charge_current: 100, nominal_battery_voltage: 48, max_pv_power: 100 * 48, price: 539.95, price_source_url: 'https://www.nkon.nl/victron-smartsolar-mppt-250-100-mc4-ve-can-laadregelaar.html' },
+  { mppt_type_id: 'victron-75-10',   model: 'SmartSolar 75/10',   tracker_count: 1, max_voc: 75,  max_charge_current: 10,  nominal_battery_voltage: 48, max_pv_power: 10  * 48, price: 59.85, price_source_url: 'https://stroomwinkel.nl/zonnestroom-1/zonnestroom-omv-zonnepanelen/smartsolar-mppt-75-10.html' },
+  { mppt_type_id: 'victron-75-15',   model: 'SmartSolar 75/15',   tracker_count: 1, max_voc: 75,  max_charge_current: 15,  nominal_battery_voltage: 48, max_pv_power: 15  * 48, price: 64.6, price_source_url: 'https://stroomwinkel.nl/smartsolar-mppt-75-15.html' },
+  { mppt_type_id: 'victron-100-15',  model: 'SmartSolar 100/15',  tracker_count: 1, max_voc: 100, max_charge_current: 15,  nominal_battery_voltage: 48, max_pv_power: 15  * 48, price: 79.8, price_source_url: 'https://stroomwinkel.nl/smartsolar-mppt-100-15.html' },
+  { mppt_type_id: 'victron-100-20',  model: 'SmartSolar 100/20',  tracker_count: 1, max_voc: 100, max_charge_current: 20,  nominal_battery_voltage: 48, max_pv_power: 20  * 48, price: 91.2, price_source_url: 'https://stroomwinkel.nl/victron-smartsolar-mppt-100-20-48v.html' },
+  { mppt_type_id: 'victron-150-35',  model: 'SmartSolar 150/35',  tracker_count: 1, max_voc: 150, max_charge_current: 35,  nominal_battery_voltage: 48, max_pv_power: 35  * 48, price: 187.15, price_source_url: 'https://stroomwinkel.nl/smartsolar-mppt-150-35.html' },
+  { mppt_type_id: 'victron-150-45',  model: 'SmartSolar 150/45',  tracker_count: 1, max_voc: 150, max_charge_current: 45,  nominal_battery_voltage: 48, max_pv_power: 45  * 48, price: 427.5, price_source_url: 'https://stroomwinkel.nl/victron-smartsolar-mppt-150-45-tr.html' },
+  { mppt_type_id: 'victron-150-60',  model: 'SmartSolar 150/60',  tracker_count: 1, max_voc: 150, max_charge_current: 60,  nominal_battery_voltage: 48, max_pv_power: 60  * 48, price: 522.5, price_source_url: 'https://stroomwinkel.nl/victron-smartsolar-mppt-150-60-tr-4410.html' },
+  { mppt_type_id: 'victron-150-70',  model: 'SmartSolar 150/70',  tracker_count: 1, max_voc: 150, max_charge_current: 70,  nominal_battery_voltage: 48, max_pv_power: 70  * 48, price: 522.5, price_source_url: 'https://stroomwinkel.nl/victron-smartsolar-mppt-150-70-tr-4041.html' },
+  { mppt_type_id: 'victron-150-85',  model: 'SmartSolar 150/85',  tracker_count: 1, max_voc: 150, max_charge_current: 85,  nominal_battery_voltage: 48, max_pv_power: 85  * 48, price: 469.3, price_source_url: 'https://stroomwinkel.nl/victron-smartsolar-mppt-150-85-mc4-ve-can.html' },
+  { mppt_type_id: 'victron-150-100', model: 'SmartSolar 150/100', tracker_count: 1, max_voc: 150, max_charge_current: 100, nominal_battery_voltage: 48, max_pv_power: 100 * 48, price: 524.4, price_source_url: 'https://stroomwinkel.nl/victron-smartsolar-mppt-150-100-tr-12-24-48v.html' },
+  { mppt_type_id: 'victron-250-60',  model: 'SmartSolar 250/60',  tracker_count: 1, max_voc: 250, max_charge_current: 60,  nominal_battery_voltage: 48, max_pv_power: 60  * 48, price: 420.85, price_source_url: 'https://stroomwinkel.nl/victron-smartsolar-mppt-250-60-mc4.html' },
+  { mppt_type_id: 'victron-250-70',  model: 'SmartSolar 250/70',  tracker_count: 1, max_voc: 250, max_charge_current: 70,  nominal_battery_voltage: 48, max_pv_power: 70  * 48, price: 509.23, price_source_url: 'https://stroomwinkel.nl/victron-smartsolar-mppt-250-70-tr.html' },
+  { mppt_type_id: 'victron-250-85',  model: 'SmartSolar 250/85',  tracker_count: 1, max_voc: 250, max_charge_current: 85,  nominal_battery_voltage: 48, max_pv_power: 85  * 48, price: 556.7, price_source_url: 'https://stroomwinkel.nl/victron-smartsolar-mppt-250-85-tr-ve-can.html' },
+  { mppt_type_id: 'victron-250-100', model: 'SmartSolar 250/100', tracker_count: 1, max_voc: 250, max_charge_current: 100, nominal_battery_voltage: 48, max_pv_power: 100 * 48, price: 902.5, price_source_url: 'https://stroomwinkel.nl/victron-smartsolar-mppt-250-100-mc4-4335.html' },
   {
     mppt_type_id: 'victron-mrs-48-6000-100-450-100',
     model: 'Multi RS Solar 48/6000/100-450/100',
@@ -500,22 +610,23 @@ const VICTRON_MPPT: Array<{
     max_pv_power: 6000,
     max_pv_input_current_a: 13,
     max_pv_short_circuit_current_a: 16,
-    price: 1635,
-    price_source_url: VICTRON_PRICE_LIST_URL,
+    price: 2367.4,
+    price_source_url: 'https://stroomwinkel.nl/victron-multi-rs-solar-48-6000-230v.html',
   },
 ];
 
 export function seedMpptTypes(db: Database.Database): void {
   const insert = db.prepare(`
     INSERT OR IGNORE INTO mppt_types
-      (mppt_type_id, model, tracker_count, max_voc, max_pv_power, max_pv_input_current_a, max_pv_short_circuit_current_a, max_charge_current, nominal_battery_voltage, price, price_source_url, notes)
+      (mppt_type_id, brand, model, tracker_count, max_voc, max_pv_power, max_pv_input_current_a, max_pv_short_circuit_current_a, max_charge_current, nominal_battery_voltage, price, price_source_url, notes)
     VALUES
-      (@mppt_type_id, @model, @tracker_count, @max_voc, @max_pv_power, @max_pv_input_current_a, @max_pv_short_circuit_current_a, @max_charge_current, @nominal_battery_voltage, @price, @price_source_url, @notes)
+      (@mppt_type_id, @brand, @model, @tracker_count, @max_voc, @max_pv_power, @max_pv_input_current_a, @max_pv_short_circuit_current_a, @max_charge_current, @nominal_battery_voltage, @price, @price_source_url, @notes)
   `);
   const insertAllWithDefaults = db.transaction((rows: typeof VICTRON_MPPT) => {
     for (const row of rows) {
       insert.run({
         ...row,
+        brand: row.brand ?? 'Victron',
         max_pv_input_current_a: row.max_pv_input_current_a ?? null,
         max_pv_short_circuit_current_a: row.max_pv_short_circuit_current_a ?? null,
         price: row.price ?? null,
@@ -539,9 +650,9 @@ export function seedMpptTypes(db: Database.Database): void {
 export function seedBatteryTypes(db: Database.Database): void {
   const insert = db.prepare(`
     INSERT OR IGNORE INTO battery_types
-      (battery_type_id, model, chemistry, nominal_voltage, capacity_ah, capacity_kwh, victron_can, cooling, price, price_per_kwh, price_source_url, source, url, notes)
+      (battery_type_id, brand, model, chemistry, nominal_voltage, capacity_ah, capacity_kwh, victron_can, cooling, price, price_per_kwh, price_source_url, source, url, notes)
     VALUES
-      (@battery_type_id, @model, @chemistry, @nominal_voltage, @capacity_ah, @capacity_kwh, @victron_can, @cooling, @price, @price_per_kwh, @price_source_url, @source, @url, @notes)
+      (@battery_type_id, @brand, @model, @chemistry, @nominal_voltage, @capacity_ah, @capacity_kwh, @victron_can, @cooling, @price, @price_per_kwh, @price_source_url, @source, @url, @notes)
   `);
   const insertAll = db.transaction((rows: typeof BATTERY_TYPES) => {
     for (const row of rows) insert.run({
@@ -560,14 +671,15 @@ export function seedBatteryTypes(db: Database.Database): void {
 export function seedInverterTypes(db: Database.Database): void {
   const insert = db.prepare(`
     INSERT OR IGNORE INTO inverter_types
-      (inverter_id, model, input_voltage_v, output_voltage_v, continuous_power_w, peak_power_va, max_charge_current_a, efficiency_pct, price, price_source_url, notes)
+      (inverter_id, brand, model, input_voltage_v, output_voltage_v, continuous_power_w, peak_power_va, max_charge_current_a, efficiency_pct, price, price_source_url, notes)
     VALUES
-      (@inverter_id, @model, @input_voltage_v, @output_voltage_v, @continuous_power_w, @peak_power_va, @max_charge_current_a, @efficiency_pct, @price, @price_source_url, @notes)
+      (@inverter_id, @brand, @model, @input_voltage_v, @output_voltage_v, @continuous_power_w, @peak_power_va, @max_charge_current_a, @efficiency_pct, @price, @price_source_url, @notes)
   `);
   const insertAll = db.transaction((rows: typeof INVERTER_TYPES) => {
     for (const row of rows) {
       insert.run({
         ...row,
+        brand: row.brand ?? 'Victron',
         efficiency_pct: row.efficiency_pct ?? null,
         price: row.price ?? null,
         price_source_url: row.price_source_url ?? null,
@@ -624,8 +736,8 @@ export function seedPanelTypes(db: Database.Database): void {
   const existing = db.prepare('SELECT COUNT(*) as count FROM panel_types').get() as { count: number } | undefined;
   if (!existing || existing.count === 0) {
     const insert = db.prepare(`
-      INSERT INTO panel_types (panel_type_id, model, wp, voc, vmp, isc, imp, length_mm, width_mm, notes, price, price_source_url)
-      VALUES (@panel_type_id, @model, @wp, @voc, @vmp, @isc, @imp, @length_mm, @width_mm, @notes, @price, @price_source_url)
+      INSERT INTO panel_types (panel_type_id, brand, model, wp, voc, vmp, isc, imp, length_mm, width_mm, notes, price, price_source_url)
+      VALUES (@panel_type_id, @brand, @model, @wp, @voc, @vmp, @isc, @imp, @length_mm, @width_mm, @notes, @price, @price_source_url)
     `);
     const insertAll = db.transaction((rows: typeof BASELINE_PANEL_TYPES) => {
       for (const row of rows) {
