@@ -1,7 +1,7 @@
 import type { MpptType, PanelType } from '../domain/types.js';
 
 export type ElectricalStatus = 'within_limits' | 'outside_limits';
-export type FitStatus = 'optimal' | 'acceptable' | 'clipping_expected' | 'underutilized';
+export type FitStatus = 'optimal' | 'clipping_expected' | 'underutilized';
 
 export interface ArrayToMpptInput {
   panelType: PanelType;
@@ -85,9 +85,6 @@ export function evaluateArrayToMpptFit(input: ArrayToMpptInput): ArrayToMpptFit 
     if (powerRatio >= 0.9) {
       fitStatus = 'optimal';
       reasons.push('well_matched');
-    } else if (powerRatio >= 0.7) {
-      fitStatus = 'acceptable';
-      reasons.push('acceptable_headroom');
     } else {
       fitStatus = 'underutilized';
       reasons.push('low_utilization');

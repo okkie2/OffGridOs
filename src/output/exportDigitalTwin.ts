@@ -184,7 +184,7 @@ interface DigitalTwinExport {
       input_power_w: number;
       evaluation: {
         electrical_status: 'within_limits' | 'outside_limits';
-        fit_status?: 'optimal' | 'acceptable' | 'clipping_expected' | 'underutilized';
+        fit_status?: 'optimal' | 'clipping_expected' | 'underutilized';
         reasons: string[];
         notes: string;
       };
@@ -197,7 +197,7 @@ interface DigitalTwinExport {
       max_charge_current_a: number | null;
       evaluation: {
         electrical_status: 'within_limits' | 'outside_limits';
-        fit_status?: 'optimal' | 'acceptable';
+        fit_status?: 'optimal' | 'underutilized';
         reasons: string[];
         notes: string;
       };
@@ -745,7 +745,7 @@ function buildMpptToBatteryBankRelationships(
       max_charge_current_a: mpptType.max_charge_current,
       evaluation: {
         electrical_status: withinLimits ? 'within_limits' : 'outside_limits',
-        fit_status: withinLimits ? (voltageDelta <= 1 ? 'optimal' : 'acceptable') : undefined,
+        fit_status: withinLimits ? (voltageDelta <= 1 ? 'optimal' : 'underutilized') : undefined,
         reasons: withinLimits
           ? ['provisional_battery_bank', voltageDelta <= 1 ? 'battery_voltage_alignment' : 'battery_voltage_near_nominal']
           : ['provisional_battery_bank', 'battery_voltage_mismatch'],

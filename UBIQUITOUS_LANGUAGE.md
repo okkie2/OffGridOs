@@ -120,7 +120,6 @@ Use `outside_limits` when the relationship violates a hard electrical boundary s
 `fit_status` answers the configuration-quality question when the relationship is within hard limits:
 
 - `optimal`
-- `acceptable`
 - `clipping_expected`
 - `underutilized`
 

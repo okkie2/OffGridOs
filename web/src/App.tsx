@@ -23,7 +23,7 @@ function generateUniqueCatalogId(model: string, existingIds: string[]): string {
 }
 
 type Status = 'within_limits' | 'outside_limits';
-type FitStatus = 'optimal' | 'acceptable' | 'clipping_expected' | 'underutilized';
+type FitStatus = 'optimal' | 'clipping_expected' | 'underutilized';
 
 interface Surface {
   surface_id: string;
@@ -264,7 +264,7 @@ interface MpptToBatteryBankRelationship {
   max_charge_current_a: number | null;
   evaluation: {
     electrical_status: Status;
-    fit_status?: 'optimal' | 'acceptable';
+    fit_status?: 'optimal';
     reasons: string[];
     notes?: string;
   };
@@ -971,7 +971,6 @@ function statusTone(status: Status, fit?: FitStatus): string {
   if (status === 'outside_limits') return 'danger';
   if (fit === 'clipping_expected') return 'warn';
   if (fit === 'underutilized') return 'cool';
-  if (fit === 'acceptable') return 'ok';
   return 'good';
 }
 
@@ -1023,7 +1022,6 @@ function getRelationshipVerdictSummary(
   const prefix = `relationship.${kind}.summary`;
   if (status === 'outside_limits') return t(`${prefix}.outside_limits` as TranslationKey);
   if (fit === 'optimal') return t(`${prefix}.optimal` as TranslationKey);
-  if (fit === 'acceptable') return t(`${prefix}.acceptable` as TranslationKey);
   if (fit === 'clipping_expected') return t(`${prefix}.clipping_expected` as TranslationKey);
   if (fit === 'underutilized') return t(`${prefix}.underutilized` as TranslationKey);
   return t(`${prefix}.within_limits` as TranslationKey);
@@ -1039,7 +1037,6 @@ function getRelationshipVerdictLabel(
   const prefix = `relationship.${kind}.label`;
   if (status === 'outside_limits') return t(`${prefix}.outside_limits` as TranslationKey);
   if (fit === 'optimal') return t(`${prefix}.optimal` as TranslationKey);
-  if (fit === 'acceptable') return t(`${prefix}.acceptable` as TranslationKey);
   if (fit === 'clipping_expected') return t(`${prefix}.clipping_expected` as TranslationKey);
   if (fit === 'underutilized') return t(`${prefix}.underutilized` as TranslationKey);
   return t(`${prefix}.within_limits` as TranslationKey);
@@ -1224,9 +1221,6 @@ function evaluateMpptCompatibility(
     } else if (powerRatio >= 0.9) {
       fit = 'optimal';
       reasons.push('well_matched');
-    } else if (powerRatio >= 0.7) {
-      fit = 'acceptable';
-      reasons.push('acceptable_headroom');
     } else {
       fit = 'underutilized';
       reasons.push('low_utilization');
@@ -1567,23 +1561,11 @@ function getInverterEvaluationCopy(input: {
 
   const summary = compatibility.status === 'outside_limits'
     ? t('inverter.evaluation.summary.outside_limits')
-    : compatibility.fit === 'optimal'
-      ? t('inverter.evaluation.summary.optimal')
-      : compatibility.fit === 'acceptable'
-        ? t('inverter.evaluation.summary.acceptable')
-        : compatibility.fit === 'underutilized'
-          ? t('inverter.evaluation.summary.underutilized')
-          : t('inverter.evaluation.summary.within_limits');
+    : t('inverter.evaluation.summary.optimal');
 
   const label = compatibility.status === 'outside_limits'
     ? t('inverter.evaluation.label.outside_limits')
-    : compatibility.fit === 'optimal'
-      ? t('inverter.evaluation.label.optimal')
-      : compatibility.fit === 'acceptable'
-        ? t('inverter.evaluation.label.acceptable')
-        : compatibility.fit === 'underutilized'
-          ? t('inverter.evaluation.label.underutilized')
-          : t('inverter.evaluation.label.within_limits');
+    : t('inverter.evaluation.label.optimal');
 
   const reasons = [...new Set(compatibility.reasons.map((reason) => {
     const key = `inverter.evaluation.reason.${reason}` as TranslationKey;
@@ -1632,25 +1614,9 @@ function evaluateInverterCompatibility(
     reasons.push('inverter_power_too_high_for_battery');
   }
 
-  let fit: FitStatus | undefined;
+  const fit: FitStatus | undefined = outsideLimits ? undefined : 'optimal';
   if (!outsideLimits) {
-    const currentRatio = batteryArrayConfig.maxDischargeCurrentA != null
-      ? inverterType.max_charge_current_a / batteryArrayConfig.maxDischargeCurrentA
-      : null;
-    const powerRatio = batteryArrayConfig.maxDischargePowerW != null
-      ? inverterType.continuous_power_w / batteryArrayConfig.maxDischargePowerW
-      : 0;
-    const fitRatio = currentRatio != null ? Math.min(currentRatio, powerRatio) : powerRatio;
-    if (fitRatio >= 0.9) {
-      fit = 'optimal';
-      reasons.push('well_matched');
-    } else if (fitRatio >= 0.7) {
-      fit = 'acceptable';
-      reasons.push('acceptable_headroom');
-    } else {
-      fit = 'underutilized';
-      reasons.push('low_utilization');
-    }
+    reasons.push('well_matched');
   }
 
   return {
@@ -2150,7 +2116,7 @@ function getRouteContext(route: Route, data: DigitalTwinExport | null, t: (key: 
       }
     }
     case 'verdict-summary':
-      return t('page.report.verdict_summary.context');
+      return '';
     case 'cost-summary':
       return t('page.report.cost_summary.context');
     case 'surface':
@@ -2180,7 +2146,7 @@ function PageHeader({
   return (
     <div className="page-header">
       <div className="page-header-main">
-        <Breadcrumbs route={route} data={data} />
+        <Breadcrumbs route={route} data={data} locationSlug={locationSlug} />
         <h2 className="topbar-title">{resolvedTitle}</h2>
         {resolvedContext ? <p className="page-header-context">{resolvedContext}</p> : null}
       </div>
@@ -2249,50 +2215,58 @@ function AppFrame({
   );
 }
 
-function Breadcrumbs({ route, data }: { route: Route; data: DigitalTwinExport | null }) {
+function Breadcrumbs({ route, data, locationSlug }: { route: Route; data: DigitalTwinExport | null; locationSlug: string }) {
   const { t } = useTranslation();
 
-  const crumbs: Array<{ label: string; onClick?: () => void }> = [{ label: t('breadcrumbs.project') }];
+  const crumbs: Array<{ label: string; route?: Route; current?: boolean }> = [
+    {
+      label: t('breadcrumbs.project'),
+      route: { kind: 'location' },
+    },
+  ];
 
   switch (route.kind) {
     case 'location':
-      crumbs.push({ label: t('page.location') });
+      crumbs.push({ label: t('page.location'), current: true });
       break;
     case 'solar-yield':
-      crumbs.push({ label: t('page.solar_yield') });
+      crumbs.push({ label: t('page.location'), route: { kind: 'location' } });
+      crumbs.push({ label: t('page.solar_yield'), current: true });
       break;
     case 'battery-array':
-      crumbs.push({ label: t('page.battery_array') });
+      crumbs.push({ label: t('page.location'), route: { kind: 'location' } });
+      crumbs.push({ label: t('page.battery_array'), current: true });
       break;
     case 'inverter-array':
-      crumbs.push({ label: t('page.inverter_array') });
+      crumbs.push({ label: t('page.location'), route: { kind: 'location' } });
+      crumbs.push({ label: t('page.inverter_array'), current: true });
       break;
     case 'catalogs':
-      crumbs.push({ label: t('page.catalogs') });
+      crumbs.push({ label: t('page.catalogs'), current: true });
       break;
     case 'reports':
-      crumbs.push({ label: t('page.reports') });
+      crumbs.push({ label: t('page.reports'), current: true });
       break;
     case 'about':
-      crumbs.push({ label: t('page.about') });
+      crumbs.push({ label: t('page.about'), current: true });
       break;
     case 'catalog': {
       const catalog = CATALOG_ROUTES.find((item) => item.catalog === route.catalog);
-      crumbs.push({ label: t('page.catalogs') });
-      crumbs.push({ label: catalog ? t(catalog.labelKey) : t('page.catalogs') });
+      crumbs.push({ label: t('page.catalogs'), route: { kind: 'catalogs' } });
+      crumbs.push({ label: catalog ? t(catalog.labelKey) : t('page.catalogs'), current: true });
       break;
     }
     case 'verdict-summary':
-      crumbs.push({ label: t('page.reports') });
-      crumbs.push({ label: t('page.report.verdict_summary') });
+      crumbs.push({ label: t('page.reports'), route: { kind: 'reports' } });
+      crumbs.push({ label: t('page.report.verdict_summary'), current: true });
       break;
     case 'cost-summary':
-      crumbs.push({ label: t('page.reports') });
-      crumbs.push({ label: t('page.report.cost_summary') });
+      crumbs.push({ label: t('page.reports'), route: { kind: 'reports' } });
+      crumbs.push({ label: t('page.report.cost_summary'), current: true });
       break;
     case 'surface':
-      crumbs.push({ label: t('page.location') });
-      crumbs.push({ label: data ? getSurfaceDisplayName(data, route.surfaceId) : route.surfaceId });
+      crumbs.push({ label: t('page.location'), route: { kind: 'location' } });
+      crumbs.push({ label: data ? getSurfaceDisplayName(data, route.surfaceId) : route.surfaceId, current: true });
       break;
   }
 
@@ -2301,7 +2275,20 @@ function Breadcrumbs({ route, data }: { route: Route; data: DigitalTwinExport | 
       {crumbs.map((crumb, index) => (
         <React.Fragment key={`${crumb.label}-${index}`}>
           {index > 0 ? <span className="crumb-sep">/</span> : null}
-          <span className="crumb crumb-current">{crumb.label}</span>
+          {crumb.current || !crumb.route ? (
+            <span className="crumb crumb-current">{crumb.label}</span>
+          ) : (
+            <a
+              className="crumb crumb-link"
+              href={routeHref(crumb.route, { locationSlug })}
+              onClick={(event) => {
+                event.preventDefault();
+                navigateTo(crumb.route!, { locationSlug });
+              }}
+            >
+              {crumb.label}
+            </a>
+          )}
         </React.Fragment>
       ))}
     </nav>
@@ -2727,7 +2714,6 @@ function SurfaceDetail({
         <section className="panel panel-with-actions">
           <div className="section-head">
             <h2>{t('surface.photo.title')}</h2>
-            <p>{t('surface.photo.description')}</p>
           </div>
           {photo ? (
             <div className="photo-frame">
@@ -2761,7 +2747,6 @@ function SurfaceDetail({
         <section className="panel panel-with-actions">
           <div className="section-head">
             <h2>{t('surface.panel.title')}</h2>
-            <p>{t('surface.panel.description')}</p>
           </div>
           {panelSaveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{panelSaveError}</p> : null}
           {panelSaveMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{panelSaveMessage}</p> : null}
@@ -2839,7 +2824,6 @@ function SurfaceDetail({
         <section className="panel panel-with-actions">
           <div className="section-head">
             <h2>{t('surface.panel_array.title')}</h2>
-            <p>{t('surface.panel_array.description')}</p>
           </div>
           {surfaceDesignSaveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{surfaceDesignSaveError}</p> : null}
           {surfaceDesignSaveMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{surfaceDesignSaveMessage}</p> : null}
@@ -2915,13 +2899,12 @@ function SurfaceDetail({
         <section className="panel panel-with-actions">
           <div className="section-head">
             <h2>{t('surface.mppt.title')}</h2>
-            <p>{t('surface.mppt.description')}</p>
           </div>
           {arrayConfig?.configuredPanelCount ? (
             <>
               <div className="fit-card">
                 <div className="config-grid config-control-row mppt-config-row">
-                  <label className="config-field config-field-span-2">
+                  <label className="config-field config-field-span-3">
                     <span>{t('surface.mppt.selected')}</span>
                     <select
                       value={selectedMpptTypeId}
@@ -2976,7 +2959,6 @@ function SurfaceDetail({
         <section className="panel panel-span-2 balanced-row-panel summary-panel">
           <div className="section-head">
             <h2>{t('surface.evaluation.title')}</h2>
-            <p>{t('surface.evaluation.description')}</p>
           </div>
           {panelType ? (
             <div className="fit-card">
@@ -3028,7 +3010,6 @@ function SurfaceDetail({
         <section className="panel balanced-row-panel notes-panel">
           <div className="section-head">
             <h2>{t('surface.notes.title')}</h2>
-            <p>{t('surface.notes.description')}</p>
           </div>
           <label className="field">
             <span>{t('surface.notes.title')}</span>
@@ -3120,7 +3101,6 @@ function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refr
     `${storagePrefix}:title`,
     defaultLocationName,
   );
-  const [country, setCountry] = usePersistentState(`${storagePrefix}:country`, data.project.location?.country ?? '');
   const [description, setDescription] = usePersistentState(`${storagePrefix}:description`, data.project.location?.description ?? '');
   const [notes, setNotes] = usePersistentState(`${storagePrefix}:notes`, data.project.location?.notes ?? '');
   const [latitude, setLatitude] = usePersistentState(
@@ -3143,7 +3123,6 @@ function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refr
   const numericLongitude = Number(longitude);
   const hasMapCoordinates = Number.isFinite(numericLatitude) && Number.isFinite(numericLongitude);
   const locationDisplayName = title.trim() || defaultLocationName;
-  const locationCountry = country.trim() || t('location.not_set');
   const coordinateDisplay = `${numericLatitude.toLocaleString('en-US', { maximumFractionDigits: 4 })}, ${numericLongitude.toLocaleString('en-US', { maximumFractionDigits: 4 })}`;
   const surfaceYieldRows = localSurfaceSummaries.map((surface) => {
     const yieldRows = estimateFaceYieldTable({
@@ -3178,12 +3157,6 @@ function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refr
     const numericLongitude = Number(longitude);
     const nextPhoto = photoOverride === undefined ? photo : photoOverride;
 
-    if (!country.trim()) {
-      setSaveError(t('location.save.error.country_required'));
-      setSaveMessage(null);
-      return;
-    }
-
     if (!Number.isFinite(numericLatitude) || numericLatitude < -90 || numericLatitude > 90) {
       setSaveError(t('location.save.error.latitude_invalid'));
       setSaveMessage(null);
@@ -3209,7 +3182,7 @@ function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refr
         body: JSON.stringify({
           title: title.trim() || null,
           place_name: data.project.location?.place_name ?? 'Warten',
-          country: country.trim(),
+          country: data.project.location?.country ?? null,
           description: description.trim(),
           notes: notes.trim(),
           latitude: numericLatitude,
@@ -3369,21 +3342,13 @@ function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refr
         <section className="panel" style={{ gridColumn: 'span 2' }}>
           <div className="section-head">
             <h2>{t('location.start_information.title')}</h2>
-            <p>{t('location.start_information.description')}</p>
           </div>
-          <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--muted)', fontSize: '0.86rem' }}>
-            {t('location.start_information.help')}
-          </p>
           {saveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{saveError}</p> : null}
           {saveMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{saveMessage}</p> : null}
           <div className="roof-config-inline">
             <label className="config-field">
               <span>{t('location.name')}</span>
               <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. 18Mad Boerderij" />
-            </label>
-            <label className="config-field">
-              <span>{t('location.country')}</span>
-              <input type="text" value={country} onChange={(e) => setCountry(e.target.value)} placeholder="e.g. Netherlands" />
             </label>
             <label className="config-field config-field-span-2">
               <span>{t('location.description')}</span>
@@ -3416,7 +3381,7 @@ function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refr
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
               onInput={(event) => setNotes(event.currentTarget.value)}
-              rows={5}
+              rows={8}
               placeholder={t('location.notes.placeholder')}
             />
           </label>
@@ -3430,7 +3395,6 @@ function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refr
         <section className="panel">
           <div className="section-head">
             <h2>{t('location.photo.title')}</h2>
-            <p>{t('location.photo.description')}</p>
           </div>
           {photo ? (
             <div className="photo-frame">
@@ -3459,7 +3423,6 @@ function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refr
           </div>
           <div className="section-head" style={{ marginTop: 20 }}>
             <h2>{t('location.map.title')}</h2>
-            <p>{t('location.map.description')}</p>
           </div>
           {hasMapCoordinates ? (
             <div className="map-frame">
@@ -3731,7 +3694,6 @@ function SolarYieldPage({
         <section className="panel">
           <div className="section-head">
             <h2>{t('solar_yield.surface_summary.title')}</h2>
-            <p>{t('solar_yield.surface_summary.description')}</p>
           </div>
           <div className="yield-table-wrap">
             <table className="yield-table">
@@ -3786,7 +3748,6 @@ function SolarYieldPage({
         <section className="panel">
           <div className="section-head">
             <h2>{t('solar_yield.monthly.title')}</h2>
-            <p>{t('solar_yield.monthly.description')}</p>
           </div>
           <div className="yield-table-wrap">
             <table className="yield-table">
@@ -3876,7 +3837,6 @@ function BatteryArrayPage({
   });
   const totalUpstreamInputPowerW = activeUpstreamRelations.reduce((sum, relation) => sum + relation.input_power_w, 0);
   const targetBatteryVoltage = batteryArrayConfig?.stringVoltage ?? batteryBankState?.nominal_voltage_v ?? batteryBank?.nominal_voltage_v ?? null;
-  const dailyConsumptionKwh = data.project.project_preferences.daily_consumption_kwh ?? null;
   const projectMonthlySolarByMonth = new Map(
     data.derived.project_monthly_solar_output.map((row) => [row.month, row] as const),
   );
@@ -3927,7 +3887,6 @@ function BatteryArrayPage({
     return {
       month,
       averageDailyYieldKwh: monthYield,
-      expectedConsumptionKwh: dailyConsumptionKwh,
       daysToCharge20To80: refillEnergyKwh != null && monthYield > 0
         ? Number((refillEnergyKwh / monthYield).toFixed(1))
         : null,
@@ -4079,10 +4038,9 @@ function BatteryArrayPage({
           </section>
 
           <section className="panel panel-with-actions">
-            <div className="section-head">
-              <h2>{t('battery.image.title')}</h2>
-              <p>{t('battery.image.description')}</p>
-            </div>
+          <div className="section-head">
+            <h2>{t('battery.image.title')}</h2>
+          </div>
             {batteryImage ? (
               <div className="photo-frame">
                 <img src={batteryImage} alt={batteryTitle.trim() || t('battery.image.alt')} className="photo-image" />
@@ -4115,7 +4073,6 @@ function BatteryArrayPage({
           <section className="panel panel-with-actions">
             <div className="section-head">
               <h2>{t('battery.selection.title')}</h2>
-              <p>{t('battery.selection.description')}</p>
             </div>
             <div className="config-grid config-control-row">
               <label className="config-field">
@@ -4189,7 +4146,6 @@ function BatteryArrayPage({
           <section className="panel panel-with-actions">
             <div className="section-head">
               <h2>{t('battery.array.title')}</h2>
-              <p>{t('battery.array.description')}</p>
             </div>
             {selectedBatteryType ? (
               <>
@@ -4290,7 +4246,6 @@ function BatteryArrayPage({
         <section className="panel">
           <div className="section-head">
             <h2>{t('battery.evaluation.title')}</h2>
-            <p>{t('battery.evaluation.description')}</p>
           </div>
           {batteryArrayConfig && evaluationVerdict ? (
             <div className="fit-card">
@@ -4351,7 +4306,6 @@ function BatteryArrayPage({
         <section className="panel">
           <div className="section-head">
             <h2>{t('battery.capacity.title')}</h2>
-            <p>{t('battery.capacity.description')}</p>
           </div>
           <dl className="detail-stats compact-stats" style={{ marginBottom: 16 }}>
             <div>
@@ -4361,10 +4315,6 @@ function BatteryArrayPage({
             <div>
               <dt>{t('battery.capacity.stat.system_voltage')}</dt>
               <dd>{targetBatteryVoltage != null ? formatVolts(targetBatteryVoltage) : 'n/a'}</dd>
-            </div>
-            <div>
-              <dt>{t('battery.capacity.stat.expected_consumption_day')}</dt>
-              <dd>{dailyConsumptionKwh != null ? formatDailyYield(dailyConsumptionKwh) : 'n/a'}</dd>
             </div>
             <div>
               <dt>{t('battery.capacity.stat.recharge_energy')}</dt>
@@ -4386,14 +4336,6 @@ function BatteryArrayPage({
                   <th>{t('battery.capacity.table.expected_yield_day')}</th>
                   {monthlyCapacityRows.map((row) => (
                     <td key={`capacity-yield-${row.month}`}>{formatDailyYield(row.averageDailyYieldKwh)}</td>
-                  ))}
-                </tr>
-                <tr>
-                  <th>{t('battery.capacity.table.expected_consumption_day')}</th>
-                  {monthlyCapacityRows.map((row) => (
-                    <td key={`capacity-consumption-${row.month}`}>
-                      {row.expectedConsumptionKwh != null ? formatDailyYield(row.expectedConsumptionKwh) : 'n/a'}
-                    </td>
                   ))}
                 </tr>
                 <tr>
@@ -4587,10 +4529,9 @@ function InverterArrayPage({
           </section>
 
           <section className="panel panel-with-actions">
-            <div className="section-head">
-              <h2>{t('inverter.image.title')}</h2>
-              <p>{t('inverter.image.description')}</p>
-            </div>
+          <div className="section-head">
+            <h2>{t('inverter.image.title')}</h2>
+          </div>
             {inverterDraft.image_data_url ? (
               <div className="photo-frame">
                 <img src={inverterDraft.image_data_url} alt={inverterDraft.title.trim() || t('inverter.image.alt')} className="photo-image" />
@@ -4863,7 +4804,6 @@ function BatteryCatalogPage({
     <>
       <section className="hero">
         <div>
-          <p className="eyebrow">{t('ui.configuration_data')}</p>
           <p className="hero-copy">
             {t('catalog.hero.battery_types')}
           </p>
@@ -5121,7 +5061,6 @@ function CatalogsPage() {
     <>
       <section className="hero">
         <div>
-          <p className="eyebrow">{t('ui.configuration_data')}</p>
           <p className="hero-copy">
             {t('catalogs.hero')}
           </p>
@@ -5130,7 +5069,6 @@ function CatalogsPage() {
       <section className="panel">
         <div className="section-head">
           <h2>{t('catalogs.list_title')}</h2>
-          <p>{t('catalogs.list_description')}</p>
         </div>
         <div className="menu-list">
           {CATALOG_ROUTES.map((catalog) => (
@@ -5160,7 +5098,6 @@ function ReportsPage() {
     <>
       <section className="hero">
         <div>
-          <p className="eyebrow">{t('ui.configuration_data')}</p>
           <p className="hero-copy">
             {t('reports.hero')}
           </p>
@@ -5169,7 +5106,6 @@ function ReportsPage() {
       <section className="panel">
         <div className="section-head">
           <h2>{t('reports.list_title')}</h2>
-          <p>{t('reports.list_description')}</p>
         </div>
         <div className="menu-list">
           {REPORT_ROUTES.map((report) => (
@@ -5230,24 +5166,6 @@ function VerdictSummaryPage({
     };
   });
 
-  const batteryRows = data.relationships.mppt_to_battery_bank.map((relation) => {
-    const mpptConfiguration = data.entities.mppt_configurations.find((item) => item.mppt_configuration_id === relation.from_mppt_configuration_id) ?? null;
-    const mpptType = mpptConfiguration?.mppt_type_id
-      ? data.entities.mppt_types.find((item) => item.mppt_type_id === mpptConfiguration.mppt_type_id) ?? null
-      : null;
-    const verdictSummary = getRelationshipVerdictSummary('mppt_to_battery_bank', relation.evaluation.electrical_status, relation.evaluation.fit_status, t);
-    const verdictLabel = getRelationshipVerdictLabel('mppt_to_battery_bank', relation.evaluation.electrical_status, relation.evaluation.fit_status, t);
-
-    return {
-      relation,
-      mpptName: mpptConfiguration?.name ?? mpptType?.model ?? relation.from_mppt_configuration_id,
-      status: relation.evaluation.electrical_status,
-      fit: relation.evaluation.fit_status,
-      verdictLabel,
-      verdictSummary,
-    };
-  });
-
   const inverterVerdictSummary = batteryToInverter
     ? getRelationshipVerdictSummary('battery_to_inverter', batteryToInverter.evaluation.electrical_status, batteryToInverter.evaluation.fit_status, t)
     : null;
@@ -5257,17 +5175,10 @@ function VerdictSummaryPage({
 
   const surfaceAggregate = surfaceRows.some((row) => row.status === 'outside_limits')
     ? t('report.verdict.blocked')
-    : surfaceRows.some((row) => row.fit === 'acceptable' || row.fit === 'clipping_expected' || row.fit === 'underutilized')
+    : surfaceRows.some((row) => row.fit === 'clipping_expected' || row.fit === 'underutilized')
       ? t('report.verdict.mixed')
       : surfaceRows.length > 0
         ? t('report.verdict.ok')
-        : t('status.not_evaluated');
-  const batteryAggregate = batteryRows.some((row) => row.status === 'outside_limits')
-    ? t('report.verdict.blocked')
-    : batteryRows.some((row) => row.fit === 'acceptable')
-      ? t('report.verdict.acceptable')
-      : batteryRows.some((row) => row.fit === 'optimal')
-        ? t('report.verdict.optimal')
         : t('status.not_evaluated');
   const surfaceAggregateTone = surfaceRows.some((row) => row.status === 'outside_limits')
     ? 'danger'
@@ -5275,31 +5186,32 @@ function VerdictSummaryPage({
       ? 'warn'
       : surfaceRows.some((row) => row.fit === 'underutilized')
         ? 'cool'
-        : surfaceRows.some((row) => row.fit === 'acceptable')
-          ? 'ok'
-          : 'muted';
-  const batteryAggregateTone = batteryRows.some((row) => row.status === 'outside_limits')
-    ? 'danger'
-    : batteryRows.some((row) => row.fit === 'acceptable')
-      ? 'ok'
-      : batteryRows.some((row) => row.fit === 'optimal')
-        ? 'good'
         : 'muted';
-  const batteryAggregateStatus: Status | null = batteryRows.length > 0
-    ? (batteryRows.some((row) => row.status === 'outside_limits') ? 'outside_limits' : 'within_limits')
+  const bestMonth = data.derived.project_monthly_solar_output
+    .map((row) => ({
+      month: row.month,
+      totalDailyKwh: row.average_daily_kwh,
+    }))
+    .sort((left, right) => right.totalDailyKwh - left.totalDailyKwh)[0] ?? null;
+  const batteryCapacityKwh = batteryBank?.capacity_kwh ?? null;
+  const batteryRefillRule = batteryCapacityKwh != null
+    ? evaluateBatteryRefillRule({
+      totalCapacityKwh: batteryCapacityKwh,
+      sunniestMonthDailyYieldKwh: bestMonth?.totalDailyKwh ?? 0,
+    })
     : null;
-  const batteryAggregateFit: FitStatus | undefined = batteryRows.some((row) => row.fit === 'acceptable')
-    ? 'acceptable'
-    : batteryRows.some((row) => row.fit === 'optimal')
-      ? 'optimal'
-      : undefined;
-  const batteryWhy = batteryRows.some((row) => row.status === 'outside_limits')
-    ? batteryRows.find((row) => row.status === 'outside_limits')?.verdictSummary ?? t('solar_yield.table.not_evaluated')
-    : batteryRows.some((row) => row.fit === 'acceptable')
-      ? t('report.verdict.battery_description')
-      : batteryRows.some((row) => row.fit === 'optimal')
-        ? t('report.verdict.battery_description')
-        : t('solar_yield.table.not_evaluated');
+  const batteryEvaluationCopy = getBatteryEvaluationCopy({
+    chargeCurrentExceeded: false,
+    estimatedChargeCurrentA: null,
+    maxChargeCurrentA: null,
+    refillEnergyKwh: batteryRefillRule?.requiredRefillKwh ?? null,
+    bestMonthDailyYieldKwh: bestMonth?.totalDailyKwh ?? 0,
+    batteryRefillRule,
+    t,
+  });
+  const batteryAggregate = batteryEvaluationCopy?.headline ?? t('status.not_evaluated');
+  const batteryAggregateTone = batteryEvaluationCopy?.tone ?? 'muted';
+  const batteryWhy = batteryEvaluationCopy?.reasons[0] ?? t('solar_yield.table.not_evaluated');
   const inverterAggregateTone = !batteryToInverter
     ? 'muted'
     : batteryToInverter.evaluation.electrical_status === 'outside_limits'
@@ -5323,7 +5235,7 @@ function VerdictSummaryPage({
             <dt>{t('report.verdict.surface_verdicts')}</dt>
             <dd>
               <div className="stack" style={{ gap: 6 }}>
-                <StatusBadge status={surfaceRows.some((row) => row.status === 'outside_limits') ? 'outside_limits' : 'within_limits'} fit={surfaceRows.some((row) => row.fit === 'clipping_expected') ? 'clipping_expected' : surfaceRows.some((row) => row.fit === 'underutilized') ? 'underutilized' : surfaceRows.some((row) => row.fit === 'acceptable') ? 'acceptable' : undefined} />
+                <StatusBadge status={surfaceRows.some((row) => row.status === 'outside_limits') ? 'outside_limits' : 'within_limits'} fit={surfaceRows.some((row) => row.fit === 'clipping_expected') ? 'clipping_expected' : surfaceRows.some((row) => row.fit === 'underutilized') ? 'underutilized' : undefined} />
                 <span>{surfaceAggregate} · {t('report.verdict.surfaces_count', { count: surfaceRows.length })}</span>
               </div>
             </dd>
@@ -5332,8 +5244,7 @@ function VerdictSummaryPage({
             <dt>{t('report.verdict.battery_verdict')}</dt>
             <dd>
               <div className="stack" style={{ gap: 6 }}>
-                {batteryAggregateStatus ? <StatusBadge status={batteryAggregateStatus} fit={batteryAggregateFit} /> : <span>{t('status.not_evaluated')}</span>}
-                <span>{batteryAggregate}</span>
+                <span className={`status status-${batteryAggregateTone}`}>{batteryAggregate}</span>
               </div>
             </dd>
           </div>
@@ -5352,7 +5263,6 @@ function VerdictSummaryPage({
       <section className="panel" style={{ marginBottom: 20 }}>
         <div className="section-head">
           <h2>{t('report.verdict.surface_verdicts')}</h2>
-          <p>{t('report.verdict.surface_description')}</p>
         </div>
         {surfaceRows.length > 0 ? (
           <div className="yield-table-wrap">
@@ -5389,7 +5299,6 @@ function VerdictSummaryPage({
       <section className="panel" style={{ marginBottom: 20 }}>
         <div className="section-head">
           <h2>{t('report.verdict.battery_verdict')}</h2>
-          <p>{t('report.verdict.battery_description')}</p>
         </div>
         <dl className="detail-stats panel-spec-grid" style={{ marginTop: 0, marginBottom: 16 }}>
           <div>
@@ -5402,20 +5311,18 @@ function VerdictSummaryPage({
           </div>
           <div>
             <dt>{t('report.table.verdict')}</dt>
-            <dd>{batteryAggregateStatus ? <StatusBadge status={batteryAggregateStatus} fit={batteryAggregateFit} /> : t('status.not_evaluated')}</dd>
+            <dd>{batteryEvaluationCopy ? <span className={`status status-${batteryAggregateTone}`}>{batteryAggregate}</span> : t('status.not_evaluated')}</dd>
           </div>
           <div>
             <dt>{t('report.table.why')}</dt>
             <dd>{batteryWhy}</dd>
           </div>
         </dl>
-        {batteryRows.length > 0 ? (
-          null
-        ) : (
+        {!batteryEvaluationCopy ? (
           <div className="empty-state">
             <p style={{ margin: 0 }}>{t('report.empty.choose_battery')}</p>
           </div>
-        )}
+        ) : null}
         <p style={{ marginTop: 12, marginBottom: 0, color: 'var(--muted)', fontSize: '0.86rem' }}>
           {t('report.verdict.battery_project_note')}
         </p>
@@ -5424,7 +5331,6 @@ function VerdictSummaryPage({
       <section className="panel">
         <div className="section-head">
           <h2>{t('report.verdict.inverter_verdict')}</h2>
-          <p>{t('report.verdict.inverter_description')}</p>
         </div>
         {projectInverter ? (
           <dl className="detail-stats panel-spec-grid" style={{ marginTop: 0 }}>
@@ -5506,12 +5412,20 @@ function CostSummaryPage({
   });
 
   const batteryModuleCount = batteryBankState?.module_count ?? batteryBank?.module_count ?? 0;
-  const batteryTotal = selectedBatteryType?.price != null
+  const panelSubtotal = surfaceRows.every((row) => row.panelCost != null)
+    ? Number(surfaceRows.reduce((sum, row) => sum + (row.panelCost ?? 0), 0).toFixed(2))
+    : null;
+  const batterySubtotal = selectedBatteryType?.price != null
     ? selectedBatteryType.price * batteryModuleCount
     : null;
-  const inverterTotal = selectedInverterType?.price ?? null;
-  const projectTotal = surfaceRows.every((row) => row.surfaceTotal != null) && batteryTotal != null && inverterTotal != null
-    ? Number((surfaceRows.reduce((sum, row) => sum + (row.surfaceTotal ?? 0), 0) + batteryTotal + inverterTotal).toFixed(2))
+  const inverterSubtotal = selectedInverterType?.price ?? null;
+  const materialsSubtotal = 0;
+  const workSubtotal = 0;
+  const projectTotal = panelSubtotal != null && batterySubtotal != null && inverterSubtotal != null
+    ? Number((panelSubtotal + batterySubtotal + inverterSubtotal + materialsSubtotal + workSubtotal).toFixed(2))
+    : null;
+  const surfaceGrandTotal = surfaceRows.every((row) => row.surfaceTotal != null)
+    ? Number(surfaceRows.reduce((sum, row) => sum + (row.surfaceTotal ?? 0), 0).toFixed(2))
     : null;
   const matchingMpptCount = data.entities.mppt_configurations.filter((mpptConfiguration) => {
     const mpptType = mpptConfiguration.mppt_type_id
@@ -5524,7 +5438,6 @@ function CostSummaryPage({
     <>
       <section className="hero">
         <div>
-          <p className="eyebrow">{t('ui.configuration_data')}</p>
           <p className="hero-copy">
             {t('report.cost.hero')}
           </p>
@@ -5534,7 +5447,6 @@ function CostSummaryPage({
       <section className="panel" style={{ marginBottom: 20 }}>
         <div className="section-head">
           <h2>{t('page.report.cost_summary')}</h2>
-          <p>{t('report.cost.hero')}</p>
         </div>
         <div className="yield-table-wrap">
           <table className="yield-table">
@@ -5547,19 +5459,34 @@ function CostSummaryPage({
             </thead>
             <tbody>
               <tr>
+                <th>{t('report.cost.panels_total')}</th>
+                <td>{renderPrice(panelSubtotal, null)}</td>
+                <td>{t('report.cost.panels_total_detail')}</td>
+              </tr>
+              <tr>
+                <th>{t('report.cost.battery_bank_total')}</th>
+                <td>{renderPrice(batterySubtotal, selectedBatteryType?.price_source_url)}</td>
+                <td>{selectedBatteryType ? t('report.cost.battery_bank_total_detail', { count: batteryModuleCount, suffix: batteryModuleCount === 1 ? '' : 's' }) : t('status.not_evaluated')}</td>
+              </tr>
+              <tr>
+                <th>{t('report.cost.inverter_total_summary')}</th>
+                <td>{renderPrice(inverterSubtotal, selectedInverterType?.price_source_url)}</td>
+                <td>{selectedInverterType ? t('report.cost.inverter_total_detail', { count: matchingAllowanceUsed, suffix: matchingAllowanceUsed === 1 ? '' : 's' }) : t('status.not_evaluated')}</td>
+              </tr>
+              <tr>
+                <th>{t('report.cost.materials_total')}</th>
+                <td>{formatCurrency(materialsSubtotal)}</td>
+                <td>{t('report.cost.materials_total_detail')}</td>
+              </tr>
+              <tr>
+                <th>{t('report.cost.work_total')}</th>
+                <td>{formatCurrency(workSubtotal)}</td>
+                <td>{t('report.cost.work_total_detail')}</td>
+              </tr>
+              <tr>
                 <th>{t('report.cost.project_total')}</th>
                 <td>{formatCurrency(projectTotal)}</td>
                 <td>{t('report.cost.project_total_detail')}</td>
-              </tr>
-              <tr>
-                <th>{t('report.cost.battery_total')}</th>
-                <td>{renderPrice(batteryTotal, selectedBatteryType?.price_source_url)}</td>
-                <td>{selectedBatteryType ? t('report.cost.modules', { count: batteryModuleCount, suffix: batteryModuleCount === 1 ? '' : 's' }) : t('status.not_evaluated')}</td>
-              </tr>
-              <tr>
-                <th>{t('report.cost.inverter_total')}</th>
-                <td>{renderPrice(inverterTotal, selectedInverterType?.price_source_url)}</td>
-                <td>{selectedInverterType ? t('report.cost.matching_mppts_included', { count: matchingAllowanceUsed, suffix: matchingAllowanceUsed === 1 ? '' : 's' }) : t('status.not_evaluated')}</td>
               </tr>
             </tbody>
           </table>
@@ -5569,7 +5496,6 @@ function CostSummaryPage({
       <section className="panel" style={{ marginBottom: 20 }}>
         <div className="section-head">
           <h2>{t('report.cost.surface_costs')}</h2>
-          <p>{t('report.cost.surface_costs_description')}</p>
         </div>
         {surfaceRows.length > 0 ? (
           <div className="yield-table-wrap">
@@ -5577,30 +5503,42 @@ function CostSummaryPage({
               <thead>
                 <tr>
                   <th>{t('report.table.surface')}</th>
-                  <th>{t('surface.panel.count')}</th>
-                  <th>{t('report.cost.panel_unit_price')}</th>
-                  <th>{t('report.table.selected_mppt')}</th>
-                  <th>{t('report.cost.mppt_cost')}</th>
-                  <th>{t('report.cost.surface_total')}</th>
+                  <th>{t('report.table.item')}</th>
+                  <th>{t('report.cost.unit_price')}</th>
+                  <th>{t('report.table.amount')}</th>
+                  <th>{t('report.table.total')}</th>
                 </tr>
               </thead>
               <tbody>
-                {surfaceRows.map(({ surface, panelType, mpptType, panelCount, panelCost, mpptCost, surfaceTotal, includedWithInverter }) => (
-                  <tr key={surface.surface_id}>
-                    <th>{surface.name}</th>
-                    <td>{panelCount}</td>
-                    <td>{renderPrice(panelType?.price ?? null, panelType?.price_source_url)}</td>
-                    <td>{mpptType?.model ?? 'n/a'}</td>
-                    <td>
-                      <div className="stack" style={{ gap: 4 }}>
-                        <span>{renderPrice(mpptCost, includedWithInverter ? selectedInverterType?.price_source_url : mpptType?.price_source_url)}</span>
-                        {includedWithInverter ? <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{t('report.cost.included_with_inverter')}</span> : null}
-                      </div>
-                    </td>
-                    <td>{formatCurrency(surfaceTotal)}</td>
-                  </tr>
+                {surfaceRows.map(({ surface, panelType, mpptType, panelCount, panelCost, mpptCost, includedWithInverter }) => (
+                  <React.Fragment key={surface.surface_id}>
+                    <tr>
+                      <th rowSpan={2}>{surface.name}</th>
+                      <th>{panelType?.model ?? 'n/a'}</th>
+                      <td>{renderPrice(panelType?.price ?? null, panelType?.price_source_url)}</td>
+                      <td>{panelCount}</td>
+                      <td>{formatCurrency(panelCost)}</td>
+                    </tr>
+                    <tr>
+                      <th>{mpptType?.model ?? 'n/a'}</th>
+                      <td>{renderPrice(mpptCost, includedWithInverter ? selectedInverterType?.price_source_url : mpptType?.price_source_url)}</td>
+                      <td>1</td>
+                      <td>
+                        <div className="stack" style={{ gap: 4 }}>
+                          <span>{formatCurrency(mpptCost)}</span>
+                          {includedWithInverter ? <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{t('report.cost.included_with_inverter')}</span> : null}
+                        </div>
+                      </td>
+                    </tr>
+                  </React.Fragment>
                 ))}
               </tbody>
+              <tfoot>
+                <tr>
+                  <th colSpan={4}>{t('report.cost.grand_total')}</th>
+                  <th>{formatCurrency(surfaceGrandTotal)}</th>
+                </tr>
+              </tfoot>
             </table>
           </div>
         ) : (
@@ -5613,7 +5551,6 @@ function CostSummaryPage({
       <section className="panel" style={{ marginBottom: 20 }}>
         <div className="section-head">
           <h2>{t('report.cost.battery_bank_cost')}</h2>
-          <p>{t('report.cost.battery_bank_cost_description')}</p>
         </div>
         {selectedBatteryType ? (
           <div className="yield-table-wrap">
@@ -5639,7 +5576,7 @@ function CostSummaryPage({
                 </tr>
                 <tr>
                   <th>{t('report.cost.battery_total')}</th>
-                  <td>{renderPrice(batteryTotal, selectedBatteryType.price_source_url)}</td>
+                  <td>{renderPrice(batterySubtotal, selectedBatteryType.price_source_url)}</td>
                 </tr>
               </tbody>
             </table>
@@ -5654,7 +5591,6 @@ function CostSummaryPage({
       <section className="panel" style={{ marginBottom: 20 }}>
         <div className="section-head">
           <h2>{t('report.cost.inverter_cost')}</h2>
-          <p>{t('report.cost.inverter_cost_description')}</p>
         </div>
         {selectedInverterType ? (
           <div className="yield-table-wrap">
@@ -5680,7 +5616,7 @@ function CostSummaryPage({
                 </tr>
                 <tr>
                   <th>{t('report.cost.inverter_total')}</th>
-                  <td>{renderPrice(inverterTotal, selectedInverterType.price_source_url)}</td>
+                  <td>{renderPrice(inverterSubtotal, selectedInverterType.price_source_url)}</td>
                 </tr>
               </tbody>
             </table>
@@ -5695,7 +5631,6 @@ function CostSummaryPage({
       <section className="panel">
         <div className="section-head">
           <h2>{t('report.cost.pricing_assumptions')}</h2>
-          <p>{t('report.cost.pricing_assumptions_description')}</p>
         </div>
         <div className="yield-table-wrap">
           <table className="yield-table">
@@ -5871,7 +5806,6 @@ function PanelCatalogPage({
     <>
       <section className="hero">
         <div>
-          <p className="eyebrow">{t('ui.configuration_data')}</p>
           <p className="hero-copy">
             {t('catalog.hero.panel_types')}
           </p>
@@ -6189,7 +6123,6 @@ function MpptCatalogPage({
     <>
       <section className="hero">
         <div>
-          <p className="eyebrow">{t('ui.configuration_data')}</p>
           <p className="hero-copy">
             {t('catalog.hero.mppt_types')}
           </p>
@@ -6494,7 +6427,6 @@ function InverterCatalogPage({
     <>
       <section className="hero">
         <div>
-          <p className="eyebrow">{t('ui.configuration_data')}</p>
           <p className="hero-copy">
             {t('catalog.hero.inverter_types')}
           </p>

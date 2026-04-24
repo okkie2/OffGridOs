@@ -2,6 +2,12 @@
 
 ## 2026-04-24
 
+- Reworked the `Surface costs` table so each surface now shows separate panel and MPPT rows with a grand total footer.
+- Changed the `Cost summary` top block to show `Panels`, `Battery bank`, `Inverter`, `Materials`, `Work`, and a summed `Total`, with `Materials` and `Work` set to `0` for now.
+- Made the page breadcrumbs clickable so mobile users can jump back to the project or parent section faster.
+- Fixed the mobile surface-detail layout by dropping `panel-span-2` on narrow screens and expanded the mobile smoke test to cover every surface detail page in the current project.
+- Tightened mobile layout behavior for the main detail pages by stacking compact comparison grids, wrapping breadcrumbs and page headers, and reducing panel/hero padding on narrow screens.
+- Added a Playwright mobile rendering smoke test that checks the main routes and a surface-detail route for page-level horizontal overflow.
 - Expanded the `Panel types` table to full page width and moved the editor below the table so browsing and CRUD stay available without a split layout.
 - Turned the `Panel types` catalog into the first real table-based browse page with search, row highlighting, and source links while keeping the editor pane intact.
 - Removed the helper sentences from the `Catalogs` and `Reports` landing rows and switched the navigation actions to fixed-width links.

@@ -172,7 +172,7 @@ Keep the page mostly table-based and read-only.
 Suggested structure:
 
 1. header
-2. project total card
+2. subtotal breakdown card
 3. surface costs table
 4. battery bank cost card
 5. inverter cost card
@@ -188,29 +188,39 @@ Subtitle:
 
 - `Estimated equipment cost for the currently selected surfaces, battery bank, and inverter.`
 
-### Project total card
+### Subtotal breakdown card
 
-Show:
+Show these subtotals:
 
-- `Estimated project total`
+- `Panels`
+- `Battery bank`
+- `Inverter`
+- `Materials`
+- `Work`
+- `Total`
 
 Supporting note:
 
-- `Based on catalog prices in the current saved configuration.`
+- `Sum of the subtotals above, based on catalog prices in the current saved configuration.`
+
+Notes:
+
+- `Materials` and `Work` are placeholder subtotals and should render as `0` for now.
+- The surface costs table still shows the per-surface MPPT costs in the detailed breakdown below.
 
 ### Surface costs table
 
 Purpose:
 
-- show the cost contribution per surface
+- show the cost contribution per surface, split into panel and MPPT rows
 
 Columns:
 
 - `Surface`
-- `Panels`
-- `Panel cost`
-- `MPPT cost`
-- `Surface total`
+- `Item`
+- `Price / unit`
+- `Amount`
+- `Total`
 
 Empty state:
 
@@ -221,6 +231,15 @@ Recommended cell wording:
 - `Included with inverter`
 - `Unknown`
 - `No price set`
+
+Footer:
+
+- `Grand total`
+
+Note:
+
+- Each surface should render as two rows, one for the panel line and one for the MPPT line.
+- The footer grand total should sum the surface totals.
 
 ### Battery bank cost card
 
@@ -240,10 +259,8 @@ Empty state:
 Fields:
 
 - `Selected inverter`
-- `Inverter price`
-- `Matching integrated MPPTs`
-- `Charged MPPTs`
 - `Inverter total`
+- `Matching MPPTs included`
 
 ### RS allowance rule
 

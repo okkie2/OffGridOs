@@ -54,8 +54,6 @@ function printArrayToMpptPass(input: ReturnType<typeof loadProjectInput>): void 
       ? chalk.red
       : fit.fit_status === 'optimal'
         ? chalk.green
-      : fit.fit_status === 'acceptable'
-          ? chalk.yellow
           : chalk.blue;
 
     console.log(

@@ -1221,10 +1221,17 @@ h1, h2, h3, p, dl, dd, dt {
   padding: 0;
   cursor: pointer;
   color: var(--primary-dim);
+  text-decoration: none;
 }
 
 .crumb-link:hover {
   color: var(--primary);
+}
+
+.crumb-link:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary) 55%, white);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .crumb-sep {
@@ -1331,6 +1338,10 @@ h1, h2, h3, p, dl, dd, dt {
 
 .config-field-span-2 {
   grid-column: span 2;
+}
+
+.config-field-span-3 {
+  grid-column: span 3;
 }
 
 .roof-config-inline {
@@ -1740,11 +1751,23 @@ h1, h2, h3, p, dl, dd, dt {
     grid-column: auto;
   }
 
+  .config-field-span-3 {
+    grid-column: auto;
+  }
+
 }
 
 @media (max-width: 700px) {
   .layout {
     min-height: 100vh;
+  }
+
+  .panel {
+    padding: 20px 16px;
+  }
+
+  .hero {
+    padding: 18px 16px;
   }
 
   .sidebar {
@@ -1816,12 +1839,16 @@ h1, h2, h3, p, dl, dd, dt {
   }
 
   .page-header {
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: stretch;
+    flex-wrap: nowrap;
     margin-bottom: 20px;
   }
 
   .app-language {
-    margin-left: auto;
+    margin-left: 0;
+    align-self: flex-start;
+    flex-wrap: wrap;
   }
 
   .section-head {
@@ -1836,5 +1863,41 @@ h1, h2, h3, p, dl, dd, dt {
   .hero-grid,
   .mini-stats {
     grid-template-columns: 1fr;
+  }
+
+  .breadcrumbs {
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+
+  .detail-grid-2,
+  .two-col,
+  .panel-spec-grid,
+  .mppt-limits,
+  .mppt-result-head,
+  .outcome-checks,
+  .solar-yield-context-stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .panel-span-2 {
+    grid-column: auto;
+  }
+
+  .mppt-result-main {
+    grid-column: auto;
+  }
+
+  .fit-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .fit-head .status {
+    align-self: flex-start;
+  }
+
+  .detail-stats dd {
+    overflow-wrap: anywhere;
   }
 }
