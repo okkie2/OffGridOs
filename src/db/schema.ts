@@ -89,27 +89,6 @@ function ensureLocationColumns(db: Database.Database): void {
   if (additions.length > 0) {
     db.exec(additions.join('\n'));
   }
-  db.prepare(`
-    UPDATE panel_types
-    SET brand = CASE panel_type_id
-      WHEN 'aiko-475-all-black' THEN 'Aiko'
-      WHEN 'BISOL-rood' THEN 'BISOL'
-      WHEN 'canadian-bihiku6-rood' THEN 'Canadian Solar'
-      WHEN 'canadian-hiku6' THEN 'Canadian Solar'
-      WHEN 'eurener-280' THEN 'Eurener'
-      WHEN 'ja-deepblue-3-rood' THEN 'JA Solar'
-      WHEN 'ja-deepblue-4' THEN 'JA Solar'
-      WHEN 'jinko-tiger-neo' THEN 'Jinko'
-      WHEN 'longi-hi-mo-6' THEN 'LONGi'
-      WHEN 'qcells-qpeak-duo-g10' THEN 'Qcells'
-      WHEN 'rec-alpha-pure-r' THEN 'REC'
-      WHEN 'sunpower-maxeon6' THEN 'SunPower'
-      WHEN 'trina-vertex-s-plus' THEN 'Trina Solar'
-      WHEN 'trina-vertex-s-plus-rood' THEN 'Trina Solar'
-      ELSE brand
-    END
-    WHERE COALESCE(brand, '') = ''
-  `).run();
 }
 
 function ensureSurfaceColumns(db: Database.Database): void {
@@ -187,6 +166,7 @@ function ensureInverterTypesColumns(db: Database.Database): void {
   if (additions.length > 0) {
     db.exec(additions.join('\n'));
   }
+  db.prepare("UPDATE inverter_types SET brand = 'Victron' WHERE COALESCE(brand, '') = ''").run();
 }
 
 function ensureBatteryBankConfigurationColumns(db: Database.Database): void {
@@ -233,7 +213,27 @@ function ensurePanelTypesColumns(db: Database.Database): void {
   if (additions.length > 0) {
     db.exec(additions.join('\n'));
   }
-  db.prepare("UPDATE inverter_types SET brand = 'Victron' WHERE COALESCE(brand, '') = ''").run();
+  db.prepare(`
+    UPDATE panel_types
+    SET brand = CASE panel_type_id
+      WHEN 'aiko-475-all-black' THEN 'Aiko'
+      WHEN 'BISOL-rood' THEN 'BISOL'
+      WHEN 'canadian-bihiku6-rood' THEN 'Canadian Solar'
+      WHEN 'canadian-hiku6' THEN 'Canadian Solar'
+      WHEN 'eurener-280' THEN 'Eurener'
+      WHEN 'ja-deepblue-3-rood' THEN 'JA Solar'
+      WHEN 'ja-deepblue-4' THEN 'JA Solar'
+      WHEN 'jinko-tiger-neo' THEN 'Jinko'
+      WHEN 'longi-hi-mo-6' THEN 'LONGi'
+      WHEN 'qcells-qpeak-duo-g10' THEN 'Qcells'
+      WHEN 'rec-alpha-pure-r' THEN 'REC'
+      WHEN 'sunpower-maxeon6' THEN 'SunPower'
+      WHEN 'trina-vertex-s-plus' THEN 'Trina Solar'
+      WHEN 'trina-vertex-s-plus-rood' THEN 'Trina Solar'
+      ELSE brand
+    END
+    WHERE COALESCE(brand, '') = ''
+  `).run();
 }
 
 export function initSchema(db: Database.Database): void {
