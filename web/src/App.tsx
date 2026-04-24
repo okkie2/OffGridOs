@@ -1842,6 +1842,8 @@ function Sidebar({
     icon,
     active,
     onClick,
+    hasChildren = false,
+    childOpen = false,
     className = '',
   }: {
     href: string;
@@ -1849,6 +1851,8 @@ function Sidebar({
     icon: string;
     active: boolean;
     onClick: (event: MouseEvent<HTMLAnchorElement>) => void;
+    hasChildren?: boolean;
+    childOpen?: boolean;
     className?: string;
   }) {
     return (
@@ -1862,6 +1866,9 @@ function Sidebar({
       >
         <span className="sidebar-nav-icon" aria-hidden="true">{icon}</span>
         <span className="sidebar-nav-label">{label}</span>
+        {hasChildren ? (
+          <span className="sidebar-nav-chevron" aria-hidden="true">{childOpen ? '▾' : '▸'}</span>
+        ) : null}
       </a>
     );
   }
@@ -1913,6 +1920,8 @@ function Sidebar({
           label={t('nav.location')}
           icon={sidebarIcon('location')}
           active={route.kind === 'location' || route.kind === 'surface'}
+          hasChildren
+          childOpen={route.kind === 'location' || route.kind === 'surface'}
         />
         {data && (route.kind === 'location' || route.kind === 'surface') ? (
           <div className="sidebar-subnav">
@@ -1961,6 +1970,8 @@ function Sidebar({
           label={t('nav.catalogs')}
           icon={sidebarIcon('catalogs')}
           active={route.kind === 'catalogs' || route.kind === 'catalog'}
+          hasChildren
+          childOpen={route.kind === 'catalogs' || route.kind === 'catalog'}
         />
         {data && (route.kind === 'catalogs' || route.kind === 'catalog') ? (
           <div className="sidebar-subnav">
@@ -1986,6 +1997,8 @@ function Sidebar({
           label={t('nav.reports')}
           icon={sidebarIcon('reports')}
           active={route.kind === 'reports' || route.kind === 'verdict-summary' || route.kind === 'cost-summary'}
+          hasChildren
+          childOpen={route.kind === 'reports' || route.kind === 'verdict-summary' || route.kind === 'cost-summary'}
         />
         {data && (route.kind === 'reports' || route.kind === 'verdict-summary' || route.kind === 'cost-summary') ? (
           <div className="sidebar-subnav">
