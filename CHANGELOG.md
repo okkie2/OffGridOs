@@ -2,6 +2,7 @@
 
 ## 2026-04-24
 
+- Reworked the `Verdict summary` and `Cost summary` pages into table-first reports so the overview, battery, inverter, and pricing sections follow the documented read-only report layout.
 - Corrected the Victron `Multi RS Solar 48/6000/100-450/100` MPPT catalog entry from `12 A` to `13 A` max PV input current per tracker so valid 6-panel strings no longer fail the input-current check.
 - Added full persistence-field BDD coverage for location, surface, panel-array, and inverter configuration round-trips, and hardened the jsdom navigation harness so it follows the current clean-route browser APIs.
 - Normalized battery seed/schema/query/API handling around `price_source_url`, including compatibility fallback from older `source` and `url` columns.

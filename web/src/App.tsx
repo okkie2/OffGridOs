@@ -4763,6 +4763,21 @@ function VerdictSummaryPage({
       : batteryRows.some((row) => row.fit === 'optimal')
         ? 'good'
         : 'muted';
+  const batteryAggregateStatus: Status | null = batteryRows.length > 0
+    ? (batteryRows.some((row) => row.status === 'outside_limits') ? 'outside_limits' : 'within_limits')
+    : null;
+  const batteryAggregateFit: FitStatus | undefined = batteryRows.some((row) => row.fit === 'acceptable')
+    ? 'acceptable'
+    : batteryRows.some((row) => row.fit === 'optimal')
+      ? 'optimal'
+      : undefined;
+  const batteryWhy = batteryRows.some((row) => row.status === 'outside_limits')
+    ? batteryRows.find((row) => row.status === 'outside_limits')?.verdictSummary ?? t('solar_yield.table.not_evaluated')
+    : batteryRows.some((row) => row.fit === 'acceptable')
+      ? t('report.verdict.battery_description')
+      : batteryRows.some((row) => row.fit === 'optimal')
+        ? t('report.verdict.battery_description')
+        : t('solar_yield.table.not_evaluated');
   const inverterAggregateTone = !batteryToInverter
     ? 'muted'
     : batteryToInverter.evaluation.electrical_status === 'outside_limits'
@@ -4781,11 +4796,40 @@ function VerdictSummaryPage({
         </div>
       </section>
 
-      <div className="hero-strip" style={{ marginBottom: 20 }}>
-        <SummaryCard label={t('report.verdict.surface_verdicts')} value={surfaceAggregate} tone={surfaceAggregateTone} detail={t('report.verdict.surfaces_count', { count: surfaceRows.length })} />
-        <SummaryCard label={t('report.verdict.battery_verdict')} value={batteryAggregate} tone={batteryAggregateTone} detail={batteryRows.length > 0 ? t('report.verdict.project_level_mppt_relationships', { count: batteryRows.length, suffix: batteryRows.length === 1 ? '' : 's' }) : t('solar_yield.table.not_evaluated')} />
-        <SummaryCard label={t('report.verdict.inverter_verdict')} value={inverterVerdictLabel} tone={inverterAggregateTone} detail={batteryToInverter ? t('report.verdict.project_level_battery_to_inverter') : t('solar_yield.table.not_evaluated')} />
-      </div>
+      <section className="panel" style={{ marginBottom: 20 }}>
+        <div className="section-head">
+          <h2>{t('page.report.verdict_summary')}</h2>
+          <p>{t('report.verdict.hero')}</p>
+        </div>
+        <div className="yield-table-wrap">
+          <table className="yield-table">
+            <thead>
+              <tr>
+                <th>{t('report.table.metric')}</th>
+                <th>{t('report.table.value')}</th>
+                <th>{t('report.table.detail')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th>{t('report.verdict.surface_verdicts')}</th>
+                <td><StatusBadge status={surfaceRows.some((row) => row.status === 'outside_limits') ? 'outside_limits' : 'within_limits'} fit={surfaceRows.some((row) => row.fit === 'clipping_expected') ? 'clipping_expected' : surfaceRows.some((row) => row.fit === 'underutilized') ? 'underutilized' : surfaceRows.some((row) => row.fit === 'acceptable') ? 'acceptable' : undefined} /></td>
+                <td>{surfaceAggregate} · {t('report.verdict.surfaces_count', { count: surfaceRows.length })}</td>
+              </tr>
+              <tr>
+                <th>{t('report.verdict.battery_verdict')}</th>
+                <td>{batteryAggregateStatus ? <StatusBadge status={batteryAggregateStatus} fit={batteryAggregateFit} /> : t('status.not_evaluated')}</td>
+                <td>{batteryAggregate} · {t('report.verdict.battery_project_note')}</td>
+              </tr>
+              <tr>
+                <th>{t('report.verdict.inverter_verdict')}</th>
+                <td>{batteryToInverter ? <StatusBadge status={batteryToInverter.evaluation.electrical_status} fit={batteryToInverter.evaluation.fit_status} /> : t('status.not_evaluated')}</td>
+                <td>{inverterVerdictLabel} · {batteryToInverter ? t('report.verdict.project_level_battery_to_inverter') : t('solar_yield.table.not_evaluated')}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <section className="panel" style={{ marginBottom: 20 }}>
         <div className="section-head">
@@ -4829,30 +4873,44 @@ function VerdictSummaryPage({
           <h2>{t('report.verdict.battery_verdict')}</h2>
           <p>{t('report.verdict.battery_description')}</p>
         </div>
-        <p style={{ marginTop: 0, marginBottom: 12, color: 'var(--muted)' }}>
-          {t('report.label.selected_battery_type')}: {batteryBank?.battery_type_id ? data.entities.battery_types.find((item) => item.battery_type_id === batteryBank.battery_type_id)?.model ?? batteryBank.battery_type_id : 'n/a'}
-        </p>
-        <p style={{ marginTop: 0, marginBottom: 12, color: 'var(--muted)' }}>
-          {t('report.label.configured_pv_total')}: {formatWp(localTotalInstalledWp)}
-        </p>
+        <div className="yield-table-wrap" style={{ marginBottom: 16 }}>
+          <table className="yield-table">
+            <thead>
+              <tr>
+                <th>{t('report.table.metric')}</th>
+                <th>{t('report.table.value')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th>{t('report.label.selected_battery_type')}</th>
+                <td>{batteryBank?.battery_type_id ? data.entities.battery_types.find((item) => item.battery_type_id === batteryBank.battery_type_id)?.model ?? batteryBank.battery_type_id : 'n/a'}</td>
+              </tr>
+              <tr>
+                <th>{t('report.label.configured_pv_total')}</th>
+                <td>{formatWp(localTotalInstalledWp)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
         {batteryRows.length > 0 ? (
           <div className="yield-table-wrap">
             <table className="yield-table">
               <thead>
                 <tr>
-                  <th>{t('report.table.selected_mppt')}</th>
+                  <th>{t('report.label.selected_battery_type')}</th>
+                  <th>{t('report.label.configured_pv_total')}</th>
                   <th>{t('report.table.verdict')}</th>
                   <th>{t('report.table.why')}</th>
                 </tr>
               </thead>
               <tbody>
-                {batteryRows.map(({ relation, mpptName, verdictLabel, verdictSummary }) => (
-                  <tr key={relation.relationship_id}>
-                    <th>{mpptName}</th>
-                    <td><StatusBadge status={relation.evaluation.electrical_status} fit={relation.evaluation.fit_status} /></td>
-                    <td>{verdictSummary ?? t('solar_yield.table.not_evaluated')}</td>
-                  </tr>
-                ))}
+                <tr>
+                  <th>{batteryBank?.battery_type_id ? data.entities.battery_types.find((item) => item.battery_type_id === batteryBank.battery_type_id)?.model ?? batteryBank.battery_type_id : 'n/a'}</th>
+                  <td>{formatWp(localTotalInstalledWp)}</td>
+                  <td>{batteryAggregateStatus ? <StatusBadge status={batteryAggregateStatus} fit={batteryAggregateFit} /> : t('status.not_evaluated')}</td>
+                  <td>{batteryWhy}</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -4872,15 +4930,30 @@ function VerdictSummaryPage({
           <p>{t('report.verdict.inverter_description')}</p>
         </div>
         {projectInverter ? (
-          <>
-            <p style={{ marginTop: 0, marginBottom: 12, color: 'var(--muted)' }}>
-              {t('report.label.selected_inverter')}: {projectInverter.name}
-            </p>
-            <dl className="detail-stats panel-spec-grid" style={{ marginTop: 0, marginBottom: 16 }}>
-              <div><dt>{t('report.table.verdict')}</dt><dd>{batteryToInverter ? <StatusBadge status={batteryToInverter.evaluation.electrical_status} /> : inverterVerdictLabel}</dd></div>
-              <div><dt>{t('report.table.why')}</dt><dd>{inverterVerdictSummary ?? t('solar_yield.table.not_evaluated')}</dd></div>
-            </dl>
-          </>
+          <div className="yield-table-wrap">
+            <table className="yield-table">
+              <thead>
+                <tr>
+                  <th>{t('report.table.metric')}</th>
+                  <th>{t('report.table.value')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th>{t('report.label.selected_inverter')}</th>
+                  <td>{projectInverter.name}</td>
+                </tr>
+                <tr>
+                  <th>{t('report.table.verdict')}</th>
+                  <td>{batteryToInverter ? <StatusBadge status={batteryToInverter.evaluation.electrical_status} fit={batteryToInverter.evaluation.fit_status} /> : inverterVerdictLabel}</td>
+                </tr>
+                <tr>
+                  <th>{t('report.table.why')}</th>
+                  <td>{inverterVerdictSummary ?? t('solar_yield.table.not_evaluated')}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         ) : (
           <div className="empty-state">
             <p style={{ margin: 0 }}>{t('report.empty.choose_inverter')}</p>
@@ -4971,11 +5044,40 @@ function CostSummaryPage({
         </div>
       </section>
 
-      <div className="hero-strip" style={{ marginBottom: 20 }}>
-        <SummaryCard label={t('report.cost.project_total')} value={formatCurrency(projectTotal)} detail={t('report.cost.project_total_detail')} />
-        <SummaryCard label={t('report.cost.battery_total')} value={formatCurrency(batteryTotal)} detail={selectedBatteryType ? t('report.cost.modules', { count: batteryModuleCount, suffix: batteryModuleCount === 1 ? '' : 's' }) : t('status.not_evaluated')} />
-        <SummaryCard label={t('report.cost.inverter_total')} value={formatCurrency(inverterTotal)} detail={selectedInverterType ? t('report.cost.matching_mppts_included', { count: matchingAllowanceUsed, suffix: matchingAllowanceUsed === 1 ? '' : 's' }) : t('status.not_evaluated')} />
-      </div>
+      <section className="panel" style={{ marginBottom: 20 }}>
+        <div className="section-head">
+          <h2>{t('page.report.cost_summary')}</h2>
+          <p>{t('report.cost.hero')}</p>
+        </div>
+        <div className="yield-table-wrap">
+          <table className="yield-table">
+            <thead>
+              <tr>
+                <th>{t('report.table.metric')}</th>
+                <th>{t('report.table.value')}</th>
+                <th>{t('report.table.detail')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th>{t('report.cost.project_total')}</th>
+                <td>{formatCurrency(projectTotal)}</td>
+                <td>{t('report.cost.project_total_detail')}</td>
+              </tr>
+              <tr>
+                <th>{t('report.cost.battery_total')}</th>
+                <td>{formatCurrency(batteryTotal)}</td>
+                <td>{selectedBatteryType ? t('report.cost.modules', { count: batteryModuleCount, suffix: batteryModuleCount === 1 ? '' : 's' }) : t('status.not_evaluated')}</td>
+              </tr>
+              <tr>
+                <th>{t('report.cost.inverter_total')}</th>
+                <td>{formatCurrency(inverterTotal)}</td>
+                <td>{selectedInverterType ? t('report.cost.matching_mppts_included', { count: matchingAllowanceUsed, suffix: matchingAllowanceUsed === 1 ? '' : 's' }) : t('status.not_evaluated')}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <section className="panel" style={{ marginBottom: 20 }}>
         <div className="section-head">
@@ -5021,44 +5123,86 @@ function CostSummaryPage({
         )}
       </section>
 
-      <section className="detail-grid two-col" style={{ marginBottom: 20 }}>
-        <section className="panel">
-          <div className="section-head">
-            <h2>{t('report.cost.battery_bank_cost')}</h2>
-            <p>{t('report.cost.battery_bank_cost_description')}</p>
+      <section className="panel" style={{ marginBottom: 20 }}>
+        <div className="section-head">
+          <h2>{t('report.cost.battery_bank_cost')}</h2>
+          <p>{t('report.cost.battery_bank_cost_description')}</p>
+        </div>
+        {selectedBatteryType ? (
+          <div className="yield-table-wrap">
+            <table className="yield-table">
+              <thead>
+                <tr>
+                  <th>{t('report.table.metric')}</th>
+                  <th>{t('report.table.value')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th>{t('report.label.selected_battery_type')}</th>
+                  <td>{selectedBatteryType.model}</td>
+                </tr>
+                <tr>
+                  <th>{t('report.cost.unit_price')}</th>
+                  <td>{formatCurrency(selectedBatteryType.price)}</td>
+                </tr>
+                <tr>
+                  <th>{t('report.cost.quantity')}</th>
+                  <td>{batteryModuleCount}</td>
+                </tr>
+                <tr>
+                  <th>{t('report.cost.battery_total')}</th>
+                  <td>{formatCurrency(batteryTotal)}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-          {selectedBatteryType ? (
-            <dl className="detail-stats panel-spec-grid" style={{ marginTop: 0 }}>
-              <div><dt>{t('report.label.selected_battery_type')}</dt><dd>{selectedBatteryType.model}</dd></div>
-              <div><dt>{t('report.cost.unit_price')}</dt><dd>{formatCurrency(selectedBatteryType.price)}</dd></div>
-              <div><dt>{t('report.cost.quantity')}</dt><dd>{batteryModuleCount}</dd></div>
-              <div><dt>{t('report.cost.battery_total')}</dt><dd>{formatCurrency(batteryTotal)}</dd></div>
-            </dl>
-          ) : (
-            <div className="empty-state">
-              <p style={{ margin: 0 }}>{t('report.empty.choose_battery_cost')}</p>
-            </div>
-          )}
-        </section>
+        ) : (
+          <div className="empty-state">
+            <p style={{ margin: 0 }}>{t('report.empty.choose_battery_cost')}</p>
+          </div>
+        )}
+      </section>
 
-        <section className="panel">
-          <div className="section-head">
-            <h2>{t('report.cost.inverter_cost')}</h2>
-            <p>{t('report.cost.inverter_cost_description')}</p>
+      <section className="panel" style={{ marginBottom: 20 }}>
+        <div className="section-head">
+          <h2>{t('report.cost.inverter_cost')}</h2>
+          <p>{t('report.cost.inverter_cost_description')}</p>
+        </div>
+        {selectedInverterType ? (
+          <div className="yield-table-wrap">
+            <table className="yield-table">
+              <thead>
+                <tr>
+                  <th>{t('report.table.metric')}</th>
+                  <th>{t('report.table.value')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th>{t('report.label.selected_inverter')}</th>
+                  <td>{selectedInverterType.model}</td>
+                </tr>
+                <tr>
+                  <th>{t('report.cost.unit_price')}</th>
+                  <td>{formatCurrency(selectedInverterType.price)}</td>
+                </tr>
+                <tr>
+                  <th>{t('report.cost.matching_mppts_count')}</th>
+                  <td>{Math.min(matchingAllowanceUsed, 2)} of {matchingMpptCount}</td>
+                </tr>
+                <tr>
+                  <th>{t('report.cost.inverter_total')}</th>
+                  <td>{formatCurrency(inverterTotal)}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-          {selectedInverterType ? (
-            <dl className="detail-stats panel-spec-grid" style={{ marginTop: 0 }}>
-              <div><dt>{t('report.label.selected_inverter')}</dt><dd>{selectedInverterType.model}</dd></div>
-              <div><dt>{t('report.cost.unit_price')}</dt><dd>{formatCurrency(selectedInverterType.price)}</dd></div>
-              <div><dt>{t('report.cost.matching_mppts_count')}</dt><dd>{Math.min(matchingAllowanceUsed, 2)} of {matchingMpptCount}</dd></div>
-              <div><dt>{t('report.cost.inverter_total')}</dt><dd>{formatCurrency(inverterTotal)}</dd></div>
-            </dl>
-          ) : (
-            <div className="empty-state">
-              <p style={{ margin: 0 }}>{t('report.empty.choose_inverter_cost')}</p>
-            </div>
-          )}
-        </section>
+        ) : (
+          <div className="empty-state">
+            <p style={{ margin: 0 }}>{t('report.empty.choose_inverter_cost')}</p>
+          </div>
+        )}
       </section>
 
       <section className="panel">
@@ -5066,11 +5210,30 @@ function CostSummaryPage({
           <h2>{t('report.cost.pricing_assumptions')}</h2>
           <p>{t('report.cost.pricing_assumptions_description')}</p>
         </div>
-        <ul style={{ margin: 0, paddingLeft: 20, color: 'var(--muted)', lineHeight: 1.65 }}>
-          <li>{t('report.cost.assumption.catalog_prices')}</li>
-          <li>{t('report.cost.assumption.unknown_not_zero')}</li>
-          <li>{t('report.cost.assumption.rs_mppts')}</li>
-        </ul>
+        <div className="yield-table-wrap">
+          <table className="yield-table">
+            <thead>
+              <tr>
+                <th>{t('report.table.metric')}</th>
+                <th>{t('report.table.value')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th>1</th>
+                <td>{t('report.cost.assumption.catalog_prices')}</td>
+              </tr>
+              <tr>
+                <th>2</th>
+                <td>{t('report.cost.assumption.unknown_not_zero')}</td>
+              </tr>
+              <tr>
+                <th>3</th>
+                <td>{t('report.cost.assumption.rs_mppts')}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </section>
     </>
   );
