@@ -1745,18 +1745,39 @@ function routeHref(route: Route, options?: { language?: LanguageCode; locationSl
   );
 }
 
-function Sidebar({ route, data }: { route: Route; data: DigitalTwinExport | null }) {
+function Sidebar({
+  route,
+  data,
+  isMobileOpen,
+  onNavigate,
+}: {
+  route: Route;
+  data: DigitalTwinExport | null;
+  isMobileOpen: boolean;
+  onNavigate: () => void;
+}) {
   const { t } = useTranslation();
   const go = (next: Route) => (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
     navigateTo(next);
+    onNavigate();
   };
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${isMobileOpen ? 'sidebar-open' : ''}`}>
       <div className="sidebar-logo">
-        <div className="sidebar-logo-text">OffGridOS</div>
-        <div className="sidebar-logo-sub">Digital Twin</div>
+        <div>
+          <div className="sidebar-logo-text">OffGridOS</div>
+          <div className="sidebar-logo-sub">Digital Twin</div>
+        </div>
+        <button
+          type="button"
+          className="sidebar-close-button"
+          onClick={onNavigate}
+          aria-label={t('ui.close_menu')}
+        >
+          ×
+        </button>
       </div>
       <nav className="sidebar-nav">
         <a href={routeHref({ kind: 'location' })} onClick={go({ kind: 'location' })} className={`sidebar-nav-item ${route.kind === 'location' || route.kind === 'surface' ? 'active' : ''}`}>
@@ -1831,7 +1852,7 @@ function Sidebar({ route, data }: { route: Route; data: DigitalTwinExport | null
         >
           {t('nav.about')}
         </a>
-        <span className="sidebar-footer-stamp">{typeof __BUILD_INFO__ !== 'undefined' ? __BUILD_INFO__ : ''}</span>
+      <span className="sidebar-footer-stamp">{typeof __BUILD_INFO__ !== 'undefined' ? __BUILD_INFO__ : ''}</span>
       </div>
     </aside>
   );
@@ -1858,6 +1879,55 @@ function AppLanguageControl({ route, locationSlug }: { route: Route; locationSlu
         ))}
       </select>
     </label>
+  );
+}
+
+function AppFrame({
+  route,
+  data,
+  locationSlug,
+  isMobileSidebarOpen,
+  openMobileSidebar,
+  closeMobileSidebar,
+  children,
+}: {
+  route: Route;
+  data: DigitalTwinExport | null;
+  locationSlug: string;
+  isMobileSidebarOpen: boolean;
+  openMobileSidebar: () => void;
+  closeMobileSidebar: () => void;
+  children: React.ReactNode;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="layout">
+      {isMobileSidebarOpen ? (
+        <button
+          type="button"
+          className="sidebar-backdrop"
+          onClick={closeMobileSidebar}
+          aria-label={t('ui.close_menu')}
+        />
+      ) : null}
+      <Sidebar route={route} data={data} isMobileOpen={isMobileSidebarOpen} onNavigate={closeMobileSidebar} />
+      <main className="app-shell">
+        <div className="app-shell-header">
+          <button
+            type="button"
+            className="mobile-menu-button"
+            onClick={openMobileSidebar}
+            aria-label={t('ui.open_menu')}
+            aria-expanded={isMobileSidebarOpen}
+          >
+            <span aria-hidden="true">☰</span>
+          </button>
+          <AppLanguageControl route={route} locationSlug={locationSlug} />
+        </div>
+        {children}
+      </main>
+    </div>
   );
 }
 
@@ -4801,34 +4871,35 @@ function VerdictSummaryPage({
           <h2>{t('page.report.verdict_summary')}</h2>
           <p>{t('report.verdict.hero')}</p>
         </div>
-        <div className="yield-table-wrap">
-          <table className="yield-table">
-            <thead>
-              <tr>
-                <th>{t('report.table.metric')}</th>
-                <th>{t('report.table.value')}</th>
-                <th>{t('report.table.detail')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <th>{t('report.verdict.surface_verdicts')}</th>
-                <td><StatusBadge status={surfaceRows.some((row) => row.status === 'outside_limits') ? 'outside_limits' : 'within_limits'} fit={surfaceRows.some((row) => row.fit === 'clipping_expected') ? 'clipping_expected' : surfaceRows.some((row) => row.fit === 'underutilized') ? 'underutilized' : surfaceRows.some((row) => row.fit === 'acceptable') ? 'acceptable' : undefined} /></td>
-                <td>{surfaceAggregate} · {t('report.verdict.surfaces_count', { count: surfaceRows.length })}</td>
-              </tr>
-              <tr>
-                <th>{t('report.verdict.battery_verdict')}</th>
-                <td>{batteryAggregateStatus ? <StatusBadge status={batteryAggregateStatus} fit={batteryAggregateFit} /> : t('status.not_evaluated')}</td>
-                <td>{batteryAggregate} · {t('report.verdict.battery_project_note')}</td>
-              </tr>
-              <tr>
-                <th>{t('report.verdict.inverter_verdict')}</th>
-                <td>{batteryToInverter ? <StatusBadge status={batteryToInverter.evaluation.electrical_status} fit={batteryToInverter.evaluation.fit_status} /> : t('status.not_evaluated')}</td>
-                <td>{inverterVerdictLabel} · {batteryToInverter ? t('report.verdict.project_level_battery_to_inverter') : t('solar_yield.table.not_evaluated')}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <dl className="detail-stats panel-spec-grid" style={{ marginTop: 0 }}>
+          <div>
+            <dt>{t('report.verdict.surface_verdicts')}</dt>
+            <dd>
+              <div className="stack" style={{ gap: 6 }}>
+                <StatusBadge status={surfaceRows.some((row) => row.status === 'outside_limits') ? 'outside_limits' : 'within_limits'} fit={surfaceRows.some((row) => row.fit === 'clipping_expected') ? 'clipping_expected' : surfaceRows.some((row) => row.fit === 'underutilized') ? 'underutilized' : surfaceRows.some((row) => row.fit === 'acceptable') ? 'acceptable' : undefined} />
+                <span>{surfaceAggregate} · {t('report.verdict.surfaces_count', { count: surfaceRows.length })}</span>
+              </div>
+            </dd>
+          </div>
+          <div>
+            <dt>{t('report.verdict.battery_verdict')}</dt>
+            <dd>
+              <div className="stack" style={{ gap: 6 }}>
+                {batteryAggregateStatus ? <StatusBadge status={batteryAggregateStatus} fit={batteryAggregateFit} /> : <span>{t('status.not_evaluated')}</span>}
+                <span>{batteryAggregate}</span>
+              </div>
+            </dd>
+          </div>
+          <div>
+            <dt>{t('report.verdict.inverter_verdict')}</dt>
+            <dd>
+              <div className="stack" style={{ gap: 6 }}>
+                {batteryToInverter ? <StatusBadge status={batteryToInverter.evaluation.electrical_status} fit={batteryToInverter.evaluation.fit_status} /> : <span>{t('status.not_evaluated')}</span>}
+                <span>{inverterVerdictLabel}</span>
+              </div>
+            </dd>
+          </div>
+        </dl>
       </section>
 
       <section className="panel" style={{ marginBottom: 20 }}>
@@ -4873,47 +4944,26 @@ function VerdictSummaryPage({
           <h2>{t('report.verdict.battery_verdict')}</h2>
           <p>{t('report.verdict.battery_description')}</p>
         </div>
-        <div className="yield-table-wrap" style={{ marginBottom: 16 }}>
-          <table className="yield-table">
-            <thead>
-              <tr>
-                <th>{t('report.table.metric')}</th>
-                <th>{t('report.table.value')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <th>{t('report.label.selected_battery_type')}</th>
-                <td>{batteryBank?.battery_type_id ? data.entities.battery_types.find((item) => item.battery_type_id === batteryBank.battery_type_id)?.model ?? batteryBank.battery_type_id : 'n/a'}</td>
-              </tr>
-              <tr>
-                <th>{t('report.label.configured_pv_total')}</th>
-                <td>{formatWp(localTotalInstalledWp)}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        {batteryRows.length > 0 ? (
-          <div className="yield-table-wrap">
-            <table className="yield-table">
-              <thead>
-                <tr>
-                  <th>{t('report.label.selected_battery_type')}</th>
-                  <th>{t('report.label.configured_pv_total')}</th>
-                  <th>{t('report.table.verdict')}</th>
-                  <th>{t('report.table.why')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <th>{batteryBank?.battery_type_id ? data.entities.battery_types.find((item) => item.battery_type_id === batteryBank.battery_type_id)?.model ?? batteryBank.battery_type_id : 'n/a'}</th>
-                  <td>{formatWp(localTotalInstalledWp)}</td>
-                  <td>{batteryAggregateStatus ? <StatusBadge status={batteryAggregateStatus} fit={batteryAggregateFit} /> : t('status.not_evaluated')}</td>
-                  <td>{batteryWhy}</td>
-                </tr>
-              </tbody>
-            </table>
+        <dl className="detail-stats panel-spec-grid" style={{ marginTop: 0, marginBottom: 16 }}>
+          <div>
+            <dt>{t('report.label.selected_battery_type')}</dt>
+            <dd>{batteryBank?.battery_type_id ? data.entities.battery_types.find((item) => item.battery_type_id === batteryBank.battery_type_id)?.model ?? batteryBank.battery_type_id : 'n/a'}</dd>
           </div>
+          <div>
+            <dt>{t('report.label.configured_pv_total')}</dt>
+            <dd>{formatWp(localTotalInstalledWp)}</dd>
+          </div>
+          <div>
+            <dt>{t('report.table.verdict')}</dt>
+            <dd>{batteryAggregateStatus ? <StatusBadge status={batteryAggregateStatus} fit={batteryAggregateFit} /> : t('status.not_evaluated')}</dd>
+          </div>
+          <div>
+            <dt>{t('report.table.why')}</dt>
+            <dd>{batteryWhy}</dd>
+          </div>
+        </dl>
+        {batteryRows.length > 0 ? (
+          null
         ) : (
           <div className="empty-state">
             <p style={{ margin: 0 }}>{t('report.empty.choose_battery')}</p>
@@ -4930,30 +4980,20 @@ function VerdictSummaryPage({
           <p>{t('report.verdict.inverter_description')}</p>
         </div>
         {projectInverter ? (
-          <div className="yield-table-wrap">
-            <table className="yield-table">
-              <thead>
-                <tr>
-                  <th>{t('report.table.metric')}</th>
-                  <th>{t('report.table.value')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <th>{t('report.label.selected_inverter')}</th>
-                  <td>{projectInverter.name}</td>
-                </tr>
-                <tr>
-                  <th>{t('report.table.verdict')}</th>
-                  <td>{batteryToInverter ? <StatusBadge status={batteryToInverter.evaluation.electrical_status} fit={batteryToInverter.evaluation.fit_status} /> : inverterVerdictLabel}</td>
-                </tr>
-                <tr>
-                  <th>{t('report.table.why')}</th>
-                  <td>{inverterVerdictSummary ?? t('solar_yield.table.not_evaluated')}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <dl className="detail-stats panel-spec-grid" style={{ marginTop: 0 }}>
+            <div>
+              <dt>{t('report.label.selected_inverter')}</dt>
+              <dd>{projectInverter.name}</dd>
+            </div>
+            <div>
+              <dt>{t('report.table.verdict')}</dt>
+              <dd>{batteryToInverter ? <StatusBadge status={batteryToInverter.evaluation.electrical_status} fit={batteryToInverter.evaluation.fit_status} /> : inverterVerdictLabel}</dd>
+            </div>
+            <div>
+              <dt>{t('report.table.why')}</dt>
+              <dd>{inverterVerdictSummary ?? t('solar_yield.table.not_evaluated')}</dd>
+            </div>
+          </dl>
         ) : (
           <div className="empty-state">
             <p style={{ margin: 0 }}>{t('report.empty.choose_inverter')}</p>
@@ -5008,6 +5048,7 @@ function CostSummaryPage({
 
     return {
       surface,
+      panelType,
       mpptType,
       panelCount: array?.panel_count ?? surface.panel_count,
       panelCost,
@@ -5091,18 +5132,18 @@ function CostSummaryPage({
                 <tr>
                   <th>{t('report.table.surface')}</th>
                   <th>{t('surface.panel.count')}</th>
-                  <th>{t('report.cost.panel_cost')}</th>
+                  <th>{t('report.cost.panel_unit_price')}</th>
                   <th>{t('report.table.selected_mppt')}</th>
                   <th>{t('report.cost.mppt_cost')}</th>
                   <th>{t('report.cost.surface_total')}</th>
                 </tr>
               </thead>
               <tbody>
-                {surfaceRows.map(({ surface, mpptType, panelCount, panelCost, mpptCost, surfaceTotal, includedWithInverter }) => (
+                {surfaceRows.map(({ surface, panelType, mpptType, panelCount, panelCost, mpptCost, surfaceTotal, includedWithInverter }) => (
                   <tr key={surface.surface_id}>
                     <th>{surface.name}</th>
                     <td>{panelCount}</td>
-                    <td>{formatCurrency(panelCost)}</td>
+                    <td>{formatCurrency(panelType?.price ?? null)}</td>
                     <td>{mpptType?.model ?? 'n/a'}</td>
                     <td>
                       <div className="stack" style={{ gap: 4 }}>
@@ -6039,6 +6080,7 @@ function AppContent() {
   const [error, setError] = useState<string | null>(null);
   const [route, setRoute] = useState<Route>(() => parseAppUrl(window.location.pathname, window.location.hash).route);
   const { language, setLanguage, t } = useTranslation();
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   useLocalStorageRevision();
 
   async function refreshProjectData(): Promise<void> {
@@ -6059,6 +6101,7 @@ function AppContent() {
     const onPopState = () => {
       const parsed = parseAppUrl(window.location.pathname, window.location.hash);
       setRoute(parsed.route);
+      setIsMobileSidebarOpen(false);
       if (parsed.language && parsed.language !== language) {
         setLanguage(parsed.language);
       }
@@ -6069,6 +6112,32 @@ function AppContent() {
   }, [language, setLanguage]);
 
   const locationSlug = data ? getLocationSlug(data) : 'project';
+
+  useEffect(() => {
+    setIsMobileSidebarOpen(false);
+  }, [route]);
+
+  useEffect(() => {
+    if (!isMobileSidebarOpen) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsMobileSidebarOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isMobileSidebarOpen]);
 
   useEffect(() => {
     if (!data) {
@@ -6095,34 +6164,36 @@ function AppContent() {
 
   if (error) {
     return (
-      <div className="layout">
-        <Sidebar route={route} data={data} />
-        <main className="app-shell">
-          <div className="app-shell-header">
-            <AppLanguageControl route={route} locationSlug="project" />
-          </div>
+      <AppFrame
+        route={route}
+        data={data}
+        locationSlug="project"
+        isMobileSidebarOpen={isMobileSidebarOpen}
+        openMobileSidebar={() => setIsMobileSidebarOpen(true)}
+        closeMobileSidebar={() => setIsMobileSidebarOpen(false)}
+      >
           <section className="panel error-panel">
             <p>{error}</p>
             <p>{t('app.server_reload')}</p>
           </section>
-        </main>
-      </div>
+      </AppFrame>
     );
   }
 
   if (!data) {
     return (
-      <div className="layout">
-        <Sidebar route={route} data={data} />
-        <main className="app-shell">
-          <div className="app-shell-header">
-            <AppLanguageControl route={route} locationSlug="project" />
-          </div>
+      <AppFrame
+        route={route}
+        data={data}
+        locationSlug="project"
+        isMobileSidebarOpen={isMobileSidebarOpen}
+        openMobileSidebar={() => setIsMobileSidebarOpen(true)}
+        closeMobileSidebar={() => setIsMobileSidebarOpen(false)}
+      >
           <section className="panel error-panel">
             <p>{t('app.loading')}</p>
           </section>
-        </main>
-      </div>
+      </AppFrame>
     );
   }
 
@@ -6169,30 +6240,33 @@ function AppContent() {
 
   if (route.kind === 'surface') {
     return (
-      <div className="layout">
-        <Sidebar route={route} data={data} />
-        <main className="app-shell">
-          <div className="app-shell-header">
-            <AppLanguageControl route={route} locationSlug={locationSlug} />
-          </div>
+      <AppFrame
+        route={route}
+        data={data}
+        locationSlug={locationSlug}
+        isMobileSidebarOpen={isMobileSidebarOpen}
+        openMobileSidebar={() => setIsMobileSidebarOpen(true)}
+        closeMobileSidebar={() => setIsMobileSidebarOpen(false)}
+      >
           <SurfaceDetail
             key={`surface:${route.surfaceId}`}
             data={data}
             surfaceId={route.surfaceId}
             refreshProjectData={refreshProjectData}
           />
-        </main>
-      </div>
+      </AppFrame>
     );
   }
 
   return (
-    <div className="layout">
-      <Sidebar route={route} data={data} />
-      <main className="app-shell">
-        <div className="app-shell-header">
-          <AppLanguageControl route={route} locationSlug={locationSlug} />
-        </div>
+    <AppFrame
+      route={route}
+      data={data}
+      locationSlug={locationSlug}
+      isMobileSidebarOpen={isMobileSidebarOpen}
+      openMobileSidebar={() => setIsMobileSidebarOpen(true)}
+      closeMobileSidebar={() => setIsMobileSidebarOpen(false)}
+    >
         {route.kind === 'location' ? (
           <LocationPage {...context} />
         ) : route.kind === 'about' ? (
@@ -6222,8 +6296,7 @@ function AppContent() {
         ) : (
           <LocationPage {...context} />
         )}
-      </main>
-    </div>
+    </AppFrame>
   );
 }
 
