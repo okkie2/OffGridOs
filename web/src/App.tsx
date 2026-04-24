@@ -2024,24 +2024,28 @@ function Sidebar({
 function AppLanguageControl({ route, locationSlug }: { route: Route; locationSlug: string }) {
   const { language, setLanguage, t } = useTranslation();
   return (
-    <label className="app-language">
-      <span className="app-language-label">{t('ui.language')}</span>
-      <select
-        value={language}
-        onChange={(event) => {
-          const nextLanguage = event.target.value as LanguageCode;
-          setLanguage(nextLanguage);
-          navigateTo(route, { language: nextLanguage, locationSlug, replace: true });
-        }}
-        className="app-language-select"
-      >
-        {LANGUAGE_OPTIONS.map((option) => (
-          <option key={option} value={option}>
-            {t(`language.${option}` as TranslationKey)}
-          </option>
-        ))}
-      </select>
-    </label>
+    <div className="app-language" role="group" aria-label={t('ui.language')}>
+      {LANGUAGE_OPTIONS.map((option) => {
+        const isActive = option === language;
+        return (
+          <button
+            key={option}
+            type="button"
+            className={`app-language-option${isActive ? ' app-language-option-active' : ''}`}
+            aria-pressed={isActive}
+            aria-label={t(`language.${option}` as TranslationKey)}
+            onClick={() => {
+              if (isActive) return;
+              const nextLanguage = option as LanguageCode;
+              setLanguage(nextLanguage);
+              navigateTo(route, { language: nextLanguage, locationSlug, replace: true });
+            }}
+          >
+            {option.toUpperCase()}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -3144,7 +3148,6 @@ function LocationPage({ data, localSurfaceSummaries, refreshProjectData }: PageC
     <>
       <div className="topbar">
         <h1 className="topbar-title">{title.trim() || defaultLocationName}</h1>
-        <span className="topbar-meta">{t('page.location')}</span>
       </div>
 
       <div className="detail-grid" style={{ marginBottom: 16 }}>
@@ -3466,7 +3469,6 @@ function SolarYieldPage({
     <>
       <div className="topbar">
         <h1 className="topbar-title">{getLocationDisplayName(data, t)}</h1>
-        <span className="topbar-meta">{t('page.solar_yield')}</span>
       </div>
 
       <section className="detail-shell">
@@ -3807,7 +3809,6 @@ function BatteryArrayPage({
     <>
       <div className="topbar">
         <h1 className="topbar-title">{getLocationDisplayName(data, t)}</h1>
-        <span className="topbar-meta">{t('page.battery_array')}</span>
       </div>
 
       <section className="detail-shell">
@@ -4320,7 +4321,6 @@ function InverterArrayPage({
     <>
       <div className="topbar">
         <h1 className="topbar-title">{getLocationDisplayName(data, t)}</h1>
-        <span className="topbar-meta">{t('page.inverter_array')}</span>
       </div>
 
       <section className="detail-shell">
