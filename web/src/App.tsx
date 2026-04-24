@@ -715,6 +715,42 @@ function formatCurrency(value: number | null | undefined): string {
   return `€${value.toLocaleString('en-US', { minimumFractionDigits: Number.isInteger(value) ? 0 : 2, maximumFractionDigits: 2 })}`;
 }
 
+function formatPriceSourceName(sourceUrl?: string | null): string | null {
+  if (!sourceUrl) {
+    return null;
+  }
+
+  try {
+    return new URL(sourceUrl).hostname.replace(/^www\./, '');
+  } catch {
+    return sourceUrl;
+  }
+}
+
+function renderPrice(value: number | null | undefined, sourceUrl?: string | null): React.ReactNode {
+  const formatted = formatCurrency(value);
+  const sourceName = formatPriceSourceName(sourceUrl);
+
+  if (value == null || !sourceUrl) {
+    return formatted;
+  }
+
+  const title = sourceName ? `Source: ${sourceName}` : 'Price source';
+
+  return (
+    <a
+      href={sourceUrl}
+      target="_blank"
+      rel="noreferrer"
+      title={title}
+      aria-label={`${formatted} from ${sourceName ?? 'price source'}`}
+      className="price-link"
+    >
+      {formatted}
+    </a>
+  );
+}
+
 function formatDailyYield(kwh: number | null | undefined): string {
   if (typeof kwh !== 'number' || !Number.isFinite(kwh)) {
     return '';
@@ -4663,11 +4699,11 @@ function BatteryCatalogPage({
               </div>
               <div>
                 <dt>{t('catalog.stat.price')}</dt>
-                <dd>{selectedBattery.price != null ? `€${selectedBattery.price.toLocaleString('en-US')}` : 'n/a'}</dd>
+                <dd>{renderPrice(selectedBattery.price, selectedBattery.price_source_url)}</dd>
               </div>
               <div>
                 <dt>{t('catalog.stat.price_per_kwh')}</dt>
-                <dd>{selectedBattery.price_per_kwh != null ? `€${selectedBattery.price_per_kwh}` : 'n/a'}</dd>
+                <dd>{selectedBattery.price_per_kwh != null ? renderPrice(selectedBattery.price_per_kwh, selectedBattery.price_source_url) : 'n/a'}</dd>
               </div>
             </dl>
           ) : null}
@@ -5107,12 +5143,12 @@ function CostSummaryPage({
               </tr>
               <tr>
                 <th>{t('report.cost.battery_total')}</th>
-                <td>{formatCurrency(batteryTotal)}</td>
+                <td>{renderPrice(batteryTotal, selectedBatteryType?.price_source_url)}</td>
                 <td>{selectedBatteryType ? t('report.cost.modules', { count: batteryModuleCount, suffix: batteryModuleCount === 1 ? '' : 's' }) : t('status.not_evaluated')}</td>
               </tr>
               <tr>
                 <th>{t('report.cost.inverter_total')}</th>
-                <td>{formatCurrency(inverterTotal)}</td>
+                <td>{renderPrice(inverterTotal, selectedInverterType?.price_source_url)}</td>
                 <td>{selectedInverterType ? t('report.cost.matching_mppts_included', { count: matchingAllowanceUsed, suffix: matchingAllowanceUsed === 1 ? '' : 's' }) : t('status.not_evaluated')}</td>
               </tr>
             </tbody>
@@ -5143,11 +5179,11 @@ function CostSummaryPage({
                   <tr key={surface.surface_id}>
                     <th>{surface.name}</th>
                     <td>{panelCount}</td>
-                    <td>{formatCurrency(panelType?.price ?? null)}</td>
+                    <td>{renderPrice(panelType?.price ?? null, panelType?.price_source_url)}</td>
                     <td>{mpptType?.model ?? 'n/a'}</td>
                     <td>
                       <div className="stack" style={{ gap: 4 }}>
-                        <span>{formatCurrency(mpptCost)}</span>
+                        <span>{renderPrice(mpptCost, includedWithInverter ? selectedInverterType?.price_source_url : mpptType?.price_source_url)}</span>
                         {includedWithInverter ? <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{t('report.cost.included_with_inverter')}</span> : null}
                       </div>
                     </td>
@@ -5185,7 +5221,7 @@ function CostSummaryPage({
                 </tr>
                 <tr>
                   <th>{t('report.cost.unit_price')}</th>
-                  <td>{formatCurrency(selectedBatteryType.price)}</td>
+                  <td>{renderPrice(selectedBatteryType.price, selectedBatteryType.price_source_url)}</td>
                 </tr>
                 <tr>
                   <th>{t('report.cost.quantity')}</th>
@@ -5193,7 +5229,7 @@ function CostSummaryPage({
                 </tr>
                 <tr>
                   <th>{t('report.cost.battery_total')}</th>
-                  <td>{formatCurrency(batteryTotal)}</td>
+                  <td>{renderPrice(batteryTotal, selectedBatteryType.price_source_url)}</td>
                 </tr>
               </tbody>
             </table>
@@ -5226,7 +5262,7 @@ function CostSummaryPage({
                 </tr>
                 <tr>
                   <th>{t('report.cost.unit_price')}</th>
-                  <td>{formatCurrency(selectedInverterType.price)}</td>
+                  <td>{renderPrice(selectedInverterType.price, selectedInverterType.price_source_url)}</td>
                 </tr>
                 <tr>
                   <th>{t('report.cost.matching_mppts_count')}</th>
@@ -5234,7 +5270,7 @@ function CostSummaryPage({
                 </tr>
                 <tr>
                   <th>{t('report.cost.inverter_total')}</th>
-                  <td>{formatCurrency(inverterTotal)}</td>
+                  <td>{renderPrice(inverterTotal, selectedInverterType.price_source_url)}</td>
                 </tr>
               </tbody>
             </table>
@@ -5537,8 +5573,8 @@ function PanelCatalogPage({
               <div><dt>{t('catalog.field.vmp')}</dt><dd>{selectedPanel.vmp} V</dd></div>
               <div><dt>{t('catalog.field.isc')}</dt><dd>{selectedPanel.isc} A</dd></div>
               <div><dt>{t('catalog.field.imp')}</dt><dd>{selectedPanel.imp} A</dd></div>
-              <div><dt>{t('catalog.stat.price')}</dt><dd>{selectedPanel.price != null ? `€${selectedPanel.price.toLocaleString('en-US')}` : 'n/a'}</dd></div>
-              <div><dt>{t('catalog.stat.price_per_wp')}</dt><dd>{selectedPanel.price != null ? `€${(selectedPanel.price / selectedPanel.wp).toFixed(2)}` : 'n/a'}</dd></div>
+              <div><dt>{t('catalog.stat.price')}</dt><dd>{renderPrice(selectedPanel.price, selectedPanel.price_source_url)}</dd></div>
+              <div><dt>{t('catalog.stat.price_per_wp')}</dt><dd>{selectedPanel.price != null ? renderPrice(selectedPanel.price / selectedPanel.wp, selectedPanel.price_source_url) : 'n/a'}</dd></div>
               <div><dt>{t('catalog.stat.size')}</dt><dd>{selectedPanel.length_mm != null && selectedPanel.width_mm != null ? `${selectedPanel.length_mm} × ${selectedPanel.width_mm} mm` : 'n/a'}</dd></div>
             </dl>
           ) : null}
@@ -5810,7 +5846,7 @@ function MpptCatalogPage({
               <div><dt>{t('catalog.stat.max_pv_power')}</dt><dd>{selectedMppt.max_pv_power} W</dd></div>
               <div><dt>{t('catalog.stat.max_charge_current')}</dt><dd>{selectedMppt.max_charge_current} A</dd></div>
               <div><dt>{t('catalog.stat.nominal_battery_voltage')}</dt><dd>{selectedMppt.nominal_battery_voltage} V</dd></div>
-              <div><dt>{t('catalog.stat.price')}</dt><dd>{selectedMppt.price != null ? `€${selectedMppt.price.toLocaleString('en-US')}` : 'n/a'}</dd></div>
+              <div><dt>{t('catalog.stat.price')}</dt><dd>{renderPrice(selectedMppt.price, selectedMppt.price_source_url)}</dd></div>
               <div><dt>{t('catalog.stat.pv_input_current')}</dt><dd>{selectedMppt.max_pv_input_current_a != null ? `${selectedMppt.max_pv_input_current_a} A` : 'n/a'}</dd></div>
             </dl>
           ) : null}

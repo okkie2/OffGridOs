@@ -75,6 +75,10 @@ h1, h2, h3, p, dl, dd, dt {
 .sidebar-logo {
   padding: 20px 16px 16px;
   border-bottom: 1px solid rgba(255 255 255 / 0.06);
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .sidebar-logo-text {
@@ -190,6 +194,33 @@ h1, h2, h3, p, dl, dd, dt {
   letter-spacing: 0.04em;
 }
 
+.sidebar-close-button {
+  display: none;
+  border: 1px solid rgba(255 255 255 / 0.1);
+  background: rgba(255 255 255 / 0.04);
+  color: var(--sidebar-text);
+  border-radius: 999px;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: rgba(15, 22, 35, 0.55);
+  z-index: 35;
+}
+
 /* ── Main content ── */
 
 .app-shell {
@@ -202,7 +233,24 @@ h1, h2, h3, p, dl, dd, dt {
 .app-shell-header {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
   margin-bottom: 16px;
+}
+
+.mobile-menu-button {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 1rem;
+  cursor: pointer;
 }
 
 .app-language {
@@ -653,7 +701,7 @@ h1, h2, h3, p, dl, dd, dt {
 
 .overview-grid {
   display: grid;
-  grid-template-columns: 1.25fr 0.95fr;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.95fr);
   gap: 16px;
   margin-top: 16px;
 }
@@ -773,6 +821,8 @@ h1, h2, h3, p, dl, dd, dt {
 
 .yield-table-wrap {
   overflow-x: auto;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .yield-table {
@@ -801,6 +851,17 @@ h1, h2, h3, p, dl, dd, dt {
   background: var(--surface-low);
   text-align: left;
   font-weight: 600;
+}
+
+.price-link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 0.12em;
+}
+
+.price-link:hover {
+  color: var(--primary-dim);
 }
 
 .yield-verdict-cell {
@@ -893,7 +954,9 @@ h1, h2, h3, p, dl, dd, dt {
 
 .detail-shell {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
+  width: 100%;
 }
 
 .detail-page-title {
@@ -905,13 +968,13 @@ h1, h2, h3, p, dl, dd, dt {
 
 .detail-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
 .detail-grid-2 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -923,6 +986,7 @@ h1, h2, h3, p, dl, dd, dt {
 .detail-grid-2 .panel,
 .overview-grid .panel {
   margin-top: 0;
+  min-width: 0;
 }
 
 .detail-stats {
@@ -1356,7 +1420,7 @@ h1, h2, h3, p, dl, dd, dt {
   .config-grid,
   .compact-stats,
   .mppt-checks {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .config-field-span-2 {
@@ -1367,48 +1431,74 @@ h1, h2, h3, p, dl, dd, dt {
 
 @media (max-width: 700px) {
   .layout {
-    flex-direction: column;
+    min-height: 100vh;
   }
 
   .sidebar {
-    width: 100%;
-    min-height: unset;
-    height: auto;
-    position: static;
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(86vw, 320px);
+    min-height: 100vh;
+    height: 100vh;
+    transform: translateX(-102%);
+    transition: transform 180ms ease;
+    z-index: 40;
+    box-shadow: 12px 0 32px rgba(0, 0, 0, 0.24);
+    overflow-y: auto;
+  }
+
+  .sidebar.sidebar-open {
+    transform: translateX(0);
+  }
+
+  .sidebar-close-button {
+    display: inline-flex;
+    flex-shrink: 0;
+  }
+
+  .sidebar-backdrop {
+    display: block;
   }
 
   .sidebar-nav {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    padding: 8px;
-    gap: 4px;
+    display: block;
+    padding: 12px 0;
   }
 
   .sidebar-nav-item {
-    width: auto;
-    padding: 8px 12px;
+    width: 100%;
+    padding: 10px 16px;
   }
 
   .sidebar-subnav {
-    margin-left: 0;
-    padding-left: 0;
-    border-left: 0;
-    width: 100%;
+    margin-left: 16px;
+    padding-left: 10px;
+    border-left: 1px solid rgba(255 255 255 / 0.08);
+    width: auto;
   }
 
   .sidebar-subnav-item {
-    display: inline-block;
-    margin: 4px 4px 0 0;
+    display: block;
+    margin: 0;
   }
 
   .app-shell {
     padding: 20px 16px;
+    width: 100%;
+    max-width: none;
+  }
+
+  .app-shell-header {
+    justify-content: space-between;
   }
 
   .section-head {
     flex-direction: column;
     align-items: start;
+  }
+
+  .mobile-menu-button {
+    display: inline-flex;
   }
 
   .hero-grid,
