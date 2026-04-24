@@ -2,6 +2,7 @@
 
 ## 2026-04-24
 
+- Searched for remaining catalog price sources, set `Eurener 280W` to a zero-price placeholder with no source URL, and refreshed the checked-in digital-twin export so it matches the updated database.
 - Reworked the `Verdict summary` and `Cost summary` pages into table-first reports so the overview, battery, inverter, and pricing sections follow the documented read-only report layout.
 - Corrected the Victron `Multi RS Solar 48/6000/100-450/100` MPPT catalog entry from `12 A` to `13 A` max PV input current per tracker so valid 6-panel strings no longer fail the input-current check.
 - Added full persistence-field BDD coverage for location, surface, panel-array, and inverter configuration round-trips, and hardened the jsdom navigation harness so it follows the current clean-route browser APIs.
