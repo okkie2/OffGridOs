@@ -91,6 +91,26 @@ function ensureLocationColumns(db: Database.Database): void {
   }
 }
 
+function dropLegacyLocationTable(db: Database.Database): void {
+  if (!hasTable(db, 'location')) {
+    return;
+  }
+
+  const legacyCount = (db.prepare("SELECT COUNT(*) AS count FROM location").get() as { count: number } | undefined)?.count ?? 0;
+  const currentCount = (db.prepare("SELECT COUNT(*) AS count FROM locations").get() as { count: number } | undefined)?.count ?? 0;
+
+  if (legacyCount > 0 && currentCount === 0) {
+    db.exec(`
+      INSERT INTO locations (id, title, country, place_name, description, notes, latitude, longitude, northing, easting, site_photo_data_url)
+      SELECT id, NULL, country, place_name, NULL, NULL, latitude, longitude, northing, easting, NULL
+      FROM location
+      ORDER BY id
+    `);
+  }
+
+  db.exec('DROP TABLE IF EXISTS location;');
+}
+
 function ensureSurfaceColumns(db: Database.Database): void {
   const cols = new Set((db.prepare("PRAGMA table_info('surfaces')").all() as { name: string }[]).map((row) => row.name));
   const additions = [
@@ -149,6 +169,7 @@ function ensureInverterConfigurationColumns(db: Database.Database): void {
     !cols.has('description') ? 'ALTER TABLE inverter_configurations ADD COLUMN description TEXT;' : '',
     !cols.has('image_data_url') ? 'ALTER TABLE inverter_configurations ADD COLUMN image_data_url TEXT;' : '',
     !cols.has('notes') ? 'ALTER TABLE inverter_configurations ADD COLUMN notes TEXT;' : '',
+    !cols.has('selected_cabinet_type_id') ? 'ALTER TABLE inverter_configurations ADD COLUMN selected_cabinet_type_id TEXT REFERENCES cabinet_types(cabinet_type_id);' : '',
   ].filter(Boolean);
 
   if (additions.length > 0) {
@@ -176,6 +197,7 @@ function ensureBatteryBankConfigurationColumns(db: Database.Database): void {
     !cols.has('description') ? 'ALTER TABLE battery_bank_configurations ADD COLUMN description TEXT;' : '',
     !cols.has('image_data_url') ? 'ALTER TABLE battery_bank_configurations ADD COLUMN image_data_url TEXT;' : '',
     !cols.has('notes') ? 'ALTER TABLE battery_bank_configurations ADD COLUMN notes TEXT;' : '',
+    !cols.has('selected_cabinet_type_id') ? 'ALTER TABLE battery_bank_configurations ADD COLUMN selected_cabinet_type_id TEXT REFERENCES cabinet_types(cabinet_type_id);' : '',
   ].filter(Boolean);
 
   if (additions.length > 0) {
@@ -236,6 +258,28 @@ function ensurePanelTypesColumns(db: Database.Database): void {
   `).run();
 }
 
+function ensureCabinetTypesColumns(db: Database.Database): void {
+  const cols = new Set((db.prepare("PRAGMA table_info('cabinet_types')").all() as { name: string }[]).map((row) => row.name));
+  const additions = [
+    !cols.has('description') ? 'ALTER TABLE cabinet_types ADD COLUMN description TEXT;' : '',
+    !cols.has('price') ? 'ALTER TABLE cabinet_types ADD COLUMN price REAL;' : '',
+    !cols.has('price_source_url') ? 'ALTER TABLE cabinet_types ADD COLUMN price_source_url TEXT;' : '',
+    !cols.has('units') ? 'ALTER TABLE cabinet_types ADD COLUMN units TEXT;' : '',
+    !cols.has('condensation_protection') ? 'ALTER TABLE cabinet_types ADD COLUMN condensation_protection INTEGER NOT NULL DEFAULT 0;' : '',
+    !cols.has('insect_protection') ? 'ALTER TABLE cabinet_types ADD COLUMN insect_protection INTEGER NOT NULL DEFAULT 0;' : '',
+    !cols.has('dust_protection') ? 'ALTER TABLE cabinet_types ADD COLUMN dust_protection INTEGER NOT NULL DEFAULT 0;' : '',
+    !cols.has('outside_protection') ? 'ALTER TABLE cabinet_types ADD COLUMN outside_protection INTEGER NOT NULL DEFAULT 0;' : '',
+    !cols.has('frost_protection') ? 'ALTER TABLE cabinet_types ADD COLUMN frost_protection INTEGER NOT NULL DEFAULT 0;' : '',
+    !cols.has('fire_protection') ? 'ALTER TABLE cabinet_types ADD COLUMN fire_protection INTEGER NOT NULL DEFAULT 0;' : '',
+    !cols.has('ip_rating') ? 'ALTER TABLE cabinet_types ADD COLUMN ip_rating TEXT;' : '',
+    !cols.has('insurance_rating') ? 'ALTER TABLE cabinet_types ADD COLUMN insurance_rating TEXT;' : '',
+  ].filter(Boolean);
+
+  if (additions.length > 0) {
+    db.exec(additions.join('\n'));
+  }
+}
+
 export function initSchema(db: Database.Database): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS locations (
@@ -282,6 +326,27 @@ export function initSchema(db: Database.Database): void {
       price_source_url TEXT,
       wp_per_m2     REAL GENERATED ALWAYS AS (ROUND(wp / (length_mm * width_mm / 1000000.0), 1)) VIRTUAL,
       price_per_wp  REAL GENERATED ALWAYS AS (CASE WHEN price IS NOT NULL THEN ROUND(price / wp, 2) ELSE NULL END) VIRTUAL
+    );
+
+    CREATE TABLE IF NOT EXISTS cabinet_types (
+      id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+      cabinet_type_id        TEXT UNIQUE NOT NULL,
+      title                  TEXT NOT NULL,
+      description            TEXT,
+      depth_mm               REAL NOT NULL,
+      width_mm               REAL NOT NULL,
+      height_mm              REAL NOT NULL,
+      units                  TEXT,
+      price                  REAL,
+      price_source_url       TEXT,
+      condensation_protection INTEGER NOT NULL DEFAULT 0,
+      insect_protection      INTEGER NOT NULL DEFAULT 0,
+      dust_protection        INTEGER NOT NULL DEFAULT 0,
+      outside_protection     INTEGER NOT NULL DEFAULT 0,
+      frost_protection       INTEGER NOT NULL DEFAULT 0,
+      fire_protection        INTEGER NOT NULL DEFAULT 0,
+      ip_rating              TEXT,
+      insurance_rating       TEXT
     );
 
     CREATE TABLE IF NOT EXISTS surface_panel_assignments (
@@ -337,6 +402,7 @@ export function initSchema(db: Database.Database): void {
       image_data_url           TEXT,
       notes                    TEXT,
       selected_battery_type_id TEXT REFERENCES battery_types(battery_type_id),
+      selected_cabinet_type_id  TEXT REFERENCES cabinet_types(cabinet_type_id),
       configured_battery_count  INTEGER NOT NULL DEFAULT 1,
       batteries_per_string      INTEGER NOT NULL DEFAULT 1,
       parallel_strings          INTEGER NOT NULL DEFAULT 1
@@ -404,15 +470,18 @@ export function initSchema(db: Database.Database): void {
     CREATE TABLE IF NOT EXISTS inverter_configurations (
       id                        INTEGER PRIMARY KEY AUTOINCREMENT,
       inverter_configuration_id TEXT UNIQUE NOT NULL,
-      selected_inverter_type_id  TEXT REFERENCES inverter_types(inverter_id)
+      selected_inverter_type_id  TEXT REFERENCES inverter_types(inverter_id),
+      selected_cabinet_type_id   TEXT REFERENCES cabinet_types(cabinet_type_id)
     );
 
   `);
 
   ensureLocationColumns(db);
+  dropLegacyLocationTable(db);
   ensureSurfaceColumns(db);
   ensureBatteryBankConfigurationColumns(db);
   ensureInverterConfigurationColumns(db);
+  ensureCabinetTypesColumns(db);
   ensureBatteryTypesColumns(db);
   ensurePanelTypesColumns(db);
   ensureMpptTypesColumns(db);

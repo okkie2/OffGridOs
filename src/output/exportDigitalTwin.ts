@@ -4,6 +4,7 @@ import type Database from 'better-sqlite3';
 import type {
   BatteryType,
   BatteryBankConfiguration,
+  CabinetType,
   InverterType,
   Location,
   MpptType,
@@ -18,6 +19,7 @@ import type {
 import {
   getLocation,
   getProjectPreferences,
+  listCabinetTypes,
   listBatteryTypes,
   listArrayToMpptMappings,
   listInverterConfigurations,
@@ -62,6 +64,7 @@ interface ExportMpptConfiguration {
 interface ExportBatteryBank {
   battery_bank_id: string;
   battery_type_id?: string;
+  selected_cabinet_type_id?: string | null;
   name: string;
   module_count: number;
   nominal_voltage_v?: number | null;
@@ -99,6 +102,7 @@ interface ExportString {
 interface ExportInverterConfiguration {
   inverter_configuration_id: string;
   inverter_id?: string;
+  selected_cabinet_type_id?: string | null;
   name: string;
   provisional: boolean;
   title?: string | null;
@@ -145,6 +149,7 @@ interface ExportBatteryBankConfiguration {
   image_data_url?: string | null;
   notes?: string | null;
   selected_battery_type_id?: string | null;
+  selected_cabinet_type_id?: string | null;
   configured_battery_count: number;
   batteries_per_string: number;
   parallel_strings: number;
@@ -156,6 +161,7 @@ interface DigitalTwinExport {
     surfaces: Surface[];
     surface_configurations: ExportSurfaceConfiguration[];
     battery_bank_configurations: ExportBatteryBankConfiguration[];
+    cabinet_types: CabinetType[];
     panel_types: PanelType[];
     pv_strings: ExportString[];
     strings?: ExportString[];
@@ -184,7 +190,7 @@ interface DigitalTwinExport {
       input_power_w: number;
       evaluation: {
         electrical_status: 'within_limits' | 'outside_limits';
-        fit_status?: 'optimal' | 'clipping_expected' | 'underutilized';
+        fit_status?: 'optimal' | 'fully_utilized' | 'clipping_expected' | 'underutilized';
         reasons: string[];
         notes: string;
       };
@@ -639,12 +645,16 @@ function pickDerivedBatteryType(
 
 function buildBatteryBanks(
   batteryTypes: BatteryType[],
+  cabinetTypes: CabinetType[],
   projectPreferences: ProjectPreferences,
   batteryBankConfigurations: BatteryBankConfiguration[],
 ): ExportBatteryBank[] {
   const design = batteryBankConfigurations[0] ?? null;
   const selectedBatteryType = design?.selected_battery_type_id
     ? batteryTypes.find((batteryType) => batteryType.battery_type_id === design.selected_battery_type_id) ?? null
+    : null;
+  const selectedCabinetType = design?.selected_cabinet_type_id
+    ? cabinetTypes.find((cabinetType) => cabinetType.cabinet_type_id === design.selected_cabinet_type_id) ?? null
     : null;
   const derivedBatteryType = selectedBatteryType ?? pickDerivedBatteryType(batteryTypes, projectPreferences);
   const configuredBatteryCount = design?.configured_battery_count ?? 1;
@@ -654,6 +664,7 @@ function buildBatteryBanks(
   return [{
     battery_bank_id: 'battery-bank-main',
     battery_type_id: derivedBatteryType?.battery_type_id,
+    selected_cabinet_type_id: selectedCabinetType?.cabinet_type_id ?? null,
     name: design?.title?.trim() || (derivedBatteryType ? `${derivedBatteryType.model} bank` : 'Main battery bank'),
     module_count: Math.max(configuredBatteryCount, 1),
     nominal_voltage_v: derivedBatteryType?.nominal_voltage,
@@ -677,6 +688,7 @@ function buildInverterConfigurations(
   inverterConfigurations: Array<{
     inverter_configuration_id: string;
     selected_inverter_type_id?: string | null;
+    selected_cabinet_type_id?: string | null;
     title?: string | null;
     description?: string | null;
     image_data_url?: string | null;
@@ -695,6 +707,7 @@ function buildInverterConfigurations(
     return {
       inverter_configuration_id: configuration.inverter_configuration_id,
       inverter_id: selectedInverter?.inverter_id ?? derivedInverter?.inverter_id,
+      selected_cabinet_type_id: configuration.selected_cabinet_type_id ?? null,
       name: selectedInverter?.model ?? derivedInverter?.model ?? 'Main inverter',
       provisional: !selectedInverter,
       title: configuration.title ?? null,
@@ -841,6 +854,7 @@ export function buildDigitalTwinExport(db: Database.Database, dbPath: string): D
   const surfaces = listSurfaces(db);
   const surfaceConfigurations = listSurfaceConfigurations(db);
   const batteryBankConfigurations = listBatteryBankConfigurations(db);
+  const cabinetTypes = listCabinetTypes(db);
   const panelTypes = listPanelTypes(db);
   const mpptTypes = listMpptTypes(db);
   const batteryTypes = listBatteryTypes(db);
@@ -854,7 +868,7 @@ export function buildDigitalTwinExport(db: Database.Database, dbPath: string): D
   const { solarMonthlyProfiles, projectMonthlySolarOutput } = buildSolarMonthlyProfiles(surfaces, exportedPvArrays, location);
   const mpptConfigurations = buildMpptConfigurations(exportedPvArrays, arrayToMpptMappings, panelTypes, mpptTypes);
   const arrayToMppt = buildArrayToMpptRelationships(exportedPvArrays, arrayToMpptMappings, mpptConfigurations, panelTypes, mpptTypes);
-  const batteryBanks = buildBatteryBanks(batteryTypes, projectPreferences, batteryBankConfigurations);
+  const batteryBanks = buildBatteryBanks(batteryTypes, cabinetTypes, projectPreferences, batteryBankConfigurations);
   const derivedInverterConfigurations = buildInverterConfigurations(inverterConfigurations, inverterTypes);
   const mpptToBatteryBank = buildMpptToBatteryBankRelationships(mpptConfigurations, batteryBanks, mpptTypes, batteryTypes);
   const batteryBankStates = buildBatteryBankStates(batteryBanks, mpptToBatteryBank);
@@ -882,10 +896,12 @@ export function buildDigitalTwinExport(db: Database.Database, dbPath: string): D
         image_data_url: design.image_data_url ?? null,
         notes: design.notes ?? null,
         selected_battery_type_id: design.selected_battery_type_id ?? null,
+        selected_cabinet_type_id: design.selected_cabinet_type_id ?? null,
         configured_battery_count: design.configured_battery_count,
         batteries_per_string: design.batteries_per_string,
         parallel_strings: design.parallel_strings,
       })),
+      cabinet_types: cabinetTypes,
       panel_types: panelTypes,
       pv_strings: pvStrings.map((string) => ({
         string_id: string.string_id,

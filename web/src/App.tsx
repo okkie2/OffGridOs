@@ -23,7 +23,11 @@ function generateUniqueCatalogId(model: string, existingIds: string[]): string {
 }
 
 type Status = 'within_limits' | 'outside_limits';
-type FitStatus = 'optimal' | 'clipping_expected' | 'underutilized';
+type FitStatus = 'optimal' | 'fully_utilized' | 'clipping_expected' | 'underutilized';
+
+function getMpptShortCircuitCurrentLimit(mpptType: MpptType): number {
+  return mpptType.max_pv_short_circuit_current_a ?? mpptType.max_charge_current;
+}
 
 interface Surface {
   surface_id: string;
@@ -57,6 +61,26 @@ interface PanelType {
   price?: number | null;
   price_source_url?: string | null;
   notes?: string;
+}
+
+interface CabinetType {
+  cabinet_type_id: string;
+  title: string;
+  description?: string | null;
+  depth_mm: number;
+  width_mm: number;
+  height_mm: number;
+  units: string;
+  price?: number | null;
+  price_source_url?: string | null;
+  condensation_protection: boolean;
+  insect_protection: boolean;
+  dust_protection: boolean;
+  outside_protection: boolean;
+  frost_protection: boolean;
+  fire_protection: boolean;
+  ip_rating?: string | null;
+  insurance_rating?: string | null;
 }
 
 interface SurfaceConfiguration {
@@ -119,6 +143,26 @@ interface PanelTypeDraft {
   notes: string;
 }
 
+interface CabinetTypeDraft {
+  cabinet_type_id: string;
+  title: string;
+  description: string;
+  depth_mm: string;
+  width_mm: string;
+  height_mm: string;
+  units: string;
+  price: string;
+  price_source_url: string;
+  condensation_protection: boolean;
+  insect_protection: boolean;
+  dust_protection: boolean;
+  outside_protection: boolean;
+  frost_protection: boolean;
+  fire_protection: boolean;
+  ip_rating: string;
+  insurance_rating: string;
+}
+
 interface MpptTypeDraft {
   mppt_type_id: string;
   brand: string;
@@ -157,6 +201,7 @@ interface BatteryBankConfiguration {
   image_data_url?: string | null;
   notes?: string | null;
   selected_battery_type_id?: string | null;
+  selected_cabinet_type_id?: string | null;
   configured_battery_count: number;
   batteries_per_string: number;
   parallel_strings: number;
@@ -214,6 +259,7 @@ interface MpptConfiguration {
 interface BatteryBank {
   battery_bank_id: string;
   battery_type_id?: string;
+  selected_cabinet_type_id?: string | null;
   name: string;
   module_count: number;
   nominal_voltage_v?: number;
@@ -241,6 +287,7 @@ interface ProjectMonthlySolarOutput {
 interface InverterConfiguration {
   inverter_configuration_id: string;
   inverter_id?: string;
+  selected_cabinet_type_id?: string | null;
   name: string;
   provisional: boolean;
   title?: string | null;
@@ -272,7 +319,7 @@ interface MpptToBatteryBankRelationship {
   max_charge_current_a: number | null;
   evaluation: {
     electrical_status: Status;
-    fit_status?: 'optimal';
+    fit_status?: 'optimal' | 'fully_utilized' | 'clipping_expected' | 'underutilized';
     reasons: string[];
     notes?: string;
   };
@@ -333,6 +380,7 @@ interface DigitalTwinExport {
     surfaces: Surface[];
     surface_configurations: SurfaceConfiguration[];
     panel_types: PanelType[];
+    cabinet_types: CabinetType[];
     battery_types: BatteryType[];
     battery_bank_configurations: BatteryBankConfiguration[];
     pv_arrays: ArrayEntity[];
@@ -559,7 +607,7 @@ type Route =
   | { kind: 'about' }
   | { kind: 'catalogs' }
   | { kind: 'reports' }
-  | { kind: 'catalog'; catalog: 'panel-types' | 'mppt-types' | 'battery-types' | 'inverter-types' }
+  | { kind: 'catalog'; catalog: 'panel-types' | 'cabinet-types' | 'mppt-types' | 'battery-types' | 'inverter-types' }
   | { kind: 'verdict-summary' }
   | { kind: 'cost-summary' }
   | { kind: 'battery-array' }
@@ -573,26 +621,29 @@ type ParsedAppUrl = {
 };
 
 const CATALOG_ROUTES: Array<{
-  catalog: 'panel-types' | 'mppt-types' | 'battery-types' | 'inverter-types';
+  catalog: 'panel-types' | 'cabinet-types' | 'mppt-types' | 'battery-types' | 'inverter-types';
   labelKey: TranslationKey;
 }> = [
   { catalog: 'panel-types', labelKey: 'nav.catalog.panel_types' },
+  { catalog: 'cabinet-types', labelKey: 'nav.catalog.cabinet_types' },
   { catalog: 'mppt-types', labelKey: 'nav.catalog.mppt_types' },
   { catalog: 'battery-types', labelKey: 'nav.catalog.battery_types' },
   { catalog: 'inverter-types', labelKey: 'nav.catalog.inverter_types' },
 ];
 
 const REPORT_ROUTES: Array<{
-  kind: 'verdict-summary';
+  kind: 'verdict-summary' | 'cost-summary';
   labelKey: TranslationKey;
 }> = [
   { kind: 'verdict-summary', labelKey: 'nav.report.verdict_summary' },
+  { kind: 'cost-summary', labelKey: 'nav.report.cost_summary' },
 ];
 
 const RESERVED_ROUTE_SEGMENTS = new Set([
   'about',
   'battery-array',
   'catalogs',
+  'cabinet-types',
   'cost-summary',
   'inverter-array',
   'location',
@@ -874,6 +925,52 @@ function panelDraftFromType(panel: PanelType | null): PanelTypeDraft {
   };
 }
 
+function emptyCabinetDraft(): CabinetTypeDraft {
+  return {
+    cabinet_type_id: '',
+    title: '',
+    description: '',
+    depth_mm: '600',
+    width_mm: '600',
+    height_mm: '1800',
+    units: '',
+    price: '',
+    price_source_url: '',
+    condensation_protection: false,
+    insect_protection: false,
+    dust_protection: false,
+    outside_protection: false,
+    frost_protection: false,
+    fire_protection: false,
+    ip_rating: '',
+    insurance_rating: '',
+  };
+}
+
+function cabinetDraftFromType(cabinet: CabinetType | null): CabinetTypeDraft {
+  if (!cabinet) return emptyCabinetDraft();
+
+  return {
+    cabinet_type_id: cabinet.cabinet_type_id,
+    title: cabinet.title,
+    description: cabinet.description ?? '',
+    depth_mm: String(cabinet.depth_mm),
+    width_mm: String(cabinet.width_mm),
+    height_mm: String(cabinet.height_mm),
+    units: cabinet.units ?? '',
+    price: cabinet.price != null ? String(cabinet.price) : '',
+    price_source_url: cabinet.price_source_url ?? '',
+    condensation_protection: cabinet.condensation_protection,
+    insect_protection: cabinet.insect_protection,
+    dust_protection: cabinet.dust_protection,
+    outside_protection: cabinet.outside_protection,
+    frost_protection: cabinet.frost_protection,
+    fire_protection: cabinet.fire_protection,
+    ip_rating: cabinet.ip_rating ?? '',
+    insurance_rating: cabinet.insurance_rating ?? '',
+  };
+}
+
 function emptyMpptDraft(): MpptTypeDraft {
   return {
     mppt_type_id: '',
@@ -1003,6 +1100,7 @@ function estimateFaceYieldForMonth(input: {
 function statusTone(status: Status, fit?: FitStatus): string {
   if (status === 'outside_limits') return 'danger';
   if (fit === 'clipping_expected') return 'warn';
+  if (fit === 'fully_utilized') return 'warn';
   if (fit === 'underutilized') return 'cool';
   return 'good';
 }
@@ -1062,6 +1160,7 @@ function getRelationshipVerdictSummary(
     return t(`${prefix}.outside_limits` as TranslationKey);
   }
   if (fit === 'optimal') return t(`${prefix}.optimal` as TranslationKey);
+  if (fit === 'fully_utilized') return t(`${prefix}.fully_utilized` as TranslationKey);
   if (fit === 'clipping_expected') return t(`${prefix}.clipping_expected` as TranslationKey);
   if (fit === 'underutilized') return t(`${prefix}.underutilized` as TranslationKey);
   return t(`${prefix}.within_limits` as TranslationKey);
@@ -1077,6 +1176,7 @@ function getRelationshipVerdictLabel(
   const prefix = `relationship.${kind}.label`;
   if (status === 'outside_limits') return t(`${prefix}.outside_limits` as TranslationKey);
   if (fit === 'optimal') return t(`${prefix}.optimal` as TranslationKey);
+  if (fit === 'fully_utilized') return t(`${prefix}.fully_utilized` as TranslationKey);
   if (fit === 'clipping_expected') return t(`${prefix}.clipping_expected` as TranslationKey);
   if (fit === 'underutilized') return t(`${prefix}.underutilized` as TranslationKey);
   return t(`${prefix}.within_limits` as TranslationKey);
@@ -1236,9 +1336,10 @@ function evaluateMpptCompatibility(
   const trackerCount = Math.max(mpptType.tracker_count, 1);
   const perTrackerPowerLimit = mpptType.max_pv_power / trackerCount;
   const powerRatio = arrayConfig.arrayPower / perTrackerPowerLimit;
+  const shortCircuitCurrentLimit = getMpptShortCircuitCurrentLimit(mpptType);
   const outsideLimits = arrayConfig.stringVoc > mpptType.max_voc
     || (mpptType.max_pv_input_current_a != null && arrayConfig.arrayCurrent > mpptType.max_pv_input_current_a)
-    || (mpptType.max_pv_short_circuit_current_a != null && arrayConfig.arrayIsc > mpptType.max_pv_short_circuit_current_a)
+    || arrayConfig.arrayIsc > shortCircuitCurrentLimit
     || chargeCurrent > mpptType.max_charge_current
     || powerRatio > 1.1;
 
@@ -1247,7 +1348,7 @@ function evaluateMpptCompatibility(
   if (mpptType.max_pv_input_current_a != null && arrayConfig.arrayCurrent > mpptType.max_pv_input_current_a) {
     reasons.push('pv_input_current_too_high');
   }
-  if (mpptType.max_pv_short_circuit_current_a != null && arrayConfig.arrayIsc > mpptType.max_pv_short_circuit_current_a) {
+  if (arrayConfig.arrayIsc > shortCircuitCurrentLimit) {
     reasons.push('pv_short_circuit_current_too_high');
   }
   if (chargeCurrent > mpptType.max_charge_current) reasons.push('charge_current_too_high');
@@ -1258,7 +1359,10 @@ function evaluateMpptCompatibility(
     if (powerRatio > 1.0) {
       fit = 'clipping_expected';
       reasons.push('clipping_expected');
-    } else if (powerRatio >= 0.9) {
+    } else if (powerRatio >= 0.95) {
+      fit = 'fully_utilized';
+      reasons.push('fully_utilized');
+    } else if (powerRatio >= 0.8) {
       fit = 'optimal';
       reasons.push('well_matched');
     } else {
@@ -1722,7 +1826,7 @@ function parseAppUrl(pathname: string, hash: string): ParsedAppUrl {
   if (rest[0] === 'about') return { language, locationSlug, route: { kind: 'about' } };
   if (rest[0] === 'catalogs') {
     const catalog = rest[1];
-    if (catalog === 'panel-types' || catalog === 'mppt-types' || catalog === 'battery-types' || catalog === 'inverter-types') {
+    if (catalog === 'panel-types' || catalog === 'cabinet-types' || catalog === 'mppt-types' || catalog === 'battery-types' || catalog === 'inverter-types') {
       return { language, locationSlug, route: { kind: 'catalog', catalog } };
     }
     return { language, locationSlug, route: { kind: 'catalogs' } };
@@ -1807,7 +1911,7 @@ function sidebarIcon(kind: 'location' | 'surface' | 'solar-yield' | 'battery-arr
       return '⎍';
     case 'catalogs':
     case 'catalog':
-      return '▤';
+      return '◫';
     case 'reports':
       return '☰';
     case 'report-verdict':
@@ -1843,14 +1947,6 @@ function Sidebar({
     reports: route.kind === 'reports' || route.kind === 'verdict-summary' || route.kind === 'cost-summary',
   });
 
-  useEffect(() => {
-    setOpenSections((current) => ({
-      location: current.location || route.kind === 'location' || route.kind === 'surface',
-      catalogs: current.catalogs || route.kind === 'catalogs' || route.kind === 'catalog',
-      reports: current.reports || route.kind === 'reports' || route.kind === 'verdict-summary' || route.kind === 'cost-summary',
-    }));
-  }, [route.kind]);
-
   const go = (next: Route) => (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
     navigateTo(next);
@@ -1859,13 +1955,9 @@ function Sidebar({
   const toggleSection = (section: keyof typeof openSections) => {
     setOpenSections((current) => ({ ...current, [section]: !current[section] }));
   };
-  const sectionClick = (section: keyof typeof openSections, next: Route) => (event: MouseEvent<HTMLAnchorElement>) => {
-    if (isCollapsed) {
-      event.preventDefault();
-      toggleSection(section);
-      return;
-    }
-    go(next)(event);
+  const sectionClick = (section: keyof typeof openSections) => (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    toggleSection(section);
   };
   const labelFor = (label: string) => (isCollapsed ? label : undefined);
 
@@ -1954,9 +2046,9 @@ function Sidebar({
           icon={sidebarIcon('location')}
           active={route.kind === 'location' || route.kind === 'surface'}
           hasChildren
-          childOpen={openSections.location || route.kind === 'location' || route.kind === 'surface'}
+          childOpen={openSections.location}
         />
-        {data && (openSections.location || route.kind === 'location' || route.kind === 'surface') ? (
+        {data && openSections.location ? (
           <div className="sidebar-subnav">
             {data.entities.surfaces.map((surface) => (
               <a
@@ -1997,15 +2089,42 @@ function Sidebar({
         />
         <DisabledItem label={t('nav.loads')} icon={sidebarIcon('loads')} />
         <NavLink
+          href={routeHref({ kind: 'reports' })}
+          onClick={sectionClick('reports', { kind: 'reports' })}
+          label={t('nav.reports')}
+          icon={sidebarIcon('reports')}
+          active={route.kind === 'reports' || route.kind === 'verdict-summary' || route.kind === 'cost-summary'}
+          hasChildren
+          childOpen={openSections.reports}
+        />
+        {data && openSections.reports ? (
+          <div className="sidebar-subnav">
+            {REPORT_ROUTES.map((report) => (
+              <a
+                key={report.kind}
+                href={routeHref({ kind: report.kind })}
+                onClick={go({ kind: report.kind })}
+                className={`sidebar-subnav-item ${route.kind === report.kind ? 'active' : ''}`}
+                aria-label={t(report.labelKey)}
+                title={t(report.labelKey)}
+                aria-current={route.kind === report.kind ? 'page' : undefined}
+              >
+                <span className="sidebar-nav-icon" aria-hidden="true">{sidebarIcon('report-verdict')}</span>
+              <span className="sidebar-nav-label">{t(report.labelKey)}</span>
+              </a>
+            ))}
+          </div>
+        ) : null}
+        <NavLink
           href={routeHref({ kind: 'catalogs' })}
           onClick={sectionClick('catalogs', { kind: 'catalogs' })}
           label={t('nav.catalogs')}
           icon={sidebarIcon('catalogs')}
           active={route.kind === 'catalogs' || route.kind === 'catalog'}
           hasChildren
-          childOpen={openSections.catalogs || route.kind === 'catalogs' || route.kind === 'catalog'}
+          childOpen={openSections.catalogs}
         />
-        {data && (openSections.catalogs || route.kind === 'catalogs' || route.kind === 'catalog') ? (
+        {data && openSections.catalogs ? (
           <div className="sidebar-subnav">
             {CATALOG_ROUTES.map((catalog) => (
               <a
@@ -2019,33 +2138,6 @@ function Sidebar({
               >
                 <span className="sidebar-nav-icon" aria-hidden="true">{sidebarIcon('catalog')}</span>
                 <span className="sidebar-nav-label">{t(catalog.labelKey)}</span>
-              </a>
-            ))}
-          </div>
-        ) : null}
-        <NavLink
-          href={routeHref({ kind: 'reports' })}
-          onClick={sectionClick('reports', { kind: 'reports' })}
-          label={t('nav.reports')}
-          icon={sidebarIcon('reports')}
-          active={route.kind === 'reports' || route.kind === 'verdict-summary' || route.kind === 'cost-summary'}
-          hasChildren
-          childOpen={openSections.reports || route.kind === 'reports' || route.kind === 'verdict-summary' || route.kind === 'cost-summary'}
-        />
-        {data && (openSections.reports || route.kind === 'reports' || route.kind === 'verdict-summary' || route.kind === 'cost-summary') ? (
-          <div className="sidebar-subnav">
-            {REPORT_ROUTES.map((report) => (
-              <a
-                key={report.kind}
-                href={routeHref({ kind: report.kind })}
-                onClick={go({ kind: report.kind })}
-                className={`sidebar-subnav-item ${route.kind === report.kind ? 'active' : ''}`}
-                aria-label={t(report.labelKey)}
-                title={t(report.labelKey)}
-                aria-current={route.kind === report.kind ? 'page' : undefined}
-              >
-                <span className="sidebar-nav-icon" aria-hidden="true">{sidebarIcon('report-verdict')}</span>
-                <span className="sidebar-nav-label">{t(report.labelKey)}</span>
               </a>
             ))}
           </div>
@@ -2158,7 +2250,7 @@ function getRouteContext(route: Route, data: DigitalTwinExport | null, t: (key: 
     case 'verdict-summary':
       return '';
     case 'cost-summary':
-      return t('page.report.cost_summary.context');
+      return '';
     case 'surface':
       return t('page.surface.context');
     default:
@@ -2297,8 +2389,7 @@ function Breadcrumbs({ route, data, locationSlug }: { route: Route; data: Digita
       break;
     }
     case 'verdict-summary':
-      crumbs.push({ label: t('page.reports'), route: { kind: 'reports' } });
-      crumbs.push({ label: t('page.report.verdict_summary'), current: true });
+      crumbs.push({ label: t('page.reports'), current: true });
       break;
     case 'cost-summary':
       crumbs.push({ label: t('page.reports'), route: { kind: 'reports' } });
@@ -2684,7 +2775,7 @@ function SurfaceDetail({
           </div>
           {surfaceSaveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{surfaceSaveError}</p> : null}
           {surfaceSaveMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{surfaceSaveMessage}</p> : null}
-          <div className="roof-config-inline">
+          <div className="roof-config-inline row-synced-wrap">
             <label className="config-field">
               <span>{t('surface.name')}</span>
               <input
@@ -2791,7 +2882,7 @@ function SurfaceDetail({
           {panelSaveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{panelSaveError}</p> : null}
           {panelSaveMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{panelSaveMessage}</p> : null}
           <div className="fit-card">
-            <div className="panel-config-grid config-control-row">
+            <div className="panel-config-grid config-control-row row-synced-wrap">
               <label className="config-field config-field-span-2">
                 <span>{t('surface.panel.selected')}</span>
                 <select
@@ -2870,7 +2961,7 @@ function SurfaceDetail({
           {arrayConfig?.configuredPanelCount ? (
             <>
               <div className="fit-card">
-                <div className="config-grid config-control-row">
+                <div className="config-grid config-control-row row-synced-wrap">
                   <label className="config-field">
                     <span>{t('surface.panel_array.panels_per_string')}</span>
                     <select
@@ -2943,7 +3034,7 @@ function SurfaceDetail({
           {arrayConfig?.configuredPanelCount ? (
             <>
               <div className="fit-card">
-                <div className="config-grid config-control-row mppt-config-row">
+                <div className="config-grid config-control-row mppt-config-row row-synced-wrap">
                   <label className="config-field config-field-span-3">
                     <span>{t('surface.mppt.selected')}</span>
                     <select
@@ -2997,9 +3088,6 @@ function SurfaceDetail({
         </section>
 
         <section className="panel panel-span-2 balanced-row-panel summary-panel">
-          <div className="section-head">
-            <h2>{t('surface.evaluation.title')}</h2>
-          </div>
           {panelType ? (
             <div className="fit-card">
               {arrayConfig ? (
@@ -3029,9 +3117,9 @@ function SurfaceDetail({
                           <dt>{t('surface.evaluation.check.input_current')}</dt>
                           <dd>{formatAmps(arrayConfig.arrayCurrent)} / {selectedMpptType.max_pv_input_current_a != null ? formatAmps(selectedMpptType.max_pv_input_current_a) : 'n/a'}</dd>
                         </div>
-                        <div className={selectedMpptType.max_pv_short_circuit_current_a != null && arrayConfig.arrayIsc > selectedMpptType.max_pv_short_circuit_current_a ? 'check-fail' : 'check-pass'}>
+                        <div className={arrayConfig.arrayIsc > getMpptShortCircuitCurrentLimit(selectedMpptType) ? 'check-fail' : 'check-pass'}>
                           <dt>{t('surface.evaluation.check.short_circuit_current')}</dt>
-                          <dd>{formatAmps(arrayConfig.arrayIsc)} / {selectedMpptType.max_pv_short_circuit_current_a != null ? formatAmps(selectedMpptType.max_pv_short_circuit_current_a) : 'n/a'}</dd>
+                          <dd>{formatAmps(arrayConfig.arrayIsc)} / {formatAmps(getMpptShortCircuitCurrentLimit(selectedMpptType))}</dd>
                         </div>
                         <div>
                           <dt>{t('surface.evaluation.check.battery_charge_current')}</dt>
@@ -3385,7 +3473,7 @@ function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refr
           </div>
           {saveError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{saveError}</p> : null}
           {saveMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{saveMessage}</p> : null}
-          <div className="roof-config-inline">
+          <div className="roof-config-inline row-synced-wrap">
             <label className="config-field">
               <span>{t('location.name')}</span>
               <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. 18Mad Boerderij" />
@@ -3534,7 +3622,7 @@ function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refr
             );
           })}
         </div>
-        <div className="roof-config-inline" style={{ marginTop: 16 }}>
+        <div className="roof-config-inline row-synced-wrap" style={{ marginTop: 16 }}>
           <div className="config-field" style={{ alignSelf: 'end' }}>
             <span>&nbsp;</span>
             <button type="button" className="button button-secondary" onClick={() => void handleCreateSurface()} disabled={isCreatingSurface}>
@@ -3549,11 +3637,6 @@ function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refr
 
 function AboutPage() {
   const { t } = useTranslation();
-  const buildInfo = typeof __BUILD_INFO__ !== 'undefined' ? __BUILD_INFO__ : '';
-  const [buildVersion, buildCommit] = buildInfo.includes(' @ ')
-    ? buildInfo.split(' @ ')
-    : [buildInfo, ''];
-  const shortCommit = buildCommit.slice(0, 7);
 
   return (
     <>
@@ -3620,8 +3703,8 @@ function AboutPage() {
         </div>
 
         <div className="panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 24px' }}>
-          <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontFamily: 'monospace', letterSpacing: 0 }}>
-            {buildVersion}{shortCommit ? ` @ ${shortCommit}` : ''}
+          <span style={{ fontSize: '0.68rem', color: 'var(--muted)', fontFamily: 'monospace', letterSpacing: 0, opacity: 0.85 }}>
+            {typeof __BUILD_INFO__ !== 'undefined' ? __BUILD_INFO__ : ''}
           </span>
           <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>offgridos.eu</span>
         </div>
@@ -3840,6 +3923,10 @@ function BatteryArrayPage({
     `${storagePrefix}:battery-type`,
     persistedDesign?.selected_battery_type_id ?? batteryBank?.battery_type_id ?? data.entities.battery_types[0]?.battery_type_id ?? '',
   );
+  const [selectedCabinetTypeId, setSelectedCabinetTypeId] = usePersistentState(
+    `${storagePrefix}:cabinet-type`,
+    persistedDesign?.selected_cabinet_type_id ?? '',
+  );
   const [configuredBatteryCount, setConfiguredBatteryCount] = usePersistentState(
     `${storagePrefix}:battery-count`,
     Math.max(persistedDesign?.configured_battery_count ?? batteryBankState?.module_count ?? batteryBank?.module_count ?? 1, 1),
@@ -3858,6 +3945,9 @@ function BatteryArrayPage({
 
   const selectedBatteryType = selectedBatteryTypeId
     ? data.entities.battery_types.find((item) => item.battery_type_id === selectedBatteryTypeId) ?? null
+    : null;
+  const selectedCabinetType = selectedCabinetTypeId
+    ? data.entities.cabinet_types.find((item) => item.cabinet_type_id === selectedCabinetTypeId) ?? null
     : null;
   const batteryFactorPairs = getFactorPairs(configuredBatteryCount);
   const batteriesPerStringOptions = batteryFactorPairs.map((pair) => pair.panelsPerString);
@@ -3977,6 +4067,7 @@ function BatteryArrayPage({
           image_data_url: imageToPersist,
           notes: batteryNotes.trim(),
           selected_battery_type_id: selectedBatteryTypeId,
+          selected_cabinet_type_id: selectedCabinetTypeId || null,
           configured_battery_count: configuredBatteryCount,
           batteries_per_string: batteriesPerString,
           parallel_strings: parallelStrings,
@@ -3991,6 +4082,7 @@ function BatteryArrayPage({
 
       try {
         window.localStorage.setItem(`${storagePrefix}:battery-type`, JSON.stringify(selectedBatteryTypeId));
+        window.localStorage.setItem(`${storagePrefix}:cabinet-type`, JSON.stringify(selectedCabinetTypeId));
         window.localStorage.setItem(`${storagePrefix}:battery-count`, JSON.stringify(configuredBatteryCount));
         window.localStorage.setItem(`${storagePrefix}:batteries-per-string`, JSON.stringify(batteriesPerString));
         window.localStorage.setItem(`${storagePrefix}:parallel-strings`, JSON.stringify(parallelStrings));
@@ -4109,12 +4201,22 @@ function BatteryArrayPage({
           </section>
         </div>
 
-        <section className="detail-grid-2">
+        <section className="detail-grid">
           <section className="panel panel-with-actions">
             <div className="section-head">
               <h2>{t('battery.selection.title')}</h2>
             </div>
-            <div className="config-grid config-control-row">
+            <div className="config-grid config-control-row row-synced-wrap">
+              <label className="config-field config-field-span-3">
+                <span>{t('battery.selection.selected_type')}</span>
+                <select value={selectedBatteryTypeId} onChange={(event) => setSelectedBatteryTypeId(event.target.value)}>
+                  {data.entities.battery_types.map((option) => (
+                    <option key={option.battery_type_id} value={option.battery_type_id}>
+                      {option.model}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label className="config-field">
                 <span>{t('battery.selection.system_voltage')}</span>
                 <select
@@ -4130,16 +4232,6 @@ function BatteryArrayPage({
                   {batteryVoltageOptions.map((option) => (
                     <option key={`${option.voltage}-${option.batteriesPerString}-${option.parallelStrings}`} value={option.voltage}>
                       {formatVolts(option.voltage)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="config-field config-field-span-2">
-                <span>{t('battery.selection.selected_type')}</span>
-                <select value={selectedBatteryTypeId} onChange={(event) => setSelectedBatteryTypeId(event.target.value)}>
-                  {data.entities.battery_types.map((option) => (
-                    <option key={option.battery_type_id} value={option.battery_type_id}>
-                      {option.model}
                     </option>
                   ))}
                 </select>
@@ -4190,7 +4282,7 @@ function BatteryArrayPage({
             {selectedBatteryType ? (
               <>
                 <div className="fit-card">
-                  <div className="config-grid config-control-row">
+                  <div className="config-grid config-control-row row-synced-wrap">
                     <label className="config-field">
                       <span>{t('battery.array.batteries_per_string')}</span>
                       <select
@@ -4280,6 +4372,52 @@ function BatteryArrayPage({
             ) : (
               <p className="fit-note">{t('battery.array.empty')}</p>
             )}
+          </section>
+
+          <section className="panel panel-with-actions">
+            <div className="section-head">
+              <h2>{t('battery.selection.cabinet_title')}</h2>
+            </div>
+            <div className="stack" style={{ gap: 16 }}>
+              <label className="config-field">
+                <span>{t('battery.selection.cabinet_type')}</span>
+                <select value={selectedCabinetTypeId} onChange={(event) => setSelectedCabinetTypeId(event.target.value)}>
+                  <option value="">{t('common.none')}</option>
+                  {data.entities.cabinet_types.map((option) => (
+                    <option key={option.cabinet_type_id} value={option.cabinet_type_id}>
+                      {option.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {selectedCabinetType ? (
+                <dl className="detail-stats panel-spec-grid">
+                  <div>
+                    <dt>{t('catalog.stat.units')}</dt>
+                    <dd>{selectedCabinetType.units ?? '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>{t('catalog.stat.depth')}</dt>
+                    <dd>{selectedCabinetType.depth_mm} mm</dd>
+                  </div>
+                  <div>
+                    <dt>{t('catalog.stat.width')}</dt>
+                    <dd>{selectedCabinetType.width_mm} mm</dd>
+                  </div>
+                  <div>
+                    <dt>{t('catalog.stat.height')}</dt>
+                    <dd>{selectedCabinetType.height_mm} mm</dd>
+                  </div>
+                  <div>
+                    <dt>{t('catalog.stat.ip_rating')}</dt>
+                    <dd>{selectedCabinetType.ip_rating ?? '—'}</dd>
+                  </div>
+                </dl>
+              ) : (
+                <p className="fit-note">{t('battery.selection.cabinet_empty')}</p>
+              )}
+              {selectedCabinetType ? <div className="fit-note">{selectedCabinetType.title}</div> : null}
+            </div>
           </section>
         </section>
 
@@ -4454,6 +4592,13 @@ function InverterArrayPage({
   const selectedInverterType = selectedInverterTypeId
     ? data.entities.inverter_types.find((item) => item.inverter_id === selectedInverterTypeId) ?? null
     : null;
+  const [selectedCabinetTypeId, setSelectedCabinetTypeId] = usePersistentState(
+    `${storagePrefix}:cabinet-type`,
+    persistedInverterConfig?.selected_cabinet_type_id ?? '',
+  );
+  const selectedCabinetType = selectedCabinetTypeId
+    ? data.entities.cabinet_types.find((item) => item.cabinet_type_id === selectedCabinetTypeId) ?? null
+    : null;
   const batteryArrayConfig = currentBatteryType
     ? evaluateBatteryArrayConfiguration(
       currentBatteryType,
@@ -4486,6 +4631,7 @@ function InverterArrayPage({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           selected_inverter_type_id: selectedInverterTypeId,
+          selected_cabinet_type_id: selectedCabinetTypeId || null,
           title: inverterDraft.title.trim(),
           description: inverterDraft.description.trim(),
           image_data_url: imageToPersist,
@@ -4501,6 +4647,7 @@ function InverterArrayPage({
 
       try {
         window.localStorage.setItem(`${storagePrefix}:inverter-type`, JSON.stringify(selectedInverterTypeId));
+        window.localStorage.setItem(`${storagePrefix}:cabinet-type`, JSON.stringify(selectedCabinetTypeId));
         window.dispatchEvent(new Event('offgridos-local-storage-change'));
       } catch {
         // Keep the save successful even if draft syncing fails.
@@ -4605,52 +4752,104 @@ function InverterArrayPage({
             <div className="section-head">
               <h2>{t('inverter.selection.title')}</h2>
             </div>
-            <label className="config-field">
-              <span>{t('inverter.selection.selected')}</span>
-              <select
-                value={selectedInverterTypeId}
-                onChange={(event) => setSelectedInverterTypeId(event.target.value)}
-                disabled={data.entities.inverter_types.length === 0}
-              >
-                {data.entities.inverter_types.length === 0 ? <option value="">{t('inverter.selection.empty_catalog')}</option> : null}
-                {data.entities.inverter_types.map((option) => (
-                  <option key={option.inverter_id} value={option.inverter_id}>
-                    {option.model}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {selectedInverterType ? (
-              <dl className="detail-stats panel-spec-grid" style={{ marginTop: 16 }}>
-                <div>
-                  <dt>{t('inverter.selection.stat.input_voltage')}</dt>
-                  <dd>{formatVolts(selectedInverterType.input_voltage_v)}</dd>
-                </div>
-                <div>
-                  <dt>{t('inverter.selection.stat.output_voltage')}</dt>
-                  <dd>{formatVolts(selectedInverterType.output_voltage_v)}</dd>
-                </div>
-                <div>
-                  <dt>{t('inverter.selection.stat.continuous_power')}</dt>
-                  <dd>{formatKw(selectedInverterType.continuous_power_w)}</dd>
-                </div>
-                <div>
-                  <dt>{t('inverter.selection.stat.peak_power')}</dt>
-                  <dd>{selectedInverterType.peak_power_va.toLocaleString('en-US')} VA</dd>
-                </div>
-                <div>
-                  <dt>{t('inverter.selection.stat.max_current')}</dt>
-                  <dd>{formatAmps(selectedInverterType.max_charge_current_a)}</dd>
-                </div>
-              </dl>
-            ) : null}
-            {data.entities.inverter_types.length === 0 ? (
-              <p className="fit-note">{t('inverter.selection.empty')}</p>
-            ) : null}
+            <div className="stack" style={{ gap: 16 }}>
+              <label className="config-field">
+                <span>{t('inverter.selection.selected')}</span>
+                <select
+                  value={selectedInverterTypeId}
+                  onChange={(event) => setSelectedInverterTypeId(event.target.value)}
+                  disabled={data.entities.inverter_types.length === 0}
+                >
+                  {data.entities.inverter_types.length === 0 ? <option value="">{t('inverter.selection.empty_catalog')}</option> : null}
+                  {data.entities.inverter_types.map((option) => (
+                    <option key={option.inverter_id} value={option.inverter_id}>
+                      {option.model}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {selectedInverterType ? (
+                <dl className="detail-stats panel-spec-grid" style={{ marginTop: 0 }}>
+                  <div>
+                    <dt>{t('inverter.selection.stat.input_voltage')}</dt>
+                    <dd>{formatVolts(selectedInverterType.input_voltage_v)}</dd>
+                  </div>
+                  <div>
+                    <dt>{t('inverter.selection.stat.output_voltage')}</dt>
+                    <dd>{formatVolts(selectedInverterType.output_voltage_v)}</dd>
+                  </div>
+                  <div>
+                    <dt>{t('inverter.selection.stat.continuous_power')}</dt>
+                    <dd>{formatKw(selectedInverterType.continuous_power_w)}</dd>
+                  </div>
+                  <div>
+                    <dt>{t('inverter.selection.stat.peak_power')}</dt>
+                    <dd>{selectedInverterType.peak_power_va.toLocaleString('en-US')} VA</dd>
+                  </div>
+                  <div>
+                    <dt>{t('inverter.selection.stat.max_current')}</dt>
+                    <dd>{formatAmps(selectedInverterType.max_charge_current_a)}</dd>
+                  </div>
+                </dl>
+              ) : null}
+              {data.entities.inverter_types.length === 0 ? (
+                <p className="fit-note">{t('inverter.selection.empty')}</p>
+              ) : null}
+            </div>
             <div className="button-row button-row-end">
               <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveInverterDesign()} disabled={isSavingInverterDesign || data.entities.inverter_types.length === 0}>
                 {isSavingInverterDesign ? t('common.saving') : t('common.save')}
               </button>
+            </div>
+          </section>
+
+          <section className="panel panel-with-actions">
+            <div className="section-head">
+              <h2>{t('inverter.selection.cabinet_title')}</h2>
+            </div>
+            <div className="stack" style={{ gap: 16 }}>
+              <label className="config-field">
+                <span>{t('inverter.selection.cabinet_type')}</span>
+                <select
+                  value={selectedCabinetTypeId}
+                  onChange={(event) => setSelectedCabinetTypeId(event.target.value)}
+                  disabled={data.entities.cabinet_types.length === 0}
+                >
+                  <option value="">{t('common.none')}</option>
+                  {data.entities.cabinet_types.map((option) => (
+                    <option key={option.cabinet_type_id} value={option.cabinet_type_id}>
+                      {option.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {selectedCabinetType ? (
+                <dl className="detail-stats panel-spec-grid">
+                  <div>
+                    <dt>{t('catalog.stat.units')}</dt>
+                    <dd>{selectedCabinetType.units ?? '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>{t('catalog.stat.depth')}</dt>
+                    <dd>{selectedCabinetType.depth_mm} mm</dd>
+                  </div>
+                  <div>
+                    <dt>{t('catalog.stat.width')}</dt>
+                    <dd>{selectedCabinetType.width_mm} mm</dd>
+                  </div>
+                  <div>
+                    <dt>{t('catalog.stat.height')}</dt>
+                    <dd>{selectedCabinetType.height_mm} mm</dd>
+                  </div>
+                  <div>
+                    <dt>{t('catalog.stat.ip_rating')}</dt>
+                    <dd>{selectedCabinetType.ip_rating ?? '—'}</dd>
+                  </div>
+                </dl>
+              ) : (
+                <p className="fit-note">{t('inverter.selection.cabinet_empty')}</p>
+              )}
+              {selectedCabinetType ? <div className="fit-note">{selectedCabinetType.title}</div> : null}
             </div>
           </section>
 
@@ -4690,6 +4889,336 @@ function InverterArrayPage({
             )}
           </section>
         </div>
+      </section>
+    </>
+  );
+}
+
+function CabinetCatalogPage({
+  data,
+  refreshProjectData,
+}: {
+  data: DigitalTwinExport;
+  refreshProjectData: () => Promise<void>;
+}) {
+  const { t } = useTranslation();
+  const [selectedCabinetTypeId, setSelectedCabinetTypeId] = useState(() => data.entities.cabinet_types[0]?.cabinet_type_id ?? '');
+  const [draft, setDraft] = useState<CabinetTypeDraft>(() => cabinetDraftFromType(data.entities.cabinet_types[0] ?? null));
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const selectedCabinet = selectedCabinetTypeId
+    ? data.entities.cabinet_types.find((item) => item.cabinet_type_id === selectedCabinetTypeId) ?? null
+    : null;
+
+  useEffect(() => {
+    if (selectedCabinetTypeId) {
+      const current = data.entities.cabinet_types.find((item) => item.cabinet_type_id === selectedCabinetTypeId) ?? null;
+      setDraft(cabinetDraftFromType(current));
+    } else {
+      setDraft(emptyCabinetDraft());
+    }
+  }, [data, selectedCabinetTypeId]);
+
+  function startAddNew() {
+    setSelectedCabinetTypeId('');
+    setSaveError(null);
+    setSaveMessage(null);
+    setDraft(emptyCabinetDraft());
+  }
+
+  async function handleSave() {
+    const title = draft.title.trim();
+    const cabinetTypeId = selectedCabinet ? selectedCabinetTypeId : generateUniqueCatalogId(title, data.entities.cabinet_types.map((cabinet) => cabinet.cabinet_type_id));
+    const description = draft.description.trim() === '' ? null : draft.description.trim();
+    const depthMm = Number(draft.depth_mm);
+    const widthMm = Number(draft.width_mm);
+    const heightMm = Number(draft.height_mm);
+    const units = draft.units.trim();
+    const price = draft.price.trim() === '' ? null : Number(draft.price);
+    const priceSourceUrl = draft.price_source_url.trim() === '' ? null : draft.price_source_url.trim();
+    const ipRating = draft.ip_rating.trim() === '' ? null : draft.ip_rating.trim();
+    const insuranceRating = draft.insurance_rating.trim() === '' ? null : draft.insurance_rating.trim();
+
+    if (!title || !units || !Number.isFinite(depthMm) || depthMm <= 0 || !Number.isFinite(widthMm) || widthMm <= 0 || !Number.isFinite(heightMm) || heightMm <= 0) {
+      setSaveError(t('catalog.validation.cabinet_required'));
+      return;
+    }
+
+    if (price != null && !Number.isFinite(price)) {
+      setSaveError(t('catalog.validation.price_valid'));
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+      setSaveMessage(null);
+
+      const isEdit = Boolean(selectedCabinet);
+      const response = await fetch(isEdit ? `/api/cabinet-types/${encodeURIComponent(selectedCabinetTypeId)}` : '/api/cabinet-types', {
+        method: isEdit ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cabinet_type_id: cabinetTypeId,
+          title,
+          description,
+          depth_mm: depthMm,
+          width_mm: widthMm,
+          height_mm: heightMm,
+          units,
+          price,
+          price_source_url: priceSourceUrl,
+          condensation_protection: draft.condensation_protection,
+          insect_protection: draft.insect_protection,
+          dust_protection: draft.dust_protection,
+          outside_protection: draft.outside_protection,
+          frost_protection: draft.frost_protection,
+          fire_protection: draft.fire_protection,
+          ip_rating: ipRating,
+          insurance_rating: insuranceRating,
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? `Failed to save cabinet type (${response.status})`);
+      }
+
+      await refreshProjectData();
+      setSelectedCabinetTypeId(cabinetTypeId);
+      setDraft(cabinetDraftFromType({
+        cabinet_type_id: cabinetTypeId,
+        title,
+        description,
+        depth_mm: depthMm,
+        width_mm: widthMm,
+        height_mm: heightMm,
+        units,
+        price,
+        price_source_url: priceSourceUrl,
+        condensation_protection: draft.condensation_protection,
+        insect_protection: draft.insect_protection,
+        dust_protection: draft.dust_protection,
+        outside_protection: draft.outside_protection,
+        frost_protection: draft.frost_protection,
+        fire_protection: draft.fire_protection,
+        ip_rating: ipRating,
+        insurance_rating: insuranceRating,
+      } as CabinetType));
+      setSaveMessage(t('catalog.message.saved', { item: t('catalog.entry.cabinet_type'), id: cabinetTypeId }));
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : t('catalog.validation.price_valid'));
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!selectedCabinet) return;
+
+    const confirmed = window.confirm(t('catalog.confirm.delete', { item: t('catalog.entry.cabinet_type'), id: selectedCabinet.cabinet_type_id }));
+    if (!confirmed) return;
+
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+      setSaveMessage(null);
+
+      const response = await fetch(`/api/cabinet-types/${encodeURIComponent(selectedCabinet.cabinet_type_id)}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? `Failed to delete cabinet type (${response.status})`);
+      }
+
+      await refreshProjectData();
+      const nextCabinet = data.entities.cabinet_types.find((item) => item.cabinet_type_id !== selectedCabinet.cabinet_type_id) ?? null;
+      setSelectedCabinetTypeId(nextCabinet?.cabinet_type_id ?? '');
+      setDraft(cabinetDraftFromType(nextCabinet));
+      setSaveMessage(t('catalog.message.deleted', { item: t('catalog.entry.cabinet_type'), id: selectedCabinet.cabinet_type_id }));
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Failed to delete cabinet type.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  const yesNo = (value: boolean) => (value ? t('common.yes') : t('common.no'));
+
+  return (
+    <>
+      <section className="hero">
+        <div>
+          <p className="hero-copy">
+            {t('catalog.hero.cabinet_types')}
+          </p>
+        </div>
+      </section>
+
+      <section className="detail-shell">
+        <section className="panel">
+          <div className="section-head">
+            <h2>{t('catalog.ui.entries_title')}</h2>
+            <p>{t('catalog.ui.entries_description', { item: t('catalog.entry.cabinet_type') })}</p>
+          </div>
+          <div className="stack" style={{ gap: 12 }}>
+            <div className="button-row button-row-between">
+              <button type="button" className="button button-secondary" onClick={startAddNew}>
+                {t('catalog.ui.add_item', { item: t('catalog.entry.cabinet_type') })}
+              </button>
+            </div>
+            <div className="yield-table-wrap">
+              <table className="yield-table catalog-table">
+                <thead>
+                  <tr>
+                    <th>{t('catalog.field.title')}</th>
+                    <th>{t('catalog.stat.depth')}</th>
+                    <th>{t('catalog.stat.width')}</th>
+                    <th>{t('catalog.stat.height')}</th>
+                    <th>{t('catalog.stat.units')}</th>
+                    <th>{t('catalog.stat.price')}</th>
+                    <th>{t('catalog.ui.source')}</th>
+                    <th>{t('catalog.stat.ip_rating')}</th>
+                    <th>{t('catalog.stat.insurance_rating')}</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.entities.cabinet_types.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="muted">{t('catalog.ui.no_entries')}</td>
+                    </tr>
+                  ) : data.entities.cabinet_types.map((cabinet) => (
+                    <tr
+                      key={cabinet.cabinet_type_id}
+                      className={selectedCabinetTypeId === cabinet.cabinet_type_id ? 'selected' : ''}
+                      onClick={() => {
+                        setSelectedCabinetTypeId(cabinet.cabinet_type_id);
+                        setSaveError(null);
+                        setSaveMessage(null);
+                      }}
+                    >
+                      <td className="catalog-table-model-col">{cabinet.title}</td>
+                      <td>{cabinet.depth_mm} mm</td>
+                      <td>{cabinet.width_mm} mm</td>
+                      <td>{cabinet.height_mm} mm</td>
+                      <td>{cabinet.units ?? '—'}</td>
+                      <td>{renderPrice(cabinet.price, cabinet.price_source_url)}</td>
+                      <td>{cabinet.price_source_url ? <a className="price-link" href={cabinet.price_source_url} target="_blank" rel="noreferrer">{formatPriceSourceName(cabinet.price_source_url) ?? t('common.open')}</a> : '—'}</td>
+                      <td>{cabinet.ip_rating ?? '—'}</td>
+                      <td>{cabinet.insurance_rating ?? '—'}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="button button-secondary button-sm"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setSelectedCabinetTypeId(cabinet.cabinet_type_id);
+                            setSaveError(null);
+                            setSaveMessage(null);
+                          }}
+                        >
+                          {t('common.edit')}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="section-head">
+            <h2>{selectedCabinet ? t('catalog.ui.edit_item', { item: t('catalog.entry.cabinet_type') }) : t('catalog.ui.add_item', { item: t('catalog.entry.cabinet_type') })}</h2>
+            <p>{t('catalog.ui.changes_saved')}</p>
+          </div>
+          <div className="stack" style={{ gap: 16 }}>
+            <div className="field">
+              <span>{t('catalog.field.cabinet_type_id')}</span>
+              <p className="muted">
+                {selectedCabinet ? selectedCabinet.cabinet_type_id : (draft.title.trim() ? generateUniqueCatalogId(draft.title.trim(), data.entities.cabinet_types.map((cabinet) => cabinet.cabinet_type_id)) : t('catalog.ui.generated_after_save'))}
+              </p>
+            </div>
+            <label className="field">
+              <span>{t('catalog.field.title')}</span>
+              <input
+                value={draft.title}
+                onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
+                placeholder="19 inch rack cabinet"
+              />
+            </label>
+            <label className="field">
+              <span>{t('catalog.field.description')}</span>
+              <textarea value={draft.description} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} rows={3} />
+            </label>
+            <div className="detail-grid three-col">
+              <label className="field"><span>{t('catalog.stat.depth')}</span><input type="number" value={draft.depth_mm} onChange={(event) => setDraft((current) => ({ ...current, depth_mm: event.target.value }))} /></label>
+              <label className="field"><span>{t('catalog.stat.width')}</span><input type="number" value={draft.width_mm} onChange={(event) => setDraft((current) => ({ ...current, width_mm: event.target.value }))} /></label>
+              <label className="field"><span>{t('catalog.stat.height')}</span><input type="number" value={draft.height_mm} onChange={(event) => setDraft((current) => ({ ...current, height_mm: event.target.value }))} /></label>
+            </div>
+            <label className="field">
+              <span>{t('catalog.field.units')}</span>
+              <input
+                value={draft.units}
+                onChange={(event) => setDraft((current) => ({ ...current, units: event.target.value }))}
+                placeholder="42U"
+              />
+            </label>
+            <div className="detail-grid two-col">
+              <label className="field"><span>{t('catalog.stat.price')}</span><input type="number" value={draft.price} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} /></label>
+              <label className="field"><span>{t('catalog.ui.source_url')}</span><input value={draft.price_source_url} onChange={(event) => setDraft((current) => ({ ...current, price_source_url: event.target.value }))} placeholder="https://..." /></label>
+            </div>
+            <div className="detail-grid two-col">
+              <label className="field"><span>{t('catalog.field.ip_rating')}</span><input value={draft.ip_rating} onChange={(event) => setDraft((current) => ({ ...current, ip_rating: event.target.value }))} placeholder="IP55" /></label>
+              <label className="field"><span>{t('catalog.field.insurance_rating')}</span><input value={draft.insurance_rating} onChange={(event) => setDraft((current) => ({ ...current, insurance_rating: event.target.value }))} placeholder="Class 60" /></label>
+            </div>
+            <div className="detail-grid two-col">
+              <label className="field"><span>{t('catalog.field.condensation_protection')}</span><input type="checkbox" checked={draft.condensation_protection} onChange={(event) => setDraft((current) => ({ ...current, condensation_protection: event.target.checked }))} /></label>
+              <label className="field"><span>{t('catalog.field.insect_protection')}</span><input type="checkbox" checked={draft.insect_protection} onChange={(event) => setDraft((current) => ({ ...current, insect_protection: event.target.checked }))} /></label>
+            </div>
+            <div className="detail-grid two-col">
+              <label className="field"><span>{t('catalog.field.dust_protection')}</span><input type="checkbox" checked={draft.dust_protection} onChange={(event) => setDraft((current) => ({ ...current, dust_protection: event.target.checked }))} /></label>
+              <label className="field"><span>{t('catalog.field.outside_protection')}</span><input type="checkbox" checked={draft.outside_protection} onChange={(event) => setDraft((current) => ({ ...current, outside_protection: event.target.checked }))} /></label>
+            </div>
+            <div className="detail-grid two-col">
+              <label className="field"><span>{t('catalog.field.frost_protection')}</span><input type="checkbox" checked={draft.frost_protection} onChange={(event) => setDraft((current) => ({ ...current, frost_protection: event.target.checked }))} /></label>
+              <label className="field"><span>{t('catalog.field.fire_protection')}</span><input type="checkbox" checked={draft.fire_protection} onChange={(event) => setDraft((current) => ({ ...current, fire_protection: event.target.checked }))} /></label>
+            </div>
+            <div className="stack" style={{ gap: 8 }}>
+              <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.title.trim()}>
+                {isSaving ? t('common.saving') : t('common.save')}
+              </button>
+              {selectedCabinet ? (
+                <button type="button" className="button button-danger" onClick={() => void handleDelete()} disabled={isSaving}>
+                  {t('common.delete')}
+                </button>
+              ) : null}
+              {saveError ? <p className="save-error">{saveError}</p> : null}
+              {saveMessage ? <p className="save-message">{saveMessage}</p> : null}
+            </div>
+          </div>
+          {selectedCabinet ? (
+            <dl className="detail-stats panel-spec-grid" style={{ marginTop: 16 }}>
+              <div><dt>{t('catalog.field.title')}</dt><dd>{selectedCabinet.title}</dd></div>
+              <div><dt>{t('catalog.stat.depth')}</dt><dd>{selectedCabinet.depth_mm} mm</dd></div>
+              <div><dt>{t('catalog.stat.width')}</dt><dd>{selectedCabinet.width_mm} mm</dd></div>
+              <div><dt>{t('catalog.stat.height')}</dt><dd>{selectedCabinet.height_mm} mm</dd></div>
+              <div><dt>{t('catalog.stat.units')}</dt><dd>{selectedCabinet.units ?? '—'}</dd></div>
+              <div><dt>{t('catalog.stat.price')}</dt><dd>{renderPrice(selectedCabinet.price, selectedCabinet.price_source_url)}</dd></div>
+              <div><dt>{t('catalog.stat.ip_rating')}</dt><dd>{selectedCabinet.ip_rating ?? '—'}</dd></div>
+              <div><dt>{t('catalog.stat.insurance_rating')}</dt><dd>{selectedCabinet.insurance_rating ?? '—'}</dd></div>
+              <div><dt>{t('catalog.field.condensation_protection')}</dt><dd>{yesNo(selectedCabinet.condensation_protection)}</dd></div>
+              <div><dt>{t('catalog.field.insect_protection')}</dt><dd>{yesNo(selectedCabinet.insect_protection)}</dd></div>
+              <div><dt>{t('catalog.field.dust_protection')}</dt><dd>{yesNo(selectedCabinet.dust_protection)}</dd></div>
+              <div><dt>{t('catalog.field.outside_protection')}</dt><dd>{yesNo(selectedCabinet.outside_protection)}</dd></div>
+              <div><dt>{t('catalog.field.frost_protection')}</dt><dd>{yesNo(selectedCabinet.frost_protection)}</dd></div>
+              <div><dt>{t('catalog.field.fire_protection')}</dt><dd>{yesNo(selectedCabinet.fire_protection)}</dd></div>
+            </dl>
+          ) : null}
+        </section>
       </section>
     </>
   );
@@ -5232,38 +5761,60 @@ function VerdictSummaryPage({
     ? getRelationshipVerdictLabel('battery_to_inverter', batteryToInverter.evaluation.electrical_status, batteryToInverter.evaluation.fit_status, t)
     : t('status.not_evaluated');
 
-  const surfaceAggregate = surfaceRows.some((row) => row.status === 'outside_limits')
-    ? t('report.verdict.blocked')
-    : surfaceRows.some((row) => row.fit === 'clipping_expected' || row.fit === 'underutilized')
-      ? t('report.verdict.mixed')
-      : surfaceRows.length > 0
-        ? t('report.verdict.ok')
-        : t('status.not_evaluated');
-  const surfaceAggregateTone = surfaceRows.some((row) => row.status === 'outside_limits')
-    ? 'danger'
-    : surfaceRows.some((row) => row.fit === 'clipping_expected')
-      ? 'warn'
-      : surfaceRows.some((row) => row.fit === 'underutilized')
-        ? 'cool'
-        : 'muted';
+  const batteryDesign = data.entities.battery_bank_configurations.find((item) => item.battery_bank_id === 'battery-bank-main') ?? null;
+  const batterySelectedType = batteryBank?.battery_type_id
+    ? data.entities.battery_types.find((item) => item.battery_type_id === batteryBank.battery_type_id) ?? null
+    : batteryDesign?.selected_battery_type_id
+      ? data.entities.battery_types.find((item) => item.battery_type_id === batteryDesign.selected_battery_type_id) ?? null
+      : null;
+  const batteryArrayConfig = batteryDesign && batterySelectedType
+    ? evaluateBatteryArrayConfiguration(
+      batterySelectedType,
+      batteryDesign.configured_battery_count,
+      Math.max(1, batteryDesign.batteries_per_string),
+      Math.max(1, batteryDesign.parallel_strings),
+    )
+    : null;
+  const activeUpstreamRelations = data.relationships.array_to_mppt.filter((relation) => {
+    const array = data.entities.arrays.find((item) => item.array_id === relation.from_array_id);
+    return (array?.panel_count ?? 0) > 0;
+  });
+  const totalUpstreamInputPowerW = activeUpstreamRelations.reduce((sum, relation) => sum + relation.input_power_w, 0);
+  const surfaceVerdictSource = surfaceRows.length === 1
+    ? surfaceRows[0]
+    : surfaceRows.length > 1 && surfaceRows.every((row) => row.verdictLabel === surfaceRows[0].verdictLabel && row.verdictSummary === surfaceRows[0].verdictSummary)
+      ? surfaceRows[0]
+      : null;
+  const surfaceVerdictLabel = surfaceVerdictSource?.verdictLabel ?? (surfaceRows.length > 0 ? t('report.verdict.mixed') : t('status.not_evaluated'));
+  const surfaceVerdictSummary = surfaceVerdictSource?.verdictSummary ?? null;
+  const surfaceVerdictStatus = surfaceVerdictSource?.status ?? null;
+  const surfaceVerdictFit = surfaceVerdictSource?.fit;
   const bestMonth = data.derived.project_monthly_solar_output
     .map((row) => ({
       month: row.month,
       totalDailyKwh: row.average_daily_kwh,
     }))
     .sort((left, right) => right.totalDailyKwh - left.totalDailyKwh)[0] ?? null;
-  const batteryCapacityKwh = batteryBank?.capacity_kwh ?? null;
-  const batteryRefillRule = batteryCapacityKwh != null
+  const refillEnergyKwh = batteryArrayConfig
+    ? Number((batteryArrayConfig.totalCapacityKwh * 0.6).toFixed(2))
+    : null;
+  const estimatedChargeCurrentA = batteryArrayConfig && batteryArrayConfig.stringVoltage > 0
+    ? Number((totalUpstreamInputPowerW / batteryArrayConfig.stringVoltage).toFixed(2))
+    : null;
+  const chargeCurrentExceeded = batteryArrayConfig?.maxChargeCurrentA != null
+    && estimatedChargeCurrentA != null
+    && estimatedChargeCurrentA > batteryArrayConfig.maxChargeCurrentA;
+  const batteryRefillRule = batteryArrayConfig
     ? evaluateBatteryRefillRule({
-      totalCapacityKwh: batteryCapacityKwh,
+      totalCapacityKwh: batteryArrayConfig.totalCapacityKwh,
       sunniestMonthDailyYieldKwh: bestMonth?.totalDailyKwh ?? 0,
     })
     : null;
   const batteryEvaluationCopy = getBatteryEvaluationCopy({
-    chargeCurrentExceeded: false,
-    estimatedChargeCurrentA: null,
-    maxChargeCurrentA: null,
-    refillEnergyKwh: batteryRefillRule?.requiredRefillKwh ?? null,
+    chargeCurrentExceeded,
+    estimatedChargeCurrentA,
+    maxChargeCurrentA: batteryArrayConfig?.maxChargeCurrentA ?? null,
+    refillEnergyKwh,
     bestMonthDailyYieldKwh: bestMonth?.totalDailyKwh ?? 0,
     batteryRefillRule,
     t,
@@ -5279,23 +5830,15 @@ function VerdictSummaryPage({
 
   return (
     <>
-      <section className="hero">
-        <div>
-          <h1>{t('page.report.verdict_summary')}</h1>
-        </div>
-      </section>
-
       <section className="panel" style={{ marginBottom: 20 }}>
-        <div className="section-head">
-          <h2>{t('page.report.verdict_summary')}</h2>
-        </div>
         <dl className="detail-stats panel-spec-grid" style={{ marginTop: 0 }}>
           <div>
             <dt>{t('report.verdict.surface_verdicts')}</dt>
             <dd>
               <div className="stack" style={{ gap: 6 }}>
-                <StatusBadge status={surfaceRows.some((row) => row.status === 'outside_limits') ? 'outside_limits' : 'within_limits'} fit={surfaceRows.some((row) => row.fit === 'clipping_expected') ? 'clipping_expected' : surfaceRows.some((row) => row.fit === 'underutilized') ? 'underutilized' : undefined} />
-                <span>{surfaceAggregate} · {t('report.verdict.surfaces_count', { count: surfaceRows.length })}</span>
+                {surfaceVerdictSource ? <StatusBadge status={surfaceVerdictStatus} fit={surfaceVerdictFit} /> : null}
+                <span>{surfaceVerdictLabel} · {t('report.verdict.surfaces_count', { count: surfaceRows.length })}</span>
+                {surfaceVerdictSummary ? <span className="fit-note">{surfaceVerdictSummary}</span> : null}
               </div>
             </dd>
           </div>
@@ -5429,10 +5972,12 @@ function CostSummaryPage({
   const selectedBatteryType = batteryBank?.battery_type_id
     ? data.entities.battery_types.find((item) => item.battery_type_id === batteryBank.battery_type_id) ?? null
     : null;
+  const selectedCabinetType = batteryBank?.selected_cabinet_type_id
+    ? data.entities.cabinet_types.find((item) => item.cabinet_type_id === batteryBank.selected_cabinet_type_id) ?? null
+    : null;
   const selectedInverterType = projectInverter?.inverter_id
     ? data.entities.inverter_types.find((item) => item.inverter_id === projectInverter.inverter_id) ?? null
     : null;
-
   let matchingAllowanceUsed = 0;
   const surfaceRows = localSurfaceSummaries.map((surface) => {
     const array = arrayBySurfaceId.get(surface.surface_id) ?? null;
@@ -5447,7 +5992,6 @@ function CostSummaryPage({
     if (includedWithInverter) {
       matchingAllowanceUsed += 1;
     }
-
     const panelCost = panelType?.price != null
       ? panelType.price * (array?.panel_count ?? surface.panel_count ?? 0)
       : null;
@@ -5466,7 +6010,6 @@ function CostSummaryPage({
       panelCost,
       mpptCost,
       surfaceTotal,
-      includedWithInverter,
     };
   });
 
@@ -5474,35 +6017,31 @@ function CostSummaryPage({
   const panelSubtotal = surfaceRows.every((row) => row.panelCost != null)
     ? Number(surfaceRows.reduce((sum, row) => sum + (row.panelCost ?? 0), 0).toFixed(2))
     : null;
-  const batterySubtotal = selectedBatteryType?.price != null
+  const batteryModulesSubtotal = selectedBatteryType?.price != null
     ? selectedBatteryType.price * batteryModuleCount
     : null;
-  const inverterSubtotal = selectedInverterType?.price ?? null;
+  const cabinetSubtotal = selectedCabinetType?.price ?? null;
+  const batterySubtotal = batteryModulesSubtotal != null && cabinetSubtotal != null
+    ? Number((batteryModulesSubtotal + cabinetSubtotal).toFixed(2))
+    : null;
+  const selectedInverterCabinetType = projectInverter?.selected_cabinet_type_id
+    ? data.entities.cabinet_types.find((item) => item.cabinet_type_id === projectInverter.selected_cabinet_type_id) ?? null
+    : null;
+  const inverterCabinetSubtotal = selectedInverterCabinetType?.price ?? null;
+  const inverterSubtotal = selectedInverterType?.price != null && inverterCabinetSubtotal != null
+    ? Number((selectedInverterType.price + inverterCabinetSubtotal).toFixed(2))
+    : selectedInverterType?.price ?? null;
   const materialsSubtotal = 0;
   const workSubtotal = 0;
-  const projectTotal = panelSubtotal != null && batterySubtotal != null && inverterSubtotal != null
-    ? Number((panelSubtotal + batterySubtotal + inverterSubtotal + materialsSubtotal + workSubtotal).toFixed(2))
-    : null;
   const surfaceGrandTotal = surfaceRows.every((row) => row.surfaceTotal != null)
     ? Number(surfaceRows.reduce((sum, row) => sum + (row.surfaceTotal ?? 0), 0).toFixed(2))
     : null;
-  const matchingMpptCount = data.entities.mppt_configurations.filter((mpptConfiguration) => {
-    const mpptType = mpptConfiguration.mppt_type_id
-      ? data.entities.mppt_types.find((item) => item.mppt_type_id === mpptConfiguration.mppt_type_id) ?? null
-      : null;
-    return isMatchingRsMppt(selectedInverterType, mpptType);
-  }).length;
+  const projectTotal = surfaceGrandTotal != null && batterySubtotal != null && inverterSubtotal != null
+    ? Number((surfaceGrandTotal + batterySubtotal + inverterSubtotal + materialsSubtotal + workSubtotal).toFixed(2))
+    : null;
 
   return (
     <>
-      <section className="hero">
-        <div>
-          <p className="hero-copy">
-            {t('report.cost.hero')}
-          </p>
-        </div>
-      </section>
-
       <section className="panel" style={{ marginBottom: 20 }}>
         <div className="section-head">
           <h2>{t('page.report.cost_summary')}</h2>
@@ -5511,43 +6050,38 @@ function CostSummaryPage({
           <table className="yield-table">
             <thead>
               <tr>
-                <th>{t('report.table.metric')}</th>
-                <th>{t('report.table.value')}</th>
-                <th>{t('report.table.detail')}</th>
+                <th>{t('report.table.item')}</th>
+                <th>{t('report.table.total')}</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <th>{t('report.cost.panels_total')}</th>
-                <td>{renderPrice(panelSubtotal, null)}</td>
-                <td>{t('report.cost.panels_total_detail')}</td>
+                <th>{t('report.cost.surface_costs')}</th>
+                <td>{renderPrice(surfaceGrandTotal, null)}</td>
               </tr>
               <tr>
                 <th>{t('report.cost.battery_bank_total')}</th>
-                <td>{renderPrice(batterySubtotal, selectedBatteryType?.price_source_url)}</td>
-                <td>{selectedBatteryType ? t('report.cost.battery_bank_total_detail', { count: batteryModuleCount, suffix: batteryModuleCount === 1 ? '' : 's' }) : t('status.not_evaluated')}</td>
+                <td>{renderPrice(batterySubtotal, selectedBatteryType?.price_source_url ?? selectedCabinetType?.price_source_url)}</td>
               </tr>
               <tr>
                 <th>{t('report.cost.inverter_total_summary')}</th>
-                <td>{renderPrice(inverterSubtotal, selectedInverterType?.price_source_url)}</td>
-                <td>{selectedInverterType ? t('report.cost.inverter_total_detail', { count: matchingAllowanceUsed, suffix: matchingAllowanceUsed === 1 ? '' : 's' }) : t('status.not_evaluated')}</td>
+                <td>{renderPrice(inverterSubtotal, selectedInverterType?.price_source_url ?? selectedInverterCabinetType?.price_source_url)}</td>
               </tr>
               <tr>
                 <th>{t('report.cost.materials_total')}</th>
                 <td>{formatCurrency(materialsSubtotal)}</td>
-                <td>{t('report.cost.materials_total_detail')}</td>
               </tr>
               <tr>
                 <th>{t('report.cost.work_total')}</th>
                 <td>{formatCurrency(workSubtotal)}</td>
-                <td>{t('report.cost.work_total_detail')}</td>
               </tr>
+            </tbody>
+            <tfoot>
               <tr>
                 <th>{t('report.cost.project_total')}</th>
                 <td>{formatCurrency(projectTotal)}</td>
-                <td>{t('report.cost.project_total_detail')}</td>
               </tr>
-            </tbody>
+            </tfoot>
           </table>
         </div>
       </section>
@@ -5565,11 +6099,11 @@ function CostSummaryPage({
                   <th>{t('report.table.item')}</th>
                   <th>{t('report.cost.unit_price')}</th>
                   <th>{t('report.table.amount')}</th>
-                  <th>{t('report.table.total')}</th>
+                  <th>Subtotal</th>
                 </tr>
               </thead>
               <tbody>
-                {surfaceRows.map(({ surface, panelType, mpptType, panelCount, panelCost, mpptCost, includedWithInverter }) => (
+                {surfaceRows.map(({ surface, panelType, mpptType, panelCount, panelCost, mpptCost }) => (
                   <React.Fragment key={surface.surface_id}>
                     <tr>
                       <th rowSpan={2}>{surface.name}</th>
@@ -5580,13 +6114,10 @@ function CostSummaryPage({
                     </tr>
                     <tr>
                       <th>{mpptType?.model ?? 'n/a'}</th>
-                      <td>{renderPrice(mpptCost, includedWithInverter ? selectedInverterType?.price_source_url : mpptType?.price_source_url)}</td>
+                      <td>{renderPrice(mpptCost, mpptType?.price_source_url)}</td>
                       <td>1</td>
                       <td>
-                        <div className="stack" style={{ gap: 4 }}>
-                          <span>{formatCurrency(mpptCost)}</span>
-                          {includedWithInverter ? <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{t('report.cost.included_with_inverter')}</span> : null}
-                        </div>
+                        {formatCurrency(mpptCost)}
                       </td>
                     </tr>
                   </React.Fragment>
@@ -5594,7 +6125,7 @@ function CostSummaryPage({
               </tbody>
               <tfoot>
                 <tr>
-                  <th colSpan={4}>{t('report.cost.grand_total')}</th>
+                  <th colSpan={4}>{t('report.cost.project_total')}</th>
                   <th>{formatCurrency(surfaceGrandTotal)}</th>
                 </tr>
               </tfoot>
@@ -5616,28 +6147,34 @@ function CostSummaryPage({
             <table className="yield-table">
               <thead>
                 <tr>
-                  <th>{t('report.table.metric')}</th>
-                  <th>{t('report.table.value')}</th>
+                  <th>{t('report.table.item')}</th>
+                  <th>{t('report.cost.unit_price')}</th>
+                  <th>{t('report.table.amount')}</th>
+                  <th>{t('report.table.total')}</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <th>{t('report.label.selected_battery_type')}</th>
-                  <td>{selectedBatteryType.model}</td>
-                </tr>
-                <tr>
-                  <th>{t('report.cost.unit_price')}</th>
+                  <th>{selectedBatteryType.model}</th>
                   <td>{renderPrice(selectedBatteryType.price, selectedBatteryType.price_source_url)}</td>
+                  <td>{batteryModuleCount}x</td>
+                  <td>{formatCurrency(batteryModulesSubtotal)}</td>
                 </tr>
                 <tr>
-                  <th>{t('report.cost.quantity')}</th>
-                  <td>{batteryModuleCount}</td>
-                </tr>
-                <tr>
-                  <th>{t('report.cost.battery_total')}</th>
-                  <td>{renderPrice(batterySubtotal, selectedBatteryType.price_source_url)}</td>
+                  <th>{selectedCabinetType?.title ?? t('common.none')}</th>
+                  <td>{renderPrice(selectedCabinetType?.price ?? null, selectedCabinetType?.price_source_url)}</td>
+                  <td>{selectedCabinetType ? '1x' : '0x'}</td>
+                  <td>{formatCurrency(cabinetSubtotal)}</td>
                 </tr>
               </tbody>
+              <tfoot>
+                <tr>
+                  <th>{t('report.cost.project_total')}</th>
+                  <td />
+                  <td />
+                  <td>{renderPrice(batterySubtotal, selectedBatteryType.price_source_url ?? selectedCabinetType?.price_source_url)}</td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         ) : (
@@ -5656,28 +6193,36 @@ function CostSummaryPage({
             <table className="yield-table">
               <thead>
                 <tr>
-                  <th>{t('report.table.metric')}</th>
-                  <th>{t('report.table.value')}</th>
+                  <th>{t('report.table.item')}</th>
+                  <th>{t('report.cost.unit_price')}</th>
+                  <th>{t('report.table.amount')}</th>
+                  <th>{t('report.table.total')}</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <th>{t('report.label.selected_inverter')}</th>
-                  <td>{selectedInverterType.model}</td>
-                </tr>
-                <tr>
-                  <th>{t('report.cost.unit_price')}</th>
+                  <th>{selectedInverterType.model}</th>
+                  <td>{renderPrice(selectedInverterType.price, selectedInverterType.price_source_url)}</td>
+                  <td>1x</td>
                   <td>{renderPrice(selectedInverterType.price, selectedInverterType.price_source_url)}</td>
                 </tr>
-                <tr>
-                  <th>{t('report.cost.matching_mppts_count')}</th>
-                  <td>{Math.min(matchingAllowanceUsed, 2)} of {matchingMpptCount}</td>
-                </tr>
-                <tr>
-                  <th>{t('report.cost.inverter_total')}</th>
-                  <td>{renderPrice(inverterSubtotal, selectedInverterType.price_source_url)}</td>
-                </tr>
+                {selectedInverterCabinetType ? (
+                  <tr>
+                    <th>{selectedInverterCabinetType.title}</th>
+                    <td>{renderPrice(selectedInverterCabinetType.price, selectedInverterCabinetType.price_source_url)}</td>
+                    <td>1x</td>
+                    <td>{renderPrice(selectedInverterCabinetType.price, selectedInverterCabinetType.price_source_url)}</td>
+                  </tr>
+                ) : null}
               </tbody>
+              <tfoot>
+                <tr>
+                  <th>{t('report.cost.project_total')}</th>
+                  <td />
+                  <td />
+                  <td>{renderPrice(inverterSubtotal, selectedInverterType.price_source_url ?? selectedInverterCabinetType?.price_source_url)}</td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         ) : (
@@ -5687,35 +6232,6 @@ function CostSummaryPage({
         )}
       </section>
 
-      <section className="panel">
-        <div className="section-head">
-          <h2>{t('report.cost.pricing_assumptions')}</h2>
-        </div>
-        <div className="yield-table-wrap">
-          <table className="yield-table">
-            <thead>
-              <tr>
-                <th>{t('report.table.metric')}</th>
-                <th>{t('report.table.value')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <th>1</th>
-                <td>{t('report.cost.assumption.catalog_prices')}</td>
-              </tr>
-              <tr>
-                <th>2</th>
-                <td>{t('report.cost.assumption.unknown_not_zero')}</td>
-              </tr>
-              <tr>
-                <th>3</th>
-                <td>{t('report.cost.assumption.rs_mppts')}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
     </>
   );
 }
@@ -6905,6 +7421,8 @@ function AppContent() {
           <CostSummaryPage {...context} />
         ) : route.kind === 'catalog' && route.catalog === 'panel-types' ? (
           <PanelCatalogPage data={data} refreshProjectData={refreshProjectData} />
+        ) : route.kind === 'catalog' && route.catalog === 'cabinet-types' ? (
+          <CabinetCatalogPage data={data} refreshProjectData={refreshProjectData} />
         ) : route.kind === 'catalog' && route.catalog === 'mppt-types' ? (
           <MpptCatalogPage data={data} refreshProjectData={refreshProjectData} />
         ) : route.kind === 'catalog' && route.catalog === 'battery-types' ? (

@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026-04-25
+
+- Added a new `Cabinet types` catalog for 19 inch rack enclosures with dimensions, a text `Units` field, protection flags, IP rating, insurance rating, price, and source URL, plus CRUD support and a catalog page.
+- Added five DSIT outdoor IP55 cabinet catalog entries for the 22U, 32U, and 42U 600x600 and 600x800 variants from Patchkastwinkel.
+- Linked the battery-bank configuration to an optional cabinet type lookup so the selected enclosure can be saved and exported with the battery bank.
+- Removed the legacy `location` SQLite table and migrated any remaining rows into `locations`, so the app now has one supported site table only.
+
 ## 2026-04-24
 
 - Added a `brand` field to the panel, MPPT, battery, and inverter catalogs so the UI and database now store `brand + model` separately, and updated the live SQLite catalog rows to match.

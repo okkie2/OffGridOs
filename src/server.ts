@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import http, { type IncomingMessage, type ServerResponse } from 'http';
-import { createSurface, deleteSurface, deleteSurfacePanelAssignmentsForSurface, getBatteryBankConfiguration, getBatteryType, getInverterType, getMpptType, getPreferences, getPanelType, getSurface, getSurfaceConfiguration, insertBatteryType, insertInverterType, insertMpptType, insertPanelType, listArrayToMpptMappings, listBatteryBankConfigurations, listBatteryTypes, listInverterConfigurations, listInverterTypes, listMpptTypes, listPanelTypes, listPvArrays, listSurfaceConfigurations, listSurfacePanelAssignments, setPref, updateBatteryType, updateInverterType, updateMpptType, updatePanelType, updateSurface, upsertBatteryBankConfiguration, upsertInverterConfiguration, upsertLocation, upsertSurfaceConfiguration, upsertSurfacePanelAssignment, syncPvTopologyForSurface } from './db/queries.js';
+import { createSurface, deleteCabinetType, deleteSurface, deleteSurfacePanelAssignmentsForSurface, getBatteryBankConfiguration, getBatteryType, getCabinetType, getInverterType, getMpptType, getPreferences, getPanelType, getSurface, getSurfaceConfiguration, insertBatteryType, insertCabinetType, insertInverterType, insertMpptType, insertPanelType, listArrayToMpptMappings, listBatteryBankConfigurations, listBatteryTypes, listCabinetTypes, listInverterConfigurations, listInverterTypes, listMpptTypes, listPanelTypes, listPvArrays, listSurfaceConfigurations, listSurfacePanelAssignments, setPref, updateBatteryType, updateCabinetType, updateInverterType, updateMpptType, updatePanelType, updateSurface, upsertBatteryBankConfiguration, upsertInverterConfiguration, upsertLocation, upsertSurfaceConfiguration, upsertSurfacePanelAssignment, syncPvTopologyForSurface } from './db/queries.js';
 import { buildDigitalTwinExport } from './output/exportDigitalTwin.js';
 import { generateUniqueCatalogId } from './domain/panel-type-id.js';
 import { resolveDatabasePath, resolveServerHost, resolveServerPort, resolveWebDistPath } from './config/runtime.js';
@@ -611,6 +611,242 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           }
 
           db.prepare('DELETE FROM panel_types WHERE panel_type_id = ?').run(panelTypeId);
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+        });
+
+        sendJson(response, updated.status, updated.body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 500, { error: message });
+      }
+    })();
+    return true;
+  }
+
+  if (method === 'GET' && url.pathname === '/api/cabinet-types') {
+    try {
+      const payload = withDb(databasePath, (db) => listCabinetTypes(db));
+      sendJson(response, 200, payload);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown server error';
+      sendJson(response, 500, { error: message });
+    }
+    return true;
+  }
+
+  if (method === 'POST' && url.pathname === '/api/cabinet-types') {
+    void (async () => {
+      try {
+        const payload = await readJsonBody<{
+          cabinet_type_id?: unknown;
+          title?: unknown;
+          description?: unknown;
+          depth_mm?: unknown;
+          width_mm?: unknown;
+          height_mm?: unknown;
+          units?: unknown;
+          price?: unknown;
+          price_source_url?: unknown;
+          condensation_protection?: unknown;
+          insect_protection?: unknown;
+          dust_protection?: unknown;
+          outside_protection?: unknown;
+          frost_protection?: unknown;
+          fire_protection?: unknown;
+          ip_rating?: unknown;
+          insurance_rating?: unknown;
+        }>(request);
+
+        const cabinetTypeId = typeof payload.cabinet_type_id === 'string' ? payload.cabinet_type_id.trim() : '';
+        const title = typeof payload.title === 'string' ? payload.title.trim() : '';
+        const description = isValidNonEmptyText(payload.description) ? payload.description.trim() : null;
+        const depthMm = typeof payload.depth_mm === 'number' ? payload.depth_mm : Number(payload.depth_mm);
+        const widthMm = typeof payload.width_mm === 'number' ? payload.width_mm : Number(payload.width_mm);
+        const heightMm = typeof payload.height_mm === 'number' ? payload.height_mm : Number(payload.height_mm);
+        const units = isValidNonEmptyText(payload.units) ? payload.units.trim() : '';
+        const price = payload.price == null || payload.price === ''
+          ? null
+          : (typeof payload.price === 'number' ? payload.price : Number(payload.price));
+        const priceSourceUrl = isValidNonEmptyText(payload.price_source_url) ? payload.price_source_url.trim() : null;
+        const condensationProtection = payload.condensation_protection === true || payload.condensation_protection === 1 || payload.condensation_protection === '1' || payload.condensation_protection === 'true';
+        const insectProtection = payload.insect_protection === true || payload.insect_protection === 1 || payload.insect_protection === '1' || payload.insect_protection === 'true';
+        const dustProtection = payload.dust_protection === true || payload.dust_protection === 1 || payload.dust_protection === '1' || payload.dust_protection === 'true';
+        const outsideProtection = payload.outside_protection === true || payload.outside_protection === 1 || payload.outside_protection === '1' || payload.outside_protection === 'true';
+        const frostProtection = payload.frost_protection === true || payload.frost_protection === 1 || payload.frost_protection === '1' || payload.frost_protection === 'true';
+        const fireProtection = payload.fire_protection === true || payload.fire_protection === 1 || payload.fire_protection === '1' || payload.fire_protection === 'true';
+        const ipRating = isValidNonEmptyText(payload.ip_rating) ? payload.ip_rating.trim() : null;
+        const insuranceRating = isValidNonEmptyText(payload.insurance_rating) ? payload.insurance_rating.trim() : null;
+
+        if (!title || !units || !Number.isFinite(depthMm) || depthMm <= 0 || !Number.isFinite(widthMm) || widthMm <= 0 || !Number.isFinite(heightMm) || heightMm <= 0) {
+          sendJson(response, 400, {
+            error: 'Invalid cabinet type payload. Provide title, units, depth_mm, width_mm, and height_mm.',
+          });
+          return;
+        }
+
+        if (price != null && !Number.isFinite(price)) {
+          sendJson(response, 400, { error: 'Invalid cabinet type payload. Price must be a valid number when provided.' });
+          return;
+        }
+
+        const updated = withDb(databasePath, (db) => {
+          const resolvedCabinetTypeId = cabinetTypeId || generateUniqueCatalogId(title, listCabinetTypes(db).map((cabinet) => cabinet.cabinet_type_id));
+          if (getCabinetType(db, resolvedCabinetTypeId)) {
+            return { status: 409 as const, body: { error: `Cabinet type "${resolvedCabinetTypeId}" already exists.` } };
+          }
+
+          insertCabinetType(db, {
+            cabinet_type_id: resolvedCabinetTypeId,
+            title,
+            description,
+            depth_mm: depthMm,
+            width_mm: widthMm,
+            height_mm: heightMm,
+            units,
+            price,
+            price_source_url: priceSourceUrl,
+            condensation_protection: condensationProtection,
+            insect_protection: insectProtection,
+            dust_protection: dustProtection,
+            outside_protection: outsideProtection,
+            frost_protection: frostProtection,
+            fire_protection: fireProtection,
+            ip_rating: ipRating,
+            insurance_rating: insuranceRating,
+          });
+
+          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath) };
+        });
+
+        sendJson(response, updated.status, updated.body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 500, { error: message });
+      }
+    })();
+    return true;
+  }
+
+  if (method === 'PUT' && url.pathname.startsWith('/api/cabinet-types/')) {
+    void (async () => {
+      try {
+        const cabinetTypeId = decodeURIComponent(url.pathname.slice('/api/cabinet-types/'.length));
+        if (!cabinetTypeId) {
+          sendJson(response, 400, { error: 'Cabinet type id is required.' });
+          return;
+        }
+
+        const payload = await readJsonBody<{
+          cabinet_type_id?: unknown;
+          title?: unknown;
+          description?: unknown;
+          depth_mm?: unknown;
+          width_mm?: unknown;
+          height_mm?: unknown;
+          units?: unknown;
+          price?: unknown;
+          price_source_url?: unknown;
+          condensation_protection?: unknown;
+          insect_protection?: unknown;
+          dust_protection?: unknown;
+          outside_protection?: unknown;
+          frost_protection?: unknown;
+          fire_protection?: unknown;
+          ip_rating?: unknown;
+          insurance_rating?: unknown;
+        }>(request);
+
+        const bodyCabinetTypeId = typeof payload.cabinet_type_id === 'string' ? payload.cabinet_type_id.trim() : cabinetTypeId;
+        const title = typeof payload.title === 'string' ? payload.title.trim() : '';
+        const description = isValidNonEmptyText(payload.description) ? payload.description.trim() : null;
+        const depthMm = typeof payload.depth_mm === 'number' ? payload.depth_mm : Number(payload.depth_mm);
+        const widthMm = typeof payload.width_mm === 'number' ? payload.width_mm : Number(payload.width_mm);
+        const heightMm = typeof payload.height_mm === 'number' ? payload.height_mm : Number(payload.height_mm);
+        const units = isValidNonEmptyText(payload.units) ? payload.units.trim() : '';
+        const price = payload.price == null || payload.price === ''
+          ? null
+          : (typeof payload.price === 'number' ? payload.price : Number(payload.price));
+        const priceSourceUrl = isValidNonEmptyText(payload.price_source_url) ? payload.price_source_url.trim() : null;
+        const condensationProtection = payload.condensation_protection === true || payload.condensation_protection === 1 || payload.condensation_protection === '1' || payload.condensation_protection === 'true';
+        const insectProtection = payload.insect_protection === true || payload.insect_protection === 1 || payload.insect_protection === '1' || payload.insect_protection === 'true';
+        const dustProtection = payload.dust_protection === true || payload.dust_protection === 1 || payload.dust_protection === '1' || payload.dust_protection === 'true';
+        const outsideProtection = payload.outside_protection === true || payload.outside_protection === 1 || payload.outside_protection === '1' || payload.outside_protection === 'true';
+        const frostProtection = payload.frost_protection === true || payload.frost_protection === 1 || payload.frost_protection === '1' || payload.frost_protection === 'true';
+        const fireProtection = payload.fire_protection === true || payload.fire_protection === 1 || payload.fire_protection === '1' || payload.fire_protection === 'true';
+        const ipRating = isValidNonEmptyText(payload.ip_rating) ? payload.ip_rating.trim() : null;
+        const insuranceRating = isValidNonEmptyText(payload.insurance_rating) ? payload.insurance_rating.trim() : null;
+
+        if (bodyCabinetTypeId !== cabinetTypeId) {
+          sendJson(response, 400, { error: 'Cabinet type id in the URL must match the cabinet_type_id in the payload.' });
+          return;
+        }
+
+        if (!title || !units || !Number.isFinite(depthMm) || depthMm <= 0 || !Number.isFinite(widthMm) || widthMm <= 0 || !Number.isFinite(heightMm) || heightMm <= 0) {
+          sendJson(response, 400, {
+            error: 'Invalid cabinet type payload. Provide title, units, depth_mm, width_mm, and height_mm.',
+          });
+          return;
+        }
+
+        if (price != null && !Number.isFinite(price)) {
+          sendJson(response, 400, { error: 'Invalid cabinet type payload. Price must be a valid number when provided.' });
+          return;
+        }
+
+        const updated = withDb(databasePath, (db) => {
+          const existing = getCabinetType(db, cabinetTypeId);
+          if (!existing) {
+            return { status: 404 as const, body: { error: `Cabinet type "${cabinetTypeId}" not found.` } };
+          }
+
+          updateCabinetType(db, {
+            cabinet_type_id: cabinetTypeId,
+            title,
+            description,
+            depth_mm: depthMm,
+            width_mm: widthMm,
+            height_mm: heightMm,
+            units,
+            price,
+            price_source_url: priceSourceUrl,
+            condensation_protection: condensationProtection,
+            insect_protection: insectProtection,
+            dust_protection: dustProtection,
+            outside_protection: outsideProtection,
+            frost_protection: frostProtection,
+            fire_protection: fireProtection,
+            ip_rating: ipRating,
+            insurance_rating: insuranceRating,
+          });
+
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+        });
+
+        sendJson(response, updated.status, updated.body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 500, { error: message });
+      }
+    })();
+    return true;
+  }
+
+  if (method === 'DELETE' && url.pathname.startsWith('/api/cabinet-types/')) {
+    void (async () => {
+      try {
+        const cabinetTypeId = decodeURIComponent(url.pathname.slice('/api/cabinet-types/'.length));
+        if (!cabinetTypeId) {
+          sendJson(response, 400, { error: 'Cabinet type id is required.' });
+          return;
+        }
+
+        const updated = withDb(databasePath, (db) => {
+          const existing = getCabinetType(db, cabinetTypeId);
+          if (!existing) {
+            return { status: 404 as const, body: { error: `Cabinet type "${cabinetTypeId}" not found.` } };
+          }
+
+          deleteCabinetType(db, cabinetTypeId);
           return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
         });
 
@@ -1476,6 +1712,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           image_data_url?: unknown;
           notes?: unknown;
           selected_battery_type_id?: unknown;
+          selected_cabinet_type_id?: unknown;
           configured_battery_count?: unknown;
           batteries_per_string?: unknown;
           parallel_strings?: unknown;
@@ -1496,6 +1733,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           ? undefined
           : (isValidNonEmptyText(payload.notes) ? payload.notes.trim() : '');
         const selectedBatteryTypeId = typeof payload.selected_battery_type_id === 'string' ? payload.selected_battery_type_id.trim() : '';
+        const selectedCabinetTypeId = typeof payload.selected_cabinet_type_id === 'string' ? payload.selected_cabinet_type_id.trim() : '';
         const configuredBatteryCount = typeof payload.configured_battery_count === 'number'
           ? payload.configured_battery_count
           : Number(payload.configured_battery_count);
@@ -1523,6 +1761,13 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             }
           }
 
+          if (selectedCabinetTypeId) {
+            const cabinetType = getCabinetType(db, selectedCabinetTypeId);
+            if (!cabinetType) {
+              return { status: 400 as const, body: { error: `Cabinet type "${selectedCabinetTypeId}" not found.` } };
+            }
+          }
+
           if (configuredBatteryCount !== batteriesPerString * parallelStrings) {
             return {
               status: 400 as const,
@@ -1537,6 +1782,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             image_data_url: imageDataUrl === undefined ? (existingConfiguration?.image_data_url ?? null) : imageDataUrl,
             notes: notes === undefined ? (existingConfiguration?.notes ?? null) : notes,
             selected_battery_type_id: selectedBatteryTypeId || null,
+            selected_cabinet_type_id: selectedCabinetTypeId || null,
             configured_battery_count: configuredBatteryCount,
             batteries_per_string: batteriesPerString,
             parallel_strings: parallelStrings,
@@ -1559,12 +1805,14 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
       try {
         const payload = await readJsonBody<{
           selected_inverter_type_id?: unknown;
+          selected_cabinet_type_id?: unknown;
           title?: unknown;
           description?: unknown;
           image_data_url?: unknown;
           notes?: unknown;
         }>(request);
         const selectedInverterTypeId = typeof payload.selected_inverter_type_id === 'string' ? payload.selected_inverter_type_id.trim() : '';
+        const selectedCabinetTypeId = typeof payload.selected_cabinet_type_id === 'string' ? payload.selected_cabinet_type_id.trim() : '';
         const title = typeof payload.title === 'string' ? payload.title : null;
         const description = typeof payload.description === 'string' ? payload.description : null;
         const imageDataUrl = typeof payload.image_data_url === 'string' ? payload.image_data_url : (payload.image_data_url === null ? null : undefined);
@@ -1580,11 +1828,19 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             return { status: 400 as const, body: { error: 'Choose an inverter type before saving the inverter configuration.' } };
           }
 
+          if (selectedCabinetTypeId) {
+            const cabinet = getCabinetType(db, selectedCabinetTypeId);
+            if (!cabinet) {
+              return { status: 400 as const, body: { error: `Cabinet type "${selectedCabinetTypeId}" not found.` } };
+            }
+          }
+
           const existing = db.prepare('SELECT * FROM inverter_configurations WHERE inverter_configuration_id = ?').get('inverter-configuration-main') as { title?: string; description?: string; image_data_url?: string; notes?: string } | undefined;
 
           upsertInverterConfiguration(db, {
             inverter_configuration_id: 'inverter-configuration-main',
             selected_inverter_type_id: selectedInverterTypeId,
+            selected_cabinet_type_id: selectedCabinetTypeId || null,
             title: title ?? existing?.title ?? null,
             description: description ?? existing?.description ?? null,
             image_data_url: imageDataUrl !== undefined ? imageDataUrl : (existing?.image_data_url ?? null),

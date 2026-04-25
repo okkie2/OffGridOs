@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, describe, expect, it } from 'vitest';
 import { buildDigitalTwinExport } from '../output/exportDigitalTwin.js';
-import { getBatteryBankConfiguration, getInverterConfiguration, getLocation, getSurfaceConfiguration, upsertBatteryBankConfiguration, upsertInverterConfiguration, upsertLocation, upsertSurfaceConfiguration, upsertSurfacePanelAssignment } from '../db/queries.js';
+import { getBatteryBankConfiguration, getInverterConfiguration, getLocation, getSurfaceConfiguration, insertCabinetType, upsertBatteryBankConfiguration, upsertInverterConfiguration, upsertLocation, upsertSurfaceConfiguration, upsertSurfacePanelAssignment } from '../db/queries.js';
 import { openDb } from '../db/connection.js';
 import { ensureDatabaseReady, withDb } from './bootstrap.js';
 
@@ -55,9 +55,30 @@ describe('publish rehearsal', () => {
         selected_mppt_type_id: 'victron-mrs-48-6000-100-450-100',
       });
 
+      insertCabinetType(db, {
+        cabinet_type_id: 'test-cabinet-1',
+        title: 'Test cabinet',
+        description: null,
+        depth_mm: 600,
+        width_mm: 600,
+        height_mm: 2000,
+        units: '42U',
+        price: 1250,
+        price_source_url: null,
+        condensation_protection: false,
+        insect_protection: false,
+        dust_protection: true,
+        outside_protection: true,
+        frost_protection: false,
+        fire_protection: false,
+        ip_rating: 'IP55',
+        insurance_rating: 'Class 60',
+      });
+
       upsertBatteryBankConfiguration(db, {
         battery_bank_id: 'battery-bank-main',
         selected_battery_type_id: 'pylontech-us5000-1c',
+        selected_cabinet_type_id: 'test-cabinet-1',
         configured_battery_count: 4,
         batteries_per_string: 2,
         parallel_strings: 2,
@@ -93,6 +114,7 @@ describe('publish rehearsal', () => {
 
       expect(batteryBankConfiguration).not.toBeNull();
       expect(batteryBankConfiguration?.configured_battery_count).toBe(4);
+      expect(batteryBankConfiguration?.selected_cabinet_type_id).toBe('test-cabinet-1');
       expect(batteryBankConfiguration?.batteries_per_string).toBe(2);
       expect(batteryBankConfiguration?.parallel_strings).toBe(2);
 
@@ -120,7 +142,7 @@ describe('publish rehearsal', () => {
       expect(exportData.project.location?.description).toBe('Farm site in Friesland');
       expect(exportData.project.location?.notes).toBe('Representative persisted location state');
       expect(exportData.project.location?.site_photo_data_url).toBe('data:image/png;base64,test-location-photo');
-      expect(exportData.project.name).toBe('18Mad Boerderij');
+      expect(exportData.project.name).toBe('OffGridOS - 18Mad Boerderij');
       expect(exportData.derived.summary.array_count).toBeGreaterThan(0);
       expect(exportData.derived.summary.mppt_configuration_count).toBeGreaterThan(0);
     } finally {

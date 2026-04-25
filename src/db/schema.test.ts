@@ -20,6 +20,11 @@ function countRows(db: Database.Database, table: string): number {
   return (db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get() as CountRow).count;
 }
 
+function hasTable(db: Database.Database, table: string): boolean {
+  const row = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?").get(table) as { name?: string } | undefined;
+  return Boolean(row);
+}
+
 function snapshotCounts(db: Database.Database, tables: string[]): Record<string, number> {
   return Object.fromEntries(tables.map((table) => [table, countRows(db, table)]));
 }
@@ -40,6 +45,7 @@ describe('initSchema', () => {
         'locations',
         'surfaces',
         'panel_types',
+        'cabinet_types',
         'surface_panel_assignments',
         'pv_arrays',
         'pv_strings',
@@ -57,6 +63,7 @@ describe('initSchema', () => {
       expect(first.locations).toBe(1);
       expect(first.surfaces).toBeGreaterThan(0);
       expect(first.panel_types).toBeGreaterThan(0);
+      expect(first.cabinet_types).toBe(0);
       expect(first.surface_panel_assignments).toBeGreaterThan(0);
       expect(first.pv_arrays).toBe(0);
       expect(first.pv_strings).toBe(0);
@@ -70,6 +77,63 @@ describe('initSchema', () => {
 
       const second = snapshotCounts(db, tables);
       expect(second).toEqual(first);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('creates a cabinet lookup column on the battery-bank configuration table', () => {
+    const db = makeTempDatabase();
+    try {
+      initSchema(db);
+
+      const columns = db.prepare("PRAGMA table_info('battery_bank_configurations')").all() as Array<{ name: string }>;
+      expect(columns.some((column) => column.name === 'selected_cabinet_type_id')).toBe(true);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('drops the legacy location table and preserves its data when needed', () => {
+    const db = makeTempDatabase();
+    try {
+      db.exec(`
+        CREATE TABLE location (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          country TEXT NOT NULL,
+          place_name TEXT NOT NULL,
+          latitude REAL NOT NULL,
+          longitude REAL NOT NULL,
+          northing REAL,
+          easting REAL
+        );
+      `);
+      db.prepare(`
+        INSERT INTO location (country, place_name, latitude, longitude, northing, easting)
+        VALUES ('NL', 'Legacy site', 52.1, 5.1, 100, 200)
+      `).run();
+
+      initSchema(db);
+
+      expect(hasTable(db, 'location')).toBe(false);
+      expect(hasTable(db, 'locations')).toBe(true);
+      expect(countRows(db, 'locations')).toBe(1);
+      const row = db.prepare('SELECT country, place_name, latitude, longitude, northing, easting FROM locations LIMIT 1').get() as {
+        country: string;
+        place_name: string;
+        latitude: number;
+        longitude: number;
+        northing: number | null;
+        easting: number | null;
+      };
+      expect(row).toEqual({
+        country: 'NL',
+        place_name: 'Legacy site',
+        latitude: 52.1,
+        longitude: 5.1,
+        northing: 100,
+        easting: 200,
+      });
     } finally {
       db.close();
     }

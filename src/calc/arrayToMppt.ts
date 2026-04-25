@@ -1,7 +1,7 @@
 import type { MpptType, PanelType } from '../domain/types.js';
 
 export type ElectricalStatus = 'within_limits' | 'outside_limits';
-export type FitStatus = 'optimal' | 'clipping_expected' | 'underutilized';
+export type FitStatus = 'optimal' | 'fully_utilized' | 'clipping_expected' | 'underutilized';
 
 export interface ArrayToMpptInput {
   panelType: PanelType;
@@ -24,6 +24,10 @@ export interface ArrayToMpptFit {
   notes: string;
 }
 
+export function getMpptShortCircuitCurrentLimit(mpptType: MpptType): number {
+  return mpptType.max_pv_short_circuit_current_a ?? mpptType.max_charge_current;
+}
+
 export function pickDerivedMpptType(
   panelType: PanelType,
   panelCount: number,
@@ -37,11 +41,13 @@ export function pickDerivedMpptType(
 
   const assumedVoc = panelsPerString * panelType.voc;
   const assumedInputCurrent = panelType.imp * Math.max(parallelStrings, 1);
+  const assumedShortCircuitCurrent = panelType.isc * Math.max(parallelStrings, 1);
   const assumedChargeCurrent = installedWp / nominalBatteryVoltage;
   const candidates = mpptTypes.filter((mpptType) =>
     mpptType.max_voc >= assumedVoc
     && mpptType.max_pv_power >= installedWp
     && (mpptType.max_pv_input_current_a == null || mpptType.max_pv_input_current_a >= assumedInputCurrent)
+    && getMpptShortCircuitCurrentLimit(mpptType) >= assumedShortCircuitCurrent
     && mpptType.max_charge_current >= assumedChargeCurrent
     && mpptType.nominal_battery_voltage === nominalBatteryVoltage,
   );
@@ -61,10 +67,11 @@ export function evaluateArrayToMpptFit(input: ArrayToMpptInput): ArrayToMpptFit 
   const inputCurrent = input.panelType.imp * Math.max(parallelStrings, 1);
   const inputShortCircuitCurrent = input.panelType.isc * Math.max(parallelStrings, 1);
   const chargeCurrent = input.installedWp / 48;
+  const shortCircuitCurrentLimit = getMpptShortCircuitCurrentLimit(input.mpptType);
   const outsideLimits = inputVoc > input.mpptType.max_voc
     || input.installedWp > input.mpptType.max_pv_power
     || (input.mpptType.max_pv_input_current_a != null && inputCurrent > input.mpptType.max_pv_input_current_a)
-    || (input.mpptType.max_pv_short_circuit_current_a != null && inputShortCircuitCurrent > input.mpptType.max_pv_short_circuit_current_a)
+    || inputShortCircuitCurrent > shortCircuitCurrentLimit
     || chargeCurrent > input.mpptType.max_charge_current;
 
   let fitStatus: FitStatus | undefined;
@@ -78,11 +85,14 @@ export function evaluateArrayToMpptFit(input: ArrayToMpptInput): ArrayToMpptFit 
     if (inputVoc > input.mpptType.max_voc) reasons.push('voltage_too_high');
     if (input.installedWp > input.mpptType.max_pv_power) reasons.push('power_too_high');
     if (input.mpptType.max_pv_input_current_a != null && inputCurrent > input.mpptType.max_pv_input_current_a) reasons.push('input_current_too_high');
-    if (input.mpptType.max_pv_short_circuit_current_a != null && inputShortCircuitCurrent > input.mpptType.max_pv_short_circuit_current_a) reasons.push('short_circuit_current_too_high');
+    if (inputShortCircuitCurrent > shortCircuitCurrentLimit) reasons.push('short_circuit_current_too_high');
     if (chargeCurrent > input.mpptType.max_charge_current) reasons.push('charge_current_too_high');
   } else {
     const powerRatio = input.installedWp / input.mpptType.max_pv_power;
-    if (powerRatio >= 0.9) {
+    if (powerRatio >= 0.95) {
+      fitStatus = 'fully_utilized';
+      reasons.push('fully_utilized');
+    } else if (powerRatio >= 0.8) {
       fitStatus = 'optimal';
       reasons.push('well_matched');
     } else {

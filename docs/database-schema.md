@@ -43,6 +43,27 @@ erDiagram
         TEXT price_source_url
     }
 
+    CABINET_TYPES {
+        INTEGER id PK
+        TEXT cabinet_type_id UK
+        TEXT title
+        TEXT description
+        REAL depth_mm
+        REAL width_mm
+        REAL height_mm
+        TEXT units
+        REAL price
+        TEXT price_source_url
+        INTEGER condensation_protection
+        INTEGER insect_protection
+        INTEGER dust_protection
+        INTEGER outside_protection
+        INTEGER frost_protection
+        INTEGER fire_protection
+        TEXT ip_rating
+        TEXT insurance_rating
+    }
+
     SURFACE_PANEL_ASSIGNMENTS {
         INTEGER id PK
         TEXT surface_id FK
@@ -125,6 +146,7 @@ erDiagram
         INTEGER id PK
         TEXT battery_bank_id UK
         TEXT selected_battery_type_id FK
+        TEXT selected_cabinet_type_id FK
         INTEGER configured_battery_count
         INTEGER batteries_per_string
         INTEGER parallel_strings
@@ -166,13 +188,18 @@ erDiagram
     SURFACES ||--o| SURFACE_CONFIGURATIONS : "has"
     MPPT_TYPES ||--o{ SURFACE_CONFIGURATIONS : "selected for"
     BATTERY_TYPES ||--o{ BATTERY_BANK_CONFIGURATIONS : "selected for"
+    CABINET_TYPES ||--o| BATTERY_BANK_CONFIGURATIONS : "selected for"
     INVERTER_TYPES ||--o{ INVERTER_CONFIGURATIONS : "selected for"
 ```
 
 ## Notes
 
 - `locations` holds the shared project site coordinates.
+- the legacy `location` table has been removed; `locations` is now the only supported site table.
 - `surfaces` defines the roof geometry that the current project uses.
+- `cabinet_types` stores the reusable 19 inch rack cabinet catalog entries.
+- `cabinet_types.units` is stored as text so cabinet capacities such as `42U` or `48U` stay readable in the UI and export.
+- `battery_bank_configurations.selected_cabinet_type_id` links the current battery-bank setup to one optional cabinet type.
 - `surface_panel_assignments` stores the current panel assignment per surface.
 - `pv_arrays`, `pv_strings`, and `array_to_mppt_mappings` persist the current PV topology layer and stay synchronized with the surface configuration.
 - `surface_configurations` stores per-surface string layout and MPPT choice.

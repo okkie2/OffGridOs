@@ -45,6 +45,27 @@ export interface PanelType {
   notes?: string;
 }
 
+export interface CabinetType {
+  id: number;
+  cabinet_type_id: string;
+  title: string;
+  description?: string | null;
+  depth_mm: number;
+  width_mm: number;
+  height_mm: number;
+  units: string;
+  price?: number | null;
+  price_source_url?: string | null;
+  condensation_protection: boolean;
+  insect_protection: boolean;
+  dust_protection: boolean;
+  outside_protection: boolean;
+  frost_protection: boolean;
+  fire_protection: boolean;
+  ip_rating?: string | null;
+  insurance_rating?: string | null;
+}
+
 export interface SurfacePanelAssignment {
   id: number;
   surface_id: string;
@@ -98,6 +119,7 @@ export interface BatteryBankConfiguration {
   image_data_url?: string | null;
   notes?: string | null;
   selected_battery_type_id?: string | null;
+  selected_cabinet_type_id?: string | null;
   configured_battery_count: number;
   batteries_per_string: number;
   parallel_strings: number;
@@ -161,6 +183,7 @@ export interface InverterConfiguration {
   id: number;
   inverter_configuration_id: string;
   selected_inverter_type_id?: string | null;
+  selected_cabinet_type_id?: string | null;
   title?: string | null;
   description?: string | null;
   image_data_url?: string | null;

@@ -17,6 +17,7 @@ Every concept must be referred to by its canonical name across the database sche
 | MPPT type | `mppt_types` | `MpptType` | MPPT |
 | Battery type | `battery_types` | `BatteryType` | Battery |
 | Inverter type | `inverter_types` | `InverterType` | Inverter |
+| Cabinet type | `cabinet_types` | `CabinetType` | Cabinet type |
 | Project preference | `project_preferences` | `ProjectPreferences` | Preference |
 | Victron CAN | `battery_types.victron_can` | `BatteryType.victron_can` | Victron CAN |
 
@@ -120,6 +121,7 @@ Use `outside_limits` when the relationship violates a hard electrical boundary s
 `fit_status` answers the configuration-quality question when the relationship is within hard limits:
 
 - `optimal`
+- `fully_utilized`
 - `clipping_expected`
 - `underutilized`
 
@@ -127,7 +129,12 @@ This allows the model to distinguish:
 
 - unsafe or impossible configurations
 - safe but imperfect configurations
+- near-full utilization that still stays within limits
 - intentional seasonal trade-offs such as summer clipping for better winter performance
+
+Use `fully_utilized` for cases where the array uses roughly 95% to 100% of the available MPPT PV power.
+Use `optimal` for the middle band where the array uses roughly 80% to 95% of the available MPPT PV power.
+Use `underutilized` when the array uses less than roughly 80% of the available MPPT PV power.
 
 ## Orientation
 
@@ -155,6 +162,7 @@ The field is named `orientation_deg` in both the DB column and the TypeScript mo
 - Use `battery_bank_configuration` language for the selected battery-bank setup.
 - Use `mppt_configuration` language for the selected MPPT setup.
 - Use `inverter_configuration` language for the selected inverter setup.
+- Use `row-synced wrapping` for config rows where wrapped labels should keep adjacent fields aligned.
 - Use `surface` instead of `roof face` in domain language, UI labels, code names, and schema names.
 - Use `array` for the persisted PV grouping connected to one surface and one MPPT input.
 - Use `string` only for series-connected panels.

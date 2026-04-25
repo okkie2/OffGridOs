@@ -50,10 +50,11 @@ function printArrayToMpptPass(input: ReturnType<typeof loadProjectInput>): void 
       mpptType: derivedMppt,
     });
 
-    const statusColor = fit.electrical_status === 'outside_limits'
+  const statusColor = fit.electrical_status === 'outside_limits'
       ? chalk.red
       : fit.fit_status === 'optimal'
-        ? chalk.green
+        || fit.fit_status === 'fully_utilized'
+          ? chalk.green
           : chalk.blue;
 
     console.log(

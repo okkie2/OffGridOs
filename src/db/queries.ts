@@ -9,6 +9,7 @@ import type {
   PvString,
   ArrayToMpptMapping,
   MpptType,
+  CabinetType,
   BatteryType,
   BatteryBankConfiguration,
   InverterType,
@@ -134,6 +135,114 @@ export function updatePanelType(db: Database.Database, data: Omit<PanelType, 'id
 export function deletePanelType(db: Database.Database, panel_type_id: string): void {
   db.prepare('DELETE FROM surface_panel_assignments WHERE panel_type_id = ?').run(panel_type_id);
   db.prepare('DELETE FROM panel_types WHERE panel_type_id = ?').run(panel_type_id);
+}
+
+// ── Cabinet types ────────────────────────────────────────────────────────────
+
+export function listCabinetTypes(db: Database.Database): CabinetType[] {
+  return db.prepare('SELECT * FROM cabinet_types ORDER BY title').all() as CabinetType[];
+}
+
+export function getCabinetType(db: Database.Database, cabinet_type_id: string): CabinetType | null {
+  return (db.prepare('SELECT * FROM cabinet_types WHERE cabinet_type_id = ?').get(cabinet_type_id) as CabinetType) ?? null;
+}
+
+export function insertCabinetType(db: Database.Database, data: Omit<CabinetType, 'id'>): void {
+  db.prepare(`
+    INSERT INTO cabinet_types (
+      cabinet_type_id,
+      title,
+      description,
+      depth_mm,
+      width_mm,
+      height_mm,
+      units,
+      price,
+      price_source_url,
+      condensation_protection,
+      insect_protection,
+      dust_protection,
+      outside_protection,
+      frost_protection,
+      fire_protection,
+      ip_rating,
+      insurance_rating
+    )
+    VALUES (
+      @cabinet_type_id,
+      @title,
+      @description,
+      @depth_mm,
+      @width_mm,
+      @height_mm,
+      @units,
+      @price,
+      @price_source_url,
+      @condensation_protection,
+      @insect_protection,
+      @dust_protection,
+      @outside_protection,
+      @frost_protection,
+      @fire_protection,
+      @ip_rating,
+      @insurance_rating
+    )
+  `).run({
+    ...data,
+    description: data.description ?? null,
+    price: data.price ?? null,
+    price_source_url: data.price_source_url ?? null,
+    condensation_protection: data.condensation_protection ? 1 : 0,
+    insect_protection: data.insect_protection ? 1 : 0,
+    dust_protection: data.dust_protection ? 1 : 0,
+    outside_protection: data.outside_protection ? 1 : 0,
+    frost_protection: data.frost_protection ? 1 : 0,
+    fire_protection: data.fire_protection ? 1 : 0,
+    ip_rating: data.ip_rating ?? null,
+    insurance_rating: data.insurance_rating ?? null,
+    units: data.units ?? null,
+  });
+}
+
+export function updateCabinetType(db: Database.Database, data: Omit<CabinetType, 'id'>): void {
+  db.prepare(`
+    UPDATE cabinet_types
+    SET title=@title,
+        description=@description,
+        depth_mm=@depth_mm,
+        width_mm=@width_mm,
+        height_mm=@height_mm,
+        units=@units,
+        price=@price,
+        price_source_url=@price_source_url,
+        condensation_protection=@condensation_protection,
+        insect_protection=@insect_protection,
+        dust_protection=@dust_protection,
+        outside_protection=@outside_protection,
+        frost_protection=@frost_protection,
+        fire_protection=@fire_protection,
+        ip_rating=@ip_rating,
+        insurance_rating=@insurance_rating
+    WHERE cabinet_type_id=@cabinet_type_id
+  `).run({
+    ...data,
+    description: data.description ?? null,
+    price: data.price ?? null,
+    price_source_url: data.price_source_url ?? null,
+    condensation_protection: data.condensation_protection ? 1 : 0,
+    insect_protection: data.insect_protection ? 1 : 0,
+    dust_protection: data.dust_protection ? 1 : 0,
+    outside_protection: data.outside_protection ? 1 : 0,
+    frost_protection: data.frost_protection ? 1 : 0,
+    fire_protection: data.fire_protection ? 1 : 0,
+    ip_rating: data.ip_rating ?? null,
+    insurance_rating: data.insurance_rating ?? null,
+    units: data.units ?? null,
+  });
+}
+
+export function deleteCabinetType(db: Database.Database, cabinet_type_id: string): void {
+  db.prepare('DELETE FROM cabinet_types WHERE cabinet_type_id = ?').run(cabinet_type_id);
 }
 
 // ── Surface panel assignments ─────────────────────────────────────────────────
@@ -435,6 +544,7 @@ export function upsertBatteryBankConfiguration(db: Database.Database, data: Omit
       image_data_url,
       notes,
       selected_battery_type_id,
+      selected_cabinet_type_id,
       configured_battery_count,
       batteries_per_string,
       parallel_strings
@@ -446,6 +556,7 @@ export function upsertBatteryBankConfiguration(db: Database.Database, data: Omit
       @image_data_url,
       @notes,
       @selected_battery_type_id,
+      @selected_cabinet_type_id,
       @configured_battery_count,
       @batteries_per_string,
       @parallel_strings
@@ -456,6 +567,7 @@ export function upsertBatteryBankConfiguration(db: Database.Database, data: Omit
       image_data_url = excluded.image_data_url,
       notes = excluded.notes,
       selected_battery_type_id = excluded.selected_battery_type_id,
+      selected_cabinet_type_id = excluded.selected_cabinet_type_id,
       configured_battery_count = excluded.configured_battery_count,
       batteries_per_string = excluded.batteries_per_string,
       parallel_strings = excluded.parallel_strings
@@ -465,6 +577,7 @@ export function upsertBatteryBankConfiguration(db: Database.Database, data: Omit
     description: data.description ?? null,
     image_data_url: data.image_data_url ?? null,
     notes: data.notes ?? null,
+    selected_cabinet_type_id: data.selected_cabinet_type_id ?? null,
   });
 }
 
@@ -698,6 +811,7 @@ export function upsertInverterConfiguration(db: Database.Database, data: Omit<In
     INSERT INTO inverter_configurations (
       inverter_configuration_id,
       selected_inverter_type_id,
+      selected_cabinet_type_id,
       title,
       description,
       image_data_url,
@@ -706,6 +820,7 @@ export function upsertInverterConfiguration(db: Database.Database, data: Omit<In
     VALUES (
       @inverter_configuration_id,
       @selected_inverter_type_id,
+      @selected_cabinet_type_id,
       @title,
       @description,
       @image_data_url,
@@ -713,12 +828,14 @@ export function upsertInverterConfiguration(db: Database.Database, data: Omit<In
     )
     ON CONFLICT(inverter_configuration_id) DO UPDATE SET
       selected_inverter_type_id = excluded.selected_inverter_type_id,
+      selected_cabinet_type_id = excluded.selected_cabinet_type_id,
       title = excluded.title,
       description = excluded.description,
       image_data_url = excluded.image_data_url,
       notes = excluded.notes
   `).run({
     ...data,
+    selected_cabinet_type_id: data.selected_cabinet_type_id ?? null,
     title: data.title ?? null,
     description: data.description ?? null,
     image_data_url: data.image_data_url ?? null,

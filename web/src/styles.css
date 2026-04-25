@@ -335,6 +335,10 @@ h1, h2, h3, p, dl, dd, dt {
   display: inline-flex;
 }
 
+.sidebar.sidebar-collapsed .sidebar-close-button {
+  display: none;
+}
+
 .sidebar-backdrop {
   display: none;
   position: fixed;
@@ -1102,6 +1106,12 @@ h1, h2, h3, p, dl, dd, dt {
   font-weight: 600;
 }
 
+.yield-table tfoot th,
+.yield-table tfoot td {
+  font-weight: 700;
+  background: color-mix(in srgb, var(--surface-low) 88%, white);
+}
+
 .catalog-table tbody tr {
   cursor: pointer;
 }
@@ -1315,6 +1325,12 @@ h1, h2, h3, p, dl, dd, dt {
 
 .config-control-row {
   align-items: start;
+}
+
+.row-synced-wrap .config-field > span {
+  min-height: 2.4em;
+  display: block;
+  line-height: 1.1;
 }
 
 .config-field-span-2 {
@@ -1776,11 +1792,19 @@ h1, h2, h3, p, dl, dd, dt {
   }
 
   .sidebar-collapse-button {
-    display: none;
+    display: inline-flex;
   }
 
   .sidebar-backdrop {
     display: block;
+  }
+
+  .sidebar.sidebar-collapsed {
+    transform: translateX(-102%);
+  }
+
+  .sidebar.sidebar-collapsed.sidebar-open {
+    transform: translateX(0);
   }
 
   .sidebar-nav {
