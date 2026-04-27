@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { seedMpptTypes, seedBatteryTypes, seedInverterTypes, seedInverterConfigurations, seedLocation, seedPanelTypes, seedSurfaces, seedSurfacePanelAssignments } from './seeds.js';
+import { seedMpptTypes, seedBatteryTypes, seedInverterTypes, seedConversionDevices, seedInverterConfigurations, seedLocation, seedPanelTypes, seedSurfaces, seedSurfacePanelAssignments } from './seeds.js';
 import { syncPvTopology } from './queries.js';
 
 function hasTable(db: Database.Database, tableName: string): boolean {
@@ -73,6 +73,19 @@ function ensureBatteryTypesColumns(db: Database.Database): void {
       'rs-series-rs230'
     )
   `).run();
+}
+
+function ensureConversionDeviceColumns(db: Database.Database): void {
+  const cols = new Set((db.prepare("PRAGMA table_info('conversion_devices')").all() as { name: string }[]).map((row) => row.name));
+  const additions = [
+    !cols.has('price') ? 'ALTER TABLE conversion_devices ADD COLUMN price REAL;' : '',
+    !cols.has('price_source_url') ? 'ALTER TABLE conversion_devices ADD COLUMN price_source_url TEXT;' : '',
+    !cols.has('notes') ? 'ALTER TABLE conversion_devices ADD COLUMN notes TEXT;' : '',
+  ].filter(Boolean);
+
+  if (additions.length > 0) {
+    db.exec(additions.join('\n'));
+  }
 }
 
 function ensureLocationColumns(db: Database.Database): void {
@@ -170,6 +183,7 @@ function ensureInverterConfigurationColumns(db: Database.Database): void {
     !cols.has('image_data_url') ? 'ALTER TABLE inverter_configurations ADD COLUMN image_data_url TEXT;' : '',
     !cols.has('notes') ? 'ALTER TABLE inverter_configurations ADD COLUMN notes TEXT;' : '',
     !cols.has('selected_cabinet_type_id') ? 'ALTER TABLE inverter_configurations ADD COLUMN selected_cabinet_type_id TEXT REFERENCES cabinet_types(cabinet_type_id);' : '',
+    !cols.has('selected_dc_busbar_id') ? 'ALTER TABLE inverter_configurations ADD COLUMN selected_dc_busbar_id TEXT REFERENCES dc_busbars(dc_busbar_id) ON DELETE SET NULL;' : '',
   ].filter(Boolean);
 
   if (additions.length > 0) {
@@ -198,6 +212,19 @@ function ensureBatteryBankConfigurationColumns(db: Database.Database): void {
     !cols.has('image_data_url') ? 'ALTER TABLE battery_bank_configurations ADD COLUMN image_data_url TEXT;' : '',
     !cols.has('notes') ? 'ALTER TABLE battery_bank_configurations ADD COLUMN notes TEXT;' : '',
     !cols.has('selected_cabinet_type_id') ? 'ALTER TABLE battery_bank_configurations ADD COLUMN selected_cabinet_type_id TEXT REFERENCES cabinet_types(cabinet_type_id);' : '',
+    !cols.has('selected_dc_busbar_id') ? 'ALTER TABLE battery_bank_configurations ADD COLUMN selected_dc_busbar_id TEXT REFERENCES dc_busbars(dc_busbar_id) ON DELETE SET NULL;' : '',
+  ].filter(Boolean);
+
+  if (additions.length > 0) {
+    db.exec(additions.join('\n'));
+  }
+}
+
+function ensureDcBusbarColumns(db: Database.Database): void {
+  const cols = new Set((db.prepare("PRAGMA table_info('dc_busbars')").all() as { name: string }[]).map((row) => row.name));
+  const additions = [
+    !cols.has('title') ? "ALTER TABLE dc_busbars ADD COLUMN title TEXT NOT NULL DEFAULT '';" : '',
+    !cols.has('description') ? 'ALTER TABLE dc_busbars ADD COLUMN description TEXT;' : '',
   ].filter(Boolean);
 
   if (additions.length > 0) {
@@ -230,6 +257,7 @@ function ensurePanelTypesColumns(db: Database.Database): void {
     !cols.has('brand') ? "ALTER TABLE panel_types ADD COLUMN brand TEXT NOT NULL DEFAULT '';" : '',
     !cols.has('price') ? 'ALTER TABLE panel_types ADD COLUMN price REAL;' : '',
     !cols.has('price_source_url') ? 'ALTER TABLE panel_types ADD COLUMN price_source_url TEXT;' : '',
+    !cols.has('temp_coefficient_voc_pct_per_c') ? 'ALTER TABLE panel_types ADD COLUMN temp_coefficient_voc_pct_per_c REAL;' : '',
   ].filter(Boolean);
 
   if (additions.length > 0) {
@@ -394,6 +422,13 @@ export function initSchema(db: Database.Database): void {
       selected_mppt_type_id TEXT REFERENCES mppt_types(mppt_type_id)
     );
 
+    CREATE TABLE IF NOT EXISTS dc_busbars (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      dc_busbar_id    TEXT UNIQUE NOT NULL,
+      title           TEXT NOT NULL,
+      description     TEXT
+    );
+
     CREATE TABLE IF NOT EXISTS battery_bank_configurations (
       id                       INTEGER PRIMARY KEY AUTOINCREMENT,
       battery_bank_id          TEXT UNIQUE NOT NULL,
@@ -403,6 +438,7 @@ export function initSchema(db: Database.Database): void {
       notes                    TEXT,
       selected_battery_type_id TEXT REFERENCES battery_types(battery_type_id),
       selected_cabinet_type_id  TEXT REFERENCES cabinet_types(cabinet_type_id),
+      selected_dc_busbar_id    TEXT REFERENCES dc_busbars(dc_busbar_id) ON DELETE SET NULL,
       configured_battery_count  INTEGER NOT NULL DEFAULT 1,
       batteries_per_string      INTEGER NOT NULL DEFAULT 1,
       parallel_strings          INTEGER NOT NULL DEFAULT 1
@@ -471,7 +507,47 @@ export function initSchema(db: Database.Database): void {
       id                        INTEGER PRIMARY KEY AUTOINCREMENT,
       inverter_configuration_id TEXT UNIQUE NOT NULL,
       selected_inverter_type_id  TEXT REFERENCES inverter_types(inverter_id),
-      selected_cabinet_type_id   TEXT REFERENCES cabinet_types(cabinet_type_id)
+      selected_cabinet_type_id   TEXT REFERENCES cabinet_types(cabinet_type_id),
+      selected_dc_busbar_id      TEXT REFERENCES dc_busbars(dc_busbar_id) ON DELETE SET NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS conversion_devices (
+      id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+      conversion_device_id   TEXT UNIQUE NOT NULL,
+      title                  TEXT NOT NULL,
+      description            TEXT,
+      device_type            TEXT NOT NULL,
+      input_voltage_v        REAL,
+      output_voltage_v       REAL,
+      continuous_power_w     REAL,
+      peak_power_va          REAL,
+      max_charge_current_a   REAL,
+      efficiency_pct         REAL,
+      output_ac_voltage_v    REAL,
+      frequency_hz           REAL,
+      surge_power_w          REAL,
+      output_dc_voltage_v    REAL,
+      max_output_current_a   REAL
+    );
+
+    CREATE TABLE IF NOT EXISTS load_circuits (
+      id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+      load_circuit_id        TEXT UNIQUE NOT NULL,
+      conversion_device_id   TEXT NOT NULL REFERENCES conversion_devices(conversion_device_id),
+      title                  TEXT NOT NULL,
+      description            TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS loads (
+      id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+      load_id                TEXT UNIQUE NOT NULL,
+      load_circuit_id        TEXT NOT NULL REFERENCES load_circuits(load_circuit_id),
+      title                  TEXT NOT NULL,
+      description            TEXT,
+      usage_kw               REAL NOT NULL,
+      spike_kw               REAL NOT NULL,
+      expected_usage_hours_per_day REAL NOT NULL,
+      sleeping_kw            REAL NOT NULL
     );
 
   `);
@@ -479,7 +555,9 @@ export function initSchema(db: Database.Database): void {
   ensureLocationColumns(db);
   dropLegacyLocationTable(db);
   ensureSurfaceColumns(db);
+  ensureDcBusbarColumns(db);
   ensureBatteryBankConfigurationColumns(db);
+  ensureConversionDeviceColumns(db);
   ensureInverterConfigurationColumns(db);
   ensureCabinetTypesColumns(db);
   ensureBatteryTypesColumns(db);
@@ -491,6 +569,7 @@ export function initSchema(db: Database.Database): void {
   seedPanelTypes(db);
   seedMpptTypes(db);
   seedBatteryTypes(db);
+  seedConversionDevices(db);
   seedSurfacePanelAssignments(db);
   seedInverterTypes(db);
   seedInverterConfigurations(db);

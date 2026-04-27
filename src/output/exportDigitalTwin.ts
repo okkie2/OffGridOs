@@ -15,15 +15,18 @@ import type {
   PvArray,
   PvString,
   ArrayToMpptMapping,
+  ConversionDevice,
 } from '../domain/types.js';
 import {
   getLocation,
   getProjectPreferences,
   listCabinetTypes,
   listBatteryTypes,
+  listConversionDevices,
   listArrayToMpptMappings,
   listInverterConfigurations,
-  listInverterTypes,
+  listLoadCircuits,
+  listLoads,
   listMpptTypes,
   listPanelTypes,
   listBatteryBankConfigurations,
@@ -111,6 +114,45 @@ interface ExportInverterConfiguration {
   notes?: string | null;
 }
 
+interface ExportConversionDevice {
+  conversion_device_id: string;
+  title: string;
+  description: string | null;
+  device_type: string;
+  input_voltage_v: number | null;
+  output_voltage_v: number | null;
+  continuous_power_w: number | null;
+  peak_power_va: number | null;
+  max_charge_current_a: number | null;
+  efficiency_pct: number | null;
+  output_ac_voltage_v: number | null;
+  frequency_hz: number | null;
+  surge_power_w: number | null;
+  output_dc_voltage_v: number | null;
+  max_output_current_a: number | null;
+  price: number | null;
+  price_source_url: string | null;
+  notes: string | null;
+}
+
+interface ExportLoadCircuit {
+  load_circuit_id: string;
+  conversion_device_id: string;
+  title: string;
+  description: string | null;
+}
+
+interface ExportLoad {
+  load_id: string;
+  load_circuit_id: string;
+  title: string;
+  description: string | null;
+  usage_kw: number;
+  spike_kw: number;
+  expected_usage_hours_per_day: number;
+  sleeping_kw: number;
+}
+
 interface ExportProject {
   project_id: string;
   name: string;
@@ -173,11 +215,12 @@ interface DigitalTwinExport {
     battery_banks: ExportBatteryBank[];
     inverter_types: InverterType[];
     inverter_configurations: ExportInverterConfiguration[];
+    conversion_devices: ExportConversionDevice[];
+    load_circuits: ExportLoadCircuit[];
+    loads: ExportLoad[];
     solar_monthly_profiles: ExportSolarMonthlyProfile[];
-    branch_circuits: [];
-    consumers: [];
     generators: [];
-    consumer_monthly_profiles: [];
+    load_monthly_profiles: [];
     generator_monthly_profiles: [];
   };
   relationships: {
@@ -220,8 +263,8 @@ interface DigitalTwinExport {
         notes: string;
       };
     }>;
-    inverter_to_branch_circuit: [];
-    branch_circuit_to_consumer: [];
+    conversion_device_to_load_circuit: [];
+    load_circuit_to_load: [];
   };
   derived: {
     string_states: [];
@@ -244,7 +287,7 @@ interface DigitalTwinExport {
     monthly_balance: Array<{
       month: string;
       solar_kwh: number | null;
-      consumer_kwh: number | null;
+      load_kwh: number | null;
       generator_kwh: number | null;
       battery_charge_kwh: number | null;
       battery_discharge_kwh: number | null;
@@ -684,6 +727,38 @@ function pickDerivedInverter(inverterTypes: InverterType[]): InverterType | unde
   return [...inverterTypes].sort((left, right) => left.continuous_power_w - right.continuous_power_w)[0];
 }
 
+function conversionDeviceToInverterType(device: ConversionDevice): InverterType | null {
+  if (device.device_type !== 'inverter') {
+    return null;
+  }
+
+  if (
+    device.input_voltage_v == null
+    || device.output_voltage_v == null
+    || device.continuous_power_w == null
+    || device.peak_power_va == null
+    || device.max_charge_current_a == null
+  ) {
+    return null;
+  }
+
+  return {
+    id: device.id,
+    inverter_id: device.conversion_device_id,
+    brand: '',
+    model: device.title,
+    input_voltage_v: device.input_voltage_v,
+    output_voltage_v: device.output_voltage_v,
+    continuous_power_w: device.continuous_power_w,
+    peak_power_va: device.peak_power_va,
+    max_charge_current_a: device.max_charge_current_a,
+    efficiency_pct: device.efficiency_pct ?? null,
+    price: device.price ?? null,
+    price_source_url: device.price_source_url ?? null,
+    notes: device.notes ?? undefined,
+  };
+}
+
 function buildInverterConfigurations(
   inverterConfigurations: Array<{
     inverter_configuration_id: string;
@@ -838,7 +913,7 @@ function buildMonthlyBalance(): DigitalTwinExport['derived']['monthly_balance'] 
   return MONTHS.map((month) => ({
     month,
     solar_kwh: null,
-    consumer_kwh: null,
+    load_kwh: null,
     generator_kwh: null,
     battery_charge_kwh: null,
     battery_discharge_kwh: null,
@@ -858,8 +933,13 @@ export function buildDigitalTwinExport(db: Database.Database, dbPath: string): D
   const panelTypes = listPanelTypes(db);
   const mpptTypes = listMpptTypes(db);
   const batteryTypes = listBatteryTypes(db);
-  const inverterTypes = listInverterTypes(db);
+  const conversionDevices = listConversionDevices(db);
+  const inverterTypes = conversionDevices
+    .map((device) => conversionDeviceToInverterType(device))
+    .filter((device): device is InverterType => device != null);
   const inverterConfigurations = listInverterConfigurations(db);
+  const loadCircuits = listLoadCircuits(db);
+  const loads = listLoads(db);
   const pvArrays = listPvArrays(db);
   const pvStrings = listPvStrings(db);
   const arrayToMpptMappings = listArrayToMpptMappings(db);
@@ -927,19 +1007,53 @@ export function buildDigitalTwinExport(db: Database.Database, dbPath: string): D
       battery_banks: batteryBanks,
       inverter_types: inverterTypes,
       inverter_configurations: derivedInverterConfigurations,
+      conversion_devices: conversionDevices.map((device) => ({
+        conversion_device_id: device.conversion_device_id,
+        title: device.title,
+        description: device.description ?? null,
+        device_type: device.device_type,
+        input_voltage_v: device.input_voltage_v ?? null,
+        output_voltage_v: device.output_voltage_v ?? null,
+        continuous_power_w: device.continuous_power_w ?? null,
+        peak_power_va: device.peak_power_va ?? null,
+        max_charge_current_a: device.max_charge_current_a ?? null,
+        efficiency_pct: device.efficiency_pct ?? null,
+        output_ac_voltage_v: device.output_ac_voltage_v ?? null,
+        frequency_hz: device.frequency_hz ?? null,
+        surge_power_w: device.surge_power_w ?? null,
+        output_dc_voltage_v: device.output_dc_voltage_v ?? null,
+        max_output_current_a: device.max_output_current_a ?? null,
+        price: device.price ?? null,
+        price_source_url: device.price_source_url ?? null,
+        notes: device.notes ?? null,
+      })),
+      load_circuits: loadCircuits.map((circuit) => ({
+        load_circuit_id: circuit.load_circuit_id,
+        conversion_device_id: circuit.conversion_device_id,
+        title: circuit.title,
+        description: circuit.description ?? null,
+      })),
+      loads: loads.map((load) => ({
+        load_id: load.load_id,
+        load_circuit_id: load.load_circuit_id,
+        title: load.title,
+        description: load.description ?? null,
+        usage_kw: load.usage_kw,
+        spike_kw: load.spike_kw,
+        expected_usage_hours_per_day: load.expected_usage_hours_per_day,
+        sleeping_kw: load.sleeping_kw,
+      })),
       solar_monthly_profiles: solarMonthlyProfiles,
-      branch_circuits: [],
-      consumers: [],
       generators: [],
-      consumer_monthly_profiles: [],
+      load_monthly_profiles: [],
       generator_monthly_profiles: [],
     },
     relationships: {
       array_to_mppt: arrayToMppt,
       mppt_to_battery_bank: mpptToBatteryBank,
       battery_bank_to_inverter: batteryBankToInverter,
-      inverter_to_branch_circuit: [],
-      branch_circuit_to_consumer: [],
+      conversion_device_to_load_circuit: [],
+      load_circuit_to_load: [],
     },
     derived: {
       string_states: [],

@@ -40,6 +40,7 @@ export interface PanelType {
   imp: number;
   length_mm: number;
   width_mm: number;
+  temp_coefficient_voc_pct_per_c: number | null;
   price?: number | null;
   price_source_url?: string | null;
   notes?: string;
@@ -120,6 +121,7 @@ export interface BatteryBankConfiguration {
   notes?: string | null;
   selected_battery_type_id?: string | null;
   selected_cabinet_type_id?: string | null;
+  selected_dc_busbar_id?: string | null;
   configured_battery_count: number;
   batteries_per_string: number;
   parallel_strings: number;
@@ -184,10 +186,60 @@ export interface InverterConfiguration {
   inverter_configuration_id: string;
   selected_inverter_type_id?: string | null;
   selected_cabinet_type_id?: string | null;
+  selected_dc_busbar_id?: string | null;
   title?: string | null;
   description?: string | null;
   image_data_url?: string | null;
   notes?: string | null;
+}
+
+export interface DcBusbar {
+  id: number;
+  dc_busbar_id: string;
+  title: string;
+  description?: string | null;
+}
+
+export interface ConversionDevice {
+  id: number;
+  conversion_device_id: string;
+  title: string;
+  description?: string | null;
+  device_type: string;
+  input_voltage_v?: number | null;
+  output_voltage_v?: number | null;
+  continuous_power_w?: number | null;
+  peak_power_va?: number | null;
+  max_charge_current_a?: number | null;
+  efficiency_pct?: number | null;
+  output_ac_voltage_v?: number | null;
+  frequency_hz?: number | null;
+  surge_power_w?: number | null;
+  output_dc_voltage_v?: number | null;
+  max_output_current_a?: number | null;
+  price?: number | null;
+  price_source_url?: string | null;
+  notes?: string | null;
+}
+
+export interface LoadCircuit {
+  id: number;
+  load_circuit_id: string;
+  conversion_device_id: string;
+  title: string;
+  description?: string | null;
+}
+
+export interface Load {
+  id: number;
+  load_id: string;
+  load_circuit_id: string;
+  title: string;
+  description?: string | null;
+  usage_kw: number;
+  spike_kw: number;
+  expected_usage_hours_per_day: number;
+  sleeping_kw: number;
 }
 
 export interface ProjectPreferences {

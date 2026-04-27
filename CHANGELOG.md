@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2026-04-26
+
+- Added a new `Conversion devices` catalog with CRUD support, seeded the inverter catalog rows into it as the bridge catalog, and mirrored legacy inverter saves/deletes into `conversion_devices` so inverter selection, reports, and export now read from the new source.
+- Removed the redundant `Catalog entries` and `Edit or add...` wrapper copy from all catalog pages so the catalog screens now jump straight to the table and editor.
+- Made the top-level sidebar items for `Location`, `Reports`, and `Catalogs` act as both navigation shortcuts and submenu toggles, so the first click now opens the page instead of only expanding the section.
+
 ## 2026-04-25
 
 - Added a new `Cabinet types` catalog for 19 inch rack enclosures with dimensions, a text `Units` field, protection flags, IP rating, insurance rating, price, and source URL, plus CRUD support and a catalog page.

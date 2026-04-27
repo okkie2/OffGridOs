@@ -1,6 +1,6 @@
-# Branch Circuit Consumer Screen
+# Load Circuit Load Screen
 
-This note defines the detailed screen for branch circuits, consumers, and downstream distribution.
+This note defines the detailed screen for load circuits, loads, and downstream distribution.
 
 Terminology in this note must follow [UBIQUITOUS_LANGUAGE.md](../UBIQUITOUS_LANGUAGE.md).
 
@@ -9,9 +9,9 @@ Terminology in this note must follow [UBIQUITOUS_LANGUAGE.md](../UBIQUITOUS_LANG
 This screen should help the user answer:
 
 - how the inverter output is distributed
-- which branch circuits exist
-- which consumers sit on each branch circuit
-- whether any branch circuit is overloaded or underused
+- which load circuits exist
+- which loads sit on each load circuit
+- whether any load circuit is overloaded or underused
 - which loads drive downstream demand
 
 It is the main AC-side distribution view.
@@ -21,19 +21,19 @@ It is the main AC-side distribution view.
 This screen should show:
 
 - selected inverter configuration
-- branch circuits downstream of that inverter
-- consumers grouped by branch circuit
-- `inverter -> branch circuit` evaluations
-- `branch circuit -> consumer` evaluations
+- load circuits downstream of that inverter
+- loads grouped by load circuit
+- `inverter -> load circuit` evaluations
+- `load circuit -> load` evaluations
 
 ## Layout blocks
 
 Suggested layout:
 
 1. inverter output header
-2. branch-circuit summary section
-3. branch-circuit detail list
-4. consumer detail section
+2. load-circuit summary section
+3. load-circuit detail list
+4. load detail section
 5. monthly demand section
 6. adjustment options section
 
@@ -45,55 +45,55 @@ Show:
 - output voltage
 - continuous power
 - peak power
-- number of branch circuits
-- total connected consumer load
+- number of load circuits
+- total connected load
 
 Purpose:
 
 - re-establish the AC-side source context
 
-## 2. Branch-circuit summary section
+## 2. Load-circuit summary section
 
-Show one summary card per branch circuit.
+Show one summary card per load circuit.
 
 Each card should include:
 
-- branch circuit name
+- load circuit name
 - fuse or breaker rating
 - nominal voltage
-- number of consumers
+- number of loads
 - total nominal load
 - total peak load
 - relationship status
 
-This gives a quick scan of which branch circuits deserve attention.
+This gives a quick scan of which load circuits deserve attention.
 
-## 3. Branch-circuit detail list
+## 3. Load-circuit detail list
 
-For each branch circuit, show:
+For each load circuit, show:
 
-- connected consumers
+- connected loads
 - aggregated running power
 - aggregated surge power
 - aggregated daily energy if available
-- `inverter -> branch circuit` evaluation
+- `inverter -> load circuit` evaluation
 
 This is where the user understands how the protected groups are behaving.
 
-## 4. Consumer detail section
+## 4. Load detail section
 
-Within each branch circuit, show individual consumers or modeled load groups.
+Within each load circuit, show individual loads or modeled load groups.
 
 Each item should include:
 
-- consumer name
+- load name
 - whether it is an appliance, endpoint, or grouped load
 - nominal power
 - surge power
 - daily energy
-- `branch circuit -> consumer` evaluation
+- `load circuit -> load` evaluation
 
-Example consumers:
+Example loads:
 
 - washing machine
 - pump
@@ -107,29 +107,29 @@ Show monthly demand from the downstream side.
 
 Suggested values:
 
-- branch-circuit demand by month
-- consumer demand by month
+- load-circuit demand by month
+- load demand by month
 - high-pressure months
 - low-usage months
 
 Purpose:
 
-- connect the consumer side to the seasonal energy model
+- connect the load side to the seasonal energy model
 
 ## 6. Adjustment options section
 
 Suggested adjustable items:
 
-- branch circuit definition
+- load circuit definition
 - fuse or breaker rating
-- consumer grouping
-- consumer energy assumptions
-- consumer monthly factors
+- load grouping
+- load energy assumptions
+- load monthly factors
 
 Suggested actions:
 
-- `Move consumer to another branch circuit`
-- `Split overloaded branch circuit`
+- `Move load to another load circuit`
+- `Split overloaded load circuit`
 - `Aggregate small loads`
 - `Refine monthly demand assumptions`
 
@@ -137,17 +137,17 @@ Suggested actions:
 
 The user should quickly be able to answer:
 
-- Which branch circuits are close to their limits?
-- Which consumers dominate demand?
-- Are consumers grouped sensibly?
+- Which load circuits are close to their limits?
+- Which loads dominate demand?
+- Are loads grouped sensibly?
 - Is the current downstream distribution realistic?
 
 ## Relationship emphasis
 
 This screen should emphasize:
 
-- `inverter -> branch circuit`
-- `branch circuit -> consumer`
+- `inverter -> load circuit`
+- `load circuit -> load`
 
 The UI should help the user distinguish:
 
@@ -160,9 +160,9 @@ The UI should help the user distinguish:
 
 The first implemented version of this screen should prioritize:
 
-1. branch-circuit cards
-2. consumer grouping
-3. branch loading summary
+1. load-circuit cards
+2. load grouping
+3. load-circuit loading summary
 4. downstream relationship status
 5. monthly demand context
 

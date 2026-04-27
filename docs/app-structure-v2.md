@@ -56,8 +56,8 @@ Examples:
 - `array -> MPPT`
 - `MPPT -> battery bank`
 - `battery bank -> inverter`
-- `inverter -> branch circuit`
-- `branch circuit -> consumers`
+- `inverter -> load circuit`
+- `load circuit -> load`
 
 So:
 
@@ -214,7 +214,7 @@ Notes:
 - despite the page title, this may represent one inverter or multiple inverters
 - the page should stay compatible with future multi-inverter modeling
 
-### 6. Branch Circuits / Fusing
+### 6. Load Circuits / Fusing
 
 Start information:
 
@@ -227,39 +227,39 @@ Configuration:
 
 Result:
 
-- branch-circuit configuration
+- load-circuit configuration
 
 Feedback:
 
-- `inverter -> branch circuit` judgment
+- `inverter -> load circuit` judgment
 
 Notes:
 
-- `Branch circuits / fusing` is the preferred term
+- `Load circuits / fusing` is the preferred term
 - this replaces earlier looser fuse-group wording
 
-### 7. Consumers
+### 7. Loads
 
 Start information:
 
-- branch-circuit summary
+- load-circuit summary
 
 Configuration:
 
-- consumer group configuration
-- consumer configuration
+- load-circuit configuration
+- load configuration
 
 Result:
 
-- configured consumers
+- configured loads
 
 Feedback:
 
-- `branch circuit -> consumers` judgment
+- `load circuit -> loads` judgment
 
 Notes:
 
-- a consumer may be a single appliance or a modeled grouped load
+- a load may be a single appliance or a modeled grouped load
 
 ### 8. Dashboard
 
@@ -293,7 +293,7 @@ This structure suggests a cleaner progression:
 4. `Battery array`
 5. `Inverter array`
 6. `Branch circuits / fusing`
-7. `Consumers`
+7. `Loads`
 8. `Dashboard`
 
 The user should be able to move step by step, while the dashboard stays available as the cross-system summary.

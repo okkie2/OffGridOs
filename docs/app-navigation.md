@@ -33,7 +33,7 @@ Current top-level sections:
 1. `Location`
 2. `Catalogs`
 3. `Battery and inverter`
-4. `Branch circuits`
+4. `Load circuits`
 5. `Monthly balance`
 
 These should be visible in the main app navigation.
@@ -90,17 +90,17 @@ Main screen:
 
 - [battery-inverter-screen.md](./battery-inverter-screen.md)
 
-### Branch circuits
+### Load circuits
 
 Purpose:
 
-- downstream AC distribution
-- grouped consumers
-- branch loading and downstream fit
+- downstream load distribution
+- grouped loads
+- load-circuit loading and downstream fit
 
 Main screen:
 
-- [branch-circuit-consumer-screen.md](./branch-circuit-consumer-screen.md)
+- [load-circuit-load-screen.md](./load-circuit-load-screen.md)
 
 ### Monthly balance
 
@@ -118,7 +118,7 @@ Main screen:
 
 Recommended flow from left to right through the system:
 
-`Location -> Surface -> Array -> MPPT -> Battery bank -> Inverter -> Branch circuit -> Consumer`
+`Location -> Surface -> Array -> MPPT -> Battery bank -> Inverter -> Load circuit -> Load`
 
 The app does not need one page per node at first, but this should remain the conceptual navigation path.
 
@@ -143,7 +143,7 @@ Recommended breadcrumb pattern:
 
 - `Location / South-East`
 - `Battery and inverter`
-- `Branch circuits / Living room sockets`
+- `Load circuits / Living room sockets`
 
 This helps the user stay oriented in a technical system.
 
@@ -155,8 +155,8 @@ Examples:
 - `/location`
 - `/surfaces/se`
 - `/battery`
-- `/branch-circuits`
-- `/branch-circuits/living-room`
+- `/load-circuits`
+- `/load-circuits/living-room`
 - `/monthly-balance`
 
 If month-specific drill-down becomes useful later:

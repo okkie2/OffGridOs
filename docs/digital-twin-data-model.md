@@ -145,20 +145,20 @@ Key fields:
 - `efficiency_pct`
 - `notes`
 
-### Branch circuit
+### Load circuit
 
 Represents one protected distribution group downstream of a source.
 
 Key fields:
 
-- `branch_circuit_id`
+- `load_circuit_id`
 - `name`
 - `nominal_voltage_v`
 - `fuse_rating_a`
 - `source_side`
 - `notes`
 
-### Consumer
+### Load
 
 Represents one electrical load.
 
@@ -174,9 +174,9 @@ Examples:
 
 Key fields:
 
-- `consumer_id`
+- `load_id`
 - `name`
-- `branch_circuit_id`
+- `load_circuit_id`
 - `nominal_power_w`
 - `surge_power_w`
 - `daily_energy_kwh`
@@ -210,12 +210,12 @@ Key fields:
 - `generator_availability`
 - `notes`
 
-## Consumer granularity
+## Load granularity
 
-A `consumer` may be either:
+A `load` may be either:
 
 - a concrete endpoint or appliance
-- a modeled load group within one branch circuit
+- a modeled load group within one load circuit
 
 Good examples:
 
@@ -227,11 +227,11 @@ Good examples:
 - living room sockets
 - room lighting group
 
-Use `branch_circuit` for the protected electrical group above the consumer level.
+Use `load_circuit` for the protected electrical group above the load level.
 
-Use `consumer` for the load item you want to reason about in the model.
+Use `load` for the load item you want to reason about in the model.
 
-That means a room or socket group can be a `consumer` if it is being modeled as one load item within a branch circuit.
+That means a room or socket group can be a `load` if it is being modeled as one load item within a load circuit.
 
 ## Relationships
 
@@ -282,13 +282,13 @@ Fields:
 - `notes`
 - `reasons`
 
-### Inverter to branch circuit
+### Inverter to load circuit
 
 Fields:
 
 - `relationship_id`
 - `from_inverter_id`
-- `to_branch_circuit_id`
+- `to_load_circuit_id`
 - `electrical_status`
 - `fit_status`
 - `derived_nominal_voltage_v`
@@ -296,13 +296,13 @@ Fields:
 - `notes`
 - `reasons`
 
-### Branch circuit to consumer
+### Load circuit to load
 
 Fields:
 
 - `relationship_id`
-- `from_branch_circuit_id`
-- `to_consumer_id`
+- `from_load_circuit_id`
+- `to_load_id`
 - `electrical_status`
 - `fit_status`
 - `derived_running_power_w`
@@ -346,8 +346,8 @@ Allowed values:
 - battery type
 - battery unit count
 - generator presence and availability
-- consumer definitions
-- branch circuit definitions
+- load definitions
+- load circuit definitions
 - monthly factors
 
 ### Typically derived
@@ -370,7 +370,7 @@ The general model should remain flexible, but the current project can start with
 - one MPPT per array
 - one battery bank
 - one inverter
-- a small number of branch circuits
+- a small number of load circuits
 - monthly variation as twelve scalar rows rather than a complex simulation object
 
 ## JSON export shape
@@ -390,8 +390,8 @@ Suggested top-level shape:
     "mppt_configurations": [],
     "battery_banks": [],
     "inverter_types": [],
-    "branch_circuits": [],
-    "consumers": [],
+    "load_circuits": [],
+    "loads": [],
     "generators": [],
     "monthly_profiles": []
   },
@@ -399,8 +399,8 @@ Suggested top-level shape:
     "array_to_mppt": [],
     "mppt_to_battery_bank": [],
     "battery_bank_to_inverter": [],
-    "inverter_to_branch_circuit": [],
-    "branch_circuit_to_consumer": []
+    "inverter_to_load_circuit": [],
+    "load_circuit_to_load": []
   },
   "derived": {
     "monthly_balance": [],

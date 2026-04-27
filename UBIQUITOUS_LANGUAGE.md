@@ -18,6 +18,8 @@ Every concept must be referred to by its canonical name across the database sche
 | Battery type | `battery_types` | `BatteryType` | Battery |
 | Inverter type | `inverter_types` | `InverterType` | Inverter |
 | Cabinet type | `cabinet_types` | `CabinetType` | Cabinet type |
+| DC busbar | `dc_busbars` | `DcBusbar` | DC busbar |
+| Conversion device | `conversion_devices` | `ConversionDevice` | Conversion device |
 | Project preference | `project_preferences` | `ProjectPreferences` | Preference |
 | Victron CAN | `battery_types.victron_can` | `BatteryType.victron_can` | Victron CAN |
 
@@ -73,8 +75,8 @@ Use the following terms consistently in the digital twin and future schema work.
 | MPPT solar charger | Solar charger that tracks maximum power point and charges the battery bank | MPPT |
 | Battery bank | The connected battery system | Battery bank |
 | Inverter/charger | Combined inverter and charger such as a MultiPlus or Quattro | Inverter/charger |
-| Branch circuit | A group of consumers protected by one final fuse or breaker downstream of an inverter or other source | Branch circuit |
-| Consumer | An electrical load item connected to a branch circuit, which may be one appliance, one endpoint, or one modeled load group | Consumer |
+| Load circuit | A group of loads protected by one final fuse or breaker downstream of a conversion device | Load circuit |
+| Load | An electrical load item connected to a load circuit, which may be one appliance, one endpoint, or one modeled load group | Load |
 | Generator | AC source used as backup or supplemental charging supply | Generator |
 | MPPT input fit | The quality of match between a selected array and a selected MPPT on the PV input side | MPPT input fit |
 | Electrical status | Whether a relationship between two connected components stays within hard limits | Electrical status |
@@ -104,8 +106,8 @@ Use this pattern for relationships such as:
 - `array -> MPPT`
 - `MPPT -> battery bank`
 - `battery bank -> inverter`
-- `inverter -> branch circuit`
-- `branch circuit -> consumer`
+- `inverter -> load circuit`
+- `load circuit -> load`
 
 ### Electrical status
 
@@ -168,6 +170,10 @@ The field is named `orientation_deg` in both the DB column and the TypeScript mo
 - Use `string` only for series-connected panels.
 - Use `array_to_mppt_mapping` language for the persisted array-to-MPPT selection row.
 - Use `MPPT input fit` to describe whether a selected array is a good or poor match for a selected MPPT.
+- Use `load circuit` for the protected electrical group above the load level.
+- Use `load` for the electrical load item you want to reason about in the model.
+- Use `DC busbar` for the shared DC distribution point between the battery bank and downstream branches.
+- Use `output_voltage_v` for the output voltage of a conversion device.
 - Evaluate component relationships with both `electrical_status` and `fit_status` when the distinction matters.
 - Do not introduce near-synonyms for core concepts without a deliberate reason.
 - If a concept is added, renamed, or removed, update this file in the same change.

@@ -35,8 +35,8 @@ The graph should include:
 - MPPTs
 - battery bank
 - inverter/charger
-- branch circuits
-- consumers
+- load circuits
+- loads
 - generator
 - wiring
 - fuses
@@ -53,8 +53,8 @@ These are user-chosen inputs, not calculated outputs:
 - battery count
 - battery bank layout targets
 - generator availability
-- consumer definitions
-- consumer load profile
+- load definitions
+- load profile
 - cable lengths
 - monthly variation inputs
 
@@ -121,8 +121,8 @@ This pattern should work across the whole chain, not only on the PV side:
 - `array -> MPPT`
 - `MPPT -> battery bank`
 - `battery bank -> inverter`
-- `inverter -> branch circuit`
-- `branch circuit -> consumer`
+- `inverter -> load circuit`
+- `load circuit -> load`
 
 ## Monthly variation
 

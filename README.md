@@ -80,7 +80,7 @@ The current publish workflow keeps `project.db` as the local source of truth and
 
 ### App structure and architecture
 
-- [app-structure-v2.md](./docs/app-structure-v2.md): current preferred page-by-page app structure, including the stepwise flow from location through consumers and dashboard.
+- [app-structure-v2.md](./docs/app-structure-v2.md): current preferred page-by-page app structure, including the stepwise flow from location through loads and dashboard.
 - [app-navigation.md](./docs/app-navigation.md): navigation structure connecting the overview and subsystem drill-down screens.
 - [user-flow.md](./docs/user-flow.md): user-authored end-to-end screen flow with a written evaluation of the `Location` section.
 - [verdict-price-summary-pages.md](./docs/verdict-price-summary-pages.md): simplified read-only `Verdict summary` and `Cost summary` page spec under `Reports`.
@@ -99,7 +99,7 @@ The current publish workflow keeps `project.db` as the local source of truth and
 - [roof-face-array-screen.md](./docs/roof-face-array-screen.md): detailed screen for one surface, its array, and MPPT fit evaluation.
 - [battery-inverter-screen.md](./docs/battery-inverter-screen.md): detailed screen for the battery bank, inverter, and their evaluated relationships.
 - [monthly-balance-screen.md](./docs/monthly-balance-screen.md): seasonal system screen for monthly surplus, deficit, battery pressure, and generator dependence.
-- [branch-circuit-consumer-screen.md](./docs/branch-circuit-consumer-screen.md): future screen for downstream branch circuits, consumers, and AC-side distribution.
+- [load-circuit-load-screen.md](./docs/load-circuit-load-screen.md): future screen for downstream load circuits, loads, and AC-side distribution.
 
 ### Testing and quality
 

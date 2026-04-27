@@ -8,7 +8,7 @@ const baseInput: ProjectInput = {
     { id: 1, surface_id: 'south', name: 'South', orientation_deg: 180, tilt_deg: 35, usable_area_m2: 20 },
   ],
   panelTypes: [
-    { id: 1, panel_type_id: 'p1', brand: 'TestBrand', model: 'TestPanel 400', wp: 400, voc: 37.5, vmp: 31.2, isc: 13.5, imp: 12.8, length_mm: 1722, width_mm: 1134 },
+    { id: 1, panel_type_id: 'p1', brand: 'TestBrand', model: 'TestPanel 400', wp: 400, voc: 37.5, vmp: 31.2, isc: 13.5, imp: 12.8, length_mm: 1722, width_mm: 1134, temp_coefficient_voc_pct_per_c: -0.30 },
   ],
   surfacePanelAssignments: [
     { id: 1, surface_id: 'south', panel_type_id: 'p1', count: 10 },

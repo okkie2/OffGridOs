@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import http, { type IncomingMessage, type ServerResponse } from 'http';
-import { createSurface, deleteCabinetType, deleteSurface, deleteSurfacePanelAssignmentsForSurface, getBatteryBankConfiguration, getBatteryType, getCabinetType, getInverterType, getMpptType, getPreferences, getPanelType, getSurface, getSurfaceConfiguration, insertBatteryType, insertCabinetType, insertInverterType, insertMpptType, insertPanelType, listArrayToMpptMappings, listBatteryBankConfigurations, listBatteryTypes, listCabinetTypes, listInverterConfigurations, listInverterTypes, listMpptTypes, listPanelTypes, listPvArrays, listSurfaceConfigurations, listSurfacePanelAssignments, setPref, updateBatteryType, updateCabinetType, updateInverterType, updateMpptType, updatePanelType, updateSurface, upsertBatteryBankConfiguration, upsertInverterConfiguration, upsertLocation, upsertSurfaceConfiguration, upsertSurfacePanelAssignment, syncPvTopologyForSurface } from './db/queries.js';
+import { createSurface, deleteCabinetType, deleteConversionDevice, deleteSurface, deleteSurfacePanelAssignmentsForSurface, getBatteryBankConfiguration, getBatteryType, getCabinetType, getConversionDevice, getInverterType, getMpptType, getPreferences, getPanelType, getSurface, getSurfaceConfiguration, insertBatteryType, insertCabinetType, insertInverterType, insertMpptType, insertPanelType, listArrayToMpptMappings, listBatteryBankConfigurations, listBatteryTypes, listCabinetTypes, listConversionDevices, listInverterConfigurations, listInverterTypes, listMpptTypes, listPanelTypes, listPvArrays, listSurfaceConfigurations, listSurfacePanelAssignments, setPref, updateBatteryType, updateCabinetType, updateInverterType, updateMpptType, updatePanelType, updateSurface, upsertBatteryBankConfiguration, upsertConversionDevice, upsertInverterConfiguration, upsertLocation, upsertSurfaceConfiguration, upsertSurfacePanelAssignment, syncPvTopologyForSurface } from './db/queries.js';
 import { buildDigitalTwinExport } from './output/exportDigitalTwin.js';
 import { generateUniqueCatalogId } from './domain/panel-type-id.js';
 import { resolveDatabasePath, resolveServerHost, resolveServerPort, resolveWebDistPath } from './config/runtime.js';
@@ -431,6 +431,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           imp?: unknown;
           length_mm?: unknown;
           width_mm?: unknown;
+          temp_coefficient_voc_pct_per_c?: unknown;
           price?: unknown;
           price_source_url?: unknown;
           notes?: unknown;
@@ -446,6 +447,9 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         const imp = typeof payload.imp === 'number' ? payload.imp : Number(payload.imp);
         const lengthMm = typeof payload.length_mm === 'number' ? payload.length_mm : Number(payload.length_mm);
         const widthMm = typeof payload.width_mm === 'number' ? payload.width_mm : Number(payload.width_mm);
+        const tempCoeffVoc = payload.temp_coefficient_voc_pct_per_c == null || payload.temp_coefficient_voc_pct_per_c === ''
+          ? null
+          : (typeof payload.temp_coefficient_voc_pct_per_c === 'number' ? payload.temp_coefficient_voc_pct_per_c : Number(payload.temp_coefficient_voc_pct_per_c));
         const price = payload.price == null || payload.price === ''
           ? null
           : (typeof payload.price === 'number' ? payload.price : Number(payload.price));
@@ -481,6 +485,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             imp,
             length_mm: lengthMm,
             width_mm: widthMm,
+            temp_coefficient_voc_pct_per_c: tempCoeffVoc,
             price,
             price_source_url: priceSourceUrl,
             notes,
@@ -518,6 +523,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           imp?: unknown;
           length_mm?: unknown;
           width_mm?: unknown;
+          temp_coefficient_voc_pct_per_c?: unknown;
           price?: unknown;
           price_source_url?: unknown;
           notes?: unknown;
@@ -533,6 +539,9 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         const imp = typeof payload.imp === 'number' ? payload.imp : Number(payload.imp);
         const lengthMm = typeof payload.length_mm === 'number' ? payload.length_mm : Number(payload.length_mm);
         const widthMm = typeof payload.width_mm === 'number' ? payload.width_mm : Number(payload.width_mm);
+        const tempCoeffVoc = payload.temp_coefficient_voc_pct_per_c == null || payload.temp_coefficient_voc_pct_per_c === ''
+          ? null
+          : (typeof payload.temp_coefficient_voc_pct_per_c === 'number' ? payload.temp_coefficient_voc_pct_per_c : Number(payload.temp_coefficient_voc_pct_per_c));
         const price = payload.price == null || payload.price === ''
           ? null
           : (typeof payload.price === 'number' ? payload.price : Number(payload.price));
@@ -573,6 +582,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             imp,
             length_mm: lengthMm,
             width_mm: widthMm,
+            temp_coefficient_voc_pct_per_c: tempCoeffVoc,
             price,
             price_source_url: priceSourceUrl,
             notes,
@@ -1169,9 +1179,30 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             max_charge_current_a: maxChargeCurrentA,
             efficiency_pct: efficiencyPct,
           price,
-          price_source_url: priceSourceUrl,
-          notes,
+            price_source_url: priceSourceUrl,
+            notes,
         });
+
+          upsertConversionDevice(db, {
+            conversion_device_id: resolvedInverterId,
+            title: model,
+            description: notes ?? null,
+            device_type: 'inverter',
+            input_voltage_v: inputVoltageV,
+            output_voltage_v: outputVoltageV,
+            continuous_power_w: continuousPowerW,
+            peak_power_va: peakPowerVA,
+            max_charge_current_a: maxChargeCurrentA,
+            efficiency_pct: efficiencyPct,
+            output_ac_voltage_v: outputVoltageV,
+            frequency_hz: null,
+            surge_power_w: null,
+            output_dc_voltage_v: null,
+            max_output_current_a: null,
+            price,
+            price_source_url: priceSourceUrl,
+            notes,
+          });
 
           return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath) };
         });
@@ -1260,9 +1291,30 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             max_charge_current_a: maxChargeCurrentA,
             efficiency_pct: efficiencyPct,
           price,
-          price_source_url: priceSourceUrl,
-          notes,
+            price_source_url: priceSourceUrl,
+            notes,
         });
+
+          upsertConversionDevice(db, {
+            conversion_device_id: inverterId,
+            title: model,
+            description: notes ?? null,
+            device_type: 'inverter',
+            input_voltage_v: inputVoltageV,
+            output_voltage_v: outputVoltageV,
+            continuous_power_w: continuousPowerW,
+            peak_power_va: peakPowerVA,
+            max_charge_current_a: maxChargeCurrentA,
+            efficiency_pct: efficiencyPct,
+            output_ac_voltage_v: outputVoltageV,
+            frequency_hz: null,
+            surge_power_w: null,
+            output_dc_voltage_v: null,
+            max_output_current_a: null,
+            price,
+            price_source_url: priceSourceUrl,
+            notes,
+          });
 
           return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
         });
@@ -1297,6 +1349,289 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           }
 
           db.prepare('DELETE FROM inverter_types WHERE inverter_id = ?').run(inverterId);
+          deleteConversionDevice(db, inverterId);
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+        });
+
+        sendJson(response, updated.status, updated.body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 500, { error: message });
+      }
+    })();
+    return true;
+  }
+
+  if (method === 'GET' && url.pathname === '/api/conversion-devices') {
+    try {
+      const payload = withDb(databasePath, (db) => listConversionDevices(db));
+      sendJson(response, 200, payload);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown server error';
+      sendJson(response, 500, { error: message });
+    }
+    return true;
+  }
+
+  if (method === 'POST' && url.pathname === '/api/conversion-devices') {
+    void (async () => {
+      try {
+        const payload = await readJsonBody<{
+          conversion_device_id?: unknown;
+          title?: unknown;
+          description?: unknown;
+          device_type?: unknown;
+          input_voltage_v?: unknown;
+          output_voltage_v?: unknown;
+          continuous_power_w?: unknown;
+          peak_power_va?: unknown;
+          max_charge_current_a?: unknown;
+          efficiency_pct?: unknown;
+          output_ac_voltage_v?: unknown;
+          frequency_hz?: unknown;
+          surge_power_w?: unknown;
+          output_dc_voltage_v?: unknown;
+          max_output_current_a?: unknown;
+          price?: unknown;
+          price_source_url?: unknown;
+          notes?: unknown;
+        }>(request);
+
+        const conversionDeviceId = typeof payload.conversion_device_id === 'string' ? payload.conversion_device_id.trim() : '';
+        const title = typeof payload.title === 'string' ? payload.title.trim() : '';
+        const description = isValidNonEmptyText(payload.description) ? payload.description.trim() : null;
+        const deviceType = typeof payload.device_type === 'string' ? payload.device_type.trim() : '';
+        const inputVoltageV = typeof payload.input_voltage_v === 'number' ? payload.input_voltage_v : Number(payload.input_voltage_v);
+        const outputVoltageV = typeof payload.output_voltage_v === 'number' ? payload.output_voltage_v : Number(payload.output_voltage_v);
+        const continuousPowerW = typeof payload.continuous_power_w === 'number' ? payload.continuous_power_w : Number(payload.continuous_power_w);
+        const peakPowerVA = typeof payload.peak_power_va === 'number' ? payload.peak_power_va : Number(payload.peak_power_va);
+        const maxChargeCurrentA = typeof payload.max_charge_current_a === 'number' ? payload.max_charge_current_a : Number(payload.max_charge_current_a);
+        const efficiencyPct = payload.efficiency_pct == null || payload.efficiency_pct === ''
+          ? null
+          : (typeof payload.efficiency_pct === 'number' ? payload.efficiency_pct : Number(payload.efficiency_pct));
+        const outputAcVoltageV = payload.output_ac_voltage_v == null || payload.output_ac_voltage_v === ''
+          ? null
+          : (typeof payload.output_ac_voltage_v === 'number' ? payload.output_ac_voltage_v : Number(payload.output_ac_voltage_v));
+        const frequencyHz = payload.frequency_hz == null || payload.frequency_hz === ''
+          ? null
+          : (typeof payload.frequency_hz === 'number' ? payload.frequency_hz : Number(payload.frequency_hz));
+        const surgePowerW = payload.surge_power_w == null || payload.surge_power_w === ''
+          ? null
+          : (typeof payload.surge_power_w === 'number' ? payload.surge_power_w : Number(payload.surge_power_w));
+        const outputDcVoltageV = payload.output_dc_voltage_v == null || payload.output_dc_voltage_v === ''
+          ? null
+          : (typeof payload.output_dc_voltage_v === 'number' ? payload.output_dc_voltage_v : Number(payload.output_dc_voltage_v));
+        const maxOutputCurrentA = payload.max_output_current_a == null || payload.max_output_current_a === ''
+          ? null
+          : (typeof payload.max_output_current_a === 'number' ? payload.max_output_current_a : Number(payload.max_output_current_a));
+        const price = payload.price == null || payload.price === ''
+          ? null
+          : (typeof payload.price === 'number' ? payload.price : Number(payload.price));
+        const priceSourceUrl = isValidNonEmptyText(payload.price_source_url) ? payload.price_source_url.trim() : null;
+        const notes = isValidNonEmptyText(payload.notes) ? payload.notes.trim() : null;
+
+        if (!title || !deviceType || !Number.isFinite(inputVoltageV) || inputVoltageV <= 0 || !Number.isFinite(outputVoltageV) || outputVoltageV <= 0 || !Number.isFinite(continuousPowerW) || continuousPowerW <= 0 || !Number.isFinite(peakPowerVA) || peakPowerVA <= 0 || !Number.isFinite(maxChargeCurrentA) || maxChargeCurrentA <= 0) {
+          sendJson(response, 400, {
+            error: 'Invalid conversion device payload. Provide title, device_type, input_voltage_v, output_voltage_v, continuous_power_w, peak_power_va, and max_charge_current_a.',
+          });
+          return;
+        }
+
+        if (
+          (efficiencyPct != null && !Number.isFinite(efficiencyPct))
+          || (outputAcVoltageV != null && !Number.isFinite(outputAcVoltageV))
+          || (frequencyHz != null && !Number.isFinite(frequencyHz))
+          || (surgePowerW != null && !Number.isFinite(surgePowerW))
+          || (outputDcVoltageV != null && !Number.isFinite(outputDcVoltageV))
+          || (maxOutputCurrentA != null && !Number.isFinite(maxOutputCurrentA))
+          || (price != null && !Number.isFinite(price))
+        ) {
+          sendJson(response, 400, { error: 'Invalid conversion device payload. Optional numeric fields must be valid numbers when provided.' });
+          return;
+        }
+
+        const updated = withDb(databasePath, (db) => {
+          const resolvedConversionDeviceId = conversionDeviceId || generateUniqueCatalogId(title, listConversionDevices(db).map((device) => device.conversion_device_id));
+          if (getConversionDevice(db, resolvedConversionDeviceId)) {
+            return { status: 409 as const, body: { error: `Conversion device "${resolvedConversionDeviceId}" already exists.` } };
+          }
+
+          upsertConversionDevice(db, {
+            conversion_device_id: resolvedConversionDeviceId,
+            title,
+            description,
+            device_type: deviceType,
+            input_voltage_v: inputVoltageV,
+            output_voltage_v: outputVoltageV,
+            continuous_power_w: continuousPowerW,
+            peak_power_va: peakPowerVA,
+            max_charge_current_a: maxChargeCurrentA,
+            efficiency_pct: efficiencyPct,
+            output_ac_voltage_v: outputAcVoltageV,
+            frequency_hz: frequencyHz,
+            surge_power_w: surgePowerW,
+            output_dc_voltage_v: outputDcVoltageV,
+            max_output_current_a: maxOutputCurrentA,
+            price,
+            price_source_url: priceSourceUrl,
+            notes,
+          });
+
+          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath) };
+        });
+
+        sendJson(response, updated.status, updated.body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 500, { error: message });
+      }
+    })();
+    return true;
+  }
+
+  if (method === 'PUT' && url.pathname.startsWith('/api/conversion-devices/')) {
+    void (async () => {
+      try {
+        const conversionDeviceId = decodeURIComponent(url.pathname.slice('/api/conversion-devices/'.length));
+        if (!conversionDeviceId) {
+          sendJson(response, 400, { error: 'Conversion device id is required.' });
+          return;
+        }
+
+        const payload = await readJsonBody<{
+          conversion_device_id?: unknown;
+          title?: unknown;
+          description?: unknown;
+          device_type?: unknown;
+          input_voltage_v?: unknown;
+          output_voltage_v?: unknown;
+          continuous_power_w?: unknown;
+          peak_power_va?: unknown;
+          max_charge_current_a?: unknown;
+          efficiency_pct?: unknown;
+          output_ac_voltage_v?: unknown;
+          frequency_hz?: unknown;
+          surge_power_w?: unknown;
+          output_dc_voltage_v?: unknown;
+          max_output_current_a?: unknown;
+          price?: unknown;
+          price_source_url?: unknown;
+          notes?: unknown;
+        }>(request);
+
+        const bodyConversionDeviceId = typeof payload.conversion_device_id === 'string' ? payload.conversion_device_id.trim() : conversionDeviceId;
+        const title = typeof payload.title === 'string' ? payload.title.trim() : '';
+        const description = isValidNonEmptyText(payload.description) ? payload.description.trim() : null;
+        const deviceType = typeof payload.device_type === 'string' ? payload.device_type.trim() : '';
+        const inputVoltageV = typeof payload.input_voltage_v === 'number' ? payload.input_voltage_v : Number(payload.input_voltage_v);
+        const outputVoltageV = typeof payload.output_voltage_v === 'number' ? payload.output_voltage_v : Number(payload.output_voltage_v);
+        const continuousPowerW = typeof payload.continuous_power_w === 'number' ? payload.continuous_power_w : Number(payload.continuous_power_w);
+        const peakPowerVA = typeof payload.peak_power_va === 'number' ? payload.peak_power_va : Number(payload.peak_power_va);
+        const maxChargeCurrentA = typeof payload.max_charge_current_a === 'number' ? payload.max_charge_current_a : Number(payload.max_charge_current_a);
+        const efficiencyPct = payload.efficiency_pct == null || payload.efficiency_pct === ''
+          ? null
+          : (typeof payload.efficiency_pct === 'number' ? payload.efficiency_pct : Number(payload.efficiency_pct));
+        const outputAcVoltageV = payload.output_ac_voltage_v == null || payload.output_ac_voltage_v === ''
+          ? null
+          : (typeof payload.output_ac_voltage_v === 'number' ? payload.output_ac_voltage_v : Number(payload.output_ac_voltage_v));
+        const frequencyHz = payload.frequency_hz == null || payload.frequency_hz === ''
+          ? null
+          : (typeof payload.frequency_hz === 'number' ? payload.frequency_hz : Number(payload.frequency_hz));
+        const surgePowerW = payload.surge_power_w == null || payload.surge_power_w === ''
+          ? null
+          : (typeof payload.surge_power_w === 'number' ? payload.surge_power_w : Number(payload.surge_power_w));
+        const outputDcVoltageV = payload.output_dc_voltage_v == null || payload.output_dc_voltage_v === ''
+          ? null
+          : (typeof payload.output_dc_voltage_v === 'number' ? payload.output_dc_voltage_v : Number(payload.output_dc_voltage_v));
+        const maxOutputCurrentA = payload.max_output_current_a == null || payload.max_output_current_a === ''
+          ? null
+          : (typeof payload.max_output_current_a === 'number' ? payload.max_output_current_a : Number(payload.max_output_current_a));
+        const price = payload.price == null || payload.price === ''
+          ? null
+          : (typeof payload.price === 'number' ? payload.price : Number(payload.price));
+        const priceSourceUrl = isValidNonEmptyText(payload.price_source_url) ? payload.price_source_url.trim() : null;
+        const notes = isValidNonEmptyText(payload.notes) ? payload.notes.trim() : null;
+
+        if (bodyConversionDeviceId !== conversionDeviceId) {
+          sendJson(response, 400, { error: 'Conversion device id in the URL must match the conversion_device_id in the payload.' });
+          return;
+        }
+
+        if (!title || !deviceType || !Number.isFinite(inputVoltageV) || inputVoltageV <= 0 || !Number.isFinite(outputVoltageV) || outputVoltageV <= 0 || !Number.isFinite(continuousPowerW) || continuousPowerW <= 0 || !Number.isFinite(peakPowerVA) || peakPowerVA <= 0 || !Number.isFinite(maxChargeCurrentA) || maxChargeCurrentA <= 0) {
+          sendJson(response, 400, {
+            error: 'Invalid conversion device payload. Provide title, device_type, input_voltage_v, output_voltage_v, continuous_power_w, peak_power_va, and max_charge_current_a.',
+          });
+          return;
+        }
+
+        if (
+          (efficiencyPct != null && !Number.isFinite(efficiencyPct))
+          || (outputAcVoltageV != null && !Number.isFinite(outputAcVoltageV))
+          || (frequencyHz != null && !Number.isFinite(frequencyHz))
+          || (surgePowerW != null && !Number.isFinite(surgePowerW))
+          || (outputDcVoltageV != null && !Number.isFinite(outputDcVoltageV))
+          || (maxOutputCurrentA != null && !Number.isFinite(maxOutputCurrentA))
+          || (price != null && !Number.isFinite(price))
+        ) {
+          sendJson(response, 400, { error: 'Invalid conversion device payload. Optional numeric fields must be valid numbers when provided.' });
+          return;
+        }
+
+        const updated = withDb(databasePath, (db) => {
+          const existing = getConversionDevice(db, conversionDeviceId);
+          if (!existing) {
+            return { status: 404 as const, body: { error: `Conversion device "${conversionDeviceId}" not found.` } };
+          }
+
+          upsertConversionDevice(db, {
+            conversion_device_id: conversionDeviceId,
+            title,
+            description,
+            device_type: deviceType,
+            input_voltage_v: inputVoltageV,
+            output_voltage_v: outputVoltageV,
+            continuous_power_w: continuousPowerW,
+            peak_power_va: peakPowerVA,
+            max_charge_current_a: maxChargeCurrentA,
+            efficiency_pct: efficiencyPct,
+            output_ac_voltage_v: outputAcVoltageV,
+            frequency_hz: frequencyHz,
+            surge_power_w: surgePowerW,
+            output_dc_voltage_v: outputDcVoltageV,
+            max_output_current_a: maxOutputCurrentA,
+            price,
+            price_source_url: priceSourceUrl,
+            notes,
+          });
+
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+        });
+
+        sendJson(response, updated.status, updated.body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 500, { error: message });
+      }
+    })();
+    return true;
+  }
+
+  if (method === 'DELETE' && url.pathname.startsWith('/api/conversion-devices/')) {
+    void (async () => {
+      try {
+        const conversionDeviceId = decodeURIComponent(url.pathname.slice('/api/conversion-devices/'.length));
+        if (!conversionDeviceId) {
+          sendJson(response, 400, { error: 'Conversion device id is required.' });
+          return;
+        }
+
+        const updated = withDb(databasePath, (db) => {
+          const existing = getConversionDevice(db, conversionDeviceId);
+          if (!existing) {
+            return { status: 404 as const, body: { error: `Conversion device "${conversionDeviceId}" not found.` } };
+          }
+
+          deleteConversionDevice(db, conversionDeviceId);
           return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
         });
 

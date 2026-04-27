@@ -13,8 +13,8 @@ This applies to:
 - `array -> MPPT`
 - `MPPT -> battery bank`
 - `battery bank -> inverter`
-- `inverter -> branch circuit`
-- `branch circuit -> consumer`
+- `inverter -> load circuit`
+- `load circuit -> load`
 
 The evaluation model should support:
 
@@ -115,32 +115,32 @@ Soft-fit reasons:
 - `inverter_underutilized`
 - `well_matched`
 
-### Inverter to branch circuit
+### Inverter to load circuit
 
 Hard-limit reasons:
 
-- `branch_voltage_mismatch`
-- `branch_current_too_high`
-- `branch_power_too_high`
+- `load_circuit_voltage_mismatch`
+- `load_circuit_current_too_high`
+- `load_circuit_power_too_high`
 
 Soft-fit reasons:
 
-- `branch_near_capacity`
-- `branch_underutilized`
+- `load_circuit_near_capacity`
+- `load_circuit_underutilized`
 - `well_matched`
 
-### Branch circuit to consumer
+### Load circuit to load
 
 Hard-limit reasons:
 
-- `consumer_voltage_mismatch`
-- `consumer_running_power_too_high`
-- `consumer_surge_power_too_high`
+- `load_voltage_mismatch`
+- `load_running_power_too_high`
+- `load_surge_power_too_high`
 
 Soft-fit reasons:
 
-- `consumer_high_startup_load`
-- `consumer_low_duty_cycle`
+- `load_high_startup_load`
+- `load_low_duty_cycle`
 - `well_matched`
 
 ## Seasonal interpretation

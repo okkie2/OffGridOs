@@ -3,6 +3,13 @@ import type { MpptType, PanelType } from '../domain/types.js';
 export type ElectricalStatus = 'within_limits' | 'outside_limits';
 export type FitStatus = 'optimal' | 'fully_utilized' | 'clipping_expected' | 'underutilized';
 
+export const DESIGN_TEMP_C = -10;
+
+function coldVoc(panelType: PanelType, panelsPerString: number): number {
+  const coeff = panelType.temp_coefficient_voc_pct_per_c ?? -0.30;
+  return panelsPerString * panelType.voc * (1 + (coeff / 100) * (DESIGN_TEMP_C - 25));
+}
+
 export interface ArrayToMpptInput {
   panelType: PanelType;
   panelCount: number;
@@ -13,6 +20,7 @@ export interface ArrayToMpptInput {
 }
 
 export interface ArrayToMpptFit {
+  input_voc_stc_v: number;
   input_voc_v: number;
   input_vmp_v: number;
   input_current_a: number;
@@ -39,7 +47,7 @@ export function pickDerivedMpptType(
 ): MpptType | undefined {
   if (panelCount <= 0) return undefined;
 
-  const assumedVoc = panelsPerString * panelType.voc;
+  const assumedVoc = coldVoc(panelType, panelsPerString);
   const assumedInputCurrent = panelType.imp * Math.max(parallelStrings, 1);
   const assumedShortCircuitCurrent = panelType.isc * Math.max(parallelStrings, 1);
   const assumedChargeCurrent = installedWp / nominalBatteryVoltage;
@@ -62,7 +70,8 @@ export function pickDerivedMpptType(
 export function evaluateArrayToMpptFit(input: ArrayToMpptInput): ArrayToMpptFit {
   const panelsPerString = input.panelsPerString ?? input.panelCount;
   const parallelStrings = input.parallelStrings ?? (input.panelCount > 0 ? 1 : 0);
-  const inputVoc = panelsPerString * input.panelType.voc;
+  const inputVocStc = panelsPerString * input.panelType.voc;
+  const inputVoc = coldVoc(input.panelType, panelsPerString);
   const inputVmp = panelsPerString * input.panelType.vmp;
   const inputCurrent = input.panelType.imp * Math.max(parallelStrings, 1);
   const inputShortCircuitCurrent = input.panelType.isc * Math.max(parallelStrings, 1);
@@ -102,6 +111,7 @@ export function evaluateArrayToMpptFit(input: ArrayToMpptInput): ArrayToMpptFit 
   }
 
   return {
+    input_voc_stc_v: Number(inputVocStc.toFixed(1)),
     input_voc_v: Number(inputVoc.toFixed(1)),
     input_vmp_v: Number(inputVmp.toFixed(1)),
     input_current_a: Number(inputCurrent.toFixed(2)),

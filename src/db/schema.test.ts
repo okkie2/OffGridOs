@@ -46,12 +46,16 @@ describe('initSchema', () => {
         'surfaces',
         'panel_types',
         'cabinet_types',
+        'conversion_devices',
+        'load_circuits',
+        'loads',
         'surface_panel_assignments',
         'pv_arrays',
         'pv_strings',
         'array_to_mppt_mappings',
         'surface_configurations',
         'battery_bank_configurations',
+        'dc_busbars',
         'inverter_configurations',
         'mppt_types',
         'battery_types',
@@ -64,12 +68,16 @@ describe('initSchema', () => {
       expect(first.surfaces).toBeGreaterThan(0);
       expect(first.panel_types).toBeGreaterThan(0);
       expect(first.cabinet_types).toBe(0);
+      expect(first.conversion_devices).toBeGreaterThan(0);
+      expect(first.load_circuits).toBe(0);
+      expect(first.loads).toBe(0);
       expect(first.surface_panel_assignments).toBeGreaterThan(0);
       expect(first.pv_arrays).toBe(0);
       expect(first.pv_strings).toBe(0);
       expect(first.array_to_mppt_mappings).toBe(0);
       expect(first.mppt_types).toBeGreaterThan(0);
       expect(first.battery_types).toBeGreaterThan(0);
+      expect(first.dc_busbars).toBe(0);
       expect(first.inverter_types).toBeGreaterThan(0);
       expect(first.inverter_configurations).toBe(1);
 
@@ -89,6 +97,19 @@ describe('initSchema', () => {
 
       const columns = db.prepare("PRAGMA table_info('battery_bank_configurations')").all() as Array<{ name: string }>;
       expect(columns.some((column) => column.name === 'selected_cabinet_type_id')).toBe(true);
+      expect(columns.some((column) => column.name === 'selected_dc_busbar_id')).toBe(true);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('creates a busbar lookup column on the inverter configuration table', () => {
+    const db = makeTempDatabase();
+    try {
+      initSchema(db);
+
+      const columns = db.prepare("PRAGMA table_info('inverter_configurations')").all() as Array<{ name: string }>;
+      expect(columns.some((column) => column.name === 'selected_dc_busbar_id')).toBe(true);
     } finally {
       db.close();
     }

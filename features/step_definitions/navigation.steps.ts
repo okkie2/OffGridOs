@@ -10,7 +10,7 @@ import { JSDOM } from 'jsdom';
 import { openDb } from '../../src/db/connection.js';
 import { ensureDatabaseReady } from '../../src/server/bootstrap.js';
 import { buildDigitalTwinExport } from '../../src/output/exportDigitalTwin.js';
-import { getInverterConfiguration, getSurface, syncPvTopologyForSurface, updateSurface, upsertInverterConfiguration, upsertSurfaceConfiguration, upsertSurfacePanelAssignment } from '../../src/db/queries.js';
+import { getBatteryBankConfiguration, getInverterConfiguration, getSurface, syncPvTopologyForSurface, updateSurface, upsertBatteryBankConfiguration, upsertInverterConfiguration, upsertSurfaceConfiguration, upsertSurfacePanelAssignment } from '../../src/db/queries.js';
 import { App } from '../../web/src/App.tsx';
 import type { DigitalTwinExport } from '../../web/src/App.tsx';
 
@@ -51,6 +51,11 @@ class NavigationWorld extends World {
   latestEnteredInverterNotes = '';
   latestSelectedInverterTypeId = '';
   latestSurfaceDesignSaveError = '';
+  latestEnteredBatteryTitle = '';
+  latestEnteredBatteryDescription = '';
+  latestEnteredBatteryNotes = '';
+  latestSelectedBatteryTypeId = '';
+  latestSelectedBatteryCount = '';
   storedGlobals: StoredGlobal[] = [];
 
   installDom(): void {
@@ -470,6 +475,73 @@ class NavigationWorld extends World {
         });
       }
 
+      if (url.pathname === '/api/battery-bank-configuration' && method === 'PUT') {
+        const rawBody = typeof init?.body === 'string' ? init.body : '{}';
+        const payload = JSON.parse(rawBody) as {
+          title?: unknown;
+          description?: unknown;
+          image_data_url?: unknown;
+          notes?: unknown;
+          selected_battery_type_id?: unknown;
+          selected_cabinet_type_id?: unknown;
+          configured_battery_count?: unknown;
+          batteries_per_string?: unknown;
+          parallel_strings?: unknown;
+        };
+
+        const title = typeof payload.title === 'string' ? payload.title.trim() : null;
+        const description = typeof payload.description === 'string' ? payload.description.trim() : null;
+        const imageDataUrl = payload.image_data_url == null ? null : String(payload.image_data_url);
+        const notes = typeof payload.notes === 'string' ? payload.notes.trim() : null;
+        const selectedBatteryTypeId = typeof payload.selected_battery_type_id === 'string' ? payload.selected_battery_type_id.trim() : '';
+        const selectedCabinetTypeId = typeof payload.selected_cabinet_type_id === 'string' ? payload.selected_cabinet_type_id.trim() : '';
+        const configuredBatteryCount = typeof payload.configured_battery_count === 'number' ? payload.configured_battery_count : Number(payload.configured_battery_count);
+        const batteriesPerString = typeof payload.batteries_per_string === 'number' ? payload.batteries_per_string : Number(payload.batteries_per_string);
+        const parallelStrings = typeof payload.parallel_strings === 'number' ? payload.parallel_strings : Number(payload.parallel_strings);
+
+        if (!Number.isInteger(configuredBatteryCount) || configuredBatteryCount < 1 || !Number.isInteger(batteriesPerString) || batteriesPerString < 1 || !Number.isInteger(parallelStrings) || parallelStrings < 1) {
+          return new Response(JSON.stringify({ error: 'Invalid battery-bank configuration payload. Expected integer configured_battery_count, batteries_per_string, and parallel_strings values >= 1.' }), { status: 400 });
+        }
+
+        if (configuredBatteryCount !== batteriesPerString * parallelStrings) {
+          return new Response(JSON.stringify({ error: 'Battery count must equal batteries per string multiplied by parallel strings.' }), { status: 400 });
+        }
+
+        const db = openDb(this.requireDbPath());
+        try {
+          if (selectedBatteryTypeId) {
+            const batteryExists = db.prepare('SELECT 1 FROM battery_types WHERE battery_type_id = ?').get(selectedBatteryTypeId);
+            if (!batteryExists) {
+              return new Response(JSON.stringify({ error: `Battery type "${selectedBatteryTypeId}" not found.` }), { status: 400 });
+            }
+          }
+
+          const existingConfiguration = getBatteryBankConfiguration(db, 'battery-bank-main');
+
+          upsertBatteryBankConfiguration(db, {
+            battery_bank_id: 'battery-bank-main',
+            title: title !== null ? title : (existingConfiguration?.title ?? null),
+            description: description !== null ? description : (existingConfiguration?.description ?? null),
+            image_data_url: imageDataUrl !== null ? imageDataUrl : (existingConfiguration?.image_data_url ?? null),
+            notes: notes !== null ? notes : (existingConfiguration?.notes ?? null),
+            selected_battery_type_id: selectedBatteryTypeId || (existingConfiguration?.selected_battery_type_id ?? null),
+            selected_cabinet_type_id: selectedCabinetTypeId || null,
+            configured_battery_count: configuredBatteryCount,
+            batteries_per_string: batteriesPerString,
+            parallel_strings: parallelStrings,
+          });
+
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
+        } finally {
+          db.close();
+        }
+
+        return new Response(JSON.stringify(this.projectData), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
       return new Response(JSON.stringify({ error: `Unhandled fetch in BDD world: ${method} ${url.pathname}` }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' },
@@ -535,8 +607,14 @@ class NavigationWorld extends World {
     this.latestSelectedMpptTypeId = '';
     this.latestEnteredInverterTitle = '';
     this.latestEnteredInverterDescription = '';
+    this.latestEnteredInverterNotes = '';
     this.latestSelectedInverterTypeId = '';
     this.latestSurfaceDesignSaveError = '';
+    this.latestEnteredBatteryTitle = '';
+    this.latestEnteredBatteryDescription = '';
+    this.latestEnteredBatteryNotes = '';
+    this.latestSelectedBatteryTypeId = '';
+    this.latestSelectedBatteryCount = '';
   }
 
   prepareProjectData(): void {
@@ -1703,6 +1781,129 @@ class NavigationWorld extends World {
     return `${projectId}:surface:${surfaceId}`;
   }
 
+  async setBatteryTitle(value: string): Promise<void> {
+    this.latestEnteredBatteryTitle = value;
+    await this.setPanelFieldValue('Battery bank details', 'Title', value);
+  }
+
+  async setBatteryDescription(value: string): Promise<void> {
+    this.latestEnteredBatteryDescription = value;
+    await this.setPanelFieldValue('Battery bank details', 'Description', value);
+  }
+
+  async setBatteryNotes(value: string): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const panel = this.getPanelByHeading('Notes');
+    const textarea = panel.querySelector('textarea') as HTMLTextAreaElement | null;
+    if (!textarea) {
+      throw new Error('Could not find the battery notes textarea.');
+    }
+
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(this.dom.window.HTMLTextAreaElement.prototype, 'value')?.set;
+      if (!setter) {
+        throw new Error('Could not find textarea value setter.');
+      }
+      setter.call(textarea, value);
+      textarea.dispatchEvent(new this.dom.window.InputEvent('input', {
+        bubbles: true,
+        data: value,
+        inputType: 'insertText',
+      }));
+      textarea.dispatchEvent(new this.dom.window.Event('change', { bubbles: true }));
+    });
+
+    this.latestEnteredBatteryNotes = value;
+    await this.waitForTextareaValue('.field-textarea', value);
+  }
+
+  async chooseLastBatteryType(): Promise<string> {
+    const batteryTypeId = await this.selectLastOptionInPanel('Battery selection', 'Battery type');
+    this.latestSelectedBatteryTypeId = batteryTypeId;
+    return batteryTypeId;
+  }
+
+  async setBatteryCount(value: string): Promise<void> {
+    this.latestSelectedBatteryCount = value;
+    await this.setPanelFieldValue('Battery selection', 'Amount of batteries', value);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+
+  async uploadBatteryImage(): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const panel = this.getPanelByHeading('Image');
+    const input = panel.querySelector('input[type="file"]') as HTMLInputElement | null;
+    if (!input) {
+      throw new Error('Could not find the battery image upload input.');
+    }
+
+    const file = new this.dom.window.File(['battery-image'], 'battery-image.txt', { type: 'text/plain' });
+    Object.defineProperty(input, 'files', { configurable: true, value: [file] });
+
+    await act(async () => {
+      input.dispatchEvent(new this.dom.window.Event('change', { bubbles: true }));
+    });
+
+    await this.waitForSelector('.panel .photo-frame .photo-image');
+  }
+
+  async saveBatteryBankConfiguration(): Promise<void> {
+    await this.clickSaveButtonInPanel('Battery bank details');
+    await this.waitForText('Battery bank saved to the project database.');
+  }
+
+  async assertBatteryBankConfigurationInDatabase(expected: {
+    title?: string;
+    description?: string;
+    notes?: string;
+    selectedBatteryTypeId?: string;
+    expectImage?: boolean;
+  }): Promise<void> {
+    const deadline = Date.now() + 10_000;
+    let lastError: Error | null = null;
+
+    while (Date.now() < deadline) {
+      const db = openDb(this.requireDbPath());
+      try {
+        const row = getBatteryBankConfiguration(db, 'battery-bank-main');
+        if (!row) {
+          throw new Error('Battery bank configuration row not found in database.');
+        }
+
+        if (expected.title !== undefined) {
+          assert.equal(row.title ?? '', expected.title);
+        }
+        if (expected.description !== undefined) {
+          assert.equal(row.description ?? '', expected.description);
+        }
+        if (expected.notes !== undefined) {
+          assert.equal(row.notes ?? '', expected.notes);
+        }
+        if (expected.selectedBatteryTypeId !== undefined && expected.selectedBatteryTypeId !== '') {
+          assert.equal(row.selected_battery_type_id ?? '', expected.selectedBatteryTypeId);
+        }
+        if (expected.expectImage) {
+          assert.ok(row.image_data_url && row.image_data_url.length > 0);
+        }
+        return;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+      } finally {
+        db.close();
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+
+    throw lastError ?? new Error('Timed out waiting for battery bank configuration to persist.');
+  }
+
 }
 
 setWorldConstructor(NavigationWorld);
@@ -2064,4 +2265,68 @@ Then('the inverter image should persist', function () {
 
 Then('the inverter image should still be visible', async function () {
   await this.waitForSelector('.photo-frame .photo-image');
+});
+
+When('I set the battery title to {string}', async function (title: string) {
+  await this.setBatteryTitle(title);
+});
+
+When('I set the battery description to {string}', async function (description: string) {
+  await this.setBatteryDescription(description);
+});
+
+When('I set the battery notes to {string}', async function (notes: string) {
+  await this.setBatteryNotes(notes);
+});
+
+When('I choose the last battery type', async function () {
+  await this.chooseLastBatteryType();
+});
+
+When('I set the battery count to {string}', async function (count: string) {
+  await this.setBatteryCount(count);
+});
+
+When('I upload a battery image', async function () {
+  await this.uploadBatteryImage();
+});
+
+When('I save the battery bank configuration', async function () {
+  await this.saveBatteryBankConfiguration();
+});
+
+Then('the battery bank configuration should persist', function () {
+  return this.assertBatteryBankConfigurationInDatabase({
+    title: 'Main battery bank',
+    description: 'Primary storage unit',
+    selectedBatteryTypeId: this.latestSelectedBatteryTypeId,
+  });
+});
+
+Then('the battery bank configuration form should still show the saved values', async function () {
+  await this.waitForPanelFieldValue('Battery bank details', 'Title', 'Main battery bank');
+  await this.waitForPanelFieldValue('Battery bank details', 'Description', 'Primary storage unit');
+  await this.waitForPanelFieldValue('Battery selection', 'Battery type', this.latestSelectedBatteryTypeId);
+});
+
+Then('the battery bank notes should persist', function () {
+  return this.assertBatteryBankConfigurationInDatabase({
+    notes: this.latestEnteredBatteryNotes,
+    selectedBatteryTypeId: this.latestSelectedBatteryTypeId,
+  });
+});
+
+Then('the battery bank notes should still be visible', async function () {
+  await this.waitForTextareaValue('.field-textarea', this.latestEnteredBatteryNotes);
+});
+
+Then('the battery bank image should persist', function () {
+  return this.assertBatteryBankConfigurationInDatabase({
+    selectedBatteryTypeId: this.latestSelectedBatteryTypeId,
+    expectImage: true,
+  });
+});
+
+Then('the battery bank image should still be visible', async function () {
+  await this.waitForSelector('.panel .photo-frame .photo-image');
 });

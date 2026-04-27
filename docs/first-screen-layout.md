@@ -54,7 +54,7 @@ Purpose:
 
 Show the high-level chain as a readable visual flow:
 
-`Surfaces -> Arrays -> MPPTs -> Battery bank -> Inverter -> Branch circuits -> Consumers`
+`Surfaces -> Arrays -> MPPTs -> Battery bank -> Inverter -> Load circuits -> Loads`
 
 This should be compact and clickable.
 
@@ -84,7 +84,7 @@ Each block should summarize:
 
 - whether everything is `within_limits`
 - whether any items are `outside_limits`
-- how many are `optimal`, `acceptable`, `clipping_expected`, or `underutilized`
+- how many are `optimal`, `fully_utilized`, `clipping_expected`, or `underutilized`
 
 This gives the user a quick “where is the trouble?” scan.
 
@@ -133,7 +133,7 @@ Examples:
 - `Review MPPT fit for NE array`
 - `Check weakest month`
 - `Inspect battery bank margin`
-- `Open branch circuits`
+- `Open load circuits`
 
 This helps the interface feel guided rather than static.
 

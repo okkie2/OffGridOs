@@ -109,3 +109,37 @@ Feature: Persistence field coverage
     When I reload OffGridOS
     And I open Inverter array from the menu
     Then the inverter image should still be visible
+
+  Scenario: Save and reload the battery bank configuration title and description
+    Given OffGridOS is rendered with project data
+    When I open Battery array from the menu
+    And I set the battery title to "Main battery bank"
+    And I set the battery description to "Primary storage unit"
+    And I choose the last battery type
+    And I save the battery bank configuration
+    Then the battery bank configuration should persist
+    When I reload OffGridOS
+    And I open Battery array from the menu
+    Then the battery bank configuration should persist
+    And the battery bank configuration form should still show the saved values
+
+  Scenario: Save and reload the battery bank configuration notes
+    Given OffGridOS is rendered with project data
+    When I open Battery array from the menu
+    And I set the battery notes to "Check battery ventilation requirements"
+    And I choose the last battery type
+    And I save the battery bank configuration
+    Then the battery bank notes should persist
+    When I reload OffGridOS
+    And I open Battery array from the menu
+    Then the battery bank notes should persist
+    And the battery bank notes should still be visible
+
+  Scenario: Save and reload the battery bank configuration image
+    Given OffGridOS is rendered with project data
+    When I open Battery array from the menu
+    And I upload a battery image
+    Then the battery bank image should persist
+    When I reload OffGridOS
+    And I open Battery array from the menu
+    Then the battery bank image should still be visible

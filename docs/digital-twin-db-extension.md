@@ -45,8 +45,8 @@ What is still missing for the digital twin:
 - configured MPPT instances
 - configured battery bank
 - configured inverter instances
-- branch circuits
-- consumers
+- load circuits
+- loads
 - generator
 - monthly profiles
 
@@ -223,7 +223,7 @@ Suggested columns:
 - `battery_bank_id TEXT NOT NULL REFERENCES battery_banks(battery_bank_id)`
 - `inverter_configuration_id TEXT NOT NULL REFERENCES inverter_configurations(inverter_configuration_id)`
 
-### `branch_circuits`
+### `load_circuits`
 
 Purpose:
 
@@ -232,7 +232,7 @@ Purpose:
 Suggested columns:
 
 - `id INTEGER PRIMARY KEY AUTOINCREMENT`
-- `branch_circuit_id TEXT UNIQUE NOT NULL`
+- `load_circuit_id TEXT UNIQUE NOT NULL`
 - `inverter_configuration_id TEXT NOT NULL REFERENCES inverter_configurations(inverter_configuration_id)`
 - `name TEXT NOT NULL`
 - `nominal_voltage_v REAL NOT NULL`
@@ -241,42 +241,42 @@ Suggested columns:
 
 Persist rationale:
 
-- branch circuits are real design objects, not just reporting output
+- load circuits are real design objects, not just reporting output
 
-### `consumers`
+### `loads`
 
 Purpose:
 
-- store loads attached to branch circuits
+- store loads attached to load circuits
 
 Suggested columns:
 
 - `id INTEGER PRIMARY KEY AUTOINCREMENT`
-- `consumer_id TEXT UNIQUE NOT NULL`
-- `branch_circuit_id TEXT NOT NULL REFERENCES branch_circuits(branch_circuit_id)`
+- `load_id TEXT UNIQUE NOT NULL`
+- `load_circuit_id TEXT NOT NULL REFERENCES load_circuits(load_circuit_id)`
 - `name TEXT NOT NULL`
 - `nominal_power_w REAL NOT NULL`
 - `surge_power_w REAL`
 - `daily_energy_kwh REAL`
 - `notes TEXT`
 
-### `consumer_monthly_profiles`
+### `load_monthly_profiles`
 
 Purpose:
 
-- store month-by-month load variation for each consumer
+- store month-by-month load variation for each load
 
 Suggested columns:
 
 - `id INTEGER PRIMARY KEY AUTOINCREMENT`
-- `consumer_id TEXT NOT NULL REFERENCES consumers(consumer_id)`
+- `load_id TEXT NOT NULL REFERENCES loads(load_id)`
 - `month INTEGER NOT NULL`
 - `energy_factor REAL NOT NULL DEFAULT 1.0`
 - `notes TEXT`
 
 Rules:
 
-- one row per consumer per month
+- one row per load per month
 
 ### `generators`
 
@@ -366,9 +366,9 @@ After the first slice works, add:
 
 - `inverter_configurations`
 - `battery_bank_inverters`
-- `branch_circuits`
-- `consumers`
-- `consumer_monthly_profiles`
+- `load_circuits`
+- `loads`
+- `load_monthly_profiles`
 
 This adds the downstream AC side.
 

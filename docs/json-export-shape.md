@@ -76,10 +76,11 @@ Suggested shape:
   "battery_banks": [],
   "inverter_types": [],
   "inverter_configurations": [],
-  "branch_circuits": [],
-  "consumers": [],
+  "conversion_devices": [],
+  "load_circuits": [],
+  "loads": [],
   "generators": [],
-  "consumer_monthly_profiles": [],
+  "load_monthly_profiles": [],
   "generator_monthly_profiles": [],
   "solar_monthly_profiles": []
 }
@@ -96,8 +97,8 @@ Suggested shape:
   "array_to_mppt": [],
   "mppt_to_battery_bank": [],
   "battery_bank_to_inverter": [],
-  "inverter_to_branch_circuit": [],
-  "branch_circuit_to_consumer": []
+  "conversion_device_to_load_circuit": [],
+  "load_circuit_to_load": []
 }
 ```
 
@@ -190,7 +191,7 @@ Suggested fields:
 
 - `month`
 - `solar_kwh`
-- `consumer_kwh`
+- `load_kwh`
 - `generator_kwh`
 - `battery_charge_kwh`
 - `battery_discharge_kwh`
@@ -217,7 +218,7 @@ Suggested fields:
 
 - `total_installed_wp`
 - `battery_capacity_kwh`
-- `consumer_daily_energy_kwh`
+- `load_daily_energy_kwh`
 - `worst_month`
 - `best_month`
 - `has_outside_limits`

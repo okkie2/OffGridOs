@@ -18,14 +18,14 @@ This note defines:
 
 Start with a two-layer usage model:
 
-1. a simple base load definition per `consumer`
+1. a simple base load definition per `load`
 2. a monthly factor layer that adjusts it per month
 
 This is enough for the first useful version.
 
-## Base consumer model
+## Base load model
 
-Each `consumer` should have a base definition such as:
+Each `load` should have a base definition such as:
 
 - `nominal_power_w`
 - `surge_power_w`
@@ -36,7 +36,7 @@ This base definition represents the normal load assumption before seasonal adjus
 
 ## Monthly adjustment model
 
-Use one row per `consumer` per month with:
+Use one row per `load` per month with:
 
 - `month`
 - `energy_factor`
@@ -69,7 +69,7 @@ Monthly factors are weaker for:
 - narrow daily runtime windows
 - alternating duty cycles during the day
 - short high-surge devices
-- consumers whose power and energy profile differ sharply
+- loads whose power and energy profile differ sharply
 - loads driven by weather events rather than broad seasons
 
 These should not block the first version.
@@ -93,7 +93,7 @@ This should be a later refinement, not part of the first required model.
 
 For the first useful digital twin:
 
-- treat `daily_energy_kwh` as the main consumer-energy input
+- treat `daily_energy_kwh` as the main load-energy input
 - use `nominal_power_w` and `surge_power_w` for electrical compatibility checks
 - use monthly `energy_factor` to scale the energy side per month
 
@@ -119,7 +119,7 @@ This gives a clean split:
 
 ### Living room sockets
 
-- modeled as one grouped `consumer`
+- modeled as one grouped `load`
 - `daily_energy_kwh`: aggregated estimate
 - monthly factor: moderate winter increase may be acceptable
 
@@ -145,7 +145,7 @@ Do not introduce hourly simulation yet.
 
 The first version should use:
 
-- base consumer definitions
+- base load definitions
 - monthly scaling factors
 - clear separation between power checks and energy checks
 

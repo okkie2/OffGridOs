@@ -113,19 +113,19 @@ Reason-level wording:
 - `inverter_underutilized`: `The selected inverter is larger than this battery bank currently justifies.`
 - `well_matched`: `Battery-bank voltage and power capability are aligned with the inverter.`
 
-### Inverter -> branch circuit
+### Inverter -> load circuit
 
-- `Optimal`: `This branch circuit is closely matched to the inverter.`
-- `Acceptable`: `This branch circuit is a workable load path for the inverter, with some headroom or tradeoff.`
-- `Underutilized`: `The inverter has significant unused capacity relative to this branch circuit.`
-- `Outside limits`: `This branch circuit is not electrically compatible with the inverter.`
+- `Optimal`: `This load circuit is closely matched to the inverter.`
+- `Acceptable`: `This load circuit is a workable load path for the inverter, with some headroom or tradeoff.`
+- `Underutilized`: `The inverter has significant unused capacity relative to this load circuit.`
+- `Outside limits`: `This load circuit is not electrically compatible with the inverter.`
 
-### Branch circuit -> consumer
+### Load circuit -> load
 
-- `Optimal`: `This consumer is closely matched to the branch circuit.`
-- `Acceptable`: `This consumer can run on this branch circuit, with some headroom or startup tradeoff.`
-- `Underutilized`: `This branch circuit has significant unused capacity relative to this consumer.`
-- `Outside limits`: `This consumer is not electrically compatible with this branch circuit.`
+- `Optimal`: `This load is closely matched to the load circuit.`
+- `Acceptable`: `This load can run on this load circuit, with some headroom or startup tradeoff.`
+- `Underutilized`: `This load circuit has significant unused capacity relative to this load.`
+- `Outside limits`: `This load is not electrically compatible with this load circuit.`
 
 ## UI guidance
 

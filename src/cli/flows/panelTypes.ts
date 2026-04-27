@@ -100,6 +100,7 @@ async function promptPanel(existing?: PanelType, existingIds: string[] = []): Pr
     imp: ans.imp,
     length_mm: ans.length_mm,
     width_mm: ans.width_mm,
+    temp_coefficient_voc_pct_per_c: existing?.temp_coefficient_voc_pct_per_c ?? null,
     notes: ans.notes || null,
   };
 }

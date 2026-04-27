@@ -24,7 +24,7 @@ This is the main seasonal system view.
 This screen should combine:
 
 - solar contribution
-- consumer demand
+- load demand
 - battery charge and discharge pressure
 - generator contribution
 - monthly surplus or deficit
@@ -48,7 +48,7 @@ Suggested layout:
 Show:
 
 - total yearly solar yield
-- total yearly consumer demand
+- total yearly load demand
 - total yearly surplus
 - total yearly deficit
 - worst month
@@ -79,7 +79,7 @@ Each month should have a compact row with:
 
 - month
 - solar kWh
-- consumer kWh
+- load kWh
 - generator kWh
 - battery charge kWh
 - battery discharge kWh
@@ -137,7 +137,7 @@ Suggested actions:
 - `Increase battery capacity`
 - `Reduce winter demand`
 - `Accept seasonal generator support`
-- `Review inverter and branch-circuit pressure`
+- `Review inverter and load-circuit pressure`
 
 The point is not to auto-change the configuration, but to show likely levers.
 
@@ -159,7 +159,7 @@ This screen should be fed by:
 - surface and array data
 - MPPT fit evaluations
 - battery-bank and inverter relationships
-- branch-circuit and consumer demand assumptions
+- load-circuit and load demand assumptions
 
 It is the place where the whole digital twin becomes operationally meaningful.
 

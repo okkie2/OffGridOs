@@ -164,6 +164,7 @@ const BATTERY_TYPES: Array<{
 ];
 
 const VICTRON_PRICE_LIST_URL = 'https://www.victronenergy.nl/media/pricelist/Pricelist_Victron_EUR_C_2026-Q1_Web.pdf';
+const VICTRON_PRICE_LIST_Q2_2026_URL = 'https://www.victronenergy.com/media/pricelist/Pricelist_Victron_EUR_C_2026-Q2_web.pdf';
 
 const INVERTER_TYPES: Array<{
   inverter_id: string;
@@ -259,6 +260,88 @@ const INVERTER_TYPES: Array<{
   },
 ];
 
+const ORION_CONVERSION_DEVICES: Array<{
+  conversion_device_id: string;
+  title: string;
+  description: string;
+  device_type: 'dc_dc_converter';
+  input_voltage_v: number;
+  output_voltage_v: number;
+  continuous_power_w: number;
+  peak_power_va: number;
+  max_charge_current_a: number;
+  efficiency_pct: number;
+  output_ac_voltage_v: number | null;
+  frequency_hz: number | null;
+  surge_power_w: number | null;
+  output_dc_voltage_v: number;
+  max_output_current_a: number;
+  price: number;
+  price_source_url: string;
+  notes: string;
+}> = [
+  {
+    conversion_device_id: 'victron-orion-tr-48-12-20',
+    title: 'Orion-Tr 48/12-20A',
+    description: 'Victron Orion-Tr Smart isolated DC-DC converter for a 48 V battery stack feeding 12 V loads.',
+    device_type: 'dc_dc_converter',
+    input_voltage_v: 48,
+    output_voltage_v: 12.2,
+    continuous_power_w: 240,
+    peak_power_va: 240,
+    max_charge_current_a: 20,
+    efficiency_pct: 87,
+    output_ac_voltage_v: null,
+    frequency_hz: null,
+    surge_power_w: null,
+    output_dc_voltage_v: 12.2,
+    max_output_current_a: 25,
+    price: 171,
+    price_source_url: VICTRON_PRICE_LIST_Q2_2026_URL,
+    notes: 'Good fit for lighter 12 V loads from a 48 V battery stack, such as a pump and a smaller fridge duty cycle.',
+  },
+  {
+    conversion_device_id: 'victron-orion-tr-48-12-9',
+    title: 'Orion-Tr 48/12-9A',
+    description: 'Victron Orion-Tr isolated DC-DC converter for a 48 V battery stack feeding lighter 12 V loads.',
+    device_type: 'dc_dc_converter',
+    input_voltage_v: 48,
+    output_voltage_v: 12.5,
+    continuous_power_w: 110,
+    peak_power_va: 110,
+    max_charge_current_a: 9,
+    efficiency_pct: 87,
+    output_ac_voltage_v: null,
+    frequency_hz: null,
+    surge_power_w: null,
+    output_dc_voltage_v: 12.5,
+    max_output_current_a: 9,
+    price: 68,
+    price_source_url: VICTRON_PRICE_LIST_Q2_2026_URL,
+    notes: 'Smallest Orion option in the catalog. Good for a 12 V pump and lighter auxiliary loads from a 48 V battery stack.',
+  },
+  {
+    conversion_device_id: 'victron-orion-tr-48-12-30',
+    title: 'Orion-Tr 48/12-30A',
+    description: 'Victron Orion-Tr Smart isolated DC-DC converter for a 48 V battery stack feeding 12 V loads.',
+    device_type: 'dc_dc_converter',
+    input_voltage_v: 48,
+    output_voltage_v: 12.2,
+    continuous_power_w: 360,
+    peak_power_va: 360,
+    max_charge_current_a: 30,
+    efficiency_pct: 87,
+    output_ac_voltage_v: null,
+    frequency_hz: null,
+    surge_power_w: null,
+    output_dc_voltage_v: 12.2,
+    max_output_current_a: 30,
+    price: 261,
+    price_source_url: VICTRON_PRICE_LIST_Q2_2026_URL,
+    notes: 'More headroom for a 12 V pump and fridge from a 48 V battery stack, especially if both can run together.',
+  },
+];
+
 const BASELINE_LOCATION = {
   title: '18Mad Boerderij',
   country: 'NL',
@@ -345,6 +428,7 @@ const BASELINE_PANEL_TYPES: Array<{
   imp: number;
   length_mm: number;
   width_mm: number;
+  temp_coefficient_voc_pct_per_c: number;
   notes: string | null;
   price: number | null;
   price_source_url?: string | null;
@@ -360,6 +444,7 @@ const BASELINE_PANEL_TYPES: Array<{
     imp: 12.5,
     length_mm: 1762,
     width_mm: 1134,
+    temp_coefficient_voc_pct_per_c: -0.24,
     notes: 'ABC technology; Voc/Vmp/Isc/Imp estimated — verify datasheet; ref: 2393526667917',
     price: 107.94,
     price_source_url: 'https://www.solardeals.nl/product/aiko-475wp-glas-glas-all-black/',
@@ -375,6 +460,7 @@ const BASELINE_PANEL_TYPES: Array<{
     imp: 13,
     length_mm: 1722,
     width_mm: 1134,
+    temp_coefficient_voc_pct_per_c: -0.26,
     notes: 'Deep red BISOL Spectrum panel; 400 Wp, 20.48% efficiency, N-type TOPCon, 20-year product warranty and 25-year linear performance guarantee, 1722 x 1134 x 30 mm, based on Planet Soar Shop.',
     price: 290,
     price_source_url: 'https://www.planetsoarshop.com/en/products/bisol-bdo-spectrum-400-wp-n-type-topcon-red-solar-panel',
@@ -390,6 +476,7 @@ const BASELINE_PANEL_TYPES: Array<{
     imp: 11.37,
     length_mm: 1765,
     width_mm: 1048,
+    temp_coefficient_voc_pct_per_c: -0.27,
     notes: 'Bifacial rood; Voc/Vmp/Isc/Imp estimated; €220-320/panel',
     price: 270,
     price_source_url: 'https://www.solargarant.nl/zonnepanelen/canadian-solar/',
@@ -405,6 +492,7 @@ const BASELINE_PANEL_TYPES: Array<{
     imp: 11.63,
     length_mm: 1765,
     width_mm: 1048,
+    temp_coefficient_voc_pct_per_c: -0.27,
     notes: 'Voc/Vmp/Isc/Imp estimated; €180-280/panel',
     price: 230,
     price_source_url: 'https://www.solargarant.nl/zonnepanelen/canadian-solar/',
@@ -420,6 +508,7 @@ const BASELINE_PANEL_TYPES: Array<{
     imp: 9.03,
     length_mm: 1650,
     width_mm: 992,
+    temp_coefficient_voc_pct_per_c: -0.30,
     notes: 'Isc/dims estimated — verify against datasheet',
     price: null,
   },
@@ -434,6 +523,7 @@ const BASELINE_PANEL_TYPES: Array<{
     imp: 11.27,
     length_mm: 1755,
     width_mm: 1038,
+    temp_coefficient_voc_pct_per_c: -0.27,
     notes: 'Rood; Voc/Vmp/Isc/Imp estimated; €230-330/panel',
     price: 280,
     price_source_url: 'https://www.jenm-zonnepanelen.nl/nl/ja-solar-deepblue-4-0-pro.html',
@@ -449,6 +539,7 @@ const BASELINE_PANEL_TYPES: Array<{
     imp: 11.78,
     length_mm: 1755,
     width_mm: 1038,
+    temp_coefficient_voc_pct_per_c: -0.27,
     notes: 'Voc/Vmp/Isc/Imp estimated; €200-300/panel',
     price: 250,
     price_source_url: 'https://www.stralendgroen.nl/product/trina-solar-vertex-s-dual-glass-transparent-430wp/',
@@ -464,6 +555,7 @@ const BASELINE_PANEL_TYPES: Array<{
     imp: 11.77,
     length_mm: 1765,
     width_mm: 1134,
+    temp_coefficient_voc_pct_per_c: -0.26,
     notes: 'N-Type; Voc/Vmp/Isc/Imp estimated; €220-320/panel',
     price: 270,
   },
@@ -478,6 +570,7 @@ const BASELINE_PANEL_TYPES: Array<{
     imp: 11.82,
     length_mm: 1755,
     width_mm: 1038,
+    temp_coefficient_voc_pct_per_c: -0.27,
     notes: 'Voc/Vmp/Isc/Imp estimated; €200-300/panel',
     price: 250,
   },
@@ -492,6 +585,7 @@ const BASELINE_PANEL_TYPES: Array<{
     imp: 11.14,
     length_mm: 1755,
     width_mm: 1038,
+    temp_coefficient_voc_pct_per_c: -0.27,
     notes: 'Voc/Vmp/Isc/Imp estimated; €250-350/panel',
     price: 300,
   },
@@ -506,6 +600,7 @@ const BASELINE_PANEL_TYPES: Array<{
     imp: 11.55,
     length_mm: 1754,
     width_mm: 1038,
+    temp_coefficient_voc_pct_per_c: -0.24,
     notes: 'Voc/Vmp/Isc/Imp estimated; €300-400/panel',
     price: 350,
   },
@@ -520,6 +615,7 @@ const BASELINE_PANEL_TYPES: Array<{
     imp: 11.81,
     length_mm: 1722,
     width_mm: 1134,
+    temp_coefficient_voc_pct_per_c: -0.27,
     notes: 'IBC; Voc/Vmp/Isc/Imp estimated; €350-450/panel',
     price: 400,
   },
@@ -534,6 +630,7 @@ const BASELINE_PANEL_TYPES: Array<{
     imp: 11.75,
     length_mm: 1754,
     width_mm: 1134,
+    temp_coefficient_voc_pct_per_c: -0.26,
     notes: 'Voc/Vmp/Isc/Imp estimated; €220-320/panel',
     price: 270,
   },
@@ -548,6 +645,7 @@ const BASELINE_PANEL_TYPES: Array<{
     imp: 11.46,
     length_mm: 1754,
     width_mm: 1134,
+    temp_coefficient_voc_pct_per_c: -0.26,
     notes: 'Rood; Voc/Vmp/Isc/Imp estimated; €240-340/panel',
     price: 290,
   },
@@ -690,6 +788,83 @@ export function seedInverterTypes(db: Database.Database): void {
   insertAll(INVERTER_TYPES);
 }
 
+export function seedConversionDevices(db: Database.Database): void {
+  const insert = db.prepare(`
+    INSERT OR IGNORE INTO conversion_devices
+      (conversion_device_id, title, description, device_type, input_voltage_v, output_voltage_v, continuous_power_w, peak_power_va, max_charge_current_a, efficiency_pct, output_ac_voltage_v, frequency_hz, surge_power_w, output_dc_voltage_v, max_output_current_a, price, price_source_url, notes)
+    VALUES
+      (@conversion_device_id, @title, @description, @device_type, @input_voltage_v, @output_voltage_v, @continuous_power_w, @peak_power_va, @max_charge_current_a, @efficiency_pct, @output_ac_voltage_v, @frequency_hz, @surge_power_w, @output_dc_voltage_v, @max_output_current_a, @price, @price_source_url, @notes)
+  `);
+
+  const update = db.prepare(`
+    UPDATE conversion_devices
+    SET
+      title = COALESCE(title, @title),
+      description = COALESCE(description, @description),
+      device_type = COALESCE(device_type, @device_type),
+      input_voltage_v = COALESCE(input_voltage_v, @input_voltage_v),
+      output_voltage_v = COALESCE(output_voltage_v, @output_voltage_v),
+      continuous_power_w = COALESCE(continuous_power_w, @continuous_power_w),
+      peak_power_va = COALESCE(peak_power_va, @peak_power_va),
+      max_charge_current_a = COALESCE(max_charge_current_a, @max_charge_current_a),
+      efficiency_pct = COALESCE(efficiency_pct, @efficiency_pct),
+      output_ac_voltage_v = COALESCE(output_ac_voltage_v, @output_ac_voltage_v),
+      frequency_hz = COALESCE(frequency_hz, @frequency_hz),
+      surge_power_w = COALESCE(surge_power_w, @surge_power_w),
+      output_dc_voltage_v = COALESCE(output_dc_voltage_v, @output_dc_voltage_v),
+      max_output_current_a = COALESCE(max_output_current_a, @max_output_current_a),
+      price = COALESCE(price, @price),
+      price_source_url = COALESCE(price_source_url, @price_source_url),
+      notes = COALESCE(notes, @notes)
+    WHERE conversion_device_id = @conversion_device_id
+  `);
+
+  const insertAll = db.transaction((rows: typeof INVERTER_TYPES) => {
+    for (const row of rows) {
+      const payload = {
+        conversion_device_id: row.inverter_id,
+        title: row.model,
+        description: row.notes ?? null,
+        device_type: 'inverter',
+        input_voltage_v: row.input_voltage_v,
+        output_voltage_v: row.output_voltage_v,
+        continuous_power_w: row.continuous_power_w,
+        peak_power_va: row.peak_power_va,
+        max_charge_current_a: row.max_charge_current_a,
+        efficiency_pct: row.efficiency_pct ?? null,
+        output_ac_voltage_v: null,
+        frequency_hz: null,
+        surge_power_w: null,
+        output_dc_voltage_v: null,
+        max_output_current_a: null,
+        price: row.price ?? null,
+        price_source_url: row.price_source_url ?? null,
+        notes: row.notes ?? null,
+      };
+      insert.run(payload);
+      update.run(payload);
+    }
+  });
+
+  insertAll(INVERTER_TYPES);
+
+  const insertOrionAll = db.transaction((rows: typeof ORION_CONVERSION_DEVICES) => {
+    for (const row of rows) {
+      const payload = {
+        ...row,
+        description: row.description ?? null,
+        output_ac_voltage_v: row.output_ac_voltage_v ?? null,
+        frequency_hz: row.frequency_hz ?? null,
+        surge_power_w: row.surge_power_w ?? null,
+      };
+      insert.run(payload);
+      update.run(payload);
+    }
+  });
+
+  insertOrionAll(ORION_CONVERSION_DEVICES);
+}
+
 export function seedInverterConfigurations(db: Database.Database): void {
   const existing = db.prepare('SELECT COUNT(*) as count FROM inverter_configurations').get() as { count: number } | undefined;
   if (!existing || existing.count === 0) {
@@ -736,8 +911,8 @@ export function seedPanelTypes(db: Database.Database): void {
   const existing = db.prepare('SELECT COUNT(*) as count FROM panel_types').get() as { count: number } | undefined;
   if (!existing || existing.count === 0) {
     const insert = db.prepare(`
-      INSERT INTO panel_types (panel_type_id, brand, model, wp, voc, vmp, isc, imp, length_mm, width_mm, notes, price, price_source_url)
-      VALUES (@panel_type_id, @brand, @model, @wp, @voc, @vmp, @isc, @imp, @length_mm, @width_mm, @notes, @price, @price_source_url)
+      INSERT INTO panel_types (panel_type_id, brand, model, wp, voc, vmp, isc, imp, length_mm, width_mm, temp_coefficient_voc_pct_per_c, notes, price, price_source_url)
+      VALUES (@panel_type_id, @brand, @model, @wp, @voc, @vmp, @isc, @imp, @length_mm, @width_mm, @temp_coefficient_voc_pct_per_c, @notes, @price, @price_source_url)
     `);
     const insertAll = db.transaction((rows: typeof BASELINE_PANEL_TYPES) => {
       for (const row of rows) {
@@ -750,6 +925,17 @@ export function seedPanelTypes(db: Database.Database): void {
       }
     });
     insertAll(BASELINE_PANEL_TYPES);
+  } else {
+    const upsertCoeff = db.prepare(`
+      UPDATE panel_types SET temp_coefficient_voc_pct_per_c = @coeff
+      WHERE panel_type_id = @panel_type_id AND temp_coefficient_voc_pct_per_c IS NULL
+    `);
+    const updateAll = db.transaction(() => {
+      for (const row of BASELINE_PANEL_TYPES) {
+        upsertCoeff.run({ panel_type_id: row.panel_type_id, coeff: row.temp_coefficient_voc_pct_per_c });
+      }
+    });
+    updateAll();
   }
 }
 

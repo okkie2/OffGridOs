@@ -25,8 +25,102 @@ function generateUniqueCatalogId(model: string, existingIds: string[]): string {
 type Status = 'within_limits' | 'outside_limits';
 type FitStatus = 'optimal' | 'fully_utilized' | 'clipping_expected' | 'underutilized';
 
+type LightboxMedia =
+  | { kind: 'image'; src: string; alt: string }
+  | { kind: 'map'; src: string; alt: string };
+
+interface ImageLightboxContextValue {
+  openImagePreview: (image: LightboxMedia) => void;
+}
+
+const ImageLightboxContext = React.createContext<ImageLightboxContextValue | null>(null);
+
+function useImageLightbox() {
+  const context = React.useContext(ImageLightboxContext);
+  if (!context) {
+    throw new Error('ImageLightboxContext is missing.');
+  }
+
+  return context;
+}
+
 function getMpptShortCircuitCurrentLimit(mpptType: MpptType): number {
   return mpptType.max_pv_short_circuit_current_a ?? mpptType.max_charge_current;
+}
+
+function ExpandablePhoto({
+  src,
+  alt,
+  onRemove,
+  removeLabel,
+}: {
+  src: string;
+  alt: string;
+  onRemove: () => void;
+  removeLabel: string;
+}) {
+  const { openImagePreview } = useImageLightbox();
+
+  return (
+    <div className="photo-frame">
+      <button
+        type="button"
+        className="photo-expand-trigger"
+        onClick={() => openImagePreview({ kind: 'image', src, alt })}
+        aria-label={alt}
+      >
+        <img src={src} alt={alt} className="photo-image" />
+      </button>
+      <button
+        type="button"
+        className="button button-secondary button-sm photo-remove"
+        onClick={onRemove}
+      >
+        {removeLabel}
+      </button>
+    </div>
+  );
+}
+
+function ImageLightbox({
+  media,
+  onClose,
+}: {
+  media: LightboxMedia;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="image-lightbox"
+      role="dialog"
+      aria-modal="true"
+      aria-label={media.alt}
+      onClick={onClose}
+    >
+      <div className="image-lightbox-backdrop" />
+      <div className="image-lightbox-dialog" onClick={(event) => event.stopPropagation()}>
+        <div className="image-lightbox-toolbar">
+          <button type="button" className="button button-secondary button-sm image-lightbox-close" onClick={onClose}>
+            Close
+          </button>
+        </div>
+        {media.kind === 'image' ? (
+          <button type="button" className="image-lightbox-image-button" onClick={onClose} aria-label="Close image preview">
+            <img src={media.src} alt={media.alt} className="image-lightbox-image" />
+          </button>
+        ) : (
+          <iframe
+            title={media.alt}
+            src={media.src}
+            className="image-lightbox-map"
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            allowFullScreen
+          />
+        )}
+      </div>
+    </div>
+  );
 }
 
 interface Surface {
@@ -194,6 +288,27 @@ interface InverterTypeDraft {
   notes: string;
 }
 
+interface ConversionDeviceDraft {
+  conversion_device_id: string;
+  title: string;
+  description: string;
+  device_type: string;
+  input_voltage_v: string;
+  output_voltage_v: string;
+  continuous_power_w: string;
+  peak_power_va: string;
+  max_charge_current_a: string;
+  efficiency_pct: string;
+  output_ac_voltage_v: string;
+  frequency_hz: string;
+  surge_power_w: string;
+  output_dc_voltage_v: string;
+  max_output_current_a: string;
+  price: string;
+  price_source_url: string;
+  notes: string;
+}
+
 interface BatteryBankConfiguration {
   battery_bank_id: string;
   title?: string | null;
@@ -236,6 +351,45 @@ interface InverterType {
   price?: number | null;
   price_source_url?: string | null;
   notes?: string;
+}
+
+interface ConversionDevice {
+  conversion_device_id: string;
+  title: string;
+  description?: string | null;
+  device_type: string;
+  input_voltage_v?: number | null;
+  output_voltage_v?: number | null;
+  continuous_power_w?: number | null;
+  peak_power_va?: number | null;
+  max_charge_current_a?: number | null;
+  efficiency_pct?: number | null;
+  output_ac_voltage_v?: number | null;
+  frequency_hz?: number | null;
+  surge_power_w?: number | null;
+  output_dc_voltage_v?: number | null;
+  max_output_current_a?: number | null;
+  price?: number | null;
+  price_source_url?: string | null;
+  notes?: string | null;
+}
+
+interface LoadCircuit {
+  load_circuit_id: string;
+  conversion_device_id: string;
+  title: string;
+  description?: string | null;
+}
+
+interface Load {
+  load_id: string;
+  load_circuit_id: string;
+  title: string;
+  description?: string | null;
+  usage_kw: number;
+  spike_kw: number;
+  expected_usage_hours_per_day: number;
+  sleeping_kw: number;
 }
 
 interface ArrayEntity {
@@ -349,7 +503,7 @@ interface InverterOutput {
 interface MonthlyBalanceRow {
   month: string;
   solar_kwh: number | null;
-  consumer_kwh: number | null;
+  load_kwh: number | null;
   surplus_kwh: number | null;
   deficit_kwh: number | null;
   notes?: string;
@@ -392,11 +546,17 @@ interface DigitalTwinExport {
     inverter_configurations: InverterConfiguration[];
     inverter_outputs: InverterOutput[];
     solar_monthly_profiles: SolarMonthlyProfile[];
+    conversion_devices: ConversionDevice[];
+    load_circuits: LoadCircuit[];
+    loads: Load[];
+    load_monthly_profiles: [];
   };
   relationships: {
     array_to_mppt: ArrayToMpptRelationship[];
     mppt_to_battery_bank: MpptToBatteryBankRelationship[];
     battery_bank_to_inverter: BatteryBankToInverterRelationship[];
+    conversion_device_to_load_circuit: [];
+    load_circuit_to_load: [];
   };
   derived: {
     array_states: ArrayState[];
@@ -607,7 +767,7 @@ type Route =
   | { kind: 'about' }
   | { kind: 'catalogs' }
   | { kind: 'reports' }
-  | { kind: 'catalog'; catalog: 'panel-types' | 'cabinet-types' | 'mppt-types' | 'battery-types' | 'inverter-types' }
+  | { kind: 'catalog'; catalog: 'panel-types' | 'cabinet-types' | 'conversion-devices' | 'mppt-types' | 'battery-types' | 'inverter-types' }
   | { kind: 'verdict-summary' }
   | { kind: 'cost-summary' }
   | { kind: 'battery-array' }
@@ -621,14 +781,14 @@ type ParsedAppUrl = {
 };
 
 const CATALOG_ROUTES: Array<{
-  catalog: 'panel-types' | 'cabinet-types' | 'mppt-types' | 'battery-types' | 'inverter-types';
+  catalog: 'panel-types' | 'cabinet-types' | 'conversion-devices' | 'mppt-types' | 'battery-types' | 'inverter-types';
   labelKey: TranslationKey;
 }> = [
   { catalog: 'panel-types', labelKey: 'nav.catalog.panel_types' },
   { catalog: 'cabinet-types', labelKey: 'nav.catalog.cabinet_types' },
+  { catalog: 'conversion-devices', labelKey: 'nav.catalog.conversion_devices' },
   { catalog: 'mppt-types', labelKey: 'nav.catalog.mppt_types' },
   { catalog: 'battery-types', labelKey: 'nav.catalog.battery_types' },
-  { catalog: 'inverter-types', labelKey: 'nav.catalog.inverter_types' },
 ];
 
 const REPORT_ROUTES: Array<{
@@ -645,6 +805,7 @@ const RESERVED_ROUTE_SEGMENTS = new Set([
   'catalogs',
   'cabinet-types',
   'cost-summary',
+  'conversion-devices',
   'inverter-array',
   'location',
   'reports',
@@ -1045,6 +1206,54 @@ function inverterDraftFromType(inverter: InverterType | null): InverterTypeDraft
   };
 }
 
+function emptyConversionDeviceDraft(): ConversionDeviceDraft {
+  return {
+    conversion_device_id: '',
+    title: '',
+    description: '',
+    device_type: 'inverter',
+    input_voltage_v: '48',
+    output_voltage_v: '230',
+    continuous_power_w: '5000',
+    peak_power_va: '8000',
+    max_charge_current_a: '100',
+    efficiency_pct: '',
+    output_ac_voltage_v: '',
+    frequency_hz: '',
+    surge_power_w: '',
+    output_dc_voltage_v: '',
+    max_output_current_a: '',
+    price: '',
+    price_source_url: '',
+    notes: '',
+  };
+}
+
+function conversionDeviceDraftFromType(device: ConversionDevice | null): ConversionDeviceDraft {
+  if (!device) return emptyConversionDeviceDraft();
+
+  return {
+    conversion_device_id: device.conversion_device_id,
+    title: device.title,
+    description: device.description ?? '',
+    device_type: device.device_type,
+    input_voltage_v: device.input_voltage_v != null ? String(device.input_voltage_v) : '',
+    output_voltage_v: device.output_voltage_v != null ? String(device.output_voltage_v) : '',
+    continuous_power_w: device.continuous_power_w != null ? String(device.continuous_power_w) : '',
+    peak_power_va: device.peak_power_va != null ? String(device.peak_power_va) : '',
+    max_charge_current_a: device.max_charge_current_a != null ? String(device.max_charge_current_a) : '',
+    efficiency_pct: device.efficiency_pct != null ? String(device.efficiency_pct) : '',
+    output_ac_voltage_v: device.output_ac_voltage_v != null ? String(device.output_ac_voltage_v) : '',
+    frequency_hz: device.frequency_hz != null ? String(device.frequency_hz) : '',
+    surge_power_w: device.surge_power_w != null ? String(device.surge_power_w) : '',
+    output_dc_voltage_v: device.output_dc_voltage_v != null ? String(device.output_dc_voltage_v) : '',
+    max_output_current_a: device.max_output_current_a != null ? String(device.max_output_current_a) : '',
+    price: device.price != null ? String(device.price) : '',
+    price_source_url: device.price_source_url ?? '',
+    notes: device.notes ?? '',
+  };
+}
+
 function angularDifferenceDeg(left: number, right: number): number {
   const raw = Math.abs(left - right) % 360;
   return raw > 180 ? 360 - raw : raw;
@@ -1253,6 +1462,7 @@ function evaluateArrayConfiguration(
   configuredPanelCount: number;
   usesConfiguredPanelsExactly: boolean;
   stringVoc: number;
+  stringVocCold: number;
   stringVmp: number;
   stringCurrent: number;
   arrayCurrent: number;
@@ -1266,6 +1476,7 @@ function evaluateArrayConfiguration(
       configuredPanelCount: 0,
       usesConfiguredPanelsExactly: configuredPanelBudget === 0,
       stringVoc: 0,
+      stringVocCold: 0,
       stringVmp: 0,
       stringCurrent: 0,
       arrayCurrent: 0,
@@ -1279,6 +1490,8 @@ function evaluateArrayConfiguration(
   const configuredPanelCount = panelsPerString * parallelStrings;
   const usesConfiguredPanelsExactly = configuredPanelCount === configuredPanelBudget;
   const stringVoc = Number((panelsPerString * panelType.voc).toFixed(1));
+  const coeff = panelType.temp_coefficient_voc_pct_per_c ?? -0.30;
+  const stringVocCold = Number((panelsPerString * panelType.voc * (1 + (coeff / 100) * (-10 - 25))).toFixed(1));
   const stringVmp = Number((panelsPerString * panelType.vmp).toFixed(1));
   const stringCurrent = Number(panelType.imp.toFixed(2));
   const arrayCurrent = Number((panelType.imp * parallelStrings).toFixed(2));
@@ -1297,6 +1510,7 @@ function evaluateArrayConfiguration(
     configuredPanelCount,
     usesConfiguredPanelsExactly,
     stringVoc,
+    stringVocCold,
     stringVmp,
     stringCurrent,
     arrayCurrent,
@@ -1310,6 +1524,7 @@ function evaluateArrayConfiguration(
 function evaluateMpptCompatibility(
   arrayConfig: {
     stringVoc: number;
+    stringVocCold: number;
     stringVmp: number;
     stringCurrent: number;
     arrayCurrent: number;
@@ -1337,14 +1552,14 @@ function evaluateMpptCompatibility(
   const perTrackerPowerLimit = mpptType.max_pv_power / trackerCount;
   const powerRatio = arrayConfig.arrayPower / perTrackerPowerLimit;
   const shortCircuitCurrentLimit = getMpptShortCircuitCurrentLimit(mpptType);
-  const outsideLimits = arrayConfig.stringVoc > mpptType.max_voc
+  const outsideLimits = arrayConfig.stringVocCold > mpptType.max_voc
     || (mpptType.max_pv_input_current_a != null && arrayConfig.arrayCurrent > mpptType.max_pv_input_current_a)
     || arrayConfig.arrayIsc > shortCircuitCurrentLimit
     || chargeCurrent > mpptType.max_charge_current
     || powerRatio > 1.1;
 
   const reasons: string[] = [];
-  if (arrayConfig.stringVoc > mpptType.max_voc) reasons.push('voltage_too_high');
+  if (arrayConfig.stringVocCold > mpptType.max_voc) reasons.push('voltage_too_high');
   if (mpptType.max_pv_input_current_a != null && arrayConfig.arrayCurrent > mpptType.max_pv_input_current_a) {
     reasons.push('pv_input_current_too_high');
   }
@@ -1781,9 +1996,10 @@ function parseLegacyHashRoute(hash: string): Route {
   if (hash === '/reports/verdict-summary' || hash === '/verdict-summary') return { kind: 'verdict-summary' };
   if (hash === '/reports/cost-summary' || hash === '/cost-summary') return { kind: 'cost-summary' };
   if (hash === '/panel-types') return { kind: 'catalog', catalog: 'panel-types' };
+  if (hash === '/conversion-devices') return { kind: 'catalog', catalog: 'conversion-devices' };
   if (hash === '/mppt-types') return { kind: 'catalog', catalog: 'mppt-types' };
   if (hash === '/battery-types') return { kind: 'catalog', catalog: 'battery-types' };
-  if (hash === '/inverter-types') return { kind: 'catalog', catalog: 'inverter-types' };
+  if (hash === '/inverter-types') return { kind: 'catalog', catalog: 'conversion-devices' };
   if (hash === '/battery-array') return { kind: 'battery-array' };
   if (hash === '/inverter-array') return { kind: 'inverter-array' };
   if (hash.startsWith('/surfaces/')) {
@@ -1826,8 +2042,9 @@ function parseAppUrl(pathname: string, hash: string): ParsedAppUrl {
   if (rest[0] === 'about') return { language, locationSlug, route: { kind: 'about' } };
   if (rest[0] === 'catalogs') {
     const catalog = rest[1];
-    if (catalog === 'panel-types' || catalog === 'cabinet-types' || catalog === 'mppt-types' || catalog === 'battery-types' || catalog === 'inverter-types') {
-      return { language, locationSlug, route: { kind: 'catalog', catalog } };
+    if (catalog === 'panel-types' || catalog === 'cabinet-types' || catalog === 'conversion-devices' || catalog === 'mppt-types' || catalog === 'battery-types' || catalog === 'inverter-types') {
+      const resolvedCatalog = catalog === 'inverter-types' ? 'conversion-devices' : catalog;
+      return { language, locationSlug, route: { kind: 'catalog', catalog: resolvedCatalog } };
     }
     return { language, locationSlug, route: { kind: 'catalogs' } };
   }
@@ -1955,9 +2172,11 @@ function Sidebar({
   const toggleSection = (section: keyof typeof openSections) => {
     setOpenSections((current) => ({ ...current, [section]: !current[section] }));
   };
-  const sectionClick = (section: keyof typeof openSections) => (event: MouseEvent<HTMLAnchorElement>) => {
+  const sectionClick = (section: keyof typeof openSections, next: Route) => (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
     toggleSection(section);
+    navigateTo(next);
+    onNavigate();
   };
   const labelFor = (label: string) => (isCollapsed ? label : undefined);
 
@@ -2083,7 +2302,7 @@ function Sidebar({
         <NavLink
           href={routeHref({ kind: 'inverter-array' })}
           onClick={go({ kind: 'inverter-array' })}
-          label={t('nav.inverter_array')}
+          label={t('nav.converters')}
           icon={sidebarIcon('inverter-array')}
           active={route.kind === 'inverter-array'}
         />
@@ -2234,18 +2453,8 @@ function getRouteContext(route: Route, data: DigitalTwinExport | null, t: (key: 
     case 'about':
       return t('page.about.context');
     case 'catalog': {
-      const catalog = CATALOG_ROUTES.find((item) => item.catalog === route.catalog);
-      if (!catalog) return t('page.catalogs.context');
-      switch (catalog.catalog) {
-        case 'panel-types':
-          return t('page.catalog.panel_types.context');
-        case 'mppt-types':
-          return t('page.catalog.mppt_types.context');
-        case 'battery-types':
-          return t('page.catalog.battery_types.context');
-        case 'inverter-types':
-          return t('page.catalog.inverter_types.context');
-      }
+      if (route.catalog === 'conversion-devices') return '';
+      return '';
     }
     case 'verdict-summary':
       return '';
@@ -2847,19 +3056,15 @@ function SurfaceDetail({
             <h2>{t('surface.photo.title')}</h2>
           </div>
           {photo ? (
-            <div className="photo-frame">
-              <img src={photo} alt={`${surfaceNameDraft || surface.name} surface`} className="photo-image" />
-              <button
-                type="button"
-                className="button button-secondary button-sm photo-remove"
-                onClick={() => {
-                  setPhoto(null);
-                  void handleSaveSurfaceDetails({ photoOverride: null });
-                }}
-              >
-                {t('common.remove')}
-              </button>
-            </div>
+            <ExpandablePhoto
+              src={photo}
+              alt={`${surfaceNameDraft || surface.name} surface`}
+              removeLabel={t('common.remove')}
+              onRemove={() => {
+                setPhoto(null);
+                void handleSaveSurfaceDetails({ photoOverride: null });
+              }}
+            />
           ) : (
             <label className="upload-dropzone">
               <span>{t('surface.photo.upload')}</span>
@@ -3003,6 +3208,10 @@ function SurfaceDetail({
                     <dd>{formatVolts(arrayConfig.stringVoc)}</dd>
                   </div>
                   <div>
+                    <dt>{t('surface.panel_array.stat.voc_cold')}</dt>
+                    <dd>{formatVolts(arrayConfig.stringVocCold)}</dd>
+                  </div>
+                  <div>
                     <dt>{t('surface.panel_array.stat.voltage')}</dt>
                     <dd>{formatVolts(arrayConfig.stringVmp)}</dd>
                   </div>
@@ -3105,9 +3314,9 @@ function SurfaceDetail({
                     </div>
                     {mpptCompatibility && selectedMpptType ? (
                       <dl className="detail-stats outcome-checks">
-                        <div className={arrayConfig.stringVoc > selectedMpptType.max_voc ? 'check-fail' : 'check-pass'}>
+                        <div className={arrayConfig.stringVocCold > selectedMpptType.max_voc ? 'check-fail' : 'check-pass'}>
                           <dt>{t('surface.evaluation.check.voltage')}</dt>
-                          <dd>{formatVolts(arrayConfig.stringVoc)} / {formatVolts(selectedMpptType.max_voc)}</dd>
+                          <dd>{formatVolts(arrayConfig.stringVocCold)} / {formatVolts(selectedMpptType.max_voc)}</dd>
                         </div>
                         <div className={arrayConfig.arrayPower > selectedMpptType.max_pv_power / Math.max(selectedMpptType.tracker_count, 1) * 1.1 ? 'check-fail' : 'check-pass'}>
                           <dt>{t('surface.evaluation.check.power_per_tracker')}</dt>
@@ -3217,9 +3426,10 @@ type PageContext = {
   projectInverter: InverterConfiguration | null;
   batteryToInverter: BatteryBankToInverterRelationship | null;
   refreshProjectData: () => Promise<void>;
+  openMediaPreview?: (media: LightboxMedia) => void;
 };
 
-function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refreshProjectData }: PageContext) {
+function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refreshProjectData, openMediaPreview }: PageContext) {
   const { t } = useTranslation();
   const storagePrefix = `${data.project.project_id}:location`;
   const defaultLocationName = data.project.location?.title ?? '18Mad Boerderij';
@@ -3525,19 +3735,15 @@ function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refr
             <h2>{t('location.photo.title')}</h2>
           </div>
           {photo ? (
-            <div className="photo-frame">
-              <img src={photo} alt="Location" className="photo-image" />
-              <button
-                type="button"
-                className="button button-secondary button-sm photo-remove"
-                onClick={() => {
-                  setPhoto(null);
-                  void handleSaveLocation(null);
-                }}
-              >
-                {t('common.remove')}
-              </button>
-            </div>
+            <ExpandablePhoto
+              src={photo}
+              alt="Location"
+              removeLabel={t('common.remove')}
+              onRemove={() => {
+                setPhoto(null);
+                void handleSaveLocation(null);
+              }}
+            />
           ) : (
             <label className="upload-dropzone">
               <span>{t('location.photo.upload')}</span>
@@ -3561,6 +3767,19 @@ function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refr
                 referrerPolicy="no-referrer-when-downgrade"
                 allowFullScreen
               />
+              <button
+                type="button"
+                className="button button-secondary button-sm map-expand-trigger"
+                onClick={() =>
+                  openMediaPreview?.({
+                    kind: 'map',
+                    src: buildGoogleMapsIframeSrc(numericLatitude, numericLongitude),
+                    alt: 'Location satellite map',
+                  })
+                }
+              >
+                Expand map
+              </button>
             </div>
           ) : (
             <p style={{ margin: 0, color: 'var(--muted)' }}>{t('location.map.empty')}</p>
@@ -4174,19 +4393,15 @@ function BatteryArrayPage({
             <h2>{t('battery.image.title')}</h2>
           </div>
             {batteryImage ? (
-              <div className="photo-frame">
-                <img src={batteryImage} alt={batteryTitle.trim() || t('battery.image.alt')} className="photo-image" />
-                <button
-                  type="button"
-                  className="button button-secondary button-sm photo-remove"
-                  onClick={() => {
-                    setBatteryImage(null);
-                    void handleSaveBatteryDesign({ imageOverride: null });
-                  }}
-                >
-                  {t('common.remove')}
-                </button>
-              </div>
+              <ExpandablePhoto
+                src={batteryImage}
+                alt={batteryTitle.trim() || t('battery.image.alt')}
+                removeLabel={t('common.remove')}
+                onRemove={() => {
+                  setBatteryImage(null);
+                  void handleSaveBatteryDesign({ imageOverride: null });
+                }}
+              />
             ) : (
               <label className="upload-dropzone">
                 <span>{t('battery.image.upload')}</span>
@@ -4720,19 +4935,15 @@ function InverterArrayPage({
             <h2>{t('inverter.image.title')}</h2>
           </div>
             {inverterDraft.image_data_url ? (
-              <div className="photo-frame">
-                <img src={inverterDraft.image_data_url} alt={inverterDraft.title.trim() || t('inverter.image.alt')} className="photo-image" />
-                <button
-                  type="button"
-                  className="button button-secondary button-sm photo-remove"
-                  onClick={() => {
-                    setInverterDraft((current) => ({ ...current, image_data_url: null }));
-                    void handleSaveInverterDesign({ imageOverride: null });
-                  }}
-                >
-                  {t('common.remove')}
-                </button>
-              </div>
+              <ExpandablePhoto
+                src={inverterDraft.image_data_url}
+                alt={inverterDraft.title.trim() || t('inverter.image.alt')}
+                removeLabel={t('common.remove')}
+                onRemove={() => {
+                  setInverterDraft((current) => ({ ...current, image_data_url: null }));
+                  void handleSaveInverterDesign({ imageOverride: null });
+                }}
+              />
             ) : (
               <label className="upload-dropzone">
                 <span>{t('inverter.image.upload')}</span>
@@ -5048,20 +5259,8 @@ function CabinetCatalogPage({
 
   return (
     <>
-      <section className="hero">
-        <div>
-          <p className="hero-copy">
-            {t('catalog.hero.cabinet_types')}
-          </p>
-        </div>
-      </section>
-
       <section className="detail-shell">
         <section className="panel">
-          <div className="section-head">
-            <h2>{t('catalog.ui.entries_title')}</h2>
-            <p>{t('catalog.ui.entries_description', { item: t('catalog.entry.cabinet_type') })}</p>
-          </div>
           <div className="stack" style={{ gap: 12 }}>
             <div className="button-row button-row-between">
               <button type="button" className="button button-secondary" onClick={startAddNew}>
@@ -5374,20 +5573,8 @@ function BatteryCatalogPage({
 
   return (
     <>
-      <section className="hero">
-        <div>
-          <p className="hero-copy">
-            {t('catalog.hero.battery_types')}
-          </p>
-        </div>
-      </section>
-
       <section className="detail-shell">
         <section className="panel">
-          <div className="section-head">
-            <h2>{t('catalog.ui.entries_title')}</h2>
-            <p>{t('catalog.ui.entries_description', { item: t('catalog.entry.battery_type') })}</p>
-          </div>
           <div className="stack" style={{ gap: 12 }}>
             <div className="button-row button-row-between">
               <button type="button" className="button button-secondary" onClick={startAddNew}>
@@ -6382,20 +6569,8 @@ function PanelCatalogPage({
 
   return (
     <>
-      <section className="hero">
-        <div>
-          <p className="hero-copy">
-            {t('catalog.hero.panel_types')}
-          </p>
-        </div>
-      </section>
-
       <section className="detail-shell">
         <section className="panel">
-          <div className="section-head">
-            <h2>{t('catalog.ui.entries_title')}</h2>
-            <p>{t('catalog.ui.entries_description', { item: t('catalog.entry.panel_type') })}</p>
-          </div>
           <div className="stack" style={{ gap: 12 }}>
             <div className="button-row button-row-between">
               <button type="button" className="button button-secondary" onClick={startAddNew}>
@@ -6716,20 +6891,8 @@ function MpptCatalogPage({
 
   return (
     <>
-      <section className="hero">
-        <div>
-          <p className="hero-copy">
-            {t('catalog.hero.mppt_types')}
-          </p>
-        </div>
-      </section>
-
       <section className="detail-shell">
         <section className="panel">
-          <div className="section-head">
-            <h2>{t('catalog.ui.entries_title')}</h2>
-            <p>{t('catalog.ui.entries_description', { item: t('catalog.entry.mppt_type') })}</p>
-          </div>
           <div className="stack" style={{ gap: 12 }}>
             <div className="button-row button-row-between">
               <button type="button" className="button button-secondary" onClick={startAddNew}>
@@ -7034,20 +7197,8 @@ function InverterCatalogPage({
 
   return (
     <>
-      <section className="hero">
-        <div>
-          <p className="hero-copy">
-            {t('catalog.hero.inverter_types')}
-          </p>
-        </div>
-      </section>
-
       <section className="detail-shell">
         <section className="panel">
-          <div className="section-head">
-            <h2>{t('catalog.ui.entries_title')}</h2>
-            <p>{t('catalog.ui.entries_description', { item: t('catalog.entry.inverter_type') })}</p>
-          </div>
           <div className="stack" style={{ gap: 12 }}>
             <div className="button-row button-row-between">
               <button type="button" className="button button-secondary" onClick={startAddNew}>
@@ -7200,6 +7351,357 @@ function InverterCatalogPage({
   );
 }
 
+function ConversionDeviceCatalogPage({
+  data,
+  refreshProjectData,
+}: {
+  data: DigitalTwinExport;
+  refreshProjectData: () => Promise<void>;
+}) {
+  const { t } = useTranslation();
+  const [selectedConversionDeviceId, setSelectedConversionDeviceId] = useState(() => data.entities.conversion_devices[0]?.conversion_device_id ?? '');
+  const [draft, setDraft] = useState<ConversionDeviceDraft>(() => conversionDeviceDraftFromType(data.entities.conversion_devices[0] ?? null));
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const selectedConversionDevice = selectedConversionDeviceId
+    ? data.entities.conversion_devices.find((item) => item.conversion_device_id === selectedConversionDeviceId) ?? null
+    : null;
+
+  useEffect(() => {
+    if (selectedConversionDeviceId) {
+      const current = data.entities.conversion_devices.find((item) => item.conversion_device_id === selectedConversionDeviceId) ?? null;
+      setDraft(conversionDeviceDraftFromType(current));
+    } else {
+      setDraft(emptyConversionDeviceDraft());
+    }
+  }, [data, selectedConversionDeviceId]);
+
+  function startAddNew() {
+    setSelectedConversionDeviceId('');
+    setSaveError(null);
+    setSaveMessage(null);
+    setDraft(emptyConversionDeviceDraft());
+  }
+
+  async function handleSave() {
+    const title = draft.title.trim();
+    const description = draft.description.trim() === '' ? null : draft.description.trim();
+    const deviceType = draft.device_type.trim();
+    const conversionDeviceId = selectedConversionDevice
+      ? selectedConversionDeviceId
+      : generateUniqueCatalogId(title, data.entities.conversion_devices.map((device) => device.conversion_device_id));
+    const inputVoltageV = draft.input_voltage_v.trim() === '' ? null : Number(draft.input_voltage_v);
+    const outputVoltageV = draft.output_voltage_v.trim() === '' ? null : Number(draft.output_voltage_v);
+    const continuousPowerW = draft.continuous_power_w.trim() === '' ? null : Number(draft.continuous_power_w);
+    const peakPowerVA = draft.peak_power_va.trim() === '' ? null : Number(draft.peak_power_va);
+    const maxChargeCurrentA = draft.max_charge_current_a.trim() === '' ? null : Number(draft.max_charge_current_a);
+    const efficiencyPct = draft.efficiency_pct.trim() === '' ? null : Number(draft.efficiency_pct);
+    const outputAcVoltageV = draft.output_ac_voltage_v.trim() === '' ? null : Number(draft.output_ac_voltage_v);
+    const frequencyHz = draft.frequency_hz.trim() === '' ? null : Number(draft.frequency_hz);
+    const surgePowerW = draft.surge_power_w.trim() === '' ? null : Number(draft.surge_power_w);
+    const outputDcVoltageV = draft.output_dc_voltage_v.trim() === '' ? null : Number(draft.output_dc_voltage_v);
+    const maxOutputCurrentA = draft.max_output_current_a.trim() === '' ? null : Number(draft.max_output_current_a);
+    const price = draft.price.trim() === '' ? null : Number(draft.price);
+    const priceSourceUrl = draft.price_source_url.trim() === '' ? null : draft.price_source_url.trim();
+    const notes = draft.notes.trim() === '' ? null : draft.notes.trim();
+
+    if (!title || !deviceType || !Number.isFinite(inputVoltageV ?? NaN) || (inputVoltageV ?? 0) <= 0 || !Number.isFinite(outputVoltageV ?? NaN) || (outputVoltageV ?? 0) <= 0 || !Number.isFinite(continuousPowerW ?? NaN) || (continuousPowerW ?? 0) <= 0 || !Number.isFinite(peakPowerVA ?? NaN) || (peakPowerVA ?? 0) <= 0 || !Number.isFinite(maxChargeCurrentA ?? NaN) || (maxChargeCurrentA ?? 0) <= 0) {
+      setSaveError(t('catalog.validation.conversion_device_required'));
+      return;
+    }
+
+    if (
+      (efficiencyPct != null && !Number.isFinite(efficiencyPct))
+      || (outputAcVoltageV != null && !Number.isFinite(outputAcVoltageV))
+      || (frequencyHz != null && !Number.isFinite(frequencyHz))
+      || (surgePowerW != null && !Number.isFinite(surgePowerW))
+      || (outputDcVoltageV != null && !Number.isFinite(outputDcVoltageV))
+      || (maxOutputCurrentA != null && !Number.isFinite(maxOutputCurrentA))
+      || (price != null && !Number.isFinite(price))
+    ) {
+      setSaveError(t('catalog.validation.optional_numeric_fields'));
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+      setSaveMessage(null);
+
+      const isEdit = Boolean(selectedConversionDevice);
+      const response = await fetch(isEdit ? `/api/conversion-devices/${encodeURIComponent(selectedConversionDeviceId)}` : '/api/conversion-devices', {
+        method: isEdit ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversion_device_id: conversionDeviceId,
+          title,
+          description,
+          device_type: deviceType,
+          input_voltage_v: inputVoltageV,
+          output_voltage_v: outputVoltageV,
+          continuous_power_w: continuousPowerW,
+          peak_power_va: peakPowerVA,
+          max_charge_current_a: maxChargeCurrentA,
+          efficiency_pct: efficiencyPct,
+          output_ac_voltage_v: outputAcVoltageV,
+          frequency_hz: frequencyHz,
+          surge_power_w: surgePowerW,
+          output_dc_voltage_v: outputDcVoltageV,
+          max_output_current_a: maxOutputCurrentA,
+          price,
+          price_source_url: priceSourceUrl,
+          notes,
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? `Failed to save conversion device (${response.status})`);
+      }
+
+      await refreshProjectData();
+      setSelectedConversionDeviceId(conversionDeviceId);
+      setDraft(conversionDeviceDraftFromType({
+        conversion_device_id: conversionDeviceId,
+        title,
+        description,
+        device_type: deviceType,
+        input_voltage_v: inputVoltageV ?? null,
+        output_voltage_v: outputVoltageV ?? null,
+        continuous_power_w: continuousPowerW ?? null,
+        peak_power_va: peakPowerVA ?? null,
+        max_charge_current_a: maxChargeCurrentA ?? null,
+        efficiency_pct: efficiencyPct,
+        output_ac_voltage_v: outputAcVoltageV,
+        frequency_hz: frequencyHz,
+        surge_power_w: surgePowerW,
+        output_dc_voltage_v: outputDcVoltageV,
+        max_output_current_a: maxOutputCurrentA,
+        price,
+        price_source_url: priceSourceUrl,
+        notes,
+      }));
+      setSaveMessage(t('catalog.message.saved', { item: t('catalog.entry.conversion_device'), id: conversionDeviceId }));
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : t('catalog.validation.optional_numeric_fields'));
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!selectedConversionDevice) return;
+
+    const confirmed = window.confirm(t('catalog.confirm.delete', { item: t('catalog.entry.conversion_device'), id: selectedConversionDevice.conversion_device_id }));
+    if (!confirmed) return;
+
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+      setSaveMessage(null);
+
+      const response = await fetch(`/api/conversion-devices/${encodeURIComponent(selectedConversionDevice.conversion_device_id)}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? `Failed to delete conversion device (${response.status})`);
+      }
+
+      await refreshProjectData();
+      const nextDevice = data.entities.conversion_devices.find((item) => item.conversion_device_id !== selectedConversionDevice.conversion_device_id) ?? null;
+      setSelectedConversionDeviceId(nextDevice?.conversion_device_id ?? '');
+      setDraft(conversionDeviceDraftFromType(nextDevice));
+      setSaveMessage(t('catalog.message.deleted', { item: t('catalog.entry.conversion_device'), id: selectedConversionDevice.conversion_device_id }));
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Failed to delete conversion device.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  const conversionDeviceTypeLabel = (deviceType: string): string => {
+    switch (deviceType) {
+      case 'dc_dc_converter':
+        return t('catalog.device_type.dc_dc_converter');
+      case 'ac_dc_charger':
+        return t('catalog.device_type.ac_dc_charger');
+      default:
+        return t('catalog.device_type.inverter');
+    }
+  };
+
+  return (
+      <section className="detail-shell">
+        <section className="panel">
+          <div className="stack" style={{ gap: 12 }}>
+          <div className="button-row button-row-between">
+            <button type="button" className="button button-secondary" onClick={startAddNew}>
+              {t('catalog.ui.add_item', { item: t('catalog.entry.conversion_device') })}
+            </button>
+          </div>
+          <div className="yield-table-wrap">
+            <table className="yield-table catalog-table">
+              <thead>
+                <tr>
+                  <th className="catalog-table-model-col">{t('catalog.field.title')}</th>
+                  <th>{t('catalog.field.device_type')}</th>
+                  <th>{t('catalog.stat.input_voltage')}</th>
+                  <th>{t('catalog.stat.output_voltage')}</th>
+                  <th>{t('catalog.stat.continuous_power')}</th>
+                  <th>{t('catalog.stat.peak_power')}</th>
+                  <th>{t('catalog.stat.max_current')}</th>
+                  <th>{t('catalog.stat.price')}</th>
+                  <th>{t('common.edit')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.entities.conversion_devices.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="catalog-table-empty">{t('catalog.ui.no_entries')}</td>
+                  </tr>
+                ) : data.entities.conversion_devices.map((device) => (
+                  <tr
+                    key={device.conversion_device_id}
+                    className={`catalog-table-row ${selectedConversionDeviceId === device.conversion_device_id ? 'catalog-table-row-active' : ''}`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      setSelectedConversionDeviceId(device.conversion_device_id);
+                      setSaveError(null);
+                      setSaveMessage(null);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setSelectedConversionDeviceId(device.conversion_device_id);
+                        setSaveError(null);
+                        setSaveMessage(null);
+                      }
+                    }}
+                  >
+                    <td className="catalog-table-model-col">{device.title}</td>
+                    <td>{conversionDeviceTypeLabel(device.device_type)}</td>
+                    <td>{device.input_voltage_v != null ? `${device.input_voltage_v} V` : '—'}</td>
+                    <td>{device.output_voltage_v != null ? `${device.output_voltage_v} V` : '—'}</td>
+                    <td>{device.continuous_power_w != null ? `${device.continuous_power_w} W` : '—'}</td>
+                    <td>{device.peak_power_va != null ? `${device.peak_power_va} VA` : '—'}</td>
+                    <td>{device.max_charge_current_a != null ? `${device.max_charge_current_a} A` : '—'}</td>
+                    <td>{renderPrice(device.price ?? null, device.price_source_url ?? undefined)}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="button button-secondary button-sm"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setSelectedConversionDeviceId(device.conversion_device_id);
+                          setSaveError(null);
+                          setSaveMessage(null);
+                        }}
+                      >
+                        {t('common.edit')}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="section-head">
+          <h2>{selectedConversionDevice ? t('catalog.ui.edit_item', { item: t('catalog.entry.conversion_device') }) : t('catalog.ui.add_item', { item: t('catalog.entry.conversion_device') })}</h2>
+          <p>{t('catalog.ui.changes_saved')}</p>
+        </div>
+        <div className="stack" style={{ gap: 16 }}>
+          <div className="field">
+            <span>{t('catalog.field.conversion_device_id')}</span>
+            <p className="muted">
+              {selectedConversionDevice ? selectedConversionDevice.conversion_device_id : (draft.title.trim() ? generateUniqueCatalogId(draft.title.trim(), data.entities.conversion_devices.map((device) => device.conversion_device_id)) : t('catalog.ui.generated_after_save'))}
+            </p>
+          </div>
+          <label className="field">
+            <span>{t('catalog.field.title')}</span>
+            <input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} placeholder="Multi RS Solar 48/6000/100-450/100" />
+          </label>
+          <label className="field">
+            <span>{t('catalog.field.description')}</span>
+            <textarea value={draft.description} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} rows={3} />
+          </label>
+          <label className="field">
+            <span>{t('catalog.field.device_type')}</span>
+            <select value={draft.device_type} onChange={(event) => setDraft((current) => ({ ...current, device_type: event.target.value }))}>
+              <option value="inverter">{t('catalog.device_type.inverter')}</option>
+              <option value="dc_dc_converter">{t('catalog.device_type.dc_dc_converter')}</option>
+              <option value="ac_dc_charger">{t('catalog.device_type.ac_dc_charger')}</option>
+            </select>
+          </label>
+          <div className="detail-grid two-col">
+            <label className="field"><span>{t('catalog.field.input_voltage')}</span><input type="number" value={draft.input_voltage_v} onChange={(event) => setDraft((current) => ({ ...current, input_voltage_v: event.target.value }))} /></label>
+            <label className="field"><span>{t('catalog.field.output_voltage')}</span><input type="number" value={draft.output_voltage_v} onChange={(event) => setDraft((current) => ({ ...current, output_voltage_v: event.target.value }))} /></label>
+          </div>
+          <div className="detail-grid two-col">
+            <label className="field"><span>{t('catalog.field.continuous_power')}</span><input type="number" value={draft.continuous_power_w} onChange={(event) => setDraft((current) => ({ ...current, continuous_power_w: event.target.value }))} /></label>
+            <label className="field"><span>{t('catalog.field.peak_power')}</span><input type="number" value={draft.peak_power_va} onChange={(event) => setDraft((current) => ({ ...current, peak_power_va: event.target.value }))} /></label>
+          </div>
+          <div className="detail-grid two-col">
+            <label className="field"><span>{t('catalog.field.max_charge_current')}</span><input type="number" value={draft.max_charge_current_a} onChange={(event) => setDraft((current) => ({ ...current, max_charge_current_a: event.target.value }))} /></label>
+            <label className="field"><span>{t('catalog.field.efficiency_pct')}</span><input type="number" value={draft.efficiency_pct} onChange={(event) => setDraft((current) => ({ ...current, efficiency_pct: event.target.value }))} /></label>
+          </div>
+          <div className="detail-grid two-col">
+            <label className="field"><span>{t('catalog.stat.output_voltage')}</span><input type="number" value={draft.output_ac_voltage_v} onChange={(event) => setDraft((current) => ({ ...current, output_ac_voltage_v: event.target.value }))} placeholder="230" /></label>
+            <label className="field"><span>{t('catalog.field.frequency')}</span><input type="number" value={draft.frequency_hz} onChange={(event) => setDraft((current) => ({ ...current, frequency_hz: event.target.value }))} placeholder="50" /></label>
+          </div>
+          <div className="detail-grid two-col">
+            <label className="field"><span>{t('catalog.field.surge_power')}</span><input type="number" value={draft.surge_power_w} onChange={(event) => setDraft((current) => ({ ...current, surge_power_w: event.target.value }))} /></label>
+            <label className="field"><span>{t('catalog.field.output_dc_voltage')}</span><input type="number" value={draft.output_dc_voltage_v} onChange={(event) => setDraft((current) => ({ ...current, output_dc_voltage_v: event.target.value }))} /></label>
+          </div>
+          <label className="field">
+            <span>{t('catalog.field.max_output_current')}</span>
+            <input type="number" value={draft.max_output_current_a} onChange={(event) => setDraft((current) => ({ ...current, max_output_current_a: event.target.value }))} />
+          </label>
+          <div className="detail-grid two-col">
+            <label className="field"><span>{t('catalog.stat.price')}</span><input type="number" value={draft.price} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} /></label>
+            <label className="field"><span>{t('catalog.ui.price_source_url')}</span><input type="text" value={draft.price_source_url} onChange={(event) => setDraft((current) => ({ ...current, price_source_url: event.target.value }))} /></label>
+          </div>
+          <label className="field">
+            <span>{t('catalog.ui.notes')}</span>
+            <textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={3} />
+          </label>
+          <div className="stack" style={{ gap: 8 }}>
+            <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.title.trim()}>
+              {isSaving ? t('common.saving') : t('common.save')}
+            </button>
+            {selectedConversionDevice ? (
+              <button type="button" className="button button-danger" onClick={() => void handleDelete()} disabled={isSaving}>
+                {t('common.delete')}
+              </button>
+            ) : null}
+            {saveError ? <p className="save-error">{saveError}</p> : null}
+            {saveMessage ? <p className="save-message">{saveMessage}</p> : null}
+          </div>
+        </div>
+        {selectedConversionDevice ? (
+          <dl className="detail-stats panel-spec-grid" style={{ marginTop: 16 }}>
+            <div><dt>{t('catalog.field.title')}</dt><dd>{selectedConversionDevice.title}</dd></div>
+            <div><dt>{t('catalog.field.device_type')}</dt><dd>{conversionDeviceTypeLabel(selectedConversionDevice.device_type)}</dd></div>
+            <div><dt>{t('catalog.stat.input_voltage')}</dt><dd>{selectedConversionDevice.input_voltage_v != null ? `${selectedConversionDevice.input_voltage_v} V` : 'n/a'}</dd></div>
+            <div><dt>{t('catalog.stat.output_voltage')}</dt><dd>{selectedConversionDevice.output_voltage_v != null ? `${selectedConversionDevice.output_voltage_v} V` : 'n/a'}</dd></div>
+            <div><dt>{t('catalog.stat.continuous_power')}</dt><dd>{selectedConversionDevice.continuous_power_w != null ? `${selectedConversionDevice.continuous_power_w} W` : 'n/a'}</dd></div>
+            <div><dt>{t('catalog.stat.peak_power')}</dt><dd>{selectedConversionDevice.peak_power_va != null ? `${selectedConversionDevice.peak_power_va} VA` : 'n/a'}</dd></div>
+            <div><dt>{t('catalog.stat.max_current')}</dt><dd>{selectedConversionDevice.max_charge_current_a != null ? `${selectedConversionDevice.max_charge_current_a} A` : 'n/a'}</dd></div>
+            <div><dt>{t('catalog.field.efficiency_pct')}</dt><dd>{selectedConversionDevice.efficiency_pct != null ? `${selectedConversionDevice.efficiency_pct}%` : 'n/a'}</dd></div>
+            <div><dt>{t('catalog.stat.price')}</dt><dd>{renderPrice(selectedConversionDevice.price ?? null, selectedConversionDevice.price_source_url ?? undefined)}</dd></div>
+            <div><dt>{t('catalog.ui.notes')}</dt><dd>{selectedConversionDevice.notes ?? 'n/a'}</dd></div>
+          </dl>
+        ) : null}
+      </section>
+    </section>
+  );
+}
+
 function AppContent() {
   const [data, setData] = useState<DigitalTwinExport | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -7207,6 +7709,7 @@ function AppContent() {
   const { language, setLanguage, t } = useTranslation();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = usePersistentState('offgridos:sidebar-collapsed', false);
+  const [lightboxMedia, setLightboxMedia] = useState<LightboxMedia | null>(null);
   useLocalStorageRevision();
 
   async function refreshProjectData(): Promise<void> {
@@ -7268,6 +7771,28 @@ function AppContent() {
       window.removeEventListener('keydown', onKeyDown);
     };
   }, [isMobileSidebarOpen]);
+
+  useEffect(() => {
+    if (!lightboxMedia) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setLightboxImage(null);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [lightboxMedia]);
 
   useEffect(() => {
     if (!data) {
@@ -7370,10 +7895,44 @@ function AppContent() {
     projectInverter,
     batteryToInverter,
     refreshProjectData,
+    openMediaPreview: (media) => setLightboxMedia(media),
+  };
+
+  const lightbox = lightboxMedia ? (
+    <ImageLightbox media={lightboxMedia} onClose={() => setLightboxMedia(null)} />
+  ) : null;
+
+  const imageLightboxContextValue: ImageLightboxContextValue = {
+    openImagePreview: (media) => setLightboxMedia(media),
   };
 
   if (route.kind === 'surface') {
     return (
+      <ImageLightboxContext.Provider value={imageLightboxContextValue}>
+        <AppFrame
+          route={route}
+          data={data}
+          locationSlug={locationSlug}
+          isMobileSidebarOpen={isMobileSidebarOpen}
+          isSidebarCollapsed={isSidebarCollapsed}
+          openMobileSidebar={() => setIsMobileSidebarOpen(true)}
+          closeMobileSidebar={() => setIsMobileSidebarOpen(false)}
+          toggleSidebarCollapsed={toggleSidebarCollapsed}
+        >
+            <SurfaceDetail
+              key={`surface:${route.surfaceId}`}
+              data={data}
+              surfaceId={route.surfaceId}
+              refreshProjectData={refreshProjectData}
+            />
+        </AppFrame>
+        {lightbox}
+      </ImageLightboxContext.Provider>
+    );
+  }
+
+  return (
+    <ImageLightboxContext.Provider value={imageLightboxContextValue}>
       <AppFrame
         route={route}
         data={data}
@@ -7384,59 +7943,42 @@ function AppContent() {
         closeMobileSidebar={() => setIsMobileSidebarOpen(false)}
         toggleSidebarCollapsed={toggleSidebarCollapsed}
       >
-          <SurfaceDetail
-            key={`surface:${route.surfaceId}`}
-            data={data}
-            surfaceId={route.surfaceId}
-            refreshProjectData={refreshProjectData}
-          />
+          {route.kind === 'location' ? (
+            <LocationPage {...context} />
+          ) : route.kind === 'about' ? (
+            <AboutPage />
+          ) : route.kind === 'solar-yield' ? (
+            <SolarYieldPage {...context} />
+          ) : route.kind === 'catalogs' ? (
+            <CatalogsPage />
+          ) : route.kind === 'reports' ? (
+            <ReportsPage />
+          ) : route.kind === 'verdict-summary' ? (
+            <VerdictSummaryPage {...context} />
+          ) : route.kind === 'cost-summary' ? (
+            <CostSummaryPage {...context} />
+          ) : route.kind === 'catalog' && route.catalog === 'panel-types' ? (
+            <PanelCatalogPage data={data} refreshProjectData={refreshProjectData} />
+          ) : route.kind === 'catalog' && route.catalog === 'cabinet-types' ? (
+            <CabinetCatalogPage data={data} refreshProjectData={refreshProjectData} />
+          ) : route.kind === 'catalog' && route.catalog === 'conversion-devices' ? (
+            <ConversionDeviceCatalogPage data={data} refreshProjectData={refreshProjectData} />
+          ) : route.kind === 'catalog' && route.catalog === 'mppt-types' ? (
+            <MpptCatalogPage data={data} refreshProjectData={refreshProjectData} />
+          ) : route.kind === 'catalog' && route.catalog === 'battery-types' ? (
+            <BatteryCatalogPage data={data} refreshProjectData={refreshProjectData} />
+          ) : route.kind === 'catalog' && route.catalog === 'inverter-types' ? (
+            <ConversionDeviceCatalogPage data={data} refreshProjectData={refreshProjectData} />
+          ) : route.kind === 'battery-array' ? (
+            <BatteryArrayPage {...context} />
+          ) : route.kind === 'inverter-array' ? (
+            <InverterArrayPage {...context} />
+          ) : (
+            <LocationPage {...context} />
+          )}
       </AppFrame>
-    );
-  }
-
-  return (
-    <AppFrame
-      route={route}
-      data={data}
-      locationSlug={locationSlug}
-      isMobileSidebarOpen={isMobileSidebarOpen}
-      isSidebarCollapsed={isSidebarCollapsed}
-      openMobileSidebar={() => setIsMobileSidebarOpen(true)}
-      closeMobileSidebar={() => setIsMobileSidebarOpen(false)}
-      toggleSidebarCollapsed={toggleSidebarCollapsed}
-    >
-        {route.kind === 'location' ? (
-          <LocationPage {...context} />
-        ) : route.kind === 'about' ? (
-          <AboutPage />
-        ) : route.kind === 'solar-yield' ? (
-          <SolarYieldPage {...context} />
-        ) : route.kind === 'catalogs' ? (
-          <CatalogsPage />
-        ) : route.kind === 'reports' ? (
-          <ReportsPage />
-        ) : route.kind === 'verdict-summary' ? (
-          <VerdictSummaryPage {...context} />
-        ) : route.kind === 'cost-summary' ? (
-          <CostSummaryPage {...context} />
-        ) : route.kind === 'catalog' && route.catalog === 'panel-types' ? (
-          <PanelCatalogPage data={data} refreshProjectData={refreshProjectData} />
-        ) : route.kind === 'catalog' && route.catalog === 'cabinet-types' ? (
-          <CabinetCatalogPage data={data} refreshProjectData={refreshProjectData} />
-        ) : route.kind === 'catalog' && route.catalog === 'mppt-types' ? (
-          <MpptCatalogPage data={data} refreshProjectData={refreshProjectData} />
-        ) : route.kind === 'catalog' && route.catalog === 'battery-types' ? (
-          <BatteryCatalogPage data={data} refreshProjectData={refreshProjectData} />
-        ) : route.kind === 'catalog' && route.catalog === 'inverter-types' ? (
-          <InverterCatalogPage data={data} refreshProjectData={refreshProjectData} />
-        ) : route.kind === 'battery-array' ? (
-          <BatteryArrayPage {...context} />
-        ) : route.kind === 'inverter-array' ? (
-          <InverterArrayPage {...context} />
-        ) : (
-          <LocationPage {...context} />
-        )}
-    </AppFrame>
+      {lightbox}
+    </ImageLightboxContext.Provider>
   );
 }
 

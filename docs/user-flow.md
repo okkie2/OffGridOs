@@ -191,18 +191,18 @@ Solar yield is the sum of all surfaces.
 - Verdict explanation
 - Electrical details
 
-## Consumers
+## Loads
 
 #### Input
 
-- List of consumers
-- Per consumer: title, description, peak load in watts, expectation of kWh/day
+- List of loads
+- Per load: title, description, peak load in watts, expectation of kWh/day
 - Summary of electrical details
 
-### Inverter - Consumers evaluation
+### Inverter - Loads evaluation
 
 #### Output
 
-- Verdict on consumers-inverter combination with color coding
+- Verdict on loads-inverter combination with color coding
 - Verdict explanation
   - Electrical details

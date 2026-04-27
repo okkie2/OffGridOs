@@ -158,23 +158,43 @@ interface InverterConfiguration {
   notes?: string;
 }
 
-interface BranchCircuit {
-  branch_circuit_id: string;
-  inverter_configuration_id: string;
-  name: string;
-  nominal_voltage_v: number;
-  fuse_rating_a?: number | null;
-  notes?: string;
+interface ConversionDevice {
+  conversion_device_id: string;
+  title: string;
+  description?: string | null;
+  device_type: string;
+  input_voltage_v?: number | null;
+  output_voltage_v?: number | null;
+  continuous_power_w?: number | null;
+  peak_power_va?: number | null;
+  max_charge_current_a?: number | null;
+  efficiency_pct?: number | null;
+  output_ac_voltage_v?: number | null;
+  frequency_hz?: number | null;
+  surge_power_w?: number | null;
+  output_dc_voltage_v?: number | null;
+  max_output_current_a?: number | null;
+  price?: number | null;
+  price_source_url?: string | null;
+  notes?: string | null;
 }
 
-interface Consumer {
-  consumer_id: string;
-  branch_circuit_id: string;
-  name: string;
-  nominal_power_w: number;
-  surge_power_w?: number | null;
-  daily_energy_kwh?: number | null;
-  notes?: string;
+interface LoadCircuit {
+  load_circuit_id: string;
+  conversion_device_id: string;
+  title: string;
+  description?: string | null;
+}
+
+interface Load {
+  load_id: string;
+  load_circuit_id: string;
+  title: string;
+  description?: string | null;
+  usage_kw: number;
+  spike_kw: number;
+  expected_usage_hours_per_day: number;
+  sleeping_kw: number;
 }
 
 interface Generator {
@@ -190,8 +210,8 @@ interface Generator {
 ## Monthly scenario types
 
 ```ts
-interface ConsumerMonthlyProfile {
-  consumer_id: string;
+interface LoadMonthlyProfile {
+  load_id: string;
   month: number;
   energy_factor: number;
   notes?: string;
@@ -273,19 +293,19 @@ interface BatteryBankToInverterRelationship {
   evaluation: RelationshipEvaluation;
 }
 
-interface InverterToBranchCircuitRelationship {
+interface InverterToLoadCircuitRelationship {
   relationship_id: string;
   from_inverter_configuration_id: string;
-  to_branch_circuit_id: string;
+  to_load_circuit_id: string;
   nominal_voltage_v: number;
   max_current_a: number;
   evaluation: RelationshipEvaluation;
 }
 
-interface BranchCircuitToConsumerRelationship {
+interface LoadCircuitToLoadRelationship {
   relationship_id: string;
-  from_branch_circuit_id: string;
-  to_consumer_id: string;
+  from_load_circuit_id: string;
+  to_load_id: string;
   running_power_w: number;
   peak_power_w: number;
   daily_energy_kwh: number;
@@ -307,10 +327,11 @@ interface DigitalTwin {
   battery_banks: BatteryBank[];
   inverter_types: InverterType[];
   inverter_configurations: InverterConfiguration[];
-  branch_circuits: BranchCircuit[];
-  consumers: Consumer[];
+  conversion_devices: ConversionDevice[];
+  load_circuits: LoadCircuit[];
+  loads: Load[];
   generators: Generator[];
-  consumer_monthly_profiles: ConsumerMonthlyProfile[];
+  load_monthly_profiles: LoadMonthlyProfile[];
   generator_monthly_profiles: GeneratorMonthlyProfile[];
   solar_monthly_profiles: SolarMonthlyProfile[];
   derived: {
@@ -320,8 +341,8 @@ interface DigitalTwin {
     array_to_mppt: ArrayToMpptRelationship[];
     mppt_to_battery_bank: MpptToBatteryBankRelationship[];
     battery_bank_to_inverter: BatteryBankToInverterRelationship[];
-    inverter_to_branch_circuit: InverterToBranchCircuitRelationship[];
-    branch_circuit_to_consumer: BranchCircuitToConsumerRelationship[];
+    inverter_to_load_circuit: InverterToLoadCircuitRelationship[];
+    load_circuit_to_load: LoadCircuitToLoadRelationship[];
   };
 }
 ```
@@ -334,9 +355,9 @@ For the current project phase:
 - one array will usually map to one project MPPT
 - one battery bank is enough
 - one inverter configuration is enough
-- one or more branch circuits will group downstream consumers
+- one or more load circuits will group downstream loads
 
-In this model, a `Consumer` may be either a concrete appliance or endpoint, or a modeled load group such as living room sockets or a lighting group, as long as it stays below the `BranchCircuit` level.
+In this model, a `Load` may be either a concrete appliance or endpoint, or a modeled load group such as living room sockets or a lighting group, as long as it stays below the `LoadCircuit` level.
 
 The type model should still allow future expansion without renaming the core concepts.
 

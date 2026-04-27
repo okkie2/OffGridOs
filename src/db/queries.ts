@@ -12,8 +12,12 @@ import type {
   CabinetType,
   BatteryType,
   BatteryBankConfiguration,
+  DcBusbar,
+  ConversionDevice,
   InverterType,
   InverterConfiguration,
+  Load,
+  LoadCircuit,
   ProjectPreferences,
 } from '../domain/types.js';
 
@@ -118,8 +122,8 @@ export function getPanelType(db: Database.Database, panel_type_id: string): Pane
 
 export function insertPanelType(db: Database.Database, data: Omit<PanelType, 'id'>): void {
   db.prepare(`
-    INSERT INTO panel_types (panel_type_id, brand, model, wp, voc, vmp, isc, imp, length_mm, width_mm, price, price_source_url, notes)
-    VALUES (@panel_type_id, @brand, @model, @wp, @voc, @vmp, @isc, @imp, @length_mm, @width_mm, @price, @price_source_url, @notes)
+    INSERT INTO panel_types (panel_type_id, brand, model, wp, voc, vmp, isc, imp, length_mm, width_mm, temp_coefficient_voc_pct_per_c, price, price_source_url, notes)
+    VALUES (@panel_type_id, @brand, @model, @wp, @voc, @vmp, @isc, @imp, @length_mm, @width_mm, @temp_coefficient_voc_pct_per_c, @price, @price_source_url, @notes)
   `).run(data);
 }
 
@@ -127,7 +131,8 @@ export function updatePanelType(db: Database.Database, data: Omit<PanelType, 'id
   db.prepare(`
     UPDATE panel_types
     SET brand=@brand, model=@model, wp=@wp, voc=@voc, vmp=@vmp, isc=@isc, imp=@imp,
-        length_mm=@length_mm, width_mm=@width_mm, price=@price, price_source_url=@price_source_url, notes=@notes
+        length_mm=@length_mm, width_mm=@width_mm, temp_coefficient_voc_pct_per_c=@temp_coefficient_voc_pct_per_c,
+        price=@price, price_source_url=@price_source_url, notes=@notes
     WHERE panel_type_id=@panel_type_id
   `).run(data);
 }
@@ -545,6 +550,7 @@ export function upsertBatteryBankConfiguration(db: Database.Database, data: Omit
       notes,
       selected_battery_type_id,
       selected_cabinet_type_id,
+      selected_dc_busbar_id,
       configured_battery_count,
       batteries_per_string,
       parallel_strings
@@ -557,6 +563,7 @@ export function upsertBatteryBankConfiguration(db: Database.Database, data: Omit
       @notes,
       @selected_battery_type_id,
       @selected_cabinet_type_id,
+      @selected_dc_busbar_id,
       @configured_battery_count,
       @batteries_per_string,
       @parallel_strings
@@ -568,6 +575,7 @@ export function upsertBatteryBankConfiguration(db: Database.Database, data: Omit
       notes = excluded.notes,
       selected_battery_type_id = excluded.selected_battery_type_id,
       selected_cabinet_type_id = excluded.selected_cabinet_type_id,
+      selected_dc_busbar_id = excluded.selected_dc_busbar_id,
       configured_battery_count = excluded.configured_battery_count,
       batteries_per_string = excluded.batteries_per_string,
       parallel_strings = excluded.parallel_strings
@@ -578,7 +586,43 @@ export function upsertBatteryBankConfiguration(db: Database.Database, data: Omit
     image_data_url: data.image_data_url ?? null,
     notes: data.notes ?? null,
     selected_cabinet_type_id: data.selected_cabinet_type_id ?? null,
+    selected_dc_busbar_id: data.selected_dc_busbar_id ?? null,
   });
+}
+
+// ── DC busbars ──────────────────────────────────────────────────────────────
+
+export function listDcBusbars(db: Database.Database): DcBusbar[] {
+  return db.prepare('SELECT * FROM dc_busbars ORDER BY title, dc_busbar_id').all() as DcBusbar[];
+}
+
+export function getDcBusbar(db: Database.Database, dc_busbar_id: string): DcBusbar | null {
+  return (db.prepare('SELECT * FROM dc_busbars WHERE dc_busbar_id = ?').get(dc_busbar_id) as DcBusbar) ?? null;
+}
+
+export function upsertDcBusbar(db: Database.Database, data: Omit<DcBusbar, 'id'>): void {
+  db.prepare(`
+    INSERT INTO dc_busbars (
+      dc_busbar_id,
+      title,
+      description
+    )
+    VALUES (
+      @dc_busbar_id,
+      @title,
+      @description
+    )
+    ON CONFLICT(dc_busbar_id) DO UPDATE SET
+      title = excluded.title,
+      description = excluded.description
+  `).run({
+    ...data,
+    description: data.description ?? null,
+  });
+}
+
+export function deleteDcBusbar(db: Database.Database, dc_busbar_id: string): void {
+  db.prepare('DELETE FROM dc_busbars WHERE dc_busbar_id = ?').run(dc_busbar_id);
 }
 
 // ── MPPT types ────────────────────────────────────────────────────────────────
@@ -812,6 +856,7 @@ export function upsertInverterConfiguration(db: Database.Database, data: Omit<In
       inverter_configuration_id,
       selected_inverter_type_id,
       selected_cabinet_type_id,
+      selected_dc_busbar_id,
       title,
       description,
       image_data_url,
@@ -821,6 +866,7 @@ export function upsertInverterConfiguration(db: Database.Database, data: Omit<In
       @inverter_configuration_id,
       @selected_inverter_type_id,
       @selected_cabinet_type_id,
+      @selected_dc_busbar_id,
       @title,
       @description,
       @image_data_url,
@@ -829,6 +875,7 @@ export function upsertInverterConfiguration(db: Database.Database, data: Omit<In
     ON CONFLICT(inverter_configuration_id) DO UPDATE SET
       selected_inverter_type_id = excluded.selected_inverter_type_id,
       selected_cabinet_type_id = excluded.selected_cabinet_type_id,
+      selected_dc_busbar_id = excluded.selected_dc_busbar_id,
       title = excluded.title,
       description = excluded.description,
       image_data_url = excluded.image_data_url,
@@ -836,11 +883,199 @@ export function upsertInverterConfiguration(db: Database.Database, data: Omit<In
   `).run({
     ...data,
     selected_cabinet_type_id: data.selected_cabinet_type_id ?? null,
+    selected_dc_busbar_id: data.selected_dc_busbar_id ?? null,
     title: data.title ?? null,
     description: data.description ?? null,
     image_data_url: data.image_data_url ?? null,
     notes: data.notes ?? null,
   });
+}
+
+// ── Conversion devices ───────────────────────────────────────────────────────
+
+export function listConversionDevices(db: Database.Database): ConversionDevice[] {
+  return db.prepare('SELECT * FROM conversion_devices ORDER BY title, conversion_device_id').all() as ConversionDevice[];
+}
+
+export function getConversionDevice(db: Database.Database, conversion_device_id: string): ConversionDevice | null {
+  return (db.prepare('SELECT * FROM conversion_devices WHERE conversion_device_id = ?').get(conversion_device_id) as ConversionDevice) ?? null;
+}
+
+export function upsertConversionDevice(db: Database.Database, data: Omit<ConversionDevice, 'id'>): void {
+  db.prepare(`
+    INSERT INTO conversion_devices (
+      conversion_device_id,
+      title,
+      description,
+      device_type,
+      input_voltage_v,
+      output_voltage_v,
+      continuous_power_w,
+      peak_power_va,
+      max_charge_current_a,
+      efficiency_pct,
+      output_ac_voltage_v,
+      frequency_hz,
+      surge_power_w,
+      output_dc_voltage_v,
+      max_output_current_a,
+      price,
+      price_source_url,
+      notes
+    )
+    VALUES (
+      @conversion_device_id,
+      @title,
+      @description,
+      @device_type,
+      @input_voltage_v,
+      @output_voltage_v,
+      @continuous_power_w,
+      @peak_power_va,
+      @max_charge_current_a,
+      @efficiency_pct,
+      @output_ac_voltage_v,
+      @frequency_hz,
+      @surge_power_w,
+      @output_dc_voltage_v,
+      @max_output_current_a,
+      @price,
+      @price_source_url,
+      @notes
+    )
+    ON CONFLICT(conversion_device_id) DO UPDATE SET
+      title = excluded.title,
+      description = excluded.description,
+      device_type = excluded.device_type,
+      input_voltage_v = excluded.input_voltage_v,
+      output_voltage_v = excluded.output_voltage_v,
+      continuous_power_w = excluded.continuous_power_w,
+      peak_power_va = excluded.peak_power_va,
+      max_charge_current_a = excluded.max_charge_current_a,
+      efficiency_pct = excluded.efficiency_pct,
+      output_ac_voltage_v = excluded.output_ac_voltage_v,
+      frequency_hz = excluded.frequency_hz,
+      surge_power_w = excluded.surge_power_w,
+      output_dc_voltage_v = excluded.output_dc_voltage_v,
+      max_output_current_a = excluded.max_output_current_a,
+      price = excluded.price,
+      price_source_url = excluded.price_source_url,
+      notes = excluded.notes
+  `).run({
+    ...data,
+    description: data.description ?? null,
+    input_voltage_v: data.input_voltage_v ?? null,
+    output_voltage_v: data.output_voltage_v ?? null,
+    continuous_power_w: data.continuous_power_w ?? null,
+    peak_power_va: data.peak_power_va ?? null,
+    max_charge_current_a: data.max_charge_current_a ?? null,
+    efficiency_pct: data.efficiency_pct ?? null,
+    output_ac_voltage_v: data.output_ac_voltage_v ?? null,
+    frequency_hz: data.frequency_hz ?? null,
+    surge_power_w: data.surge_power_w ?? null,
+    output_dc_voltage_v: data.output_dc_voltage_v ?? null,
+    max_output_current_a: data.max_output_current_a ?? null,
+    price: data.price ?? null,
+    price_source_url: data.price_source_url ?? null,
+    notes: data.notes ?? null,
+  });
+}
+
+export function deleteConversionDevice(db: Database.Database, conversion_device_id: string): void {
+  const circuits = db.prepare('SELECT load_circuit_id FROM load_circuits WHERE conversion_device_id = ?').all(conversion_device_id) as Array<{ load_circuit_id: string }>;
+  for (const circuit of circuits) {
+    deleteLoadCircuit(db, circuit.load_circuit_id);
+  }
+  db.prepare('DELETE FROM conversion_devices WHERE conversion_device_id = ?').run(conversion_device_id);
+}
+
+// ── Load circuits ────────────────────────────────────────────────────────────
+
+export function listLoadCircuits(db: Database.Database): LoadCircuit[] {
+  return db.prepare('SELECT * FROM load_circuits ORDER BY title, load_circuit_id').all() as LoadCircuit[];
+}
+
+export function getLoadCircuit(db: Database.Database, load_circuit_id: string): LoadCircuit | null {
+  return (db.prepare('SELECT * FROM load_circuits WHERE load_circuit_id = ?').get(load_circuit_id) as LoadCircuit) ?? null;
+}
+
+export function upsertLoadCircuit(db: Database.Database, data: Omit<LoadCircuit, 'id'>): void {
+  db.prepare(`
+    INSERT INTO load_circuits (
+      load_circuit_id,
+      conversion_device_id,
+      title,
+      description
+    )
+    VALUES (
+      @load_circuit_id,
+      @conversion_device_id,
+      @title,
+      @description
+    )
+    ON CONFLICT(load_circuit_id) DO UPDATE SET
+      conversion_device_id = excluded.conversion_device_id,
+      title = excluded.title,
+      description = excluded.description
+  `).run({
+    ...data,
+    description: data.description ?? null,
+  });
+}
+
+export function deleteLoadCircuit(db: Database.Database, load_circuit_id: string): void {
+  db.prepare('DELETE FROM loads WHERE load_circuit_id = ?').run(load_circuit_id);
+  db.prepare('DELETE FROM load_circuits WHERE load_circuit_id = ?').run(load_circuit_id);
+}
+
+// ── Loads ────────────────────────────────────────────────────────────────────
+
+export function listLoads(db: Database.Database): Load[] {
+  return db.prepare('SELECT * FROM loads ORDER BY load_circuit_id, title, load_id').all() as Load[];
+}
+
+export function getLoad(db: Database.Database, load_id: string): Load | null {
+  return (db.prepare('SELECT * FROM loads WHERE load_id = ?').get(load_id) as Load) ?? null;
+}
+
+export function upsertLoad(db: Database.Database, data: Omit<Load, 'id'>): void {
+  db.prepare(`
+    INSERT INTO loads (
+      load_id,
+      load_circuit_id,
+      title,
+      description,
+      usage_kw,
+      spike_kw,
+      expected_usage_hours_per_day,
+      sleeping_kw
+    )
+    VALUES (
+      @load_id,
+      @load_circuit_id,
+      @title,
+      @description,
+      @usage_kw,
+      @spike_kw,
+      @expected_usage_hours_per_day,
+      @sleeping_kw
+    )
+    ON CONFLICT(load_id) DO UPDATE SET
+      load_circuit_id = excluded.load_circuit_id,
+      title = excluded.title,
+      description = excluded.description,
+      usage_kw = excluded.usage_kw,
+      spike_kw = excluded.spike_kw,
+      expected_usage_hours_per_day = excluded.expected_usage_hours_per_day,
+      sleeping_kw = excluded.sleeping_kw
+  `).run({
+    ...data,
+    description: data.description ?? null,
+  });
+}
+
+export function deleteLoad(db: Database.Database, load_id: string): void {
+  db.prepare('DELETE FROM loads WHERE load_id = ?').run(load_id);
 }
 
 // ── Project preferences ───────────────────────────────────────────────────────
