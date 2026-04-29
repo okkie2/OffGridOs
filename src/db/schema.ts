@@ -73,6 +73,14 @@ function ensureBatteryTypesColumns(db: Database.Database): void {
       'rs-series-rs230'
     )
   `).run();
+  db.prepare(`
+    UPDATE battery_types
+    SET notes = CASE battery_type_id
+      WHEN 'zyc-simpo-5000' THEN 'ZYC Energy SIMPO 5000 brochure: LiFePO4 module, 51.2 V, 100 Ah, 5.12 kWh usable, 100 A maximum continuous current, CAN/RS485 or self-managed communication, charging to -10 C, discharging to -20 C, hot-swappable, auto-setup, up to 80 units in parallel, and pre-wired cabinets for 6 or 10 batteries.'
+      ELSE notes
+    END
+    WHERE battery_type_id = 'zyc-simpo-5000'
+  `).run();
 }
 
 function ensureConversionDeviceColumns(db: Database.Database): void {
@@ -257,12 +265,17 @@ function ensurePanelTypesColumns(db: Database.Database): void {
     !cols.has('brand') ? "ALTER TABLE panel_types ADD COLUMN brand TEXT NOT NULL DEFAULT '';" : '',
     !cols.has('price') ? 'ALTER TABLE panel_types ADD COLUMN price REAL;' : '',
     !cols.has('price_source_url') ? 'ALTER TABLE panel_types ADD COLUMN price_source_url TEXT;' : '',
+    !cols.has('last_upsert_date') ? 'ALTER TABLE panel_types ADD COLUMN last_upsert_date TEXT;' : '',
     !cols.has('temp_coefficient_voc_pct_per_c') ? 'ALTER TABLE panel_types ADD COLUMN temp_coefficient_voc_pct_per_c REAL;' : '',
   ].filter(Boolean);
 
   if (additions.length > 0) {
     db.exec(additions.join('\n'));
   }
+  db.prepare(`
+    UPDATE panel_types
+    SET last_upsert_date = COALESCE(last_upsert_date, @now)
+  `).run({ now: new Date().toISOString() });
   db.prepare(`
     UPDATE panel_types
     SET brand = CASE panel_type_id
@@ -275,6 +288,7 @@ function ensurePanelTypesColumns(db: Database.Database): void {
       WHEN 'ja-deepblue-4' THEN 'JA Solar'
       WHEN 'jinko-tiger-neo' THEN 'Jinko'
       WHEN 'longi-hi-mo-6' THEN 'LONGi'
+      WHEN 'longi-lr7-54hvb-475wp' THEN 'LONGi'
       WHEN 'qcells-qpeak-duo-g10' THEN 'Qcells'
       WHEN 'rec-alpha-pure-r' THEN 'REC'
       WHEN 'sunpower-maxeon6' THEN 'SunPower'
@@ -352,6 +366,7 @@ export function initSchema(db: Database.Database): void {
       notes         TEXT,
       price         REAL,
       price_source_url TEXT,
+      last_upsert_date TEXT,
       wp_per_m2     REAL GENERATED ALWAYS AS (ROUND(wp / (length_mm * width_mm / 1000000.0), 1)) VIRTUAL,
       price_per_wp  REAL GENERATED ALWAYS AS (CASE WHEN price IS NOT NULL THEN ROUND(price / wp, 2) ELSE NULL END) VIRTUAL
     );

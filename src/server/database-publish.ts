@@ -19,7 +19,7 @@ export function hasValidDatabasePublishToken(headers: NodeJS.Dict<string | strin
   return typeof providedToken === 'string' && providedToken.trim() === expectedToken;
 }
 
-function validatePublishedDatabaseFile(filePath: string): void {
+export function validateSQLiteDatabaseFile(filePath: string): void {
   const db = new Database(filePath, { readonly: true });
 
   try {
@@ -49,7 +49,7 @@ export function publishDatabaseFile(databasePath: string, payload: Buffer): { by
   fs.writeFileSync(tempPath, payload);
 
   try {
-    validatePublishedDatabaseFile(tempPath);
+    validateSQLiteDatabaseFile(tempPath);
     fs.renameSync(tempPath, databasePath);
     return { bytesWritten: payload.length };
   } catch (error) {

@@ -3,7 +3,7 @@
 
 OffGridOS is a single-project, single-user off-grid system planning tool built around a small SQLite project database, a Node server, and a React web app.
 
-The core flow - location, surfaces, battery array, inverter array - is server-backed and persists to SQLite. Reusable panel, MPPT, battery, and inverter catalogs live under a shared `Catalogs` section, and the read-only `Verdict summary` and `Cost summary` pages live under `Reports`. The next work targets replacing provisional derived configurations with explicit persisted project data and stabilising the schema.
+The core flow - location, production, surfaces, battery bank, converters, load circuits, and loads - is server-backed and persists to SQLite. Reusable panel, MPPT, battery, inverter, and conversion-device catalogs live under a shared `Catalogs` section, and the read-only `Verdict summary` and `Cost summary` pages live under `Reports`. The next work targets replacing provisional derived configurations with explicit persisted project data and stabilising the schema.
 
 For planning, treat `TODO.md` as the concrete publish-blocker queue and `ROADMAP.md` as the post-MVP theme queue.
 
@@ -54,6 +54,7 @@ Do not use alternate localhost ports for manual app testing. See [local-runtime.
 For deployment, persistent-storage requirements, and the recommended local-first SQLite publishing workflow, see [deployment.md](./docs/deployment.md).
 
 The current publish workflow keeps `project.db` as the local source of truth and pushes database updates to Railway separately from GitHub code deploys.
+Use `npm run publish:db` to upload the local database, or open the CLI menu and choose `Project -> Publish local database to Railway`.
 
 ## Documentation
 
@@ -80,8 +81,7 @@ The current publish workflow keeps `project.db` as the local source of truth and
 
 ### App structure and architecture
 
-- [app-structure-v2.md](./docs/app-structure-v2.md): current preferred page-by-page app structure, including the stepwise flow from location through loads and dashboard.
-- [app-navigation.md](./docs/app-navigation.md): navigation structure connecting the overview and subsystem drill-down screens.
+- [app-organisation.md](./docs/app-organisation.md): canonical app structure and navigation reference, including top-level menu sections, page ownership, route shape, page-flow rules, and filtering behavior.
 - [user-flow.md](./docs/user-flow.md): user-authored end-to-end screen flow with a written evaluation of the `Location` section.
 - [verdict-price-summary-pages.md](./docs/verdict-price-summary-pages.md): simplified read-only `Verdict summary` and `Cost summary` page spec under `Reports`.
 - [digital-twin-model.md](./docs/digital-twin-model.md): component graph, bidirectional dependency model, and monthly scenario views.

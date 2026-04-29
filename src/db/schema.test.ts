@@ -115,6 +115,18 @@ describe('initSchema', () => {
     }
   });
 
+  it('creates a last upsert date column on the panel type table', () => {
+    const db = makeTempDatabase();
+    try {
+      initSchema(db);
+
+      const columns = db.prepare("PRAGMA table_info('panel_types')").all() as Array<{ name: string }>;
+      expect(columns.some((column) => column.name === 'last_upsert_date')).toBe(true);
+    } finally {
+      db.close();
+    }
+  });
+
   it('drops the legacy location table and preserves its data when needed', () => {
     const db = makeTempDatabase();
     try {

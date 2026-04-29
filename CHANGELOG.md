@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 2026-04-29
+
+- Added a surface-detail delete action in the lower-right action area, with confirmation and a return to the Location page after deletion.
+- Renamed the old Solar yield app surface to Production in code, routes, tests, and translation keys; the production page now labels its current concrete collection as Surfaces and uses Add surface.
+- Merged the overlapping app organisation, navigation, and structure notes into one canonical `docs/app-organisation.md` reference.
+- Added the AC-side `Battery and inverter` section with working `Load circuits` and `Loads` screens, plus server routes and HTTP tests for creating, editing, and deleting downstream circuits and loads.
+- Added the LONGi LR7-54HVB-475WP full-black panel to the panel catalog with Technische Unie pricing and LONGi datasheet electrical values, and synced the checked-in digital-twin export.
+
+## 2026-04-27
+
+- Added a first-class `publish-db` CLI command, a matching `Project` menu action, and an `npm run publish:db` script so the local `project.db` can be validated and uploaded to Railway without needing Codex in the loop.
+- Made the publish command fall back to the Railway CLI variables for `OffGridOs` / `production` when `DATABASE_PUBLISH_TOKEN` is not already in the shell.
+
 ## 2026-04-26
 
 - Added a new `Conversion devices` catalog with CRUD support, seeded the inverter catalog rows into it as the bridge catalog, and mirrored legacy inverter saves/deletes into `conversion_devices` so inverter selection, reports, and export now read from the new source.

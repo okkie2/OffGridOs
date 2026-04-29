@@ -23,6 +23,15 @@ Every concept must be referred to by its canonical name across the database sche
 | Project preference | `project_preferences` | `ProjectPreferences` | Preference |
 | Victron CAN | `battery_types.victron_can` | `BatteryType.victron_can` | Victron CAN |
 
+## App areas
+
+Use these labels for the main app sections. Do not introduce umbrella domain concepts such as `Producer` before there is a persisted or modeled abstraction behind them.
+
+| App area | Meaning | Preferred label |
+|---|---|---|
+| Production | Energy-supply side of the project. Currently this is the surface collection and derived production overview. | Production |
+| Consumption | Energy-use side of the project, including load circuits and loads. | Consumption |
+
 ## Project configuration concepts
 
 Use `configuration` for project-selected or project-configured records when you need a shared naming pattern across the domain.

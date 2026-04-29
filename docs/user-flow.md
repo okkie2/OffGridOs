@@ -31,7 +31,7 @@ What is still missing or unclear:
 
 - `Coordinates` should be explicit about latitude and longitude.
 - `List of surfaces` is an output or collection area, not just an input. It should support create, review, edit, delete, and drill-down into one surface.
-- The relation between `Location` and `Solar yield` is not stated here, even though yield depends on the location plus all configured surfaces.
+- The relation between `Location` and `Production` is not stated here, even though production depends on the location plus all configured surfaces.
 - If `Title` and `Description` are kept, it is worth deciding whether they are user-facing labels, internal project labels, or documentation fields.
 
 Recommendation:
@@ -39,7 +39,7 @@ Recommendation:
 - Keep `Location` responsible for shared site context.
 - Treat `List of surfaces` as a managed collection with create/delete/open-detail actions.
 - Make `Latitude` and `Longitude` explicit fields.
-- Clarify that `Solar yield` is derived from `Location` plus the configured surfaces, not from `Location` alone.
+- Clarify that `Production` is derived from `Location` plus the configured surfaces, not from `Location` alone.
 
 ## Surface detail
 
@@ -102,9 +102,9 @@ Details for a single surface. One location may have many surfaces.
 - Verdict explanation
 - Electrical details / flagged electrical details
 
-## Solar yield
+## Production
 
-Solar yield is the sum of all surfaces.
+Production is the sum of all configured surfaces.
 
 #### Output
 
@@ -147,7 +147,7 @@ Solar yield is the sum of all surfaces.
 
 - Electrical details of the battery array
 
-### Solar yield - Battery bank evaluation
+### Production - Battery bank evaluation
 
 #### Output
 

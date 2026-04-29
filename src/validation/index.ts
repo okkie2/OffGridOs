@@ -18,7 +18,7 @@ export function validate(input: Partial<ProjectInput>): ValidationMessage[] {
     if (typeof latitude !== 'number' || isNaN(latitude) || latitude < -90 || latitude > 90) {
       err(`Location latitude ${latitude} is invalid. Must be between -90 and 90.`);
     } else if (Math.abs(latitude) > 66) {
-      warn(`Latitude ${latitude}° is outside ±66°. Solar yield estimates may be unreliable near the poles.`);
+      warn(`Latitude ${latitude}° is outside ±66°. Production estimates may be unreliable near the poles.`);
     }
     if (typeof longitude !== 'number' || isNaN(longitude) || longitude < -180 || longitude > 180) {
       err(`Location longitude ${longitude} is invalid. Must be between -180 and 180.`);

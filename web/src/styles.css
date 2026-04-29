@@ -115,14 +115,14 @@ h1, h2, h3, p, dl, dd, dt {
 
 .sidebar-nav {
   flex: 1;
-  padding: 12px 0;
+  padding: 14px 0;
 }
 
 .sidebar-nav-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 16px;
+  padding: 12px 18px;
   font-size: 0.82rem;
   font-weight: 500;
   letter-spacing: 0.06em;
@@ -160,8 +160,8 @@ h1, h2, h3, p, dl, dd, dt {
 }
 
 .sidebar-subnav {
-  padding: 0 0 8px 10px;
-  margin: 0 0 8px 16px;
+  padding: 0 0 9px 12px;
+  margin: 0 0 9px 18px;
   border-left: 1px solid rgba(255 255 255 / 0.08);
 }
 
@@ -169,7 +169,7 @@ h1, h2, h3, p, dl, dd, dt {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 14px;
+  padding: 8px 16px;
   font-size: 0.73rem;
   font-weight: 500;
   letter-spacing: 0.04em;
@@ -205,12 +205,21 @@ h1, h2, h3, p, dl, dd, dt {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.9rem;
+  width: 1.62rem;
   flex-shrink: 0;
-  font-size: 1.38rem;
+  font-size: 1rem;
   line-height: 1;
   color: var(--sidebar-muted);
   opacity: 1;
+}
+
+.sidebar-nav-icon-image {
+  display: block;
+  width: 1em;
+  height: 1em;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: invert(90%) sepia(8%) saturate(450%) hue-rotate(185deg) brightness(92%) contrast(92%);
 }
 
 .sidebar-nav-label {
@@ -328,7 +337,7 @@ h1, h2, h3, p, dl, dd, dt {
 }
 
 .sidebar.sidebar-collapsed .sidebar-nav-icon {
-  width: 24px;
+  width: 20px;
 }
 
 .sidebar.sidebar-collapsed .sidebar-collapse-button {
@@ -930,6 +939,10 @@ h1, h2, h3, p, dl, dd, dt {
   gap: 16px;
 }
 
+.consumption-converter-grid {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
 .surface-card-stack {
   display: grid;
   gap: 8px;
@@ -1303,6 +1316,34 @@ h1, h2, h3, p, dl, dd, dt {
   gap: 8px;
 }
 
+.consumption-selection-card {
+  gap: 10px;
+}
+
+.consumption-selection-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 12px;
+}
+
+.consumption-selection-head strong {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.consumption-selection-head span {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.consumption-selection-stats {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .panel-selector {
   margin-bottom: 12px;
 }
@@ -1315,6 +1356,10 @@ h1, h2, h3, p, dl, dd, dt {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+
+.battery-selection-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .panel-config-grid {
@@ -1535,7 +1580,7 @@ h1, h2, h3, p, dl, dd, dt {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.solar-yield-context-hero {
+.production-context-hero {
   display: grid;
   gap: 6px;
   padding: 14px 16px;
@@ -1545,19 +1590,19 @@ h1, h2, h3, p, dl, dd, dt {
   border: 1px solid rgba(0, 201, 160, 0.16);
 }
 
-.solar-yield-context-name {
+.production-context-name {
   font-size: 1.15rem;
   font-weight: 700;
   letter-spacing: 0.01em;
   color: var(--text);
 }
 
-.solar-yield-context-coordinates {
+.production-context-coordinates {
   font-size: 0.84rem;
   color: var(--muted);
 }
 
-.solar-yield-context-stats {
+.production-context-stats {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -1901,12 +1946,12 @@ h1, h2, h3, p, dl, dd, dt {
 
   .sidebar-nav {
     display: block;
-    padding: 12px 0;
+    padding: 14px 0;
   }
 
   .sidebar-nav-item {
     width: 100%;
-    padding: 10px 16px;
+    padding: 12px 18px;
   }
 
   .sidebar-nav-chevron {
@@ -1914,8 +1959,8 @@ h1, h2, h3, p, dl, dd, dt {
   }
 
   .sidebar-subnav {
-    margin-left: 16px;
-    padding-left: 10px;
+    margin-left: 18px;
+    padding-left: 12px;
     border-left: 1px solid rgba(255 255 255 / 0.08);
     width: auto;
   }
@@ -1973,7 +2018,7 @@ h1, h2, h3, p, dl, dd, dt {
   .mppt-limits,
   .mppt-result-head,
   .outcome-checks,
-  .solar-yield-context-stats {
+  .production-context-stats {
     grid-template-columns: minmax(0, 1fr);
   }
 

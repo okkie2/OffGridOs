@@ -8,6 +8,8 @@ const BATTERY_TYPES: Array<{
   nominal_voltage: number;
   capacity_ah: number;
   capacity_kwh: number;
+  max_charge_rate?: number | null;
+  max_discharge_rate?: number | null;
   victron_can: number;
   cooling: 'active' | 'passive';
   price?: number | null;
@@ -73,6 +75,7 @@ const BATTERY_TYPES: Array<{
     nominal_voltage: 51.2,
     capacity_ah: 100,
     capacity_kwh: 5.12,
+    max_discharge_rate: 100,
     victron_can: 1,
     cooling: 'passive',
     price: 862,
@@ -143,7 +146,7 @@ const BATTERY_TYPES: Array<{
     price_per_kwh: 213.95,
     source: 'https://panpower.eu/pl/systemy-magazynowania/5059-zyc-energy-simpo-5000-5kwh-512v.html',
     url: 'https://panpower.eu/pl/systemy-magazynowania/5059-zyc-energy-simpo-5000-5kwh-512v.html',
-    notes: 'Victron-compatible battery module. Cheapest found via Google search: Panpower.',
+    notes: 'ZYC Energy SIMPO 5000 brochure: LiFePO4 module, 51.2 V, 100 Ah, 5.12 kWh usable, CAN/RS485 or self-managed communication, charging to -10 C, discharging to -20 C, hot-swappable, auto-setup, up to 80 units in parallel, and pre-wired cabinets for 6 or 10 batteries.',
   },
   {
     battery_type_id: 'rs-series-rs230',
@@ -575,6 +578,22 @@ const BASELINE_PANEL_TYPES: Array<{
     price: 250,
   },
   {
+    panel_type_id: 'longi-lr7-54hvb-475wp',
+    brand: 'LONGi',
+    model: 'LR7-54HVB-475WP',
+    wp: 475,
+    voc: 40.18,
+    vmp: 33.16,
+    isc: 15.03,
+    imp: 14.33,
+    length_mm: 1800,
+    width_mm: 1134,
+    temp_coefficient_voc_pct_per_c: -0.2,
+    notes: 'Technische Unie 6021041 / LR7-54HVB-475WP full black. Price is net €84,31 excl. btw; official LONGi datasheet values used for Voc/Vmp/Isc/Imp and dimensions.',
+    price: 84.31,
+    price_source_url: 'https://www.technischeunie.nl/product/prd1892930474',
+  },
+  {
     panel_type_id: 'qcells-qpeak-duo-g10',
     brand: 'Qcells',
     model: 'Qcells Q.Peak Duo G10+',
@@ -910,9 +929,10 @@ export function seedSurfaces(db: Database.Database): void {
 export function seedPanelTypes(db: Database.Database): void {
   const existing = db.prepare('SELECT COUNT(*) as count FROM panel_types').get() as { count: number } | undefined;
   if (!existing || existing.count === 0) {
+    const seededAt = new Date().toISOString();
     const insert = db.prepare(`
-      INSERT INTO panel_types (panel_type_id, brand, model, wp, voc, vmp, isc, imp, length_mm, width_mm, temp_coefficient_voc_pct_per_c, notes, price, price_source_url)
-      VALUES (@panel_type_id, @brand, @model, @wp, @voc, @vmp, @isc, @imp, @length_mm, @width_mm, @temp_coefficient_voc_pct_per_c, @notes, @price, @price_source_url)
+      INSERT INTO panel_types (panel_type_id, brand, model, wp, voc, vmp, isc, imp, length_mm, width_mm, temp_coefficient_voc_pct_per_c, notes, price, price_source_url, last_upsert_date)
+      VALUES (@panel_type_id, @brand, @model, @wp, @voc, @vmp, @isc, @imp, @length_mm, @width_mm, @temp_coefficient_voc_pct_per_c, @notes, @price, @price_source_url, @last_upsert_date)
     `);
     const insertAll = db.transaction((rows: typeof BASELINE_PANEL_TYPES) => {
       for (const row of rows) {
@@ -921,6 +941,7 @@ export function seedPanelTypes(db: Database.Database): void {
           notes: row.notes ?? null,
           price: row.price ?? null,
           price_source_url: row.price_source_url ?? null,
+          last_upsert_date: seededAt,
         });
       }
     });

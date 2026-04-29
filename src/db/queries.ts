@@ -122,9 +122,12 @@ export function getPanelType(db: Database.Database, panel_type_id: string): Pane
 
 export function insertPanelType(db: Database.Database, data: Omit<PanelType, 'id'>): void {
   db.prepare(`
-    INSERT INTO panel_types (panel_type_id, brand, model, wp, voc, vmp, isc, imp, length_mm, width_mm, temp_coefficient_voc_pct_per_c, price, price_source_url, notes)
-    VALUES (@panel_type_id, @brand, @model, @wp, @voc, @vmp, @isc, @imp, @length_mm, @width_mm, @temp_coefficient_voc_pct_per_c, @price, @price_source_url, @notes)
-  `).run(data);
+    INSERT INTO panel_types (panel_type_id, brand, model, wp, voc, vmp, isc, imp, length_mm, width_mm, temp_coefficient_voc_pct_per_c, price, price_source_url, last_upsert_date, notes)
+    VALUES (@panel_type_id, @brand, @model, @wp, @voc, @vmp, @isc, @imp, @length_mm, @width_mm, @temp_coefficient_voc_pct_per_c, @price, @price_source_url, @last_upsert_date, @notes)
+  `).run({
+    ...data,
+    last_upsert_date: new Date().toISOString(),
+  });
 }
 
 export function updatePanelType(db: Database.Database, data: Omit<PanelType, 'id'>): void {
@@ -132,9 +135,12 @@ export function updatePanelType(db: Database.Database, data: Omit<PanelType, 'id
     UPDATE panel_types
     SET brand=@brand, model=@model, wp=@wp, voc=@voc, vmp=@vmp, isc=@isc, imp=@imp,
         length_mm=@length_mm, width_mm=@width_mm, temp_coefficient_voc_pct_per_c=@temp_coefficient_voc_pct_per_c,
-        price=@price, price_source_url=@price_source_url, notes=@notes
+        price=@price, price_source_url=@price_source_url, last_upsert_date=@last_upsert_date, notes=@notes
     WHERE panel_type_id=@panel_type_id
-  `).run(data);
+  `).run({
+    ...data,
+    last_upsert_date: new Date().toISOString(),
+  });
 }
 
 export function deletePanelType(db: Database.Database, panel_type_id: string): void {

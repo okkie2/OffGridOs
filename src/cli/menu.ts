@@ -13,6 +13,7 @@ import { runCalculations } from '../calc/runner.js';
 import fs from 'fs';
 import path from 'path';
 import { resolveDatabasePath } from '../config/runtime.js';
+import { formatPublishSummary, publishLocalDatabase } from './publish-database.js';
 
 const DB_PATH = resolveDatabasePath();
 
@@ -59,6 +60,7 @@ async function projectMenu(): Promise<void> {
       message: 'Project',
       choices: [
         { name: 'Init new project  (creates project.db)', value: 'init' },
+        { name: 'Publish local database to Railway', value: 'publish_db' },
         new inquirer.Separator(),
         { name: '← Back', value: 'back' },
       ],
@@ -69,6 +71,14 @@ async function projectMenu(): Promise<void> {
     initSchema(db);
     db.close();
     console.log(chalk.green(`project.db ready at ${DB_PATH}`));
+  } else if (choice === 'publish_db') {
+    try {
+      const result = await publishLocalDatabase();
+      console.log(chalk.green(formatPublishSummary(result)));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(chalk.red(message));
+    }
   }
 }
 

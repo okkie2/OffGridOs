@@ -85,6 +85,8 @@ class NavigationWorld extends World {
     assign('MouseEvent', this.dom.window.MouseEvent);
     assign('HashChangeEvent', this.dom.window.HashChangeEvent);
     assign('PopStateEvent', this.dom.window.PopStateEvent as unknown as typeof PopStateEvent);
+    this.dom.window.confirm = (() => true) as unknown as typeof window.confirm;
+    assign('confirm', this.dom.window.confirm);
     const domWindow = this.dom.window;
     class MockFileReader extends domWindow.EventTarget {
       result: string | ArrayBuffer | null = null;
@@ -285,6 +287,27 @@ class NavigationWorld extends World {
           });
           syncPvTopologyForSurface(db, surfaceId);
 
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
+        } finally {
+          db.close();
+        }
+
+        return new Response(JSON.stringify(this.projectData), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (url.pathname.startsWith('/api/surfaces/') && method === 'DELETE') {
+        const surfaceId = decodeURIComponent(url.pathname.slice('/api/surfaces/'.length));
+        const db = openDb(this.requireDbPath());
+        try {
+          const existing = getSurface(db, surfaceId);
+          if (!existing) {
+            return new Response(JSON.stringify({ error: `Surface "${surfaceId}" not found.` }), { status: 404 });
+          }
+
+          db.prepare('DELETE FROM surfaces WHERE surface_id = ?').run(surfaceId);
           this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
         } finally {
           db.close();
@@ -683,7 +706,8 @@ class NavigationWorld extends World {
     }
 
     const match = Array.from(this.dom.window.document.querySelectorAll(selector)).find((node) => {
-      return node.textContent?.trim() === text;
+      const ariaLabel = node.getAttribute('aria-label')?.trim();
+      return ariaLabel === text || node.textContent?.trim() === text;
     }) as HTMLElement | undefined;
 
     if (!match) {
@@ -735,6 +759,27 @@ class NavigationWorld extends World {
 
     await act(async () => {
       firstDetailButton.dispatchEvent(
+        new this.dom.window.MouseEvent('click', {
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      this.dom.window.dispatchEvent(new this.dom.window.HashChangeEvent('hashchange'));
+    });
+  }
+
+  async clickSurfaceDeleteButton(): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const deleteButton = this.dom.window.document.querySelector('.detail-shell .button-danger') as HTMLElement | null;
+    if (!deleteButton) {
+      throw new Error('Could not find the surface delete button on the page.');
+    }
+
+    await act(async () => {
+      deleteButton.dispatchEvent(
         new this.dom.window.MouseEvent('click', {
           bubbles: true,
           cancelable: true,
@@ -1497,6 +1542,16 @@ class NavigationWorld extends World {
     }
   }
 
+  assertSurfaceDeleted(surfaceId: string): void {
+    const db = openDb(this.requireDbPath());
+    try {
+      const row = db.prepare('SELECT 1 FROM surfaces WHERE surface_id = ?').get(surfaceId) as { 1: number } | undefined;
+      assert.equal(row, undefined);
+    } finally {
+      db.close();
+    }
+  }
+
   assertLocationInDatabase(expectedNotes: string, expectPhoto: boolean): void {
     const db = openDb(this.requireDbPath());
     try {
@@ -1762,7 +1817,7 @@ class NavigationWorld extends World {
     const segments = pathname.split('/').filter(Boolean);
     if (segments.length >= 3) {
       const candidate = segments[2];
-      const reserved = new Set(['location', 'solar-yield', 'about', 'catalogs', 'reports', 'battery-array', 'inverter-array']);
+      const reserved = new Set(['location', 'production', 'about', 'catalogs', 'reports', 'battery-array', 'inverter-array']);
       if (candidate && !reserved.has(candidate)) {
         return decodeURIComponent(candidate);
       }
@@ -1924,32 +1979,32 @@ Given('OffGridOS is rendered with project data', async function () {
 
 When('I open Location from the menu', async function () {
   await this.clickByText('Location');
-  await this.waitForText('Start information');
+  await this.waitForText('Location details');
 });
 
 When('I go back to Location using the menu', async function () {
   await this.clickByText('Location');
-  await this.waitForText('Start information');
+  await this.waitForText('Location details');
 });
 
 When('I open Catalogs from the menu', async function () {
   await this.clickByText('Catalogs');
-  await this.waitForText('Manage the reusable product catalogs');
+  await this.waitForText('Manage reusable product catalog entries');
 });
 
 When('I open Battery array from the menu', async function () {
-  await this.clickByText('Battery array');
+  await this.clickByText('Storage');
   await this.waitForText('Battery selection');
 });
 
-When('I open Solar yield from the menu', async function () {
-  await this.clickByText('Solar yield');
-  await this.waitForText('Surface summary');
+When('I open Production from the menu', async function () {
+  await this.clickByText('Production');
+  await this.waitForText('Surfaces');
 });
 
-When('I open Inverter array from the menu', async function () {
-  await this.clickByText('Inverter array');
-  await this.waitForText('Inverter array');
+When('I open Consumption from the menu', async function () {
+  await this.clickByText('Consumption');
+  await this.waitForText('Consumption');
 });
 
 When('I open the first surface detail from the menu', async function () {
@@ -1958,18 +2013,23 @@ When('I open the first surface detail from the menu', async function () {
 });
 
 When('I open Panel types from Catalogs', async function () {
-  await this.clickByText('Open Panel types');
-  await this.waitForText('Panel types');
+  await this.clickByText('Open Panels');
+  await this.waitForText('Panels');
 });
 
 When('I go back to Catalogs using the menu', async function () {
   await this.clickByText('Catalogs');
-  await this.waitForText('Manage the reusable product catalogs');
+  await this.waitForText('Manage reusable product catalog entries');
 });
 
 When('I go back to Location using the breadcrumb', async function () {
-  await this.clickByText('Location', '.breadcrumbs .crumb-link');
-  await this.waitForText('Start information');
+  await this.clickByText('Project', '.breadcrumbs .crumb-link');
+  await this.waitForText('Location details');
+});
+
+When('I go back to Production using the breadcrumb', async function () {
+  await this.clickByText('Production', '.breadcrumbs .crumb-link');
+  await this.waitForText('Surfaces');
 });
 
 When('I open the first surface detail from the page', async function () {
@@ -1977,33 +2037,42 @@ When('I open the first surface detail from the page', async function () {
   await this.waitForText('Panel');
 });
 
+When('I delete the active surface from the detail page', async function () {
+  const surfaceId = this.readCurrentSurfaceId();
+  await this.clickSurfaceDeleteButton();
+  await this.waitForText('Location details');
+  this.assertSurfaceDeleted(surfaceId);
+});
+
 Then('I should see the Location page', async function () {
-  assert.ok(this.dom?.window.document.body.textContent?.includes('Start information'));
+  assert.ok(this.dom?.window.document.body.textContent?.includes('Location details'));
 });
 
 Then('I should see the Overview page', async function () {
-  assert.ok(this.dom?.window.document.body.textContent?.includes('Start information'));
+  assert.ok(this.dom?.window.document.body.textContent?.includes('Location details'));
 });
 
 Then('I should see the Catalogs page', async function () {
-  assert.ok(this.dom?.window.document.body.textContent?.includes('Manage the reusable product catalogs'));
+  assert.ok(this.dom?.window.document.body.textContent?.includes('Manage reusable product catalog entries'));
 });
 
 Then('I should see the Panel types page', async function () {
-  assert.ok(this.dom?.window.document.body.textContent?.includes('Panel types'));
+  assert.ok(this.dom?.window.document.body.textContent?.includes('Panels'));
 });
 
 Then('I should see the Battery array page', async function () {
   assert.ok(this.dom?.window.document.body.textContent?.includes('Battery selection'));
 });
 
-Then('I should see the Solar yield page', async function () {
-  assert.ok(this.dom?.window.document.body.textContent?.includes('Surface summary'));
-  assert.ok(this.dom?.window.document.body.textContent?.includes('Monthly expected yield'));
+Then('I should see the Production page', async function () {
+  assert.ok(this.dom?.window.document.body.textContent?.includes('Surfaces'));
+  assert.ok(this.dom?.window.document.body.textContent?.includes('Average daily production by month'));
 });
 
-Then('I should see the Inverter array page', async function () {
-  assert.ok(this.dom?.window.document.body.textContent?.includes('Inverter array'));
+Then('I should see the Consumption page', async function () {
+  const text = this.dom?.window.document.body.textContent ?? '';
+  assert.ok(text.includes('Consumption'));
+  assert.ok(text.includes('Converter bank fit'));
 });
 
 Then('I should see the Surface detail page', async function () {

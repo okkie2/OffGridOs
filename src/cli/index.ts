@@ -6,6 +6,7 @@ import chalk from 'chalk';
 import fs from 'fs';
 import path from 'path';
 import { writeDigitalTwinExport } from '../output/index.js';
+import { formatPublishSummary, publishLocalDatabase } from './publish-database.js';
 
 const program = new Command();
 
@@ -64,6 +65,33 @@ program
       console.log(chalk.green(`Digital twin export written: ${outPath}`));
     } finally {
       db.close();
+    }
+  });
+
+program
+  .command('publish-db')
+  .description('Publish the local project.db to Railway')
+  .option('--db <path>', 'Path to database file', 'project.db')
+  .option('--endpoint <url>', 'Publish endpoint URL', 'https://offgridos.eu/api/admin/publish-database')
+  .option('--token <token>', 'Database publish token')
+  .option('--railway-service <name>', 'Railway service name to read variables from', 'OffGridOs')
+  .option('--railway-environment <name>', 'Railway environment name to read variables from', 'production')
+  .option('--no-railway-cli', 'Do not read the token from Railway CLI when DATABASE_PUBLISH_TOKEN is unset')
+  .action(async (opts) => {
+    try {
+      const result = await publishLocalDatabase({
+        dbPath: opts.db,
+        endpoint: opts.endpoint,
+        token: opts.token,
+        railwayService: opts.railwayService,
+        railwayEnvironment: opts.railwayEnvironment,
+        useRailwayCli: opts.railwayCli,
+      });
+      console.log(chalk.green(formatPublishSummary(result)));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(chalk.red(message));
+      process.exit(1);
     }
   });
 

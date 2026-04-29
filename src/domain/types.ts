@@ -43,6 +43,7 @@ export interface PanelType {
   temp_coefficient_voc_pct_per_c: number | null;
   price?: number | null;
   price_source_url?: string | null;
+  last_upsert_date?: string | null;
   notes?: string;
 }
 

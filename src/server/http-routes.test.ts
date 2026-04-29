@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-const TSX_BIN = resolve('node_modules/.bin/tsx');
-const SERVER_ENTRY = resolve('src/server.ts');
+const SERVER_BIN = 'node';
+const SERVER_ENTRY = resolve('dist/server.js');
 const TEST_HOST = '127.0.0.1';
 const TEST_PORT = 38901;
 const BASE_URL = `http://${TEST_HOST}:${TEST_PORT}`;
@@ -13,7 +13,7 @@ const BASE_URL = `http://${TEST_HOST}:${TEST_PORT}`;
 let serverProcess: ChildProcess | null = null;
 let dbDir: string | null = null;
 
-async function pollHealth(timeoutMs = 12_000): Promise<void> {
+async function pollHealth(timeoutMs = 30_000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
@@ -31,7 +31,7 @@ beforeEach(async () => {
   dbDir = mkdtempSync(join(tmpdir(), 'offgridos-http-'));
   const dbPath = join(dbDir, 'project.db');
 
-  serverProcess = spawn(TSX_BIN, [SERVER_ENTRY], {
+  serverProcess = spawn(SERVER_BIN, [SERVER_ENTRY], {
     env: {
       ...process.env,
       DATABASE_PATH: dbPath,
@@ -43,7 +43,7 @@ beforeEach(async () => {
   });
 
   await pollHealth();
-});
+}, 30_000);
 
 afterEach(() => {
   serverProcess?.kill('SIGTERM');
@@ -63,6 +63,7 @@ async function getDigitalTwin() {
       battery_types: Array<{ battery_type_id: string }>;
       mppt_types: Array<{ mppt_type_id: string }>;
       panel_types: Array<{ panel_type_id: string }>;
+      conversion_devices: Array<{ conversion_device_id: string }>;
     };
   }>;
 }
@@ -183,5 +184,45 @@ describe('PUT /api/surface-configurations/:surfaceId', () => {
       }),
     });
     expect(res.status).toBe(200);
+  });
+});
+
+describe('Load circuit and load routes', () => {
+  it('supports creating a load circuit and a load', async () => {
+    const twin = await getDigitalTwin();
+    const conversionDeviceId = twin.entities.conversion_devices[0]?.conversion_device_id;
+    expect(conversionDeviceId).toBeTruthy();
+
+    const circuitRes = await fetch(`${BASE_URL}/api/load-circuits`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        conversion_device_id: conversionDeviceId,
+        title: 'Living room group',
+      }),
+    });
+    expect(circuitRes.status).toBe(201);
+
+    const circuitTwin = await circuitRes.json() as {
+      entities: {
+        load_circuits: Array<{ load_circuit_id: string }>;
+      };
+    };
+    const loadCircuitId = circuitTwin.entities.load_circuits[0]?.load_circuit_id;
+    expect(loadCircuitId).toBeTruthy();
+
+    const loadRes = await fetch(`${BASE_URL}/api/loads`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        load_circuit_id: loadCircuitId,
+        title: 'Fridge',
+        usage_kw: 0.12,
+        spike_kw: 0.45,
+        expected_usage_hours_per_day: 8,
+        sleeping_kw: 0.01,
+      }),
+    });
+    expect(loadRes.status).toBe(201);
   });
 });

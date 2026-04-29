@@ -22,7 +22,7 @@ function generateUniqueCatalogId(model: string, existingIds: string[]): string {
   return candidate;
 }
 
-type Status = 'within_limits' | 'outside_limits';
+type Status = 'within_limits' | 'outside_limits' | 'unknown';
 type FitStatus = 'optimal' | 'fully_utilized' | 'clipping_expected' | 'underutilized';
 
 type LightboxMedia =
@@ -154,6 +154,7 @@ interface PanelType {
   width_mm?: number | null;
   price?: number | null;
   price_source_url?: string | null;
+  last_upsert_date?: string | null;
   notes?: string;
 }
 
@@ -390,6 +391,24 @@ interface Load {
   spike_kw: number;
   expected_usage_hours_per_day: number;
   sleeping_kw: number;
+}
+
+interface LoadCircuitDraft {
+  load_circuit_id: string;
+  conversion_device_id: string;
+  title: string;
+  description: string;
+}
+
+interface LoadDraft {
+  load_id: string;
+  load_circuit_id: string;
+  title: string;
+  description: string;
+  usage_kw: string;
+  spike_kw: string;
+  expected_usage_hours_per_day: string;
+  sleeping_kw: string;
 }
 
 interface ArrayEntity {
@@ -667,6 +686,29 @@ function getProjectStorageKey(data: DigitalTwinExport): string {
   return data.project.project_id ?? 'offgridos-project';
 }
 
+function getConsumptionSelectionStorageKey(data: DigitalTwinExport): string {
+  return `${getProjectStorageKey(data)}:consumption:selected-converters`;
+}
+
+function getConversionDeviceCatalogSelectionStorageKey(data: DigitalTwinExport): string {
+  return `${getProjectStorageKey(data)}:catalog:conversion-device`;
+}
+
+function getConversionDeviceTypeLabel(deviceType: string, t: (key: TranslationKey, variables?: Record<string, string | number>) => string): string {
+  switch (deviceType) {
+    case 'dc_dc_converter':
+      return t('catalog.device_type.dc_dc_converter');
+    case 'ac_dc_charger':
+      return t('catalog.device_type.ac_dc_charger');
+    default:
+      return t('catalog.device_type.inverter');
+  }
+}
+
+function getConversionDeviceDisplayName(data: DigitalTwinExport | null, converterId: string): string {
+  return data?.entities.conversion_devices.find((device) => device.conversion_device_id === converterId)?.title ?? converterId;
+}
+
 function getLocationDisplayName(
   data: DigitalTwinExport,
   t?: (key: TranslationKey, variables?: Record<string, string | number>) => string,
@@ -763,7 +805,7 @@ function buildLocalSurfaceSummaries(data: DigitalTwinExport): LocalSurfaceSummar
 
 type Route =
   | { kind: 'location' }
-  | { kind: 'solar-yield' }
+  | { kind: 'production' }
   | { kind: 'about' }
   | { kind: 'catalogs' }
   | { kind: 'reports' }
@@ -772,6 +814,9 @@ type Route =
   | { kind: 'cost-summary' }
   | { kind: 'battery-array' }
   | { kind: 'inverter-array' }
+  | { kind: 'converter'; converterId: string; loadCircuitId?: string }
+  | { kind: 'load-circuits' }
+  | { kind: 'loads' }
   | { kind: 'surface'; surfaceId: string };
 
 type ParsedAppUrl = {
@@ -799,6 +844,16 @@ const REPORT_ROUTES: Array<{
   { kind: 'cost-summary', labelKey: 'nav.report.cost_summary' },
 ];
 
+const AC_ROUTES: Array<{
+  kind: 'battery-array' | 'inverter-array' | 'load-circuits' | 'loads';
+  labelKey: TranslationKey;
+}> = [
+  { kind: 'battery-array', labelKey: 'nav.battery_bank' },
+  { kind: 'inverter-array', labelKey: 'nav.converters' },
+  { kind: 'load-circuits', labelKey: 'nav.load_circuits' },
+  { kind: 'loads', labelKey: 'nav.loads' },
+];
+
 const RESERVED_ROUTE_SEGMENTS = new Set([
   'about',
   'battery-array',
@@ -806,10 +861,13 @@ const RESERVED_ROUTE_SEGMENTS = new Set([
   'cabinet-types',
   'cost-summary',
   'conversion-devices',
+  'converters',
   'inverter-array',
   'location',
+  'load-circuits',
+  'loads',
+  'production',
   'reports',
-  'solar-yield',
   'surfaces',
   'verdict-summary',
 ]);
@@ -1307,6 +1365,7 @@ function estimateFaceYieldForMonth(input: {
 }
 
 function statusTone(status: Status, fit?: FitStatus): string {
+  if (status === 'unknown') return 'danger';
   if (status === 'outside_limits') return 'danger';
   if (fit === 'clipping_expected') return 'warn';
   if (fit === 'fully_utilized') return 'warn';
@@ -1321,17 +1380,23 @@ function StatusBadge({ status, fit }: { status: Status | null; fit?: FitStatus }
   }
 
   const tone = statusTone(status, fit);
-  const text = status === 'outside_limits'
-    ? t('status.outside_limits')
-    : fit
-      ? t(`fit.${fit}` as TranslationKey)
-      : t('status.electrical_ok');
+  const text = status === 'unknown'
+    ? t('status.unknown')
+    : status === 'outside_limits'
+      ? t('status.outside_limits')
+      : fit
+        ? t(`fit.${fit}` as TranslationKey)
+        : t('status.electrical_ok');
   return <span className={`status status-${tone}`}>{text}</span>;
 }
 
 function verdictLabel(status: Status | null, fit?: FitStatus): string {
   if (!status) {
     return 'Not evaluated';
+  }
+
+  if (status === 'unknown') {
+    return 'Unknown';
   }
 
   if (status === 'outside_limits') {
@@ -1938,6 +2003,55 @@ function getInverterEvaluationCopy(input: {
   return { summary, label, reasons };
 }
 
+function evaluateConverterBankCompatibility(
+  batteryArrayConfig: {
+    stringVoltage: number;
+    maxDischargeCurrentA: number | null;
+    maxDischargePowerW: number | null;
+  },
+  conversionDevices: ConversionDevice[],
+): {
+  status: Status;
+  reasons: string[];
+  totalContinuousPowerW: number;
+  totalPeakPowerVA: number;
+  estimatedCurrentA: number | null;
+} {
+  const totalContinuousPowerW = conversionDevices.reduce((sum, device) => sum + (device.continuous_power_w ?? 0), 0);
+  const totalPeakPowerVA = conversionDevices.reduce((sum, device) => sum + (device.peak_power_va ?? 0), 0);
+  const estimatedCurrentA = batteryArrayConfig.stringVoltage > 0 ? totalContinuousPowerW / batteryArrayConfig.stringVoltage : null;
+
+  const missingDischargeLimit = batteryArrayConfig.maxDischargeCurrentA == null || batteryArrayConfig.maxDischargePowerW == null;
+  const outsideLimits = !missingDischargeLimit
+    && ((batteryArrayConfig.maxDischargeCurrentA != null && estimatedCurrentA != null && estimatedCurrentA > batteryArrayConfig.maxDischargeCurrentA)
+    || (batteryArrayConfig.maxDischargePowerW != null && totalContinuousPowerW > batteryArrayConfig.maxDischargePowerW));
+
+  const reasons: string[] = [];
+  if (batteryArrayConfig.maxDischargeCurrentA == null) {
+    reasons.push('battery_discharge_current_unknown');
+  }
+  if (batteryArrayConfig.maxDischargePowerW == null) {
+    reasons.push('battery_discharge_power_unknown');
+  }
+  if (batteryArrayConfig.maxDischargeCurrentA != null && estimatedCurrentA != null && estimatedCurrentA > batteryArrayConfig.maxDischargeCurrentA) {
+    reasons.push('converter_current_too_high_for_battery');
+  }
+  if (batteryArrayConfig.maxDischargePowerW != null && totalContinuousPowerW > batteryArrayConfig.maxDischargePowerW) {
+    reasons.push('converter_power_too_high_for_battery');
+  }
+  if (!outsideLimits && !missingDischargeLimit) {
+    reasons.push('well_matched');
+  }
+
+  return {
+    status: missingDischargeLimit ? 'unknown' : (outsideLimits ? 'outside_limits' : 'within_limits'),
+    reasons,
+    totalContinuousPowerW,
+    totalPeakPowerVA,
+    estimatedCurrentA,
+  };
+}
+
 function evaluateInverterCompatibility(
   batteryArrayConfig: {
     stringVoltage: number;
@@ -1989,7 +2103,7 @@ function parseLegacyHashRoute(hash: string): Route {
   if (hash === '' || hash === '/' || hash === '/location' || hash === '/surfaces') {
     return { kind: 'location' };
   }
-  if (hash === '/solar-yield') return { kind: 'solar-yield' };
+  if (hash === '/production') return { kind: 'production' };
   if (hash === '/about') return { kind: 'about' };
   if (hash === '/catalogs') return { kind: 'catalogs' };
   if (hash === '/reports') return { kind: 'reports' };
@@ -2001,7 +2115,10 @@ function parseLegacyHashRoute(hash: string): Route {
   if (hash === '/battery-types') return { kind: 'catalog', catalog: 'battery-types' };
   if (hash === '/inverter-types') return { kind: 'catalog', catalog: 'conversion-devices' };
   if (hash === '/battery-array') return { kind: 'battery-array' };
+  if (hash === '/consumption') return { kind: 'inverter-array' };
   if (hash === '/inverter-array') return { kind: 'inverter-array' };
+  if (hash === '/load-circuits') return { kind: 'load-circuits' };
+  if (hash === '/loads') return { kind: 'loads' };
   if (hash.startsWith('/surfaces/')) {
     const surfaceId = hash.slice('/surfaces/'.length);
     if (surfaceId) return { kind: 'surface', surfaceId };
@@ -2038,7 +2155,7 @@ function parseAppUrl(pathname: string, hash: string): ParsedAppUrl {
     return { language, locationSlug, route: { kind: 'location' } };
   }
 
-  if (rest[0] === 'solar-yield') return { language, locationSlug, route: { kind: 'solar-yield' } };
+  if (rest[0] === 'production') return { language, locationSlug, route: { kind: 'production' } };
   if (rest[0] === 'about') return { language, locationSlug, route: { kind: 'about' } };
   if (rest[0] === 'catalogs') {
     const catalog = rest[1];
@@ -2054,7 +2171,25 @@ function parseAppUrl(pathname: string, hash: string): ParsedAppUrl {
     return { language, locationSlug, route: { kind: 'reports' } };
   }
   if (rest[0] === 'battery-array') return { language, locationSlug, route: { kind: 'battery-array' } };
+  if (rest[0] === 'consumption' && rest[1] === 'converters') {
+    const converterId = rest[2];
+    if (converterId) {
+      const loadCircuitId = rest[3] === 'load-circuits' ? rest[4] : undefined;
+      return {
+        language,
+        locationSlug,
+        route: {
+          kind: 'converter',
+          converterId: decodeURIComponent(converterId),
+          loadCircuitId: loadCircuitId ? decodeURIComponent(loadCircuitId) : undefined,
+        },
+      };
+    }
+  }
+  if (rest[0] === 'consumption') return { language, locationSlug, route: { kind: 'inverter-array' } };
   if (rest[0] === 'inverter-array') return { language, locationSlug, route: { kind: 'inverter-array' } };
+  if (rest[0] === 'load-circuits') return { language, locationSlug, route: { kind: 'load-circuits' } };
+  if (rest[0] === 'loads') return { language, locationSlug, route: { kind: 'loads' } };
 
   const [surfaceId] = rest;
   if (surfaceId && !RESERVED_ROUTE_SEGMENTS.has(surfaceId)) {
@@ -2068,7 +2203,7 @@ function buildRoutePath(route: Route, language: LanguageCode, locationSlug: stri
   const base = `/${language}/${locationSlug}`;
 
   if (route.kind === 'location') return base;
-  if (route.kind === 'solar-yield') return `${base}/solar-yield`;
+  if (route.kind === 'production') return `${base}/production`;
   if (route.kind === 'about') return `${base}/about`;
   if (route.kind === 'catalogs') return `${base}/catalogs`;
   if (route.kind === 'reports') return `${base}/reports`;
@@ -2076,7 +2211,15 @@ function buildRoutePath(route: Route, language: LanguageCode, locationSlug: stri
   if (route.kind === 'verdict-summary') return `${base}/reports/verdict-summary`;
   if (route.kind === 'cost-summary') return `${base}/reports/cost-summary`;
   if (route.kind === 'battery-array') return `${base}/battery-array`;
-  if (route.kind === 'inverter-array') return `${base}/inverter-array`;
+  if (route.kind === 'inverter-array') return `${base}/consumption`;
+  if (route.kind === 'converter') {
+    const converterPath = `${base}/consumption/converters/${encodeURIComponent(route.converterId)}`;
+    return route.loadCircuitId
+      ? `${converterPath}/load-circuits/${encodeURIComponent(route.loadCircuitId)}`
+      : converterPath;
+  }
+  if (route.kind === 'load-circuits') return `${base}/load-circuits`;
+  if (route.kind === 'loads') return `${base}/loads`;
   return `${base}/${encodeURIComponent(route.surfaceId)}`;
 }
 
@@ -2112,33 +2255,49 @@ function routeHref(route: Route, options?: { language?: LanguageCode; locationSl
   );
 }
 
-function sidebarIcon(kind: 'location' | 'surface' | 'solar-yield' | 'battery-array' | 'inverter-array' | 'loads' | 'catalogs' | 'catalog' | 'reports' | 'report-verdict' | 'report-cost' | 'about' | 'new-project'): string {
+function sidebarIcon(kind: 'location' | 'surface' | 'production' | 'storage' | 'consumption' | 'battery-array' | 'inverter-array' | 'load-circuits' | 'loads' | 'catalogs' | 'catalog' | 'reports' | 'report-verdict' | 'report-cost' | 'about' | 'new-project'): React.ReactNode {
+  const icon = (name: string) => (
+    <img
+      src={`/icons/fa-energy/${name}.svg`}
+      alt=""
+      aria-hidden="true"
+      className="sidebar-nav-icon-image"
+    />
+  );
+
   switch (kind) {
     case 'location':
-      return '⌂';
+      return icon('house');
     case 'surface':
-      return '▦';
-    case 'solar-yield':
-      return '☼';
+      return icon('solar-panel');
+    case 'production':
+      return icon('bolt-lightning');
+    case 'storage':
+      return icon('server');
+    case 'consumption':
+      return icon('plug');
     case 'battery-array':
-      return '▮';
+      return icon('server');
     case 'inverter-array':
-      return '▭';
+      return icon('wave-square');
+    case 'load-circuits':
+      return icon('sitemap');
     case 'loads':
-      return '⎍';
+      return icon('plug-circle-bolt');
     case 'catalogs':
+      return icon('table-list');
     case 'catalog':
-      return '◫';
+      return icon('table-list');
     case 'reports':
-      return '☰';
+      return icon('book-open');
     case 'report-verdict':
-      return '⚖';
+      return icon('balance-scale');
     case 'report-cost':
-      return '€';
+      return icon('eur');
     case 'about':
-      return 'ⓘ';
+      return icon('circle-info');
     case 'new-project':
-      return '+';
+      return icon('square-plus');
   }
 }
 
@@ -2158,8 +2317,9 @@ function Sidebar({
   onNavigate: () => void;
 }) {
   const { t } = useTranslation();
-  const [openSections, setOpenSections] = useState<{ location: boolean; catalogs: boolean; reports: boolean }>({
-    location: route.kind === 'location' || route.kind === 'surface',
+  const [openSections, setOpenSections] = useState<{ production: boolean; consumption: boolean; catalogs: boolean; reports: boolean }>({
+    production: route.kind === 'production' || route.kind === 'surface',
+    consumption: route.kind === 'inverter-array' || route.kind === 'converter' || route.kind === 'load-circuits' || route.kind === 'loads',
     catalogs: route.kind === 'catalogs' || route.kind === 'catalog',
     reports: route.kind === 'reports' || route.kind === 'verdict-summary' || route.kind === 'cost-summary',
   });
@@ -2192,7 +2352,7 @@ function Sidebar({
   }: {
     href: string;
     label: string;
-    icon: string;
+    icon: React.ReactNode;
     active: boolean;
     onClick: (event: MouseEvent<HTMLAnchorElement>) => void;
     hasChildren?: boolean;
@@ -2217,7 +2377,7 @@ function Sidebar({
     );
   }
 
-  function DisabledItem({ label, icon }: { label: string; icon: string }) {
+  function DisabledItem({ label, icon }: { label: string; icon: React.ReactNode }) {
     return (
       <span
         className="sidebar-nav-item sidebar-nav-disabled"
@@ -2260,14 +2420,21 @@ function Sidebar({
       <nav className="sidebar-nav">
         <NavLink
           href={routeHref({ kind: 'location' })}
-          onClick={sectionClick('location', { kind: 'location' })}
+          onClick={go({ kind: 'location' })}
           label={t('nav.location')}
           icon={sidebarIcon('location')}
-          active={route.kind === 'location' || route.kind === 'surface'}
-          hasChildren
-          childOpen={openSections.location}
+          active={route.kind === 'location'}
         />
-        {data && openSections.location ? (
+        <NavLink
+          href={routeHref({ kind: 'production' })}
+          onClick={sectionClick('production', { kind: 'production' })}
+          label={t('nav.production')}
+          icon={sidebarIcon('production')}
+          active={route.kind === 'production' || route.kind === 'surface'}
+          hasChildren
+          childOpen={openSections.production}
+        />
+        {data && openSections.production ? (
           <div className="sidebar-subnav">
             {data.entities.surfaces.map((surface) => (
               <a
@@ -2286,27 +2453,45 @@ function Sidebar({
           </div>
         ) : null}
         <NavLink
-          href={routeHref({ kind: 'solar-yield' })}
-          onClick={go({ kind: 'solar-yield' })}
-          label={t('nav.solar_yield')}
-          icon={sidebarIcon('solar-yield')}
-          active={route.kind === 'solar-yield'}
-        />
-        <NavLink
           href={routeHref({ kind: 'battery-array' })}
           onClick={go({ kind: 'battery-array' })}
-          label={t('nav.battery_array')}
-          icon={sidebarIcon('battery-array')}
+          label={t('nav.storage')}
+          icon={sidebarIcon('storage')}
           active={route.kind === 'battery-array'}
         />
         <NavLink
           href={routeHref({ kind: 'inverter-array' })}
-          onClick={go({ kind: 'inverter-array' })}
-          label={t('nav.converters')}
-          icon={sidebarIcon('inverter-array')}
-          active={route.kind === 'inverter-array'}
+          onClick={sectionClick('consumption', { kind: 'inverter-array' })}
+          label={t('nav.consumption')}
+          icon={sidebarIcon('consumption')}
+          active={route.kind === 'inverter-array' || route.kind === 'converter' || route.kind === 'load-circuits' || route.kind === 'loads'}
+          hasChildren
+          childOpen={openSections.consumption}
         />
-        <DisabledItem label={t('nav.loads')} icon={sidebarIcon('loads')} />
+        {data && openSections.consumption ? (
+          <div className="sidebar-subnav">
+            {AC_ROUTES.filter((r) => r.kind !== 'battery-array').map((acRoute) => (
+              <a
+                key={acRoute.kind}
+                href={routeHref({ kind: acRoute.kind })}
+                onClick={go({ kind: acRoute.kind })}
+                className={`sidebar-subnav-item ${route.kind === acRoute.kind ? 'active' : ''}`}
+                aria-label={t(acRoute.labelKey)}
+                title={t(acRoute.labelKey)}
+                aria-current={route.kind === acRoute.kind ? 'page' : undefined}
+              >
+                <span className="sidebar-nav-icon" aria-hidden="true">
+                  {acRoute.kind === 'load-circuits'
+                    ? sidebarIcon('load-circuits')
+                    : acRoute.kind === 'loads'
+                      ? sidebarIcon('loads')
+                      : sidebarIcon('inverter-array')}
+                </span>
+                <span className="sidebar-nav-label">{t(acRoute.labelKey)}</span>
+              </a>
+            ))}
+          </div>
+        ) : null}
         <NavLink
           href={routeHref({ kind: 'reports' })}
           onClick={sectionClick('reports', { kind: 'reports' })}
@@ -2355,7 +2540,7 @@ function Sidebar({
                 title={t(catalog.labelKey)}
                 aria-current={route.kind === 'catalog' && route.catalog === catalog.catalog ? 'page' : undefined}
               >
-                <span className="sidebar-nav-icon" aria-hidden="true">{sidebarIcon('catalog')}</span>
+                <span className="sidebar-nav-icon" aria-hidden="true">{sidebarIcon('catalogs')}</span>
                 <span className="sidebar-nav-label">{t(catalog.labelKey)}</span>
               </a>
             ))}
@@ -2409,12 +2594,18 @@ function getRouteTitle(route: Route, data: DigitalTwinExport | null, t: (key: Tr
   switch (route.kind) {
     case 'location':
       return t('page.location');
-    case 'solar-yield':
-      return t('page.solar_yield');
+    case 'production':
+      return t('page.production');
     case 'battery-array':
       return t('page.battery_array');
     case 'inverter-array':
-      return t('page.inverter_array');
+      return t('page.consumption');
+    case 'converter':
+      return t('page.converters');
+    case 'load-circuits':
+      return t('page.load_circuits');
+    case 'loads':
+      return t('page.loads');
     case 'catalogs':
       return t('page.catalogs');
     case 'reports':
@@ -2440,12 +2631,18 @@ function getRouteContext(route: Route, data: DigitalTwinExport | null, t: (key: 
   switch (route.kind) {
     case 'location':
       return t('page.location.context');
-    case 'solar-yield':
-      return t('page.solar_yield.context');
+    case 'production':
+      return t('page.production.context');
     case 'battery-array':
       return t('page.battery_array.context');
     case 'inverter-array':
-      return t('page.inverter_array.context');
+      return t('page.consumption.context');
+    case 'converter':
+      return t('page.converters.context');
+    case 'load-circuits':
+      return t('page.load_circuits.context');
+    case 'loads':
+      return t('page.loads.context');
     case 'catalogs':
       return t('page.catalogs.context');
     case 'reports':
@@ -2570,17 +2767,35 @@ function Breadcrumbs({ route, data, locationSlug }: { route: Route; data: Digita
     case 'location':
       crumbs.push({ label: t('page.location'), current: true });
       break;
-    case 'solar-yield':
-      crumbs.push({ label: t('page.location'), route: { kind: 'location' } });
-      crumbs.push({ label: t('page.solar_yield'), current: true });
+    case 'production':
+      crumbs.push({ label: t('page.production'), current: true });
       break;
     case 'battery-array':
-      crumbs.push({ label: t('page.location'), route: { kind: 'location' } });
+      crumbs.push({ label: t('page.storage'), route: { kind: 'battery-array' } });
       crumbs.push({ label: t('page.battery_array'), current: true });
       break;
     case 'inverter-array':
-      crumbs.push({ label: t('page.location'), route: { kind: 'location' } });
-      crumbs.push({ label: t('page.inverter_array'), current: true });
+      crumbs.push({ label: t('page.consumption'), current: true });
+      break;
+    case 'converter': {
+      crumbs.push({ label: t('page.consumption'), route: { kind: 'inverter-array' } });
+      const converterLabel = data ? getConversionDeviceDisplayName(data, route.converterId) : route.converterId;
+      if (route.loadCircuitId) {
+        crumbs.push({ label: converterLabel, route: { kind: 'converter', converterId: route.converterId } });
+        const loadCircuitLabel = data?.entities.load_circuits.find((item) => item.load_circuit_id === route.loadCircuitId)?.title ?? route.loadCircuitId;
+        crumbs.push({ label: loadCircuitLabel, current: true });
+      } else {
+        crumbs.push({ label: converterLabel, current: true });
+      }
+      break;
+    }
+    case 'load-circuits':
+      crumbs.push({ label: t('page.consumption'), route: { kind: 'inverter-array' } });
+      crumbs.push({ label: t('page.load_circuits'), current: true });
+      break;
+    case 'loads':
+      crumbs.push({ label: t('page.consumption'), route: { kind: 'inverter-array' } });
+      crumbs.push({ label: t('page.loads'), current: true });
       break;
     case 'catalogs':
       crumbs.push({ label: t('page.catalogs'), current: true });
@@ -2605,7 +2820,7 @@ function Breadcrumbs({ route, data, locationSlug }: { route: Route; data: Digita
       crumbs.push({ label: t('page.report.cost_summary'), current: true });
       break;
     case 'surface':
-      crumbs.push({ label: t('page.location'), route: { kind: 'location' } });
+      crumbs.push({ label: t('page.production'), route: { kind: 'production' } });
       crumbs.push({ label: data ? getSurfaceDisplayName(data, route.surfaceId) : route.surfaceId, current: true });
       break;
   }
@@ -2849,6 +3064,27 @@ function SurfaceDetail({
     }
   }
 
+  async function handleDeleteSurface() {
+    if (!window.confirm(t('location.surface.delete.confirm', { name: surface.name }))) return;
+
+    setSurfaceSaveError(null);
+    setSurfaceSaveMessage(null);
+
+    try {
+      const response = await fetch(`/api/surfaces/${encodeURIComponent(surfaceId)}`, { method: 'DELETE' });
+      const payload = await response.json() as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? `Failed to delete surface (${response.status})`);
+      }
+
+      navigateTo({ kind: 'location' }, { locationSlug: getLocationSlug(data) });
+      await refreshProjectData();
+    } catch (error) {
+      setSurfaceSaveError(error instanceof Error ? error.message : t('location.surface.delete.error'));
+    }
+  }
+
   async function handleSavePanelSetup() {
     if (configuredPanelCount > 0 && !selectedPanelTypeId) {
       setPanelSaveError(t('surface.panel.save.error.required'));
@@ -3047,6 +3283,9 @@ function SurfaceDetail({
           <div className="button-row button-row-end">
             <button type="button" className="button button-secondary button-sm" onClick={() => void handleSaveSurfaceDetails()} disabled={isSavingSurface}>
               {isSavingSurface ? t('common.saving') : t('common.save')}
+            </button>
+            <button type="button" className="button button-danger button-sm" onClick={() => void handleDeleteSurface()} disabled={isSavingSurface}>
+              {t('common.delete')}
             </button>
           </div>
         </section>
@@ -3451,12 +3690,8 @@ function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refr
   );
   const [photo, setPhoto] = useState<string | null>(data.project.location?.site_photo_data_url ?? null);
   const [isSaving, setIsSaving] = useState(false);
-  const [isCreatingSurface, setIsCreatingSurface] = useState(false);
-  const [focusedSurfaceId, setFocusedSurfaceId] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [surfaceMessage, setSurfaceMessage] = useState<string | null>(null);
-  const [surfaceError, setSurfaceError] = useState<string | null>(null);
   const numericLatitude = Number(latitude);
   const numericLongitude = Number(longitude);
   const hasMapCoordinates = Number.isFinite(numericLatitude) && Number.isFinite(numericLongitude);
@@ -3546,76 +3781,6 @@ function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refr
     }
   }
 
-  function buildSurfaceId(): string {
-    return `surface-${Date.now()}`;
-  }
-
-  async function handleCreateSurface() {
-    setIsCreatingSurface(true);
-    setSurfaceError(null);
-    setSurfaceMessage(null);
-
-    const surfaceId = buildSurfaceId();
-
-    try {
-      const response = await fetch('/api/surfaces', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          surface_id: surfaceId,
-          name: 'Unnamed surface',
-          orientation_deg: 0,
-          tilt_deg: 30,
-        }),
-      });
-
-      const payload = await response.json() as { error?: string };
-
-      if (!response.ok) {
-        throw new Error(payload.error ?? `Failed to create surface (${response.status})`);
-      }
-
-      setSurfaceMessage(t('location.surface.create.success'));
-      setSurfaceError(null);
-      setFocusedSurfaceId(surfaceId);
-      await refreshProjectData();
-    } catch (error) {
-      setSurfaceError(error instanceof Error ? error.message : t('location.surface.create.error'));
-      setSurfaceMessage(null);
-    } finally {
-      setIsCreatingSurface(false);
-    }
-  }
-
-  async function handleDeleteSurface(surfaceId: string, surfaceLabel: string) {
-    const confirmed = window.confirm(t('location.surface.delete.confirm', { name: surfaceLabel }));
-    if (!confirmed) {
-      return;
-    }
-
-    setSurfaceError(null);
-    setSurfaceMessage(null);
-
-    try {
-      const response = await fetch(`/api/surfaces/${encodeURIComponent(surfaceId)}`, {
-        method: 'DELETE',
-      });
-
-      const payload = await response.json() as { error?: string };
-
-      if (!response.ok) {
-        throw new Error(payload.error ?? `Failed to delete surface (${response.status})`);
-      }
-
-      setSurfaceMessage(t('location.surface.delete.success'));
-      await refreshProjectData();
-    } catch (error) {
-      setSurfaceError(error instanceof Error ? error.message : t('location.surface.delete.error'));
-    }
-  }
-
   function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -3658,21 +3823,6 @@ function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refr
       setLongitude(String(defaultLongitude));
     }
   }, [defaultLatitude, defaultLongitude, latitude, longitude, setLatitude, setLongitude]);
-
-  useEffect(() => {
-    if (!focusedSurfaceId) return;
-
-    const element = document.getElementById(`surface-card-${focusedSurfaceId}`);
-    element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-    const clearTimer = window.setTimeout(() => {
-      setFocusedSurfaceId(null);
-    }, 2200);
-
-    return () => {
-      window.clearTimeout(clearTimer);
-    };
-  }, [focusedSurfaceId, localSurfaceSummaries.length]);
 
   return (
     <>
@@ -3787,69 +3937,6 @@ function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refr
         </section>
       </div>
 
-      <section className="panel">
-        <div className="section-head">
-          <h2>{t('location.surfaces.title')}</h2>
-          <p>{t('location.surfaces.count', { count: localSurfaceSummaries.length })}</p>
-        </div>
-        <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--muted)', fontSize: '0.86rem' }}>
-          {t('location.surfaces.help')}
-        </p>
-        {surfaceError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{surfaceError}</p> : null}
-        {surfaceMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{surfaceMessage}</p> : null}
-        <div className="surface-grid">
-          {localSurfaceSummaries.length === 0 ? (
-            <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
-              <p style={{ marginTop: 0, marginBottom: 0 }}>{t('location.surfaces.empty')}</p>
-            </div>
-          ) : null}
-          {localSurfaceSummaries.map((surface) => {
-            return (
-              <div
-                key={surface.surface_id}
-                id={`surface-card-${surface.surface_id}`}
-                className={`surface-card-stack ${focusedSurfaceId === surface.surface_id ? 'surface-card-highlight' : ''}`}
-              >
-                <div className="surface-card">
-                  <div className="surface-card-top">
-                    <div>
-                      <h3>{surface.name}</h3>
-                    </div>
-                  </div>
-                  <div className="button-row">
-                    <button
-                      type="button"
-                      className="button button-secondary button-sm"
-                      onClick={() => {
-                        navigateTo({ kind: 'surface', surfaceId: surface.surface_id });
-                      }}
-                    >
-                      {t('common.detail')}
-                    </button>
-                    <button
-                      type="button"
-                      className="button button-danger button-sm"
-                      onClick={() => {
-                        void handleDeleteSurface(surface.surface_id, surface.name);
-                      }}
-                    >
-                      {t('common.delete')}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        <div className="roof-config-inline row-synced-wrap" style={{ marginTop: 16 }}>
-          <div className="config-field" style={{ alignSelf: 'end' }}>
-            <span>&nbsp;</span>
-            <button type="button" className="button button-secondary" onClick={() => void handleCreateSurface()} disabled={isCreatingSurface}>
-              {isCreatingSurface ? t('common.creating') : t('common.add_surface')}
-            </button>
-          </div>
-        </div>
-      </section>
     </>
   );
 }
@@ -3932,12 +4019,65 @@ function AboutPage() {
   );
 }
 
-function SolarYieldPage({
+function ProductionPage({
   data,
   localSurfaceSummaries,
   localTotalInstalledWp,
-}: Pick<PageContext, 'data' | 'localSurfaceSummaries' | 'localTotalInstalledWp'>) {
+  refreshProjectData,
+}: Pick<PageContext, 'data' | 'localSurfaceSummaries' | 'localTotalInstalledWp' | 'refreshProjectData'>) {
   const { t } = useTranslation();
+  const [isCreatingSurface, setIsCreatingSurface] = useState(false);
+  const [focusedSurfaceId, setFocusedSurfaceId] = useState<string | null>(null);
+  const [surfaceMessage, setSurfaceMessage] = useState<string | null>(null);
+  const [surfaceError, setSurfaceError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!focusedSurfaceId) return;
+    const element = document.getElementById(`surface-card-${focusedSurfaceId}`);
+    element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const clearTimer = window.setTimeout(() => setFocusedSurfaceId(null), 2200);
+    return () => window.clearTimeout(clearTimer);
+  }, [focusedSurfaceId, localSurfaceSummaries.length]);
+
+  async function handleCreateSurface() {
+    setIsCreatingSurface(true);
+    setSurfaceError(null);
+    setSurfaceMessage(null);
+    const surfaceId = `surface-${Date.now()}`;
+    try {
+      const response = await fetch('/api/surfaces', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ surface_id: surfaceId, name: 'Unnamed surface', orientation_deg: 0, tilt_deg: 30 }),
+      });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error ?? `Failed to create surface (${response.status})`);
+      setSurfaceMessage(t('location.surface.create.success'));
+      setSurfaceError(null);
+      setFocusedSurfaceId(surfaceId);
+      await refreshProjectData();
+    } catch (error) {
+      setSurfaceError(error instanceof Error ? error.message : t('location.surface.create.error'));
+      setSurfaceMessage(null);
+    } finally {
+      setIsCreatingSurface(false);
+    }
+  }
+
+  async function handleDeleteSurface(surfaceId: string, surfaceLabel: string) {
+    if (!window.confirm(t('location.surface.delete.confirm', { name: surfaceLabel }))) return;
+    setSurfaceError(null);
+    setSurfaceMessage(null);
+    try {
+      const response = await fetch(`/api/surfaces/${encodeURIComponent(surfaceId)}`, { method: 'DELETE' });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error ?? `Failed to delete surface (${response.status})`);
+      setSurfaceMessage(t('location.surface.delete.success'));
+      await refreshProjectData();
+    } catch (error) {
+      setSurfaceError(error instanceof Error ? error.message : t('location.surface.delete.error'));
+    }
+  }
   const projectStorageKey = getProjectStorageKey(data);
   const storedLatitude = readPersistentState<string>(
     `${projectStorageKey}:location:latitude`,
@@ -3956,13 +4096,13 @@ function SolarYieldPage({
       latitudeDeg: effectiveLatitude,
     });
     const annualKwh = Number(yieldRows.reduce((sum, row) => sum + row.monthlyKwh, 0).toFixed(1));
-    const averageDailyKwh = Number((annualKwh / 365).toFixed(2));
+    const bestMonthDailyKwh = yieldRows.reduce((max, row) => Math.max(max, row.averageDailyKwh), 0);
 
     return {
       surface,
       yieldRows,
       annualKwh,
-      averageDailyKwh,
+      bestMonthDailyKwh,
     };
   });
 
@@ -3990,43 +4130,49 @@ function SolarYieldPage({
 
   return (
     <>
+      <section className="panel">
+        <div className="section-head">
+          <h1>{t('page.consumption')}</h1>
+          <p>{t('page.consumption.context')}</p>
+        </div>
+      </section>
       <section className="detail-shell">
         <div className="detail-grid detail-intro-grid">
           <section className="panel panel-span-2">
             <div className="section-head">
-              <h2>{t('solar_yield.start_information.title')}</h2>
+              <h2>{t('production.start_information.title')}</h2>
             </div>
             <div className="hero-strip">
               <SummaryCard
-                label={t('solar_yield.summary.total_max_avg_daily_yield')}
+                label={t('production.summary.total_max_avg_daily_yield')}
                 value={totalMaxDailyYieldMonth ? formatDailyYield(totalMaxDailyYieldMonth.averageDailyKwh) : 'n/a'}
                 detail={totalMaxDailyYieldMonth ? getMonthLabel(totalMaxDailyYieldMonth.month, t) : undefined}
               />
               <SummaryCard
-                label={t('solar_yield.summary.total_min_avg_daily_yield')}
+                label={t('production.summary.total_min_avg_daily_yield')}
                 value={totalMinDailyYieldMonth ? formatDailyYield(totalMinDailyYieldMonth.averageDailyKwh) : 'n/a'}
                 detail={totalMinDailyYieldMonth ? getMonthLabel(totalMinDailyYieldMonth.month, t) : undefined}
               />
-              <SummaryCard label={t('solar_yield.summary.installed_pv')} value={formatWp(localTotalInstalledWp)} />
-              <SummaryCard label={t('solar_yield.summary.total_panels')} value={String(totalPanelCount)} />
+              <SummaryCard label={t('production.summary.installed_pv')} value={formatWp(localTotalInstalledWp)} />
+              <SummaryCard label={t('production.summary.total_panels')} value={String(totalPanelCount)} />
             </div>
           </section>
 
           <section className="panel">
             <div className="section-head">
-              <h2>{t('solar_yield.context.title')}</h2>
+              <h2>{t('production.context.title')}</h2>
             </div>
-            <dl className="detail-stats compact-stats solar-yield-context-stats">
+            <dl className="detail-stats compact-stats production-context-stats">
               <div>
                 <dt>{t('location.surfaces.title')}</dt>
                 <dd>{localSurfaceSummaries.length}</dd>
               </div>
               <div>
-                <dt>{t('solar_yield.summary.avg_daily_yield')}</dt>
+                <dt>{t('production.summary.avg_daily_yield')}</dt>
                 <dd>{formatKwh(totalAverageDailyKwh)}</dd>
               </div>
               <div>
-                <dt>{t('solar_yield.summary.annual_yield')}</dt>
+                <dt>{t('production.summary.annual_yield')}</dt>
                 <dd>{formatKwh(totalAnnualKwh)}</dd>
               </div>
             </dl>
@@ -4035,67 +4181,86 @@ function SolarYieldPage({
 
         <section className="panel">
           <div className="section-head">
-            <h2>{t('solar_yield.surface_summary.title')}</h2>
+            <h2>{t('production.surfaces.title')}</h2>
+            <p>{t('location.surfaces.count', { count: localSurfaceSummaries.length })}</p>
           </div>
-          <div className="yield-table-wrap">
-            <table className="yield-table">
-              <thead>
-                <tr>
-                  <th>{t('solar_yield.table.surface')}</th>
-                  <th>{t('solar_yield.table.verdict')}</th>
-                  <th>{t('solar_yield.table.installed_pv')}</th>
-                  <th>{t('solar_yield.table.azimuth')}</th>
-                  <th>{t('solar_yield.table.tilt')}</th>
-                  <th>{t('solar_yield.table.avg_kwh_day')}</th>
-                  <th>{t('solar_yield.table.annual_kwh')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {surfaceYieldRows.map(({ surface, averageDailyKwh, annualKwh }) => (
-                  <tr key={surface.surface_id}>
-                    <th>{surface.name}</th>
-                    <td>
-                      {(() => {
-                        const verdictSummary = getRelationshipVerdictSummary('array_to_mppt', surface.status, surface.fit ?? undefined, t, surface.reasons);
-                        const verdictText = getRelationshipVerdictLabel('array_to_mppt', surface.status, surface.fit ?? undefined, t);
-                        return (
-                      <div className="yield-verdict-cell">
-                        <StatusBadge status={surface.status} fit={surface.fit} />
-                        <span title={verdictSummary ?? verdictText}>{verdictText}</span>
+          {surfaceError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{surfaceError}</p> : null}
+          {surfaceMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{surfaceMessage}</p> : null}
+          <div className="surface-grid">
+            {localSurfaceSummaries.length === 0 ? (
+              <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
+                <p style={{ marginTop: 0, marginBottom: 0 }}>{t('location.surfaces.empty')}</p>
+              </div>
+            ) : null}
+            {surfaceYieldRows.map(({ surface, bestMonthDailyKwh }) => {
+              const verdictSummary = getRelationshipVerdictSummary('array_to_mppt', surface.status, surface.fit ?? undefined, t, surface.reasons);
+              const verdictText = getRelationshipVerdictLabel('array_to_mppt', surface.status, surface.fit ?? undefined, t);
+              return (
+                <div
+                  key={surface.surface_id}
+                  id={`surface-card-${surface.surface_id}`}
+                  className={`surface-card-stack ${focusedSurfaceId === surface.surface_id ? 'surface-card-highlight' : ''}`}
+                >
+                  <div className="surface-card">
+                    <div className="surface-card-top">
+                      <div>
+                        <h3>{surface.name}</h3>
+                        <div style={{ marginTop: 4 }}>
+                          <StatusBadge status={surface.status} fit={surface.fit} />
+                          <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--muted)', marginTop: 3 }} title={verdictSummary ?? undefined}>{verdictText}</span>
+                        </div>
                       </div>
-                        );
-                      })()}
-                    </td>
-                    <td>{formatWp(surface.installed_wp)}</td>
-                    <td>{surface.orientation_deg}°</td>
-                    <td>{surface.tilt_deg}°</td>
-                    <td>{formatDailyYield(averageDailyKwh)}</td>
-                    <td>{annualKwh.toLocaleString('en-US', { maximumFractionDigits: 1 })}</td>
-                  </tr>
-                ))}
-                <tr>
-                  <th>{t('solar_yield.table.total')}</th>
-                  <td>{localSurfaceSummaries.some((surface) => surface.status != null) ? t('solar_yield.table.mixed') : t('solar_yield.table.not_evaluated')}</td>
-                  <td>{formatWp(localTotalInstalledWp)}</td>
-                  <td>-</td>
-                  <td>-</td>
-                  <td>{formatDailyYield(totalAverageDailyKwh)}</td>
-                  <td>{totalAnnualKwh.toLocaleString('en-US', { maximumFractionDigits: 1 })}</td>
-                </tr>
-              </tbody>
-            </table>
+                    </div>
+                    <dl className="detail-stats compact-stats" style={{ marginTop: 8, marginBottom: 0 }}>
+                      <div>
+                        <dt>{t('production.card.size')}</dt>
+                        <dd>{formatWp(surface.installed_wp)}</dd>
+                      </div>
+                      <div>
+                        <dt>{t('production.card.max_avg_yield_day')}</dt>
+                        <dd>{formatDailyYield(bestMonthDailyKwh)}</dd>
+                      </div>
+                    </dl>
+                    <div className="button-row">
+                      <button
+                        type="button"
+                        className="button button-secondary button-sm"
+                        onClick={() => navigateTo({ kind: 'surface', surfaceId: surface.surface_id })}
+                      >
+                        {t('common.detail')}
+                      </button>
+                      <button
+                        type="button"
+                        className="button button-danger button-sm"
+                        onClick={() => void handleDeleteSurface(surface.surface_id, surface.name)}
+                      >
+                        {t('common.delete')}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="roof-config-inline row-synced-wrap" style={{ marginTop: 16 }}>
+            <div className="config-field" style={{ alignSelf: 'end' }}>
+              <span>&nbsp;</span>
+              <button type="button" className="button button-secondary" onClick={() => void handleCreateSurface()} disabled={isCreatingSurface}>
+                {isCreatingSurface ? t('common.creating') : t('production.add_surface')}
+              </button>
+            </div>
           </div>
         </section>
 
         <section className="panel">
           <div className="section-head">
-            <h2>{t('solar_yield.monthly.title')}</h2>
+            <h2>{t('production.monthly.title')}</h2>
           </div>
           <div className="yield-table-wrap">
             <table className="yield-table">
               <thead>
                 <tr>
-                  <th>{t('solar_yield.monthly.expected_yield')}</th>
+                  <th></th>
                   {MONTH_KEYS.map((month) => (
                     <th key={month}>{getMonthLabel(month, t)}</th>
                   ))}
@@ -4111,7 +4276,7 @@ function SolarYieldPage({
                   </tr>
                 ))}
                 <tr>
-                  <th>{t('solar_yield.monthly.total_avg_kwh_day')}</th>
+                  <th>{t('production.monthly.total_avg_kwh_day')}</th>
                   {monthlyTotals.map((row) => (
                     <td key={`total-day-${row.month}`}>{formatDailyYield(row.averageDailyKwh)}</td>
                   ))}
@@ -4161,13 +4326,62 @@ function BatteryArrayPage({
   const [isSavingBatteryDesign, setIsSavingBatteryDesign] = useState(false);
   const [batteryDesignSaveMessage, setBatteryDesignSaveMessage] = useState<string | null>(null);
   const [batteryDesignSaveError, setBatteryDesignSaveError] = useState<string | null>(null);
-
   const selectedBatteryType = selectedBatteryTypeId
     ? data.entities.battery_types.find((item) => item.battery_type_id === selectedBatteryTypeId) ?? null
     : null;
+  const [selectedBatteryBrand, setSelectedBatteryBrand] = usePersistentState(
+    `${storagePrefix}:battery-brand`,
+    selectedBatteryType?.brand ?? data.entities.battery_types[0]?.brand ?? '',
+  );
+
   const selectedCabinetType = selectedCabinetTypeId
     ? data.entities.cabinet_types.find((item) => item.cabinet_type_id === selectedCabinetTypeId) ?? null
     : null;
+  const batteryBrandOptions = Array.from(new Set(data.entities.battery_types.map((item) => item.brand).filter((brand) => brand.trim() !== ''))).sort((left, right) => left.localeCompare(right));
+  const batteryTypesForBrand = selectedBatteryBrand
+    ? data.entities.battery_types.filter((item) => item.brand === selectedBatteryBrand)
+    : data.entities.battery_types;
+  const selectedBatteryBrandValid = batteryBrandOptions.includes(selectedBatteryBrand);
+  const selectedBatteryTypeInBrand = selectedBatteryType && selectedBatteryType.brand === selectedBatteryBrand ? selectedBatteryType : null;
+
+  useEffect(() => {
+    if (selectedBatteryType && selectedBatteryType.brand !== selectedBatteryBrand) {
+      setSelectedBatteryBrand(selectedBatteryType.brand);
+    }
+  }, [selectedBatteryBrand, selectedBatteryType, setSelectedBatteryBrand]);
+
+  useEffect(() => {
+    if (!selectedBatteryBrandValid && batteryBrandOptions.length > 0) {
+      setSelectedBatteryBrand(batteryBrandOptions[0]!);
+      return;
+    }
+    if (batteryTypesForBrand.length === 0) {
+      return;
+    }
+    const currentTypeIsInBrand = selectedBatteryTypeId
+      ? batteryTypesForBrand.some((item) => item.battery_type_id === selectedBatteryTypeId)
+      : false;
+    if (!currentTypeIsInBrand) {
+      setSelectedBatteryTypeId(batteryTypesForBrand[0]!.battery_type_id);
+    }
+  }, [batteryBrandOptions, batteryTypesForBrand, selectedBatteryBrandValid, selectedBatteryTypeId, setSelectedBatteryBrand, setSelectedBatteryTypeId]);
+
+  function handleBatteryBrandChange(nextBrand: string) {
+    setSelectedBatteryBrand(nextBrand);
+    const nextType = data.entities.battery_types.find((item) => item.brand === nextBrand) ?? null;
+    if (nextType) {
+      setSelectedBatteryTypeId(nextType.battery_type_id);
+    }
+  }
+
+  function handleBatteryTypeChange(nextBatteryTypeId: string) {
+    setSelectedBatteryTypeId(nextBatteryTypeId);
+    const nextBatteryType = data.entities.battery_types.find((item) => item.battery_type_id === nextBatteryTypeId) ?? null;
+    if (nextBatteryType) {
+      setSelectedBatteryBrand(nextBatteryType.brand);
+    }
+  }
+
   const batteryFactorPairs = getFactorPairs(configuredBatteryCount);
   const batteriesPerStringOptions = batteryFactorPairs.map((pair) => pair.panelsPerString);
   const parallelStringOptions = batteryFactorPairs.map((pair) => pair.parallelStrings);
@@ -4421,17 +4635,29 @@ function BatteryArrayPage({
             <div className="section-head">
               <h2>{t('battery.selection.title')}</h2>
             </div>
-            <div className="config-grid config-control-row row-synced-wrap">
-              <label className="config-field config-field-span-3">
-                <span>{t('battery.selection.selected_type')}</span>
-                <select value={selectedBatteryTypeId} onChange={(event) => setSelectedBatteryTypeId(event.target.value)}>
-                  {data.entities.battery_types.map((option) => (
+            <div className="config-grid config-control-row row-synced-wrap battery-selection-grid">
+              <label className="config-field">
+                <span>{t('catalog.field.brand')}</span>
+                <select value={selectedBatteryBrand} onChange={(event) => handleBatteryBrandChange(event.target.value)}>
+                  {batteryBrandOptions.map((brand) => (
+                    <option key={brand} value={brand}>
+                      {brand}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="config-field config-field-span-2">
+                <span>{`${t('catalog.field.model')} (${batteryTypesForBrand.length})`}</span>
+                <select value={selectedBatteryTypeInBrand?.battery_type_id ?? ''} onChange={(event) => handleBatteryTypeChange(event.target.value)}>
+                  {batteryTypesForBrand.map((option) => (
                     <option key={option.battery_type_id} value={option.battery_type_id}>
                       {option.model}
                     </option>
                   ))}
                 </select>
               </label>
+            </div>
+            <div className="config-grid config-control-row row-synced-wrap">
               <label className="config-field">
                 <span>{t('battery.selection.system_voltage')}</span>
                 <select
@@ -4822,6 +5048,9 @@ function InverterArrayPage({
       Math.max(parallelStrings, 1),
     )
     : null;
+  const converterBankCompatibility = batteryArrayConfig
+    ? evaluateConverterBankCompatibility(batteryArrayConfig, data.entities.conversion_devices)
+    : null;
   const inverterCompatibility = batteryArrayConfig
     ? evaluateInverterCompatibility(batteryArrayConfig, selectedInverterType)
     : null;
@@ -4890,6 +5119,55 @@ function InverterArrayPage({
 
   return (
     <>
+      <ConversionDeviceCatalogPage data={data} refreshProjectData={refreshProjectData} />
+      <section className="panel">
+        <div className="section-head">
+          <h2>Converter bank fit</h2>
+          <p>Combined converter output compared with the battery bank.</p>
+        </div>
+        {converterBankCompatibility ? (
+          <div className="fit-card">
+            <div className="fit-head">
+              <strong>Converter bank fit</strong>
+              <StatusBadge status={converterBankCompatibility.status} />
+            </div>
+            <p className="fit-note">
+              {converterBankCompatibility.status === 'outside_limits'
+                ? 'The battery bank is too small for the combined converters.'
+                : 'The battery bank can support the combined converters.'}
+            </p>
+            <dl className="detail-stats compact-stats">
+              <div>
+                <dt>Converters</dt>
+                <dd>{data.entities.conversion_devices.length}</dd>
+              </div>
+              <div>
+                <dt>Combined output</dt>
+                <dd>{formatKw(converterBankCompatibility.totalContinuousPowerW)}</dd>
+              </div>
+              <div>
+                <dt>Combined peak</dt>
+                <dd>{`${converterBankCompatibility.totalPeakPowerVA.toLocaleString('en-US')} VA`}</dd>
+              </div>
+              <div>
+                <dt>Battery discharge limit</dt>
+                <dd>{batteryArrayConfig?.maxDischargePowerW != null ? formatKw(batteryArrayConfig.maxDischargePowerW) : 'n/a'}</dd>
+              </div>
+              <div>
+                <dt>Estimated battery current</dt>
+                <dd>{converterBankCompatibility.estimatedCurrentA != null ? formatAmps(converterBankCompatibility.estimatedCurrentA) : 'n/a'}</dd>
+              </div>
+            </dl>
+            <ul className="reason-list">
+              {converterBankCompatibility.reasons.map((reason) => (
+                <li key={reason}>{formatReasonFallback(reason)}</li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <p className="fit-note">Battery bank sizing is not available yet.</p>
+        )}
+      </section>
       <section className="detail-shell">
         <div className="detail-grid detail-intro-grid">
           <section className="panel panel-with-actions">
@@ -5100,6 +5378,246 @@ function InverterArrayPage({
             )}
           </section>
         </div>
+      </section>
+    </>
+  );
+}
+
+function ConsumptionPage({
+  data,
+  batteryBank,
+  batteryBankState,
+  refreshProjectData,
+}: PageContext) {
+  const { t } = useTranslation();
+  const batteryStoragePrefix = `${data.project.project_id}:battery-array`;
+  const [selectedBatteryTypeId] = usePersistentState(
+    `${batteryStoragePrefix}:battery-type`,
+    batteryBank?.battery_type_id ?? data.entities.battery_types[0]?.battery_type_id ?? '',
+  );
+  const [configuredBatteryCount] = usePersistentState(
+    `${batteryStoragePrefix}:battery-count`,
+    Math.max(batteryBankState?.module_count ?? batteryBank?.module_count ?? 1, 1),
+  );
+  const [batteriesPerString] = usePersistentState(
+    `${batteryStoragePrefix}:batteries-per-string`,
+    Math.max(batteryBankState?.module_count ?? batteryBank?.module_count ?? 1, 1),
+  );
+  const [parallelStrings] = usePersistentState(`${batteryStoragePrefix}:parallel-strings`, 1);
+
+  const currentBatteryType = selectedBatteryTypeId
+    ? data.entities.battery_types.find((item) => item.battery_type_id === selectedBatteryTypeId) ?? null
+    : null;
+  const batteryArrayConfig = currentBatteryType
+    ? evaluateBatteryArrayConfiguration(
+      currentBatteryType,
+      Math.max(configuredBatteryCount, 1),
+      Math.max(batteriesPerString, 1),
+      Math.max(parallelStrings, 1),
+    )
+    : null;
+
+  const consumptionSelectionStorageKey = getConsumptionSelectionStorageKey(data);
+  const catalogSelectionStorageKey = getConversionDeviceCatalogSelectionStorageKey(data);
+  const [selectedConversionDeviceIds, setSelectedConversionDeviceIds] = usePersistentState<string[]>(
+    consumptionSelectionStorageKey,
+    [],
+  );
+
+  useEffect(() => {
+    const availableIds = new Set(data.entities.conversion_devices.map((device) => device.conversion_device_id));
+    const nextSelection = selectedConversionDeviceIds.map((deviceId) => (deviceId && !availableIds.has(deviceId) ? '' : deviceId));
+    if (nextSelection.some((deviceId, index) => deviceId !== selectedConversionDeviceIds[index])) {
+      setSelectedConversionDeviceIds(nextSelection);
+    }
+  }, [data.entities.conversion_devices, selectedConversionDeviceIds, setSelectedConversionDeviceIds]);
+
+  const selectedConverters = selectedConversionDeviceIds
+    .map((conversionDeviceId) => (conversionDeviceId
+      ? data.entities.conversion_devices.find((device) => device.conversion_device_id === conversionDeviceId)
+      : null))
+    .filter((device): device is ConversionDevice => Boolean(device));
+  const converterBankCompatibility = selectedConverters.length > 0 && batteryArrayConfig
+    ? evaluateConverterBankCompatibility(batteryArrayConfig, selectedConverters)
+    : null;
+
+  function addSelectedConverter() {
+    setSelectedConversionDeviceIds((current) => [...current, '']);
+  }
+
+  function updateSelectedConverter(index: number, converterId: string) {
+    setSelectedConversionDeviceIds((current) => current.map((item, itemIndex) => (itemIndex === index ? converterId : item)));
+  }
+
+  function removeSelectedConverter(index: number) {
+    setSelectedConversionDeviceIds((current) => current.filter((_, itemIndex) => itemIndex !== index));
+  }
+
+  function openConverterDetails(converterId: string) {
+    try {
+      window.localStorage.setItem(catalogSelectionStorageKey, JSON.stringify(converterId));
+      window.dispatchEvent(new Event('offgridos-local-storage-change'));
+    } catch {
+      // Keep navigation working even if persistence fails.
+    }
+
+    window.history.pushState({}, '', routeHref({ kind: 'catalog', catalog: 'conversion-devices' }));
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }
+
+  return (
+    <>
+      <section className="detail-shell">
+        <section className="panel panel-with-actions">
+          <div className="section-head">
+            <h2>Selected converters</h2>
+          </div>
+          <div className="fit-card">
+            <div className="button-row button-row-between config-control-row row-synced-wrap">
+              <div className="stack" style={{ gap: 4, minWidth: 280, flex: '1 1 320px' }}>
+                <span className="result-label">Add converter</span>
+              </div>
+              <div className="button-row">
+                <button type="button" className="button button-secondary" onClick={addSelectedConverter}>
+                  Add converter
+                </button>
+              </div>
+            </div>
+
+            {selectedConversionDeviceIds.length === 0 ? (
+              <p className="fit-note">Add one or more converters to start the fit check.</p>
+            ) : (
+              <div className="consumption-converter-grid surface-grid">
+                {selectedConversionDeviceIds.map((conversionDeviceId, index) => {
+                  const device = conversionDeviceId
+                    ? data.entities.conversion_devices.find((item) => item.conversion_device_id === conversionDeviceId) ?? null
+                    : null;
+                  const nextTitle = device ? device.title : 'Unnamed converter';
+                  const nextSubtitle = device ? getConversionDeviceTypeLabel(device.device_type, t) : 'Not evaluated';
+                  const nextSize = device?.continuous_power_w != null ? `${device.continuous_power_w} W` : '0 W';
+                  const nextPeak = device?.peak_power_va != null ? `${device.peak_power_va} VA` : '0 VA';
+
+                  return (
+                    <div key={`converter-slot-${index}`} className="surface-card-stack">
+                    <div className="surface-card consumption-selection-card">
+                      <div className="surface-card-top">
+                        <div>
+                          <h3>{nextTitle}</h3>
+                          <p>{nextSubtitle}</p>
+                        </div>
+                      </div>
+                      <label className="config-field" style={{ marginTop: 8 }}>
+                        <span>Converter</span>
+                        <select value={conversionDeviceId} onChange={(event) => updateSelectedConverter(index, event.target.value)}>
+                          <option value="">{data.entities.conversion_devices.length === 0 ? 'No converters available' : 'Choose converter'}</option>
+                          {data.entities.conversion_devices.map((option) => (
+                            <option key={option.conversion_device_id} value={option.conversion_device_id}>
+                              {option.title}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <dl className="mini-stats">
+                        <div>
+                          <dt>{t('catalog.field.device_type')}</dt>
+                          <dd>{device ? getConversionDeviceTypeLabel(device.device_type, t) : '—'}</dd>
+                        </div>
+                        <div>
+                          <dt>{t('catalog.stat.input_voltage')}</dt>
+                          <dd>{device?.input_voltage_v != null ? `${device.input_voltage_v} V` : '0 V'}</dd>
+                        </div>
+                        <div>
+                          <dt>{t('catalog.stat.output_voltage')}</dt>
+                          <dd>{device?.output_voltage_v != null ? `${device.output_voltage_v} V` : '0 V'}</dd>
+                        </div>
+                        <div>
+                          <dt>{t('catalog.stat.continuous_power')}</dt>
+                          <dd>{nextSize}</dd>
+                        </div>
+                        <div>
+                          <dt>{t('catalog.stat.peak_power')}</dt>
+                          <dd>{nextPeak}</dd>
+                        </div>
+                      </dl>
+                      <div className="button-row">
+                        <button type="button" className="button button-secondary button-sm" onClick={() => device ? openConverterDetails(device.conversion_device_id) : undefined} disabled={!device}>
+                          Detail
+                        </button>
+                        <button type="button" className="button button-danger button-sm" onClick={() => removeSelectedConverter(index)}>
+                          {t('common.delete')}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="section-head">
+            <h2>Converter bank fit</h2>
+            <p>Can the selected battery bank support the selected converters?</p>
+          </div>
+          <div className="fit-card">
+            {converterBankCompatibility ? (
+              <div className="outcome-panel">
+                <div className="outcome-summary">
+                  <div className="outcome-status-line">
+                    <p className="result-label">Converter bank fit</p>
+                    <StatusBadge status={converterBankCompatibility.status} />
+                  </div>
+                  <p className="fit-note">
+                    {converterBankCompatibility.status === 'unknown'
+                      ? 'The selected battery bank does not publish discharge limits, so this fit is unknown.'
+                      : converterBankCompatibility.status === 'outside_limits'
+                      ? (converterBankCompatibility.reasons.includes('battery_discharge_current_unknown') || converterBankCompatibility.reasons.includes('battery_discharge_power_unknown')
+                        ? 'The selected battery bank does not expose discharge limits, so the selected converters cannot be confirmed.'
+                        : 'The selected battery bank cannot support the combined converters.')
+                      : 'The selected battery bank can support the combined converters.'}
+                  </p>
+                  <ul className="reason-list">
+                    {converterBankCompatibility.reasons.map((reason) => (
+                      <li key={reason}>{formatReasonFallback(reason)}</li>
+                    ))}
+                  </ul>
+                </div>
+                <dl className="detail-stats outcome-checks">
+                  <div>
+                    <dt>Selected converters</dt>
+                    <dd>{selectedConverters.length}</dd>
+                  </div>
+                  <div>
+                    <dt>Combined output</dt>
+                    <dd>{formatKw(converterBankCompatibility.totalContinuousPowerW)}</dd>
+                  </div>
+                  <div>
+                    <dt>Combined peak</dt>
+                    <dd>{`${converterBankCompatibility.totalPeakPowerVA.toLocaleString('en-US')} VA`}</dd>
+                  </div>
+                  <div>
+                    <dt>Battery discharge limit</dt>
+                    <dd>{batteryArrayConfig?.maxDischargePowerW != null ? formatKw(batteryArrayConfig.maxDischargePowerW) : 'n/a'}</dd>
+                  </div>
+                  <div>
+                    <dt>Estimated battery current</dt>
+                    <dd>{converterBankCompatibility.estimatedCurrentA != null ? formatAmps(converterBankCompatibility.estimatedCurrentA) : 'n/a'}</dd>
+                  </div>
+                </dl>
+              </div>
+            ) : (
+              <p className="fit-note">
+                {selectedConversionDeviceIds.length === 0
+                  ? 'Add one or more converters to evaluate the battery bank.'
+                  : selectedConverters.length === 0
+                    ? 'Choose a converter inside the unnamed block to evaluate the battery bank.'
+                    : 'Select a battery bank in Storage first.'}
+              </p>
+            )}
+          </div>
+        </section>
       </section>
     </>
   );
@@ -6008,7 +6526,7 @@ function VerdictSummaryPage({
   });
   const batteryAggregate = batteryEvaluationCopy?.headline ?? t('status.not_evaluated');
   const batteryAggregateTone = batteryEvaluationCopy?.tone ?? 'muted';
-  const batteryWhy = batteryEvaluationCopy?.reasons[0] ?? t('solar_yield.table.not_evaluated');
+  const batteryWhy = batteryEvaluationCopy?.reasons[0] ?? t('production.table.not_evaluated');
   const inverterAggregateTone = !batteryToInverter
     ? 'muted'
     : batteryToInverter.evaluation.electrical_status === 'outside_limits'
@@ -6072,7 +6590,7 @@ function VerdictSummaryPage({
                     <td>{panelType?.model ? `${panelType.model} × ${surface.panel_count}` : 'n/a'}</td>
                     <td>{mpptType?.model ?? 'n/a'}</td>
                     <td><StatusBadge status={status} fit={fit} /></td>
-                    <td>{verdictSummary ?? t('solar_yield.table.not_evaluated')}</td>
+                    <td>{verdictSummary ?? t('production.table.not_evaluated')}</td>
                   </tr>
                 ))}
               </tbody>
@@ -6133,7 +6651,7 @@ function VerdictSummaryPage({
             </div>
             <div>
               <dt>{t('report.table.why')}</dt>
-              <dd>{inverterVerdictSummary ?? t('solar_yield.table.not_evaluated')}</dd>
+              <dd>{inverterVerdictSummary ?? t('production.table.not_evaluated')}</dd>
             </div>
           </dl>
         ) : (
@@ -6587,13 +7105,14 @@ function PanelCatalogPage({
                     <th>{t('catalog.stat.price')}</th>
                     <th>{t('catalog.stat.price_per_wp')}</th>
                     <th>{t('catalog.ui.source')}</th>
+                    <th>{t('catalog.stat.last_upsert_date')}</th>
                     <th>{t('common.edit')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.entities.panel_types.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="catalog-table-empty">
+                      <td colSpan={8} className="catalog-table-empty">
                         {t('catalog.ui.no_entries')}
                       </td>
                     </tr>
@@ -6623,6 +7142,7 @@ function PanelCatalogPage({
                       <td>{renderPrice(panel.price, panel.price_source_url)}</td>
                       <td>{panel.price != null ? renderPrice(panel.price / panel.wp, panel.price_source_url) : 'n/a'}</td>
                       <td>{panel.price_source_url ? <a className="price-link" href={panel.price_source_url} target="_blank" rel="noreferrer">{formatPriceSourceName(panel.price_source_url) ?? t('common.open')}</a> : '—'}</td>
+                      <td>{panel.last_upsert_date ? panel.last_upsert_date.slice(0, 10) : '—'}</td>
                       <td>
                         <button
                           type="button"
@@ -6729,6 +7249,7 @@ function PanelCatalogPage({
                 <div><dt>{t('catalog.field.imp')}</dt><dd>{selectedPanel.imp} A</dd></div>
                 <div><dt>{t('catalog.stat.price')}</dt><dd>{renderPrice(selectedPanel.price, selectedPanel.price_source_url)}</dd></div>
                 <div><dt>{t('catalog.stat.price_per_wp')}</dt><dd>{selectedPanel.price != null ? renderPrice(selectedPanel.price / selectedPanel.wp, selectedPanel.price_source_url) : 'n/a'}</dd></div>
+                <div><dt>{t('catalog.stat.last_upsert_date')}</dt><dd>{selectedPanel.last_upsert_date ? selectedPanel.last_upsert_date.slice(0, 10) : 'n/a'}</dd></div>
                 <div><dt>{t('catalog.field.length_mm')}</dt><dd>{selectedPanel.length_mm != null ? `${selectedPanel.length_mm} mm` : 'n/a'}</dd></div>
                 <div><dt>{t('catalog.field.width_mm')}</dt><dd>{selectedPanel.width_mm != null ? `${selectedPanel.width_mm} mm` : 'n/a'}</dd></div>
               </dl>
@@ -7359,7 +7880,11 @@ function ConversionDeviceCatalogPage({
   refreshProjectData: () => Promise<void>;
 }) {
   const { t } = useTranslation();
-  const [selectedConversionDeviceId, setSelectedConversionDeviceId] = useState(() => data.entities.conversion_devices[0]?.conversion_device_id ?? '');
+  const catalogSelectionStorageKey = getConversionDeviceCatalogSelectionStorageKey(data);
+  const [selectedConversionDeviceId, setSelectedConversionDeviceId] = usePersistentState(
+    catalogSelectionStorageKey,
+    data.entities.conversion_devices[0]?.conversion_device_id ?? '',
+  );
   const [draft, setDraft] = useState<ConversionDeviceDraft>(() => conversionDeviceDraftFromType(data.entities.conversion_devices[0] ?? null));
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -7368,6 +7893,15 @@ function ConversionDeviceCatalogPage({
   const selectedConversionDevice = selectedConversionDeviceId
     ? data.entities.conversion_devices.find((item) => item.conversion_device_id === selectedConversionDeviceId) ?? null
     : null;
+
+  useEffect(() => {
+    const selectedExists = selectedConversionDeviceId
+      ? data.entities.conversion_devices.some((item) => item.conversion_device_id === selectedConversionDeviceId)
+      : false;
+    if (selectedConversionDeviceId && !selectedExists && data.entities.conversion_devices.length > 0) {
+      setSelectedConversionDeviceId(data.entities.conversion_devices[0]!.conversion_device_id);
+    }
+  }, [data.entities.conversion_devices, selectedConversionDeviceId, setSelectedConversionDeviceId]);
 
   useEffect(() => {
     if (selectedConversionDeviceId) {
@@ -7702,6 +8236,656 @@ function ConversionDeviceCatalogPage({
   );
 }
 
+function emptyLoadCircuitDraft(conversionDeviceId: string = ''): LoadCircuitDraft {
+  return {
+    load_circuit_id: '',
+    conversion_device_id: conversionDeviceId,
+    title: '',
+    description: '',
+  };
+}
+
+function loadCircuitDraftFromEntity(loadCircuit: LoadCircuit | null, fallbackConversionDeviceId: string = ''): LoadCircuitDraft {
+  return loadCircuit ? {
+    load_circuit_id: loadCircuit.load_circuit_id,
+    conversion_device_id: loadCircuit.conversion_device_id,
+    title: loadCircuit.title,
+    description: loadCircuit.description ?? '',
+  } : emptyLoadCircuitDraft(fallbackConversionDeviceId);
+}
+
+function emptyLoadDraft(loadCircuitId: string = ''): LoadDraft {
+  return {
+    load_id: '',
+    load_circuit_id: loadCircuitId,
+    title: '',
+    description: '',
+    usage_kw: '',
+    spike_kw: '',
+    expected_usage_hours_per_day: '',
+    sleeping_kw: '',
+  };
+}
+
+function loadDraftFromEntity(load: Load | null): LoadDraft {
+  return load ? {
+    load_id: load.load_id,
+    load_circuit_id: load.load_circuit_id,
+    title: load.title,
+    description: load.description ?? '',
+    usage_kw: String(load.usage_kw),
+    spike_kw: String(load.spike_kw),
+    expected_usage_hours_per_day: String(load.expected_usage_hours_per_day),
+    sleeping_kw: String(load.sleeping_kw),
+  } : emptyLoadDraft();
+}
+
+function formatLoadKw(value: number): string {
+  return `${value.toLocaleString('en-US', { maximumFractionDigits: 2 })} kW`;
+}
+
+function LoadCircuitsPage({
+  data,
+  refreshProjectData,
+}: {
+  data: DigitalTwinExport;
+  refreshProjectData: () => Promise<void>;
+}) {
+  const { t } = useTranslation();
+  const [filterConversionDeviceId, setFilterConversionDeviceId] = useState('');
+  const filteredLoadCircuits = data.entities.load_circuits.filter((circuit) => (
+    filterConversionDeviceId === '' || circuit.conversion_device_id === filterConversionDeviceId
+  ));
+  const [selectedLoadCircuitId, setSelectedLoadCircuitId] = useState(() => filteredLoadCircuits[0]?.load_circuit_id ?? data.entities.load_circuits[0]?.load_circuit_id ?? '');
+  const selectedLoadCircuit = selectedLoadCircuitId
+    ? data.entities.load_circuits.find((item) => item.load_circuit_id === selectedLoadCircuitId) ?? null
+    : null;
+  const [draft, setDraft] = useState<LoadCircuitDraft>(() => loadCircuitDraftFromEntity(selectedLoadCircuit, data.entities.conversion_devices[0]?.conversion_device_id ?? ''));
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (selectedLoadCircuitId) {
+      const current = data.entities.load_circuits.find((item) => item.load_circuit_id === selectedLoadCircuitId) ?? null;
+      setDraft(loadCircuitDraftFromEntity(current, data.entities.conversion_devices[0]?.conversion_device_id ?? ''));
+    } else {
+      setDraft(emptyLoadCircuitDraft(data.entities.conversion_devices[0]?.conversion_device_id ?? ''));
+    }
+  }, [data, selectedLoadCircuitId]);
+
+  useEffect(() => {
+    if (selectedLoadCircuitId && filteredLoadCircuits.some((circuit) => circuit.load_circuit_id === selectedLoadCircuitId)) {
+      return;
+    }
+    setSelectedLoadCircuitId(filteredLoadCircuits[0]?.load_circuit_id ?? data.entities.load_circuits[0]?.load_circuit_id ?? '');
+  }, [data.entities.load_circuits, filteredLoadCircuits, selectedLoadCircuitId]);
+
+  const selectedConversionDevice = draft.conversion_device_id
+    ? data.entities.conversion_devices.find((item) => item.conversion_device_id === draft.conversion_device_id) ?? null
+    : null;
+  const selectedCircuitLoads = selectedLoadCircuit
+    ? data.entities.loads.filter((load) => load.load_circuit_id === selectedLoadCircuit.load_circuit_id)
+    : [];
+  const totalUsageKw = selectedCircuitLoads.reduce((sum, load) => sum + load.usage_kw, 0);
+  const totalSpikeKw = selectedCircuitLoads.reduce((sum, load) => sum + load.spike_kw, 0);
+
+  function startAddNew() {
+    setSelectedLoadCircuitId('');
+    setSaveError(null);
+    setSaveMessage(null);
+    setDraft(emptyLoadCircuitDraft(data.entities.conversion_devices[0]?.conversion_device_id ?? ''));
+  }
+
+  async function handleSave() {
+    const loadCircuitId = selectedLoadCircuit ? selectedLoadCircuitId : generateUniqueCatalogId(draft.title.trim(), data.entities.load_circuits.map((circuit) => circuit.load_circuit_id));
+    const title = draft.title.trim();
+    const description = draft.description.trim() === '' ? null : draft.description.trim();
+    const conversionDeviceId = draft.conversion_device_id.trim();
+
+    if (!title || !conversionDeviceId) {
+      setSaveError('Choose a conversion device and fill in the title.');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+      setSaveMessage(null);
+
+      const isEdit = Boolean(selectedLoadCircuit);
+      const response = await fetch(isEdit ? `/api/load-circuits/${encodeURIComponent(selectedLoadCircuitId)}` : '/api/load-circuits', {
+        method: isEdit ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          load_circuit_id: loadCircuitId,
+          conversion_device_id: conversionDeviceId,
+          title,
+          description,
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? `Failed to save load circuit (${response.status})`);
+      }
+
+      await refreshProjectData();
+      setSelectedLoadCircuitId(loadCircuitId);
+      setDraft({
+        load_circuit_id: loadCircuitId,
+        conversion_device_id: conversionDeviceId,
+        title,
+        description: description ?? '',
+      });
+      setSaveMessage(`Load circuit "${loadCircuitId}" saved.`);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Failed to save load circuit.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!selectedLoadCircuit) return;
+
+    if (!window.confirm(`Delete load circuit "${selectedLoadCircuit.load_circuit_id}"?`)) return;
+
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+      setSaveMessage(null);
+
+      const response = await fetch(`/api/load-circuits/${encodeURIComponent(selectedLoadCircuit.load_circuit_id)}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? `Failed to delete load circuit (${response.status})`);
+      }
+
+      await refreshProjectData();
+      const nextCircuit = data.entities.load_circuits.find((item) => item.load_circuit_id !== selectedLoadCircuit.load_circuit_id) ?? null;
+      setSelectedLoadCircuitId(nextCircuit?.load_circuit_id ?? '');
+      setDraft(loadCircuitDraftFromEntity(nextCircuit, data.entities.conversion_devices[0]?.conversion_device_id ?? ''));
+      setSaveMessage(`Load circuit "${selectedLoadCircuit.load_circuit_id}" deleted.`);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Failed to delete load circuit.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <>
+      <section className="detail-shell">
+        <section className="panel">
+          <div className="stack" style={{ gap: 12 }}>
+            <div className="button-row button-row-between">
+              <label className="field" style={{ minWidth: 260 }}>
+                <span>{t('catalog.field.conversion_device_id')}</span>
+                <select value={filterConversionDeviceId} onChange={(event) => setFilterConversionDeviceId(event.target.value)}>
+                  <option value="">All converters</option>
+                  {data.entities.conversion_devices.map((device) => (
+                    <option key={device.conversion_device_id} value={device.conversion_device_id}>
+                      {device.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button type="button" className="button button-secondary" onClick={startAddNew}>
+                Add load circuit
+              </button>
+            </div>
+            <div className="yield-table-wrap">
+              <table className="yield-table catalog-table">
+                <thead>
+                  <tr>
+                    <th>{t('catalog.field.title')}</th>
+                    <th>{t('catalog.field.conversion_device_id')}</th>
+                    <th>Loads</th>
+                    <th>Usage</th>
+                    <th>Spike</th>
+                    <th>{t('common.edit')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredLoadCircuits.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="catalog-table-empty">No load circuits found.</td>
+                    </tr>
+                  ) : filteredLoadCircuits.map((circuit) => {
+                    const circuitLoads = data.entities.loads.filter((load) => load.load_circuit_id === circuit.load_circuit_id);
+                    const circuitUsage = circuitLoads.reduce((sum, load) => sum + load.usage_kw, 0);
+                    const circuitSpike = circuitLoads.reduce((sum, load) => sum + load.spike_kw, 0);
+                    const converter = data.entities.conversion_devices.find((item) => item.conversion_device_id === circuit.conversion_device_id);
+                    return (
+                      <tr
+                        key={circuit.load_circuit_id}
+                        className={`catalog-table-row ${selectedLoadCircuitId === circuit.load_circuit_id ? 'catalog-table-row-active' : ''}`}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => {
+                          setSelectedLoadCircuitId(circuit.load_circuit_id);
+                          setSaveError(null);
+                          setSaveMessage(null);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            setSelectedLoadCircuitId(circuit.load_circuit_id);
+                            setSaveError(null);
+                            setSaveMessage(null);
+                          }
+                        }}
+                      >
+                        <td>{circuit.title}</td>
+                        <td>{converter?.title ?? circuit.conversion_device_id}</td>
+                        <td>{circuitLoads.length}</td>
+                        <td>{formatLoadKw(circuitUsage)}</td>
+                        <td>{formatLoadKw(circuitSpike)}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="button button-secondary button-sm"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setSelectedLoadCircuitId(circuit.load_circuit_id);
+                              setSaveError(null);
+                              setSaveMessage(null);
+                            }}
+                          >
+                            {t('common.edit')}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="section-head">
+            <h2>{selectedLoadCircuit ? 'Edit load circuit' : 'Add load circuit'}</h2>
+            <p>Load circuits sit behind one converter.</p>
+          </div>
+          <div className="stack" style={{ gap: 16 }}>
+            <div className="field">
+              <span>{t('catalog.field.load_circuit_id')}</span>
+              <p className="muted">
+                {selectedLoadCircuit ? selectedLoadCircuit.load_circuit_id : (draft.title.trim() ? generateUniqueCatalogId(draft.title.trim(), data.entities.load_circuits.map((circuit) => circuit.load_circuit_id)) : 'Generated after save')}
+              </p>
+            </div>
+            <label className="field">
+              <span>{t('catalog.field.title')}</span>
+              <input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} placeholder="Living room sockets" />
+            </label>
+            <label className="field">
+              <span>{t('catalog.field.conversion_device_id')}</span>
+              <select value={draft.conversion_device_id} onChange={(event) => setDraft((current) => ({ ...current, conversion_device_id: event.target.value }))}>
+                <option value="">Choose converter</option>
+                {data.entities.conversion_devices.map((device) => (
+                  <option key={device.conversion_device_id} value={device.conversion_device_id}>
+                    {device.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>{t('catalog.field.description')}</span>
+              <textarea value={draft.description} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} rows={3} />
+            </label>
+            <div className="stack" style={{ gap: 8 }}>
+              <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.title.trim() || !draft.conversion_device_id.trim()}>
+                {isSaving ? t('common.saving') : t('common.save')}
+              </button>
+              {selectedLoadCircuit ? (
+                <button type="button" className="button button-danger" onClick={() => void handleDelete()} disabled={isSaving}>
+                  {t('common.delete')}
+                </button>
+              ) : null}
+              {saveError ? <p className="save-error">{saveError}</p> : null}
+              {saveMessage ? <p className="save-message">{saveMessage}</p> : null}
+            </div>
+          </div>
+          {selectedLoadCircuit ? (
+            <>
+              <dl className="detail-stats panel-spec-grid" style={{ marginTop: 16 }}>
+                <div><dt>{t('catalog.field.conversion_device_id')}</dt><dd>{selectedConversionDevice?.title ?? selectedLoadCircuit.conversion_device_id}</dd></div>
+                <div><dt>Loads</dt><dd>{selectedCircuitLoads.length}</dd></div>
+                <div><dt>Usage</dt><dd>{formatLoadKw(totalUsageKw)}</dd></div>
+                <div><dt>Spike</dt><dd>{formatLoadKw(totalSpikeKw)}</dd></div>
+              </dl>
+              <div className="yield-table-wrap" style={{ marginTop: 16 }}>
+                <table className="yield-table catalog-table">
+                  <thead>
+                    <tr>
+                      <th>{t('catalog.field.title')}</th>
+                      <th>Usage</th>
+                      <th>Spike</th>
+                      <th>Hours</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedCircuitLoads.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="catalog-table-empty">No loads in this circuit yet.</td>
+                      </tr>
+                    ) : selectedCircuitLoads.map((load) => (
+                      <tr key={load.load_id}>
+                        <td>{load.title}</td>
+                        <td>{formatLoadKw(load.usage_kw)}</td>
+                        <td>{formatLoadKw(load.spike_kw)}</td>
+                        <td>{load.expected_usage_hours_per_day.toLocaleString('en-US', { maximumFractionDigits: 1 })}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : null}
+        </section>
+      </section>
+    </>
+  );
+}
+
+function LoadsPage({
+  data,
+  refreshProjectData,
+}: {
+  data: DigitalTwinExport;
+  refreshProjectData: () => Promise<void>;
+}) {
+  const { t } = useTranslation();
+  const [filterLoadCircuitId, setFilterLoadCircuitId] = useState('');
+  const filteredLoads = data.entities.loads.filter((load) => (
+    filterLoadCircuitId === '' || load.load_circuit_id === filterLoadCircuitId
+  ));
+  const [selectedLoadId, setSelectedLoadId] = useState(() => filteredLoads[0]?.load_id ?? data.entities.loads[0]?.load_id ?? '');
+  const selectedLoad = selectedLoadId ? data.entities.loads.find((item) => item.load_id === selectedLoadId) ?? null : null;
+  const [draft, setDraft] = useState<LoadDraft>(() => loadDraftFromEntity(selectedLoad));
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (selectedLoadId) {
+      const current = data.entities.loads.find((item) => item.load_id === selectedLoadId) ?? null;
+      setDraft(loadDraftFromEntity(current));
+    } else {
+      setDraft(emptyLoadDraft(data.entities.load_circuits[0]?.load_circuit_id ?? ''));
+    }
+  }, [data, selectedLoadId]);
+
+  useEffect(() => {
+    if (selectedLoadId && filteredLoads.some((load) => load.load_id === selectedLoadId)) {
+      return;
+    }
+    setSelectedLoadId(filteredLoads[0]?.load_id ?? data.entities.loads[0]?.load_id ?? '');
+  }, [data.entities.loads, filteredLoads, selectedLoadId]);
+
+  const selectedLoadCircuit = draft.load_circuit_id
+    ? data.entities.load_circuits.find((item) => item.load_circuit_id === draft.load_circuit_id) ?? null
+    : null;
+  const selectedConverter = selectedLoadCircuit
+    ? data.entities.conversion_devices.find((item) => item.conversion_device_id === selectedLoadCircuit.conversion_device_id) ?? null
+    : null;
+
+  function startAddNew() {
+    setSelectedLoadId('');
+    setSaveError(null);
+    setSaveMessage(null);
+    setDraft(emptyLoadDraft(data.entities.load_circuits[0]?.load_circuit_id ?? ''));
+  }
+
+  async function handleSave() {
+    const loadId = selectedLoad ? selectedLoadId : generateUniqueCatalogId(draft.title.trim(), data.entities.loads.map((load) => load.load_id));
+    const title = draft.title.trim();
+    const description = draft.description.trim() === '' ? null : draft.description.trim();
+    const loadCircuitId = draft.load_circuit_id.trim();
+    const usageKw = Number(draft.usage_kw);
+    const spikeKw = Number(draft.spike_kw);
+    const expectedUsageHoursPerDay = Number(draft.expected_usage_hours_per_day);
+    const sleepingKw = Number(draft.sleeping_kw);
+
+    if (!title || !loadCircuitId || !Number.isFinite(usageKw) || usageKw < 0 || !Number.isFinite(spikeKw) || spikeKw < 0 || !Number.isFinite(expectedUsageHoursPerDay) || expectedUsageHoursPerDay < 0 || !Number.isFinite(sleepingKw) || sleepingKw < 0) {
+      setSaveError('Fill in the title, load circuit, and numeric load fields.');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+      setSaveMessage(null);
+
+      const isEdit = Boolean(selectedLoad);
+      const response = await fetch(isEdit ? `/api/loads/${encodeURIComponent(selectedLoadId)}` : '/api/loads', {
+        method: isEdit ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          load_id: loadId,
+          load_circuit_id: loadCircuitId,
+          title,
+          description,
+          usage_kw: usageKw,
+          spike_kw: spikeKw,
+          expected_usage_hours_per_day: expectedUsageHoursPerDay,
+          sleeping_kw: sleepingKw,
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? `Failed to save load (${response.status})`);
+      }
+
+      await refreshProjectData();
+      setSelectedLoadId(loadId);
+      setDraft({
+        load_id: loadId,
+        load_circuit_id: loadCircuitId,
+        title,
+        description: description ?? '',
+        usage_kw: String(usageKw),
+        spike_kw: String(spikeKw),
+        expected_usage_hours_per_day: String(expectedUsageHoursPerDay),
+        sleeping_kw: String(sleepingKw),
+      });
+      setSaveMessage(`Load "${loadId}" saved.`);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Failed to save load.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!selectedLoad) return;
+
+    if (!window.confirm(`Delete load "${selectedLoad.load_id}"?`)) return;
+
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+      setSaveMessage(null);
+
+      const response = await fetch(`/api/loads/${encodeURIComponent(selectedLoad.load_id)}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? `Failed to delete load (${response.status})`);
+      }
+
+      await refreshProjectData();
+      const nextLoad = data.entities.loads.find((item) => item.load_id !== selectedLoad.load_id) ?? null;
+      setSelectedLoadId(nextLoad?.load_id ?? '');
+      setDraft(loadDraftFromEntity(nextLoad));
+      setSaveMessage(`Load "${selectedLoad.load_id}" deleted.`);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Failed to delete load.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <>
+      <section className="detail-shell">
+        <section className="panel">
+          <div className="stack" style={{ gap: 12 }}>
+            <div className="button-row button-row-between">
+              <label className="field" style={{ minWidth: 260 }}>
+                <span>Load circuit</span>
+                <select value={filterLoadCircuitId} onChange={(event) => setFilterLoadCircuitId(event.target.value)}>
+                  <option value="">All circuits</option>
+                  {data.entities.load_circuits.map((circuit) => (
+                    <option key={circuit.load_circuit_id} value={circuit.load_circuit_id}>
+                      {circuit.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button type="button" className="button button-secondary" onClick={startAddNew}>
+                Add load
+              </button>
+            </div>
+            <div className="yield-table-wrap">
+              <table className="yield-table catalog-table">
+                <thead>
+                  <tr>
+                    <th>{t('catalog.field.title')}</th>
+                    <th>Load circuit</th>
+                    <th>Converter</th>
+                    <th>Usage</th>
+                    <th>Spike</th>
+                    <th>{t('common.edit')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredLoads.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="catalog-table-empty">No loads found.</td>
+                    </tr>
+                  ) : filteredLoads.map((load) => {
+                    const circuit = data.entities.load_circuits.find((item) => item.load_circuit_id === load.load_circuit_id);
+                    const converter = circuit ? data.entities.conversion_devices.find((item) => item.conversion_device_id === circuit.conversion_device_id) : null;
+                    return (
+                      <tr
+                        key={load.load_id}
+                        className={`catalog-table-row ${selectedLoadId === load.load_id ? 'catalog-table-row-active' : ''}`}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => {
+                          setSelectedLoadId(load.load_id);
+                          setSaveError(null);
+                          setSaveMessage(null);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            setSelectedLoadId(load.load_id);
+                            setSaveError(null);
+                            setSaveMessage(null);
+                          }
+                        }}
+                      >
+                        <td>{load.title}</td>
+                        <td>{circuit?.title ?? load.load_circuit_id}</td>
+                        <td>{converter?.title ?? '—'}</td>
+                        <td>{formatLoadKw(load.usage_kw)}</td>
+                        <td>{formatLoadKw(load.spike_kw)}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="button button-secondary button-sm"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setSelectedLoadId(load.load_id);
+                              setSaveError(null);
+                              setSaveMessage(null);
+                            }}
+                          >
+                            {t('common.edit')}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="section-head">
+            <h2>{selectedLoad ? 'Edit load' : 'Add load'}</h2>
+            <p>Use loads for appliances, endpoints, or grouped demand.</p>
+          </div>
+          <div className="stack" style={{ gap: 16 }}>
+            <div className="field">
+              <span>Load ID</span>
+              <p className="muted">
+                {selectedLoad ? selectedLoad.load_id : (draft.title.trim() ? generateUniqueCatalogId(draft.title.trim(), data.entities.loads.map((load) => load.load_id)) : 'Generated after save')}
+              </p>
+            </div>
+            <label className="field">
+              <span>{t('catalog.field.title')}</span>
+              <input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} placeholder="Fridge" />
+            </label>
+            <label className="field">
+              <span>Load circuit</span>
+              <select value={draft.load_circuit_id} onChange={(event) => setDraft((current) => ({ ...current, load_circuit_id: event.target.value }))}>
+                <option value="">Choose load circuit</option>
+                {data.entities.load_circuits.map((circuit) => (
+                  <option key={circuit.load_circuit_id} value={circuit.load_circuit_id}>
+                    {circuit.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>{t('catalog.field.description')}</span>
+              <textarea value={draft.description} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} rows={3} />
+            </label>
+            <div className="detail-grid two-col">
+              <label className="field"><span>Usage (kW)</span><input type="number" step="0.01" value={draft.usage_kw} onChange={(event) => setDraft((current) => ({ ...current, usage_kw: event.target.value }))} /></label>
+              <label className="field"><span>Spike (kW)</span><input type="number" step="0.01" value={draft.spike_kw} onChange={(event) => setDraft((current) => ({ ...current, spike_kw: event.target.value }))} /></label>
+            </div>
+            <div className="detail-grid two-col">
+              <label className="field"><span>Hours per day</span><input type="number" step="0.1" value={draft.expected_usage_hours_per_day} onChange={(event) => setDraft((current) => ({ ...current, expected_usage_hours_per_day: event.target.value }))} /></label>
+              <label className="field"><span>Sleeping (kW)</span><input type="number" step="0.01" value={draft.sleeping_kw} onChange={(event) => setDraft((current) => ({ ...current, sleeping_kw: event.target.value }))} /></label>
+            </div>
+            <div className="stack" style={{ gap: 8 }}>
+              <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.title.trim() || !draft.load_circuit_id.trim()}>
+                {isSaving ? t('common.saving') : t('common.save')}
+              </button>
+              {selectedLoad ? (
+                <button type="button" className="button button-danger" onClick={() => void handleDelete()} disabled={isSaving}>
+                  {t('common.delete')}
+                </button>
+              ) : null}
+              {saveError ? <p className="save-error">{saveError}</p> : null}
+              {saveMessage ? <p className="save-message">{saveMessage}</p> : null}
+            </div>
+          </div>
+          {selectedLoad ? (
+            <>
+              <dl className="detail-stats panel-spec-grid" style={{ marginTop: 16 }}>
+                <div><dt>Load circuit</dt><dd>{selectedLoadCircuit?.title ?? selectedLoad.load_circuit_id}</dd></div>
+                <div><dt>Converter</dt><dd>{selectedConverter?.title ?? '—'}</dd></div>
+                <div><dt>Usage</dt><dd>{formatLoadKw(selectedLoad.usage_kw)}</dd></div>
+                <div><dt>Spike</dt><dd>{formatLoadKw(selectedLoad.spike_kw)}</dd></div>
+              </dl>
+            </>
+          ) : null}
+        </section>
+      </section>
+    </>
+  );
+}
+
 function AppContent() {
   const [data, setData] = useState<DigitalTwinExport | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -7947,8 +9131,8 @@ function AppContent() {
             <LocationPage {...context} />
           ) : route.kind === 'about' ? (
             <AboutPage />
-          ) : route.kind === 'solar-yield' ? (
-            <SolarYieldPage {...context} />
+          ) : route.kind === 'production' ? (
+            <ProductionPage {...context} />
           ) : route.kind === 'catalogs' ? (
             <CatalogsPage />
           ) : route.kind === 'reports' ? (
@@ -7972,7 +9156,11 @@ function AppContent() {
           ) : route.kind === 'battery-array' ? (
             <BatteryArrayPage {...context} />
           ) : route.kind === 'inverter-array' ? (
-            <InverterArrayPage {...context} />
+            <ConsumptionPage {...context} />
+          ) : route.kind === 'load-circuits' ? (
+            <LoadCircuitsPage data={data} refreshProjectData={refreshProjectData} />
+          ) : route.kind === 'loads' ? (
+            <LoadsPage data={data} refreshProjectData={refreshProjectData} />
           ) : (
             <LocationPage {...context} />
           )}

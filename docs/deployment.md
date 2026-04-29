@@ -138,7 +138,15 @@ For normal work:
 
 ### Publish command
 
-Once `DATABASE_PUBLISH_TOKEN` is configured in Railway, publish the local database with:
+Use the built-in local command to publish `project.db` to Railway:
+
+```bash
+npm run publish:db
+```
+
+The command validates the local SQLite file first. It uses `DATABASE_PUBLISH_TOKEN` from your shell when available, and otherwise falls back to the Railway CLI variables for the `OffGridOs` / `production` service.
+
+If you prefer the raw HTTP call, publish the local database with:
 
 ```bash
 curl -X POST \

@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import http, { type IncomingMessage, type ServerResponse } from 'http';
-import { createSurface, deleteCabinetType, deleteConversionDevice, deleteSurface, deleteSurfacePanelAssignmentsForSurface, getBatteryBankConfiguration, getBatteryType, getCabinetType, getConversionDevice, getInverterType, getMpptType, getPreferences, getPanelType, getSurface, getSurfaceConfiguration, insertBatteryType, insertCabinetType, insertInverterType, insertMpptType, insertPanelType, listArrayToMpptMappings, listBatteryBankConfigurations, listBatteryTypes, listCabinetTypes, listConversionDevices, listInverterConfigurations, listInverterTypes, listMpptTypes, listPanelTypes, listPvArrays, listSurfaceConfigurations, listSurfacePanelAssignments, setPref, updateBatteryType, updateCabinetType, updateInverterType, updateMpptType, updatePanelType, updateSurface, upsertBatteryBankConfiguration, upsertConversionDevice, upsertInverterConfiguration, upsertLocation, upsertSurfaceConfiguration, upsertSurfacePanelAssignment, syncPvTopologyForSurface } from './db/queries.js';
+import { createSurface, deleteCabinetType, deleteConversionDevice, deleteLoad, deleteLoadCircuit, deleteSurface, deleteSurfacePanelAssignmentsForSurface, getBatteryBankConfiguration, getBatteryType, getCabinetType, getConversionDevice, getInverterType, getLoad, getLoadCircuit, getMpptType, getPreferences, getPanelType, getSurface, getSurfaceConfiguration, insertBatteryType, insertCabinetType, insertInverterType, insertMpptType, insertPanelType, listArrayToMpptMappings, listBatteryBankConfigurations, listBatteryTypes, listCabinetTypes, listConversionDevices, listInverterConfigurations, listInverterTypes, listLoadCircuits, listLoads, listMpptTypes, listPanelTypes, listPvArrays, listSurfaceConfigurations, listSurfacePanelAssignments, setPref, updateBatteryType, updateCabinetType, updateInverterType, updateMpptType, updatePanelType, updateSurface, upsertBatteryBankConfiguration, upsertConversionDevice, upsertInverterConfiguration, upsertLoad, upsertLoadCircuit, upsertLocation, upsertSurfaceConfiguration, upsertSurfacePanelAssignment, syncPvTopologyForSurface } from './db/queries.js';
 import { buildDigitalTwinExport } from './output/exportDigitalTwin.js';
 import { generateUniqueCatalogId } from './domain/panel-type-id.js';
 import { resolveDatabasePath, resolveServerHost, resolveServerPort, resolveWebDistPath } from './config/runtime.js';
@@ -1632,6 +1632,330 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           }
 
           deleteConversionDevice(db, conversionDeviceId);
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+        });
+
+        sendJson(response, updated.status, updated.body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 500, { error: message });
+      }
+    })();
+    return true;
+  }
+
+  if (method === 'GET' && url.pathname === '/api/load-circuits') {
+    try {
+      const payload = withDb(databasePath, (db) => listLoadCircuits(db));
+      sendJson(response, 200, payload);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown server error';
+      sendJson(response, 500, { error: message });
+    }
+    return true;
+  }
+
+  if (method === 'POST' && url.pathname === '/api/load-circuits') {
+    void (async () => {
+      try {
+        const payload = await readJsonBody<{
+          load_circuit_id?: unknown;
+          conversion_device_id?: unknown;
+          title?: unknown;
+          description?: unknown;
+        }>(request);
+
+        const loadCircuitId = typeof payload.load_circuit_id === 'string' ? payload.load_circuit_id.trim() : '';
+        const conversionDeviceId = typeof payload.conversion_device_id === 'string' ? payload.conversion_device_id.trim() : '';
+        const title = typeof payload.title === 'string' ? payload.title.trim() : '';
+        const description = typeof payload.description === 'string' ? payload.description.trim() : null;
+
+        if (!title || !conversionDeviceId) {
+          sendJson(response, 400, { error: 'Invalid load circuit payload. Provide title and conversion_device_id.' });
+          return;
+        }
+
+        const updated = withDb(databasePath, (db) => {
+          const resolvedLoadCircuitId = loadCircuitId || generateUniqueCatalogId(title, listLoadCircuits(db).map((circuit) => circuit.load_circuit_id));
+          if (getLoadCircuit(db, resolvedLoadCircuitId)) {
+            return { status: 409 as const, body: { error: `Load circuit "${resolvedLoadCircuitId}" already exists.` } };
+          }
+
+          const conversionDevice = getConversionDevice(db, conversionDeviceId);
+          if (!conversionDevice) {
+            return { status: 400 as const, body: { error: `Conversion device "${conversionDeviceId}" not found.` } };
+          }
+
+          upsertLoadCircuit(db, {
+            load_circuit_id: resolvedLoadCircuitId,
+            conversion_device_id: conversionDeviceId,
+            title,
+            description,
+          });
+
+          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath) };
+        });
+
+        sendJson(response, updated.status, updated.body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 500, { error: message });
+      }
+    })();
+    return true;
+  }
+
+  if (method === 'PUT' && url.pathname.startsWith('/api/load-circuits/')) {
+    void (async () => {
+      try {
+        const loadCircuitId = decodeURIComponent(url.pathname.slice('/api/load-circuits/'.length));
+        if (!loadCircuitId) {
+          sendJson(response, 400, { error: 'Load circuit id is required.' });
+          return;
+        }
+
+        const payload = await readJsonBody<{
+          load_circuit_id?: unknown;
+          conversion_device_id?: unknown;
+          title?: unknown;
+          description?: unknown;
+        }>(request);
+
+        const bodyLoadCircuitId = typeof payload.load_circuit_id === 'string' ? payload.load_circuit_id.trim() : loadCircuitId;
+        const conversionDeviceId = typeof payload.conversion_device_id === 'string' ? payload.conversion_device_id.trim() : '';
+        const title = typeof payload.title === 'string' ? payload.title.trim() : '';
+        const description = typeof payload.description === 'string' ? payload.description.trim() : null;
+
+        if (bodyLoadCircuitId !== loadCircuitId) {
+          sendJson(response, 400, { error: 'Load circuit id in the URL must match the load_circuit_id in the payload.' });
+          return;
+        }
+
+        if (!title || !conversionDeviceId) {
+          sendJson(response, 400, { error: 'Invalid load circuit payload. Provide title and conversion_device_id.' });
+          return;
+        }
+
+        const updated = withDb(databasePath, (db) => {
+          const existing = getLoadCircuit(db, loadCircuitId);
+          if (!existing) {
+            return { status: 404 as const, body: { error: `Load circuit "${loadCircuitId}" not found.` } };
+          }
+
+          const conversionDevice = getConversionDevice(db, conversionDeviceId);
+          if (!conversionDevice) {
+            return { status: 400 as const, body: { error: `Conversion device "${conversionDeviceId}" not found.` } };
+          }
+
+          upsertLoadCircuit(db, {
+            load_circuit_id: loadCircuitId,
+            conversion_device_id: conversionDeviceId,
+            title,
+            description,
+          });
+
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+        });
+
+        sendJson(response, updated.status, updated.body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 500, { error: message });
+      }
+    })();
+    return true;
+  }
+
+  if (method === 'DELETE' && url.pathname.startsWith('/api/load-circuits/')) {
+    void (async () => {
+      try {
+        const loadCircuitId = decodeURIComponent(url.pathname.slice('/api/load-circuits/'.length));
+        if (!loadCircuitId) {
+          sendJson(response, 400, { error: 'Load circuit id is required.' });
+          return;
+        }
+
+        const updated = withDb(databasePath, (db) => {
+          const existing = getLoadCircuit(db, loadCircuitId);
+          if (!existing) {
+            return { status: 404 as const, body: { error: `Load circuit "${loadCircuitId}" not found.` } };
+          }
+
+          deleteLoadCircuit(db, loadCircuitId);
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+        });
+
+        sendJson(response, updated.status, updated.body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 500, { error: message });
+      }
+    })();
+    return true;
+  }
+
+  if (method === 'GET' && url.pathname === '/api/loads') {
+    try {
+      const payload = withDb(databasePath, (db) => listLoads(db));
+      sendJson(response, 200, payload);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown server error';
+      sendJson(response, 500, { error: message });
+    }
+    return true;
+  }
+
+  if (method === 'POST' && url.pathname === '/api/loads') {
+    void (async () => {
+      try {
+        const payload = await readJsonBody<{
+          load_id?: unknown;
+          load_circuit_id?: unknown;
+          title?: unknown;
+          description?: unknown;
+          usage_kw?: unknown;
+          spike_kw?: unknown;
+          expected_usage_hours_per_day?: unknown;
+          sleeping_kw?: unknown;
+        }>(request);
+
+        const loadId = typeof payload.load_id === 'string' ? payload.load_id.trim() : '';
+        const loadCircuitId = typeof payload.load_circuit_id === 'string' ? payload.load_circuit_id.trim() : '';
+        const title = typeof payload.title === 'string' ? payload.title.trim() : '';
+        const description = typeof payload.description === 'string' ? payload.description.trim() : null;
+        const usageKw = typeof payload.usage_kw === 'number' ? payload.usage_kw : Number(payload.usage_kw);
+        const spikeKw = typeof payload.spike_kw === 'number' ? payload.spike_kw : Number(payload.spike_kw);
+        const expectedUsageHoursPerDay = typeof payload.expected_usage_hours_per_day === 'number' ? payload.expected_usage_hours_per_day : Number(payload.expected_usage_hours_per_day);
+        const sleepingKw = typeof payload.sleeping_kw === 'number' ? payload.sleeping_kw : Number(payload.sleeping_kw);
+
+        if (!title || !loadCircuitId || !Number.isFinite(usageKw) || usageKw < 0 || !Number.isFinite(spikeKw) || spikeKw < 0 || !Number.isFinite(expectedUsageHoursPerDay) || expectedUsageHoursPerDay < 0 || !Number.isFinite(sleepingKw) || sleepingKw < 0) {
+          sendJson(response, 400, { error: 'Invalid load payload. Provide title, load_circuit_id, usage_kw, spike_kw, expected_usage_hours_per_day, and sleeping_kw.' });
+          return;
+        }
+
+        const updated = withDb(databasePath, (db) => {
+          const resolvedLoadId = loadId || generateUniqueCatalogId(title, listLoads(db).map((load) => load.load_id));
+          if (getLoad(db, resolvedLoadId)) {
+            return { status: 409 as const, body: { error: `Load "${resolvedLoadId}" already exists.` } };
+          }
+
+          const loadCircuit = getLoadCircuit(db, loadCircuitId);
+          if (!loadCircuit) {
+            return { status: 400 as const, body: { error: `Load circuit "${loadCircuitId}" not found.` } };
+          }
+
+          upsertLoad(db, {
+            load_id: resolvedLoadId,
+            load_circuit_id: loadCircuitId,
+            title,
+            description,
+            usage_kw: usageKw,
+            spike_kw: spikeKw,
+            expected_usage_hours_per_day: expectedUsageHoursPerDay,
+            sleeping_kw: sleepingKw,
+          });
+
+          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath) };
+        });
+
+        sendJson(response, updated.status, updated.body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 500, { error: message });
+      }
+    })();
+    return true;
+  }
+
+  if (method === 'PUT' && url.pathname.startsWith('/api/loads/')) {
+    void (async () => {
+      try {
+        const loadId = decodeURIComponent(url.pathname.slice('/api/loads/'.length));
+        if (!loadId) {
+          sendJson(response, 400, { error: 'Load id is required.' });
+          return;
+        }
+
+        const payload = await readJsonBody<{
+          load_id?: unknown;
+          load_circuit_id?: unknown;
+          title?: unknown;
+          description?: unknown;
+          usage_kw?: unknown;
+          spike_kw?: unknown;
+          expected_usage_hours_per_day?: unknown;
+          sleeping_kw?: unknown;
+        }>(request);
+
+        const bodyLoadId = typeof payload.load_id === 'string' ? payload.load_id.trim() : loadId;
+        const loadCircuitId = typeof payload.load_circuit_id === 'string' ? payload.load_circuit_id.trim() : '';
+        const title = typeof payload.title === 'string' ? payload.title.trim() : '';
+        const description = typeof payload.description === 'string' ? payload.description.trim() : null;
+        const usageKw = typeof payload.usage_kw === 'number' ? payload.usage_kw : Number(payload.usage_kw);
+        const spikeKw = typeof payload.spike_kw === 'number' ? payload.spike_kw : Number(payload.spike_kw);
+        const expectedUsageHoursPerDay = typeof payload.expected_usage_hours_per_day === 'number' ? payload.expected_usage_hours_per_day : Number(payload.expected_usage_hours_per_day);
+        const sleepingKw = typeof payload.sleeping_kw === 'number' ? payload.sleeping_kw : Number(payload.sleeping_kw);
+
+        if (bodyLoadId !== loadId) {
+          sendJson(response, 400, { error: 'Load id in the URL must match the load_id in the payload.' });
+          return;
+        }
+
+        if (!title || !loadCircuitId || !Number.isFinite(usageKw) || usageKw < 0 || !Number.isFinite(spikeKw) || spikeKw < 0 || !Number.isFinite(expectedUsageHoursPerDay) || expectedUsageHoursPerDay < 0 || !Number.isFinite(sleepingKw) || sleepingKw < 0) {
+          sendJson(response, 400, { error: 'Invalid load payload. Provide title, load_circuit_id, usage_kw, spike_kw, expected_usage_hours_per_day, and sleeping_kw.' });
+          return;
+        }
+
+        const updated = withDb(databasePath, (db) => {
+          const existing = getLoad(db, loadId);
+          if (!existing) {
+            return { status: 404 as const, body: { error: `Load "${loadId}" not found.` } };
+          }
+
+          const loadCircuit = getLoadCircuit(db, loadCircuitId);
+          if (!loadCircuit) {
+            return { status: 400 as const, body: { error: `Load circuit "${loadCircuitId}" not found.` } };
+          }
+
+          upsertLoad(db, {
+            load_id: loadId,
+            load_circuit_id: loadCircuitId,
+            title,
+            description,
+            usage_kw: usageKw,
+            spike_kw: spikeKw,
+            expected_usage_hours_per_day: expectedUsageHoursPerDay,
+            sleeping_kw: sleepingKw,
+          });
+
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+        });
+
+        sendJson(response, updated.status, updated.body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 500, { error: message });
+      }
+    })();
+    return true;
+  }
+
+  if (method === 'DELETE' && url.pathname.startsWith('/api/loads/')) {
+    void (async () => {
+      try {
+        const loadId = decodeURIComponent(url.pathname.slice('/api/loads/'.length));
+        if (!loadId) {
+          sendJson(response, 400, { error: 'Load id is required.' });
+          return;
+        }
+
+        const updated = withDb(databasePath, (db) => {
+          const existing = getLoad(db, loadId);
+          if (!existing) {
+            return { status: 404 as const, body: { error: `Load "${loadId}" not found.` } };
+          }
+
+          deleteLoad(db, loadId);
           return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
         });
 

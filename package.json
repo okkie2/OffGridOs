@@ -14,6 +14,7 @@
     "dev:app": "node scripts/dev-app.mjs",
     "dev:web": "node scripts/dev-app.mjs",
     "menu": "tsx src/cli/menu.ts",
+    "publish:db": "tsx src/cli/index.ts publish-db",
     "stop:app": "node scripts/stop-app.mjs",
     "test:e2e": "npm run build && playwright test",
     "start": "node scripts/start-app.mjs",

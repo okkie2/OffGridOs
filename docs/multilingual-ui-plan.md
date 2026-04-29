@@ -152,7 +152,7 @@ Recommended order:
 
 1. Location
 2. Surface detail
-3. Solar yield
+3. Production
 4. Battery array
 5. Inverter array
 
@@ -296,7 +296,7 @@ Use stable semantic keys, not English text as keys.
 Good examples:
 
 - `nav.location`
-- `nav.solar_yield`
+- `nav.production`
 - `location.start_information`
 - `location.notes_label`
 - `surface.panel_array.title`
