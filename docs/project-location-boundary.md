@@ -35,7 +35,7 @@ The current working project should use a real project id, and the application sh
 
 ## Current Next Action
 
-Start Slice 2 in the app layer:
+Start Slice 3 in the catalogue layer:
 
 - [x] make the project boundary explicit in the domain model
 - [x] add the migration path for the current project/location boundary
@@ -52,8 +52,8 @@ Start Slice 2 in the app layer:
 
 ### Slice 2: Wire location ownership through the app
 
-- [ ] [src/server.ts](/Users/joostokkinga/Code/OffGridOS/src/server.ts): update API routes so location-specific data is written and read against a location boundary.
-- [ ] [web/src/App.tsx](/Users/joostokkinga/Code/OffGridOS/web/src/App.tsx): add project and location selection flows in the UI and stop implying there is only one site context.
+- [x] [src/server.ts](/Users/joostokkinga/Code/OffGridOS/src/server.ts): update API routes so location-specific data is written and read against a location boundary.
+- [x] [web/src/App.tsx](/Users/joostokkinga/Code/OffGridOS/web/src/App.tsx): add project and location selection flows in the UI and stop implying there is only one site context.
 - [x] [docs/database.md](/Users/joostokkinga/Code/OffGridOS/docs/database.md): keep the schema narrative aligned with the current migration step.
 - [x] [docs/database-schema.md](/Users/joostokkinga/Code/OffGridOS/docs/database-schema.md): update the ER diagram after the location boundary lands.
 
@@ -62,7 +62,7 @@ Start Slice 2 in the app layer:
 - [ ] [src/db/schema.ts](/Users/joostokkinga/Code/OffGridOS/src/db/schema.ts): move catalogue ownership to the project boundary where needed.
 - [ ] [src/db/queries.ts](/Users/joostokkinga/Code/OffGridOS/src/db/queries.ts): make catalogue queries project-aware.
 - [ ] [src/output/exportDigitalTwin.ts](/Users/joostokkinga/Code/OffGridOS/src/output/exportDigitalTwin.ts): export the updated ownership model so the UI and future APIs stay consistent.
-- [ ] [docs/project-location-boundary.md](/Users/joostokkinga/Code/OffGridOS/docs/project-location-boundary.md): keep this checklist updated as the implementation slices land.
+- [x] [docs/project-location-boundary.md](/Users/joostokkinga/Code/OffGridOS/docs/project-location-boundary.md): keep this checklist updated as the implementation slices land.
 
 ### Slice 4: Clean up the user-facing model
 

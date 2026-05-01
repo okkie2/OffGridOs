@@ -1826,7 +1826,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
   if (method === 'GET' && url.pathname === '/api/project-converters') {
     try {
-      const payload = withDb(databasePath, (db) => listProjectConverters(db, projectId));
+      const payload = withDb(databasePath, (db) => listProjectConverters(db, projectId, locationId));
       sendJson(response, 200, payload);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown server error';
@@ -1871,7 +1871,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             title,
             description,
             conversion_device_id: conversionDeviceId,
-          }, projectId);
+          }, projectId, locationId);
 
           return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
@@ -1917,7 +1917,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         }
 
         const updated = withDb(databasePath, (db) => {
-          const existing = getProjectConverter(db, projectConverterId);
+          const existing = listProjectConverters(db, projectId, locationId).find((converter) => converter.project_converter_id === projectConverterId) ?? null;
           if (!existing) {
             return { status: 404 as const, body: { error: `Project converter "${projectConverterId}" not found.` } };
           }
@@ -1932,9 +1932,9 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             title,
             description,
             conversion_device_id: conversionDeviceId,
-          }, projectId);
+          }, projectId, locationId);
 
-          db.prepare('UPDATE load_circuits SET conversion_device_id = ? WHERE project_converter_id = ?').run(conversionDeviceId, projectConverterId);
+          db.prepare('UPDATE load_circuits SET conversion_device_id = ? WHERE project_converter_id = ? AND location_id = ?').run(conversionDeviceId, projectConverterId, existing.location_id);
           return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
@@ -1957,7 +1957,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         }
 
         const updated = withDb(databasePath, (db) => {
-          const existing = getProjectConverter(db, projectConverterId);
+          const existing = listProjectConverters(db, projectId, locationId).find((converter) => converter.project_converter_id === projectConverterId) ?? null;
           if (!existing) {
             return { status: 404 as const, body: { error: `Project converter "${projectConverterId}" not found.` } };
           }
@@ -2014,7 +2014,9 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             return { status: 409 as const, body: { error: `Load circuit "${resolvedLoadCircuitId}" already exists.` } };
           }
 
-          const projectConverter = projectConverterId ? getProjectConverter(db, projectConverterId) : null;
+          const projectConverter = projectConverterId
+            ? listProjectConverters(db, projectId, locationId).find((converter) => converter.project_converter_id === projectConverterId) ?? null
+            : null;
           if (projectConverterId && !projectConverter) {
             return { status: 400 as const, body: { error: `Project converter "${projectConverterId}" not found.` } };
           }

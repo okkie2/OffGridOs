@@ -226,9 +226,21 @@ erDiagram
         TEXT notes
     }
 
+    PROJECT_CONVERTERS {
+        INTEGER id PK
+        TEXT project_id FK
+        TEXT location_id FK
+        TEXT project_converter_id UK
+        TEXT title
+        TEXT description
+        TEXT conversion_device_id FK
+    }
+
     LOAD_CIRCUITS {
         INTEGER id PK
         TEXT load_circuit_id UK
+        TEXT location_id FK
+        TEXT project_converter_id FK
         TEXT conversion_device_id FK
         TEXT title
         TEXT description
@@ -273,6 +285,9 @@ erDiagram
     INVERTER_TYPES ||--o{ INVERTER_CONFIGURATIONS : "selected for"
     DC_BUSBARS ||--o{ INVERTER_CONFIGURATIONS : "selected for"
     CONVERSION_DEVICES ||--o{ LOAD_CIRCUITS : "serves"
+    LOCATIONS ||--o{ PROJECT_CONVERTERS : "contains"
+    CONVERSION_DEVICES ||--o{ PROJECT_CONVERTERS : "selected for"
+    PROJECT_CONVERTERS ||--o{ LOAD_CIRCUITS : "feeds"
     LOAD_CIRCUITS ||--o{ LOADS : "contains"
 ```
 
@@ -294,6 +309,7 @@ erDiagram
 - `battery_types.price_source_url` supersedes the legacy `source` and `url` fields, which are still present for backwards compatibility.
 - `inverter_configurations` stores the selected inverter setup plus optional title, description, notes, and image.
 - `conversion_devices` stores the unified inverter and converter catalog entries for the load side.
+- `project_converters` stores the location-level converter instances used by the consumption workflow.
 - `load_circuits` stores protected load-side circuits behind one conversion device and within the active location.
 - `loads` stores the individual load items attached to a load circuit, with neutral electrical fields for current, power, and usage plus legacy kW aliases kept for compatibility during migration, and they remain location-owned through their parent circuit.
 - `loads` inherit supply type and voltage context from their parent load circuit's attached conversion device.

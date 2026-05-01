@@ -999,7 +999,7 @@ export function buildDigitalTwinExport(db: Database.Database, dbPath: string, pr
   const mpptTypes = listMpptTypes(db);
   const batteryTypes = listBatteryTypes(db);
   const conversionDevices = listConversionDevices(db);
-  const projectConverters = listProjectConverters(db, projectId);
+  const projectConverters = listProjectConverters(db, projectId, activeLocationId);
   const inverterTypes = conversionDevices
     .map((device) => conversionDeviceToInverterType(device))
     .filter((device): device is InverterType => device != null);

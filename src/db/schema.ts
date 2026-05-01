@@ -175,12 +175,22 @@ function ensureLoadCircuitsProjectConverterId(db: Database.Database): void {
 
   db.exec(`
     INSERT OR IGNORE INTO project_converters (
+      project_id,
+      location_id,
       project_converter_id,
       title,
       description,
       conversion_device_id
     )
     SELECT
+      lc.project_id,
+      COALESCE(lc.location_id, (
+        SELECT location_id
+        FROM locations
+        WHERE locations.project_id = lc.project_id
+        ORDER BY id
+        LIMIT 1
+      )),
       lc.conversion_device_id,
       cd.title,
       cd.description,
@@ -197,6 +207,37 @@ function ensureLoadCircuitsProjectConverterId(db: Database.Database): void {
       AND conversion_device_id IN (
         SELECT project_converter_id FROM project_converters
       );
+  `);
+}
+
+function ensureProjectConverterLocationId(db: Database.Database): void {
+  const cols = new Set(
+    (db.prepare("PRAGMA table_info('project_converters')").all() as { name: string }[]).map((r) => r.name),
+  );
+  if (!cols.has('location_id')) {
+    db.exec('ALTER TABLE project_converters ADD COLUMN location_id TEXT;');
+  }
+
+  db.exec(`
+    UPDATE project_converters
+    SET location_id = COALESCE(
+      location_id,
+      (
+        SELECT lc.location_id
+        FROM load_circuits lc
+        WHERE lc.project_converter_id = project_converters.project_converter_id
+        ORDER BY lc.id
+        LIMIT 1
+      ),
+      (
+        SELECT location_id
+        FROM locations
+        WHERE locations.project_id = project_converters.project_id
+        ORDER BY id
+        LIMIT 1
+      )
+    )
+    WHERE location_id IS NULL;
   `);
 }
 
@@ -840,6 +881,8 @@ export function initSchema(db: Database.Database): void {
 
     CREATE TABLE IF NOT EXISTS project_converters (
       id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id             TEXT NOT NULL REFERENCES projects(project_id),
+      location_id            TEXT NOT NULL REFERENCES locations(location_id),
       project_converter_id   TEXT UNIQUE NOT NULL,
       title                  TEXT NOT NULL,
       description            TEXT,
@@ -912,6 +955,7 @@ export function initSchema(db: Database.Database): void {
   ensureProjectId(db, 'loads');
   ensureProjectPreferencesMigration(db);
   seedLocation(db);
+  ensureProjectConverterLocationId(db);
   ensureLoadCircuitsProjectConverterId(db);
   ensureLoadCircuitLocationId(db);
   ensureLoadColumns(db);

@@ -424,6 +424,8 @@ interface ConversionDevice {
 }
 
 interface ProjectConverter {
+  project_id: string;
+  location_id: string;
   project_converter_id: string;
   title: string;
   description?: string | null;

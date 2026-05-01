@@ -1177,18 +1177,28 @@ export function deleteConversionDevice(db: Database.Database, conversion_device_
 
 // ── Project converters ──────────────────────────────────────────────────────
 
-export function listProjectConverters(db: Database.Database, projectId: string): ProjectConverter[] {
-  return db.prepare('SELECT * FROM project_converters WHERE project_id = ? ORDER BY title, project_converter_id').all(projectId) as ProjectConverter[];
+export function listProjectConverters(db: Database.Database, projectId: string, locationId?: string | null): ProjectConverter[] {
+  if (!locationId) {
+    return db.prepare('SELECT * FROM project_converters WHERE project_id = ? ORDER BY title, project_converter_id').all(projectId) as ProjectConverter[];
+  }
+  const location = getLocation(db, projectId, locationId);
+  if (!location) return [];
+  return db.prepare('SELECT * FROM project_converters WHERE project_id = ? AND location_id = ? ORDER BY title, project_converter_id').all(projectId, location.location_id) as ProjectConverter[];
 }
 
 export function getProjectConverter(db: Database.Database, project_converter_id: string): ProjectConverter | null {
   return (db.prepare('SELECT * FROM project_converters WHERE project_converter_id = ?').get(project_converter_id) as ProjectConverter) ?? null;
 }
 
-export function upsertProjectConverter(db: Database.Database, data: Omit<ProjectConverter, 'id'>, projectId: string): void {
+export function upsertProjectConverter(db: Database.Database, data: Omit<ProjectConverter, 'id' | 'project_id' | 'location_id'>, projectId: string, locationId?: string | null): void {
+  const location = getLocation(db, projectId, locationId);
+  if (!location) {
+    throw new Error(`No location found for project "${projectId}".`);
+  }
   db.prepare(`
     INSERT INTO project_converters (
       project_id,
+      location_id,
       project_converter_id,
       title,
       description,
@@ -1196,18 +1206,21 @@ export function upsertProjectConverter(db: Database.Database, data: Omit<Project
     )
     VALUES (
       @project_id,
+      @location_id,
       @project_converter_id,
       @title,
       @description,
       @conversion_device_id
     )
     ON CONFLICT(project_converter_id) DO UPDATE SET
+      location_id = excluded.location_id,
       title = excluded.title,
       description = excluded.description,
       conversion_device_id = excluded.conversion_device_id
   `).run({
     ...data,
     project_id: projectId,
+    location_id: location.location_id,
     description: data.description ?? null,
   });
 }
@@ -1238,6 +1251,12 @@ export function getLoadCircuit(db: Database.Database, load_circuit_id: string): 
 export function upsertLoadCircuit(db: Database.Database, data: Omit<LoadCircuit, 'id' | 'project_id' | 'location_id'>, projectId: string, locationId?: string | null): void {
   const location = getLocation(db, projectId, locationId);
   const resolvedLocationId = location?.location_id ?? 'location-main';
+  if (data.project_converter_id) {
+    const projectConverter = db.prepare('SELECT * FROM project_converters WHERE project_converter_id = ? AND project_id = ? AND location_id = ?').get(data.project_converter_id, projectId, resolvedLocationId) as ProjectConverter | undefined;
+    if (!projectConverter) {
+      throw new Error(`Project converter "${data.project_converter_id}" not found in location "${resolvedLocationId}".`);
+    }
+  }
   db.prepare(`
     INSERT INTO load_circuits (
       project_id,

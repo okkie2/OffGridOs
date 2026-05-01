@@ -16,13 +16,13 @@ The intended ownership boundary between project-scoped catalogue data and locati
 - `battery_types` and `battery_bank_configurations`: battery catalog and selected battery-bank setup
 - `inverter_types` and `inverter_configurations`: legacy inverter catalog and selected inverter setup
 - `dc_busbars`: shared DC distribution points between the battery bank and downstream branches
-- `conversion_devices`, `project_converters`, `load_circuits`, and `loads`: the load-side model for downstream electrical demand, with circuits and loads owned by the active location
+- `conversion_devices`, `project_converters`, `load_circuits`, and `loads`: the load-side model for downstream electrical demand, with converters, circuits, and loads owned by the active location
 
 ## Load-Side Model
 
 - `conversion_devices` unifies inverter-like and converter-like devices behind one catalog table and now mirrors the inverter catalog bridge
 - each `conversion_device` includes an explicit `output_voltage_v` field for the device output domain
-- `project_converters` stores the project-level converter instances shown on `Consumption`; each row has its own title and description and references one catalog `conversion_device`
+- `project_converters` stores the location-level converter instances shown on `Consumption`; each row has its own title and description and references one catalog `conversion_device`
 - `dc_busbars` stores the shared DC distribution point for the battery-bank side of the system
 - `battery_bank_configurations.selected_dc_busbar_id` and `inverter_configurations.selected_dc_busbar_id` optionally link those configurations to one shared busbar
 - `load_circuits` groups one or more loads behind one protected distribution point within a location, links to the owning `project_converter`, and carries the inherited supply type and voltage context through its attached converter
