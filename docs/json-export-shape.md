@@ -43,7 +43,7 @@ Example:
 
 ```json
 {
-  "project_id": "offgridos-project",
+  "project_id": "1",
   "name": "OffGridOS - 18Mad Boerderij",
   "location": {
     "country": "NL",

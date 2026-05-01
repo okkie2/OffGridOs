@@ -149,6 +149,24 @@ const BATTERY_TYPES: Array<{
     notes: 'ZYC Energy SIMPO 5000 brochure: LiFePO4 module, 51.2 V, 100 Ah, 5.12 kWh usable, CAN/RS485 or self-managed communication, charging to -10 C, discharging to -20 C, hot-swappable, auto-setup, up to 80 units in parallel, and pre-wired cabinets for 6 or 10 batteries.',
   },
   {
+    battery_type_id: 'voltsmile-v10-5120wh',
+    brand: 'Voltsmile',
+    model: 'V10 5.12kWh 100A 6000 cycli',
+    chemistry: 'LiFePO4',
+    nominal_voltage: 51.2,
+    capacity_ah: 100,
+    capacity_kwh: 5.12,
+    max_discharge_rate: 100,
+    victron_can: 1,
+    cooling: 'passive',
+    price: 1097.36,
+    price_per_kwh: 214.33,
+    price_source_url: 'https://www.accutotaal.com/voltsmile-v10-5-12kwh-100a-6000-cycli.html',
+    source: 'https://www.accutotaal.com/voltsmile-v10-5-12kwh-100a-6000-cycli.html',
+    url: 'https://www.accutotaal.com/voltsmile-v10-5-12kwh-100a-6000-cycli.html',
+    notes: 'AccuTotaal.com artikel BAT406410028. LiFePO4, 51.2 V, 100 Ah, 5.12 kWh, 42 kg, 130×470×440 mm. Spec: 6000 cycli, 6DIP. Speciale prijs €1097,36 (adviesprijs €1276,00).',
+  },
+  {
     battery_type_id: 'rs-series-rs230',
     brand: 'RS',
     model: 'RS230',
@@ -907,8 +925,12 @@ export function seedInverterConfigurations(db: Database.Database): void {
 export function seedLocation(db: Database.Database): void {
   const existing = db.prepare('SELECT COUNT(*) as count FROM locations').get() as { count: number } | undefined;
   if (!existing || existing.count === 0) {
-    db.prepare('INSERT INTO locations (title, country, place_name, latitude, longitude, northing, easting) VALUES (@title, @country, @place_name, @latitude, @longitude, @northing, @easting)')
-      .run(BASELINE_LOCATION);
+    db.prepare('INSERT INTO locations (project_id, location_id, title, country, place_name, latitude, longitude, northing, easting) VALUES (@project_id, @location_id, @title, @country, @place_name, @latitude, @longitude, @northing, @easting)')
+      .run({
+        ...BASELINE_LOCATION,
+        project_id: '1',
+        location_id: 'location-main',
+      });
   }
 }
 

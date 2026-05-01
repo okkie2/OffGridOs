@@ -1,5 +1,7 @@
 export interface Location {
   id: number;
+  project_id: string;
+  location_id: string;
   title?: string | null;
   country: string;
   place_name: string;
@@ -14,6 +16,8 @@ export interface Location {
 
 export interface Surface {
   id: number;
+  project_id: string;
+  location_id: string;
   surface_id: string;
   name: string;
   description?: string | null;
@@ -233,6 +237,8 @@ export interface ProjectConverter {
 
 export interface LoadCircuit {
   id: number;
+  project_id: string;
+  location_id: string;
   load_circuit_id: string;
   project_converter_id?: string | null;
   conversion_device_id: string;
@@ -242,6 +248,8 @@ export interface LoadCircuit {
 
 export interface Load {
   id: number;
+  project_id: string;
+  location_id: string;
   load_id: string;
   load_circuit_id: string;
   title: string;

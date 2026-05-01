@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import { generateUniqueLocationId } from '../domain/location-id.js';
 import type {
   Location,
   Project,
@@ -74,11 +75,15 @@ export function deleteProject(db: Database.Database, project_id: string): void {
 
 // ── Location ─────────────────────────────────────────────────────────────────
 
-export function getLocation(db: Database.Database, projectId: string): Location | null {
-  return (db.prepare('SELECT * FROM locations WHERE project_id = ? LIMIT 1').get(projectId) as Location) ?? null;
+export function listLocations(db: Database.Database, projectId: string): Location[] {
+  return db.prepare('SELECT * FROM locations WHERE project_id = ? ORDER BY id').all(projectId) as Location[];
 }
 
-export function upsertLocation(db: Database.Database, data: Omit<Location, 'id'>, projectId: string): void {
+export function getLocation(db: Database.Database, projectId: string): Location | null {
+  return (db.prepare('SELECT * FROM locations WHERE project_id = ? ORDER BY id LIMIT 1').get(projectId) as Location) ?? null;
+}
+
+export function upsertLocation(db: Database.Database, data: Omit<Location, 'id' | 'project_id' | 'location_id'>, projectId: string): void {
   const existing = getLocation(db, projectId);
   if (existing) {
     const title = data.title === undefined ? (existing.title ?? null) : data.title;
@@ -95,10 +100,14 @@ export function upsertLocation(db: Database.Database, data: Omit<Location, 'id'>
         id: existing.id,
       });
   } else {
-    db.prepare('INSERT INTO locations (project_id, title, country, place_name, description, notes, latitude, longitude, northing, easting, site_photo_data_url) VALUES (@project_id, @title, @country, @place_name, @description, @notes, @latitude, @longitude, @northing, @easting, @site_photo_data_url)')
+    const existingLocationIds = listLocations(db, projectId).map((location) => location.location_id);
+    const locationId = generateUniqueLocationId(data.place_name || data.title || projectId, existingLocationIds);
+
+    db.prepare('INSERT INTO locations (project_id, location_id, title, country, place_name, description, notes, latitude, longitude, northing, easting, site_photo_data_url) VALUES (@project_id, @location_id, @title, @country, @place_name, @description, @notes, @latitude, @longitude, @northing, @easting, @site_photo_data_url)')
       .run({
         ...data,
         project_id: projectId,
+        location_id: locationId,
         title: data.title ?? null,
         description: data.description ?? null,
         notes: data.notes ?? null,
@@ -110,20 +119,31 @@ export function upsertLocation(db: Database.Database, data: Omit<Location, 'id'>
 // ── Surfaces ──────────────────────────────────────────────────────────────────
 
 export function listSurfaces(db: Database.Database, projectId: string): Surface[] {
-  return db.prepare('SELECT * FROM surfaces WHERE project_id = ? ORDER BY sort_order, id').all(projectId) as Surface[];
+  const location = getLocation(db, projectId);
+  if (!location) {
+    return [];
+  }
+
+  return db.prepare('SELECT * FROM surfaces WHERE location_id = ? ORDER BY sort_order, id').all(location.location_id) as Surface[];
 }
 
 export function getSurface(db: Database.Database, surface_id: string): Surface | null {
   return (db.prepare('SELECT * FROM surfaces WHERE surface_id = ?').get(surface_id) as Surface) ?? null;
 }
 
-export function insertSurface(db: Database.Database, data: Omit<Surface, 'id'>, projectId: string): void {
+export function insertSurface(db: Database.Database, data: Omit<Surface, 'id' | 'project_id' | 'location_id'>, projectId: string): void {
+  const location = getLocation(db, projectId);
+  if (!location) {
+    throw new Error(`No location found for project "${projectId}".`);
+  }
+
   db.prepare(`
-    INSERT INTO surfaces (project_id, surface_id, name, description, sort_order, orientation_deg, tilt_deg, usable_area_m2, area_height_m, area_width_m, notes, photo_data_url)
-    VALUES (@project_id, @surface_id, @name, @description, @sort_order, @orientation_deg, @tilt_deg, @usable_area_m2, @area_height_m, @area_width_m, @notes, @photo_data_url)
+    INSERT INTO surfaces (project_id, location_id, surface_id, name, description, sort_order, orientation_deg, tilt_deg, usable_area_m2, area_height_m, area_width_m, notes, photo_data_url)
+    VALUES (@project_id, @location_id, @surface_id, @name, @description, @sort_order, @orientation_deg, @tilt_deg, @usable_area_m2, @area_height_m, @area_width_m, @notes, @photo_data_url)
   `).run({
     ...data,
     project_id: projectId,
+    location_id: location.location_id,
     description: data.description ?? null,
     area_height_m: data.area_height_m ?? null,
     area_width_m: data.area_width_m ?? null,
@@ -131,7 +151,7 @@ export function insertSurface(db: Database.Database, data: Omit<Surface, 'id'>, 
   });
 }
 
-export function createSurface(db: Database.Database, data: Omit<Surface, 'id'>, projectId: string): void {
+export function createSurface(db: Database.Database, data: Omit<Surface, 'id' | 'project_id' | 'location_id'>, projectId: string): void {
   const nextSortOrderRow = db.prepare('SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_sort_order FROM surfaces WHERE project_id = ?').get(projectId) as { next_sort_order: number } | undefined;
   insertSurface(db, {
     ...data,
@@ -140,7 +160,7 @@ export function createSurface(db: Database.Database, data: Omit<Surface, 'id'>, 
   syncPvTopologyForSurface(db, data.surface_id);
 }
 
-export function updateSurface(db: Database.Database, data: Omit<Surface, 'id'>): void {
+export function updateSurface(db: Database.Database, data: Omit<Surface, 'id' | 'project_id' | 'location_id'>): void {
   db.prepare(`
     UPDATE surfaces
     SET name=@name, description=@description, orientation_deg=@orientation_deg, tilt_deg=@tilt_deg,
@@ -1124,17 +1144,22 @@ export function deleteProjectConverter(db: Database.Database, project_converter_
 // ── Load circuits ────────────────────────────────────────────────────────────
 
 export function listLoadCircuits(db: Database.Database, projectId: string): LoadCircuit[] {
-  return db.prepare('SELECT * FROM load_circuits WHERE project_id = ? ORDER BY title, load_circuit_id').all(projectId) as LoadCircuit[];
+  const location = getLocation(db, projectId);
+  if (!location) return [];
+  return db.prepare('SELECT * FROM load_circuits WHERE project_id = ? AND location_id = ? ORDER BY title, load_circuit_id').all(projectId, location.location_id) as LoadCircuit[];
 }
 
 export function getLoadCircuit(db: Database.Database, load_circuit_id: string): LoadCircuit | null {
   return (db.prepare('SELECT * FROM load_circuits WHERE load_circuit_id = ?').get(load_circuit_id) as LoadCircuit) ?? null;
 }
 
-export function upsertLoadCircuit(db: Database.Database, data: Omit<LoadCircuit, 'id'>, projectId: string): void {
+export function upsertLoadCircuit(db: Database.Database, data: Omit<LoadCircuit, 'id' | 'project_id' | 'location_id'>, projectId: string): void {
+  const location = getLocation(db, projectId);
+  const locationId = location?.location_id ?? 'location-main';
   db.prepare(`
     INSERT INTO load_circuits (
       project_id,
+      location_id,
       load_circuit_id,
       project_converter_id,
       conversion_device_id,
@@ -1143,6 +1168,7 @@ export function upsertLoadCircuit(db: Database.Database, data: Omit<LoadCircuit,
     )
     VALUES (
       @project_id,
+      @location_id,
       @load_circuit_id,
       @project_converter_id,
       @conversion_device_id,
@@ -1150,6 +1176,7 @@ export function upsertLoadCircuit(db: Database.Database, data: Omit<LoadCircuit,
       @description
     )
     ON CONFLICT(load_circuit_id) DO UPDATE SET
+      location_id = excluded.location_id,
       project_converter_id = excluded.project_converter_id,
       conversion_device_id = excluded.conversion_device_id,
       title = excluded.title,
@@ -1157,6 +1184,7 @@ export function upsertLoadCircuit(db: Database.Database, data: Omit<LoadCircuit,
   `).run({
     ...data,
     project_id: projectId,
+    location_id: locationId,
     project_converter_id: data.project_converter_id ?? null,
     description: data.description ?? null,
   });
@@ -1170,14 +1198,16 @@ export function deleteLoadCircuit(db: Database.Database, load_circuit_id: string
 // ── Loads ────────────────────────────────────────────────────────────────────
 
 export function listLoads(db: Database.Database, projectId: string): Load[] {
-  return db.prepare('SELECT * FROM loads WHERE project_id = ? ORDER BY load_circuit_id, title, load_id').all(projectId) as Load[];
+  const location = getLocation(db, projectId);
+  if (!location) return [];
+  return db.prepare('SELECT * FROM loads WHERE project_id = ? AND location_id = ? ORDER BY load_circuit_id, title, load_id').all(projectId, location.location_id) as Load[];
 }
 
 export function getLoad(db: Database.Database, load_id: string): Load | null {
   return (db.prepare('SELECT * FROM loads WHERE load_id = ?').get(load_id) as Load) ?? null;
 }
 
-export function upsertLoad(db: Database.Database, data: Omit<Load, 'id'>, projectId: string): void {
+export function upsertLoad(db: Database.Database, data: Omit<Load, 'id' | 'project_id' | 'location_id'>, projectId: string): void {
   const nominalPowerW = data.nominal_power_w
     ?? ((data.usage_kw ?? 0) * 1000);
   const surgePowerW = data.surge_power_w
@@ -1188,10 +1218,13 @@ export function upsertLoad(db: Database.Database, data: Omit<Load, 'id'>, projec
       ? (nominalPowerW / 1000) * data.expected_usage_hours_per_day
       : null
   );
+  const loadCircuit = getLoadCircuit(db, data.load_circuit_id);
+  const locationId = loadCircuit?.location_id ?? getLocation(db, projectId)?.location_id ?? 'location-main';
 
   db.prepare(`
     INSERT INTO loads (
       project_id,
+      location_id,
       load_id,
       load_circuit_id,
       title,
@@ -1211,6 +1244,7 @@ export function upsertLoad(db: Database.Database, data: Omit<Load, 'id'>, projec
     )
     VALUES (
       @project_id,
+      @location_id,
       @load_id,
       @load_circuit_id,
       @title,
@@ -1229,6 +1263,7 @@ export function upsertLoad(db: Database.Database, data: Omit<Load, 'id'>, projec
       @sleeping_kw
     )
     ON CONFLICT(load_id) DO UPDATE SET
+      location_id = excluded.location_id,
       load_circuit_id = excluded.load_circuit_id,
       title = excluded.title,
       description = excluded.description,
@@ -1247,6 +1282,7 @@ export function upsertLoad(db: Database.Database, data: Omit<Load, 'id'>, projec
   `).run({
     ...data,
     project_id: projectId,
+    location_id: locationId,
     description: data.description ?? null,
     nominal_current_a: data.nominal_current_a ?? null,
     nominal_power_w: nominalPowerW,

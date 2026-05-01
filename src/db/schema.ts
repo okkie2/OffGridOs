@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import { seedMpptTypes, seedBatteryTypes, seedInverterTypes, seedConversionDevices, seedInverterConfigurations, seedLocation, seedPanelTypes, seedSurfaces, seedSurfacePanelAssignments } from './seeds.js';
 import { syncPvTopology } from './queries.js';
 import { DEFAULT_PROJECT_ID } from '../config/project.js';
+import { generateUniqueLocationId } from '../domain/location-id.js';
 
 function hasTable(db: Database.Database, tableName: string): boolean {
   const row = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?").get(tableName) as { name?: string } | undefined;
@@ -22,11 +23,56 @@ function ensureProjectsTable(db: Database.Database): void {
   `).run({ project_id: DEFAULT_PROJECT_ID });
 }
 
+function migrateLegacyDefaultProjectId(db: Database.Database): void {
+  const legacyProject = db.prepare('SELECT * FROM projects WHERE project_id = ?').get('default-project') as { project_id: string; title: string; created_at: string } | undefined;
+  if (!legacyProject) {
+    return;
+  }
+
+  db.prepare(`
+    INSERT INTO projects (project_id, title, created_at)
+    VALUES (?, ?, ?)
+    ON CONFLICT(project_id) DO UPDATE SET
+      title = excluded.title,
+      created_at = COALESCE(projects.created_at, excluded.created_at)
+  `).run(DEFAULT_PROJECT_ID, legacyProject.title, legacyProject.created_at);
+
+  const scopedTables = [
+    'locations',
+    'surfaces',
+    'surface_panel_assignments',
+    'pv_arrays',
+    'pv_strings',
+    'array_to_mppt_mappings',
+    'surface_configurations',
+    'battery_bank_configurations',
+    'inverter_configurations',
+    'project_converters',
+    'load_circuits',
+    'loads',
+    'project_preferences',
+  ];
+
+  for (const tableName of scopedTables) {
+    const cols = new Set((db.prepare(`PRAGMA table_info('${tableName}')`).all() as { name: string }[]).map((row) => row.name));
+    if (!cols.has('project_id')) {
+      continue;
+    }
+
+    db.prepare(`UPDATE ${tableName} SET project_id = ? WHERE project_id = ?`).run(DEFAULT_PROJECT_ID, 'default-project');
+  }
+
+  db.prepare('DELETE FROM projects WHERE project_id = ?').run('default-project');
+}
+
 function ensureProjectId(db: Database.Database, tableName: string): void {
   const cols = new Set(
     (db.prepare(`PRAGMA table_info('${tableName}')`).all() as { name: string }[]).map((r) => r.name),
   );
-  if (cols.has('project_id')) return;
+  if (cols.has('project_id')) {
+    db.prepare(`UPDATE ${tableName} SET project_id = ? WHERE project_id IS NULL`).run(DEFAULT_PROJECT_ID);
+    return;
+  }
   // SQLite does not allow a non-NULL default on a REFERENCES column, so we add
   // the column as nullable, backfill, then rely on application-layer enforcement.
   db.exec(`ALTER TABLE ${tableName} ADD COLUMN project_id TEXT REFERENCES projects(project_id);`);
@@ -53,6 +99,70 @@ function ensureProjectPreferencesMigration(db: Database.Database): void {
     DROP TABLE project_preferences;
     ALTER TABLE project_preferences_new RENAME TO project_preferences;
   `);
+}
+
+function ensureLocationIdentity(db: Database.Database): void {
+  const cols = new Set(
+    (db.prepare("PRAGMA table_info('locations')").all() as { name: string }[]).map((r) => r.name),
+  );
+  if (!cols.has('location_id')) {
+    db.exec('ALTER TABLE locations ADD COLUMN location_id TEXT;');
+  }
+
+  const rows = db.prepare('SELECT id, location_id, title, place_name FROM locations ORDER BY id').all() as Array<{
+    id: number;
+    location_id: string | null;
+    title: string | null;
+    place_name: string;
+  }>;
+  const usedIds = new Set(rows.map((row) => row.location_id).filter((value): value is string => Boolean(value)));
+  const updateLocation = db.prepare('UPDATE locations SET location_id = ? WHERE id = ?');
+
+  for (const row of rows) {
+    if (row.location_id) {
+      continue;
+    }
+
+    const label = row.title?.trim() || row.place_name?.trim() || 'location';
+    const locationId = generateUniqueLocationId(label, usedIds);
+    updateLocation.run(locationId, row.id);
+    usedIds.add(locationId);
+  }
+
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS locations_location_id_idx ON locations(location_id);');
+}
+
+function ensureSurfaceLocationId(db: Database.Database): void {
+  const cols = new Set(
+    (db.prepare("PRAGMA table_info('surfaces')").all() as { name: string }[]).map((r) => r.name),
+  );
+  if (!cols.has('location_id')) {
+    db.exec('ALTER TABLE surfaces ADD COLUMN location_id TEXT;');
+  }
+
+  const rows = db.prepare(`
+    SELECT s.id, s.location_id, s.surface_id, s.project_id, l.location_id AS inherited_location_id
+    FROM surfaces s
+    LEFT JOIN locations l ON l.project_id = s.project_id
+    ORDER BY s.id
+  `).all() as Array<{
+    id: number;
+    location_id: string | null;
+    surface_id: string;
+    project_id: string | null;
+    inherited_location_id: string | null;
+  }>;
+
+  const updateSurface = db.prepare('UPDATE surfaces SET location_id = ? WHERE id = ?');
+  for (const row of rows) {
+    if (row.location_id) {
+      continue;
+    }
+    const fallbackLocationId = row.inherited_location_id || 'location-main';
+    updateSurface.run(fallbackLocationId, row.id);
+  }
+
+  db.exec('CREATE INDEX IF NOT EXISTS surfaces_location_id_idx ON surfaces(location_id);');
 }
 
 function ensureLoadCircuitsProjectConverterId(db: Database.Database): void {
@@ -87,6 +197,52 @@ function ensureLoadCircuitsProjectConverterId(db: Database.Database): void {
       AND conversion_device_id IN (
         SELECT project_converter_id FROM project_converters
       );
+  `);
+}
+
+function ensureLoadCircuitLocationId(db: Database.Database): void {
+  const cols = new Set(
+    (db.prepare("PRAGMA table_info('load_circuits')").all() as { name: string }[]).map((r) => r.name),
+  );
+  if (!cols.has('location_id')) {
+    db.exec('ALTER TABLE load_circuits ADD COLUMN location_id TEXT;');
+  }
+
+  db.exec(`
+    UPDATE load_circuits
+    SET location_id = COALESCE(
+      location_id,
+      (
+        SELECT location_id
+        FROM locations
+        WHERE locations.project_id = load_circuits.project_id
+        ORDER BY id
+        LIMIT 1
+      )
+    )
+    WHERE location_id IS NULL;
+  `);
+}
+
+function ensureLoadLocationId(db: Database.Database): void {
+  const cols = new Set(
+    (db.prepare("PRAGMA table_info('loads')").all() as { name: string }[]).map((r) => r.name),
+  );
+  if (!cols.has('location_id')) {
+    db.exec('ALTER TABLE loads ADD COLUMN location_id TEXT;');
+  }
+
+  db.exec(`
+    UPDATE loads
+    SET location_id = COALESCE(
+      location_id,
+      (
+        SELECT lc.location_id
+        FROM load_circuits lc
+        WHERE lc.load_circuit_id = loads.load_circuit_id
+      )
+    )
+    WHERE location_id IS NULL;
   `);
 }
 
@@ -238,8 +394,8 @@ function dropLegacyLocationTable(db: Database.Database): void {
 
   if (legacyCount > 0 && currentCount === 0) {
     db.exec(`
-      INSERT INTO locations (id, title, country, place_name, description, notes, latitude, longitude, northing, easting, site_photo_data_url)
-      SELECT id, NULL, country, place_name, NULL, NULL, latitude, longitude, northing, easting, NULL
+      INSERT INTO locations (id, location_id, title, country, place_name, description, notes, latitude, longitude, northing, easting, site_photo_data_url)
+      SELECT id, printf('legacy-location-%d', id), NULL, country, place_name, NULL, NULL, latitude, longitude, northing, easting, NULL
       FROM location
       ORDER BY id
     `);
@@ -442,6 +598,7 @@ export function initSchema(db: Database.Database): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS locations (
       id        INTEGER PRIMARY KEY AUTOINCREMENT,
+      location_id TEXT UNIQUE NOT NULL,
       title     TEXT,
       country   TEXT NOT NULL,
       place_name TEXT NOT NULL,
@@ -456,6 +613,8 @@ export function initSchema(db: Database.Database): void {
 
     CREATE TABLE IF NOT EXISTS surfaces (
       id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id     TEXT REFERENCES projects(project_id),
+      location_id    TEXT,
       surface_id     TEXT UNIQUE NOT NULL,
       name           TEXT NOT NULL,
       description    TEXT,
@@ -672,6 +831,7 @@ export function initSchema(db: Database.Database): void {
     CREATE TABLE IF NOT EXISTS load_circuits (
       id                     INTEGER PRIMARY KEY AUTOINCREMENT,
       load_circuit_id        TEXT UNIQUE NOT NULL,
+      location_id            TEXT NOT NULL REFERENCES locations(location_id),
       project_converter_id   TEXT REFERENCES project_converters(project_converter_id),
       conversion_device_id   TEXT NOT NULL REFERENCES conversion_devices(conversion_device_id),
       title                  TEXT NOT NULL,
@@ -681,6 +841,7 @@ export function initSchema(db: Database.Database): void {
     CREATE TABLE IF NOT EXISTS loads (
       id                     INTEGER PRIMARY KEY AUTOINCREMENT,
       load_id                TEXT UNIQUE NOT NULL,
+      location_id            TEXT NOT NULL REFERENCES locations(location_id),
       load_circuit_id        TEXT NOT NULL REFERENCES load_circuits(load_circuit_id),
       title                  TEXT NOT NULL,
       description            TEXT,
@@ -701,6 +862,7 @@ export function initSchema(db: Database.Database): void {
   `);
 
   ensureLocationColumns(db);
+  ensureLocationIdentity(db);
   dropLegacyLocationTable(db);
   ensureSurfaceColumns(db);
   ensureDcBusbarColumns(db);
@@ -717,8 +879,10 @@ export function initSchema(db: Database.Database): void {
   // tables. Catalog tables (panel_types, mppt_types, battery_types, inverter_types,
   // cabinet_types, conversion_devices, dc_busbars) stay global and are not scoped.
   ensureProjectsTable(db);
+  migrateLegacyDefaultProjectId(db);
   ensureProjectId(db, 'locations');
   ensureProjectId(db, 'surfaces');
+  ensureSurfaceLocationId(db);
   ensureProjectId(db, 'surface_panel_assignments');
   ensureProjectId(db, 'pv_arrays');
   ensureProjectId(db, 'pv_strings');
@@ -730,9 +894,11 @@ export function initSchema(db: Database.Database): void {
   ensureProjectId(db, 'load_circuits');
   ensureProjectId(db, 'loads');
   ensureProjectPreferencesMigration(db);
-  ensureLoadCircuitsProjectConverterId(db);
-  ensureLoadColumns(db);
   seedLocation(db);
+  ensureLoadCircuitsProjectConverterId(db);
+  ensureLoadCircuitLocationId(db);
+  ensureLoadColumns(db);
+  ensureLoadLocationId(db);
   seedSurfaces(db);
   seedPanelTypes(db);
   seedMpptTypes(db);

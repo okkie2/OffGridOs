@@ -294,11 +294,11 @@ erDiagram
 - `battery_types.price_source_url` supersedes the legacy `source` and `url` fields, which are still present for backwards compatibility.
 - `inverter_configurations` stores the selected inverter setup plus optional title, description, notes, and image.
 - `conversion_devices` stores the unified inverter and converter catalog entries for the load side.
-- `load_circuits` stores protected load-side circuits behind one conversion device.
-- `loads` stores the individual load items attached to a load circuit, with neutral electrical fields for current, power, and usage plus legacy kW aliases kept for compatibility during migration.
+- `load_circuits` stores protected load-side circuits behind one conversion device and within the active location.
+- `loads` stores the individual load items attached to a load circuit, with neutral electrical fields for current, power, and usage plus legacy kW aliases kept for compatibility during migration, and they remain location-owned through their parent circuit.
 - `loads` inherit supply type and voltage context from their parent load circuit's attached conversion device.
 - `project_preferences` uses `key` as its primary key (no separate `id` column).
 - monthly solar output by surface is currently derived at export time rather than stored as a base table.
 - the project-level monthly solar total is the sum of those derived surface monthly outputs.
 
-The schema is intentionally small and still aimed at one project at a time. If OffGridOS later grows into a multi-user or multi-project tool, this doc should be updated alongside the schema.
+The schema is intentionally small and still assumes one active project and one active location at a time while the boundary refactor lands. If OffGridOS later grows into a multi-user or multi-project tool, this doc should be updated alongside the schema.

@@ -7,6 +7,7 @@ Every concept must be referred to by its canonical name across the database sche
 
 | Domain concept | DB table (plural snake_case) | TS interface (singular PascalCase) | Preferred label |
 |---|---|---|---|
+| Project | `projects` | `Project` | Project |
 | Location | `locations` | `Location` | Location |
 | Surface | `surfaces` | `Surface` | Surface |
 | Panel type | `panel_types` | `PanelType` | Panel |
@@ -167,6 +168,9 @@ The field is named `orientation_deg` in both the DB column and the TypeScript mo
 
 ## Rules
 
+- `project` is the top-level tenant boundary.
+- A `project` can contain multiple `locations`.
+- The catalogue is shared within a `project` and can span multiple `locations`.
 - DB tables use plural snake_case.
 - TypeScript interfaces use singular PascalCase.
 - CLI prompts, UI labels, and output text should match the canonical domain concept name.

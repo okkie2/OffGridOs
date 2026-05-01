@@ -5,7 +5,7 @@ import { listSurfaces, getSurface, insertSurface, updateSurface, deleteSurface }
 import type { Surface } from '../../domain/types.js';
 import { DEFAULT_PROJECT_ID } from '../../config/project.js';
 
-async function promptSurface(existing?: Surface): Promise<Omit<Surface, 'id'>> {
+async function promptSurface(existing?: Surface): Promise<Omit<Surface, 'id' | 'project_id' | 'location_id'>> {
   const ans = await inquirer.prompt([
     {
       type: 'input',

@@ -96,6 +96,7 @@ Use `npm run publish:db` to upload the local database, or open the CLI menu and 
 
 - [naming-conventions.md](./docs/naming-conventions.md): target naming rule for catalog tables, project configurations, and derived outputs.
 - [database-schema.md](./docs/database-schema.md): Mermaid ER diagram of the current SQLite schema and how the core tables relate to each other.
+- [project-location-boundary.md](./docs/project-location-boundary.md): the intended boundary between project-scoped catalogue data and location-scoped configuration.
 - [project-baseline.md](./docs/project-baseline.md): current real-project baseline and intended configuration details from `project.db`.
 
 ### App structure and architecture

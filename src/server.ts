@@ -139,6 +139,14 @@ function resolveLoadDailyEnergyKwh(payload: LoadPayload, nominalPowerW: number |
   return null;
 }
 
+function isNonNegativeFinite(value: number | null): boolean {
+  return value != null && Number.isFinite(value) && value >= 0;
+}
+
+function isNonNegativeFiniteOrNull(value: number | null): boolean {
+  return value == null || isNonNegativeFinite(value);
+}
+
 function isValidLatitude(value: number): boolean {
   return Number.isFinite(value) && value >= -90 && value <= 90;
 }
@@ -2182,8 +2190,8 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           const standbyPowerW = resolveLoadStandbyPowerW(payload);
           const dailyEnergyKwh = resolveLoadDailyEnergyKwh(payload, nominalPowerW);
 
-          if (nominalPowerW == null || nominalPowerW < 0 || (surgePowerW != null && surgePowerW < 0) || (standbyPowerW != null && standbyPowerW < 0) || expectedUsageHoursPerDay < 0 || (dailyEnergyKwh != null && dailyEnergyKwh < 0)) {
-            return { status: 400 as const, body: { error: 'Invalid load payload. Provide title, load_circuit_id, and nominal_power_w, or legacy usage_kw, spike_kw, and sleeping_kw values.' } };
+          if (!isNonNegativeFinite(nominalPowerW) || !isNonNegativeFiniteOrNull(surgePowerW) || !isNonNegativeFiniteOrNull(standbyPowerW) || expectedUsageHoursPerDay < 0 || (dailyEnergyKwh != null && dailyEnergyKwh < 0)) {
+            return { status: 400 as const, body: { error: 'Invalid load payload. Provide a title, load_circuit_id, and non-negative load values.' } };
           }
 
           upsertLoad(db, {
@@ -2262,8 +2270,8 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           const standbyPowerW = resolveLoadStandbyPowerW(payload);
           const dailyEnergyKwh = resolveLoadDailyEnergyKwh(payload, nominalPowerW);
 
-          if (nominalPowerW == null || nominalPowerW < 0 || (surgePowerW != null && surgePowerW < 0) || (standbyPowerW != null && standbyPowerW < 0) || expectedUsageHoursPerDay < 0 || (dailyEnergyKwh != null && dailyEnergyKwh < 0)) {
-            return { status: 400 as const, body: { error: 'Invalid load payload. Provide title, load_circuit_id, and nominal_power_w, or legacy usage_kw, spike_kw, and sleeping_kw values.' } };
+          if (!isNonNegativeFinite(nominalPowerW) || !isNonNegativeFiniteOrNull(surgePowerW) || !isNonNegativeFiniteOrNull(standbyPowerW) || expectedUsageHoursPerDay < 0 || (dailyEnergyKwh != null && dailyEnergyKwh < 0)) {
+            return { status: 400 as const, body: { error: 'Invalid load payload. Provide a title, load_circuit_id, and non-negative load values.' } };
           }
 
           upsertLoad(db, {

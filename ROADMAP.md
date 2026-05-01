@@ -16,19 +16,22 @@ The deployment docs explicitly call this out as a single-instance, single-user s
 
 ---
 
-## Phase 1: Multi-Project (weeks 1–6)
+## Phase 1: Project + Location Boundary (weeks 1–6)
 
-**Goal:** one instance of the app can hold multiple independent projects.
+**Goal:** one instance of the app can hold multiple independent projects, and each project can hold multiple clean-slate locations while keeping its catalogue shared across those locations.
 
-**Why first:** everything else — auth, sharing, installer dashboard — depends on projects being first-class entities. This is a pure data model change with no user-facing auth complexity yet.
+**Why first:** everything else — auth, sharing, installer dashboard — depends on projects being first-class entities. The location boundary is the next required layer because site-specific configuration must be separated from project-scoped catalogue data before collaboration features land.
 
 ### Technical work
 
 - Add a `projects` table: `(project_id, title, created_at)`
-- Scope every existing table with `project_id` via a migration
-- Update all API routes: `/api/projects/:projectId/surfaces`, `/api/projects/:projectId/battery-types`, etc.
-- Update the frontend URL scheme: `/en/:locationSlug/...` → `/projects/:projectId/en/:locationSlug/...` (or keep slug-based with project prefix)
+- Introduce a real `locations` boundary under each project
+- Move location-specific tables and fields to `location_id` where appropriate
+- Keep shared catalogue tables scoped to `project_id`
+- Update all API routes to carry both project and location context where needed
+- Update the frontend URL scheme to make project and location explicit
 - Add a project switcher / project list screen as the new root landing page
+- Add a location switcher / location list screen inside each project
 - The "create new project" flow from `AboutPage` gets promoted to this root
 
 ### What stays the same
@@ -39,7 +42,7 @@ The deployment docs explicitly call this out as a single-instance, single-user s
 
 ### Exit condition
 
-Multiple independent projects can be created, edited, and switched between without data leaking across them.
+Multiple independent projects can be created, and each project can hold multiple locations without data leaking across projects or between locations in the same project.
 
 ---
 

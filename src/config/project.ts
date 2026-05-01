@@ -1,1 +1,1 @@
-export const DEFAULT_PROJECT_ID = 'default-project';
+export const DEFAULT_PROJECT_ID = '1';

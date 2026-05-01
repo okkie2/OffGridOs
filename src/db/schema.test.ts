@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { DEFAULT_PROJECT_ID } from '../config/project.js';
 import { initSchema } from './schema.js';
 import { getArrayToMpptMapping, getSurfaceConfiguration } from './queries.js';
 
@@ -151,7 +152,9 @@ describe('initSchema', () => {
       expect(hasTable(db, 'location')).toBe(false);
       expect(hasTable(db, 'locations')).toBe(true);
       expect(countRows(db, 'locations')).toBe(1);
-      const row = db.prepare('SELECT country, place_name, latitude, longitude, northing, easting FROM locations LIMIT 1').get() as {
+      const row = db.prepare('SELECT project_id, location_id, country, place_name, latitude, longitude, northing, easting FROM locations LIMIT 1').get() as {
+        project_id: string;
+        location_id: string;
         country: string;
         place_name: string;
         latitude: number;
@@ -160,6 +163,8 @@ describe('initSchema', () => {
         easting: number | null;
       };
       expect(row).toEqual({
+        project_id: DEFAULT_PROJECT_ID,
+        location_id: 'legacy-location-1',
         country: 'NL',
         place_name: 'Legacy site',
         latitude: 52.1,

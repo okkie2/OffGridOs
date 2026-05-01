@@ -845,7 +845,7 @@ function useLocalStorageRevision(): number {
   return revision;
 }
 
-let _currentProjectId: string = localStorage.getItem('offgridos:active-project-id') ?? 'default-project';
+let _currentProjectId: string = localStorage.getItem('offgridos:active-project-id') ?? '1';
 
 function projectFetch(url: string, options?: RequestInit): Promise<Response> {
   const headers = new Headers(options?.headers);
@@ -886,7 +886,7 @@ type LocalSurfaceSummary = {
 };
 
 function getProjectStorageKey(data: DigitalTwinExport): string {
-  return data.project.project_id ?? 'offgridos-project';
+  return data.project.project_id ?? '1';
 }
 
 function getConversionDeviceCatalogSelectionStorageKey(data: DigitalTwinExport): string {
@@ -10576,13 +10576,14 @@ function LoadsPage({
       setSaveError(null);
       setSaveMessage(null);
 
+      const targetCircuitVoltageV = loadCircuitVoltageV(data.entities.conversion_devices.find((item) => item.conversion_device_id === targetCircuit.conversion_device_id) ?? null);
       let targetNominalPowerW = targetLoad.nominal_power_w ?? null;
       if (targetNominalPowerW == null && targetLoad.nominal_current_a != null) {
-        targetNominalPowerW = activeCircuitVoltageV != null ? targetLoad.nominal_current_a * activeCircuitVoltageV : null;
+        targetNominalPowerW = targetCircuitVoltageV != null ? targetLoad.nominal_current_a * targetCircuitVoltageV : null;
       }
       let targetSurgePowerW = targetLoad.surge_power_w ?? null;
       if (targetSurgePowerW == null && targetLoad.startup_current_a != null) {
-        targetSurgePowerW = activeCircuitVoltageV != null ? targetLoad.startup_current_a * activeCircuitVoltageV : null;
+        targetSurgePowerW = targetCircuitVoltageV != null ? targetLoad.startup_current_a * targetCircuitVoltageV : null;
       }
       if (targetNominalPowerW == null) {
         throw new Error('Nominal power is required. Enter power directly, or provide current on a circuit with a voltage.');

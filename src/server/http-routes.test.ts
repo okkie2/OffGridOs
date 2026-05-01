@@ -282,4 +282,70 @@ describe('Load circuit and load routes', () => {
     expect(load.nominal_current_a).toBe(currentA);
     expect(load.nominal_power_w).toBeCloseTo(expectedPowerW, 5);
   });
+
+  it('accepts load edits that add a note with neutral fields', async () => {
+    const twin = await getDigitalTwin();
+    const conversionDeviceId = twin.entities.conversion_devices[0]?.conversion_device_id;
+    expect(conversionDeviceId).toBeTruthy();
+
+    const circuitRes = await fetch(`${BASE_URL}/api/load-circuits`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        conversion_device_id: conversionDeviceId,
+        title: 'Edit test circuit',
+      }),
+    });
+    expect(circuitRes.status).toBe(201);
+
+    const circuitTwin = await circuitRes.json() as {
+      entities: {
+        load_circuits: Array<{ load_circuit_id: string }>;
+      };
+    };
+    const loadCircuitId = circuitTwin.entities.load_circuits[0]?.load_circuit_id;
+    expect(loadCircuitId).toBeTruthy();
+
+    const createRes = await fetch(`${BASE_URL}/api/loads`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        load_circuit_id: loadCircuitId,
+        title: 'Edit me',
+        nominal_power_w: 75,
+        expected_usage_hours_per_day: 2,
+      }),
+    });
+    expect(createRes.status).toBe(201);
+
+    const createTwin = await createRes.json() as {
+      entities: {
+        loads: Array<{ load_id: string; notes?: string | null }>;
+      };
+    };
+    const loadId = createTwin.entities.loads[0]?.load_id;
+    expect(loadId).toBeTruthy();
+
+    const updateRes = await fetch(`${BASE_URL}/api/loads/${encodeURIComponent(loadId!)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        load_id: loadId,
+        load_circuit_id: loadCircuitId,
+        title: 'Edit me',
+        nominal_power_w: 75,
+        expected_usage_hours_per_day: 2,
+        notes: 'Added note from regression test',
+      }),
+    });
+    expect(updateRes.status).toBe(200);
+
+    const updatedTwin = await updateRes.json() as {
+      entities: {
+        loads: Array<{ load_id: string; notes?: string | null }>;
+      };
+    };
+    expect(updatedTwin.entities.loads[0]?.load_id).toBe(loadId);
+    expect(updatedTwin.entities.loads[0]?.notes).toBe('Added note from regression test');
+  });
 });
