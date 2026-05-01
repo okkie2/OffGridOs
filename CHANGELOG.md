@@ -2,6 +2,8 @@
 
 ## 2026-05-01
 
+- Compacted the battery inline editor by grouping core fields tightly and moving less-used fields behind an `Advanced` disclosure.
+- Converted the battery catalog page from a bottom editor into an inline expandable row pattern, with the selected row revealing the editor directly underneath it.
 - Self-hosted Inter variable font (TTF) in `public/fonts/`, added `@font-face` declarations to `styles.css`, and removed the Google Fonts CDN dependency from `index.html`.
 - Added `col-best`/`col-worst` column highlighting (teal/amber tint) and `best`/`worst` cell text coloring to all yield tables, matching the v2 design spec.
 - Updated yield table `tfoot` background from `color-mix` to `var(--surface-high)` for consistency with the design token.

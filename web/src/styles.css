@@ -1535,6 +1535,19 @@ h1, h2, h3, p, dl, dd, dt {
   color: var(--muted);
 }
 
+.catalog-inline-editor-row td {
+  padding: 0;
+  border: 0;
+}
+
+.catalog-inline-editor {
+  padding: 16px;
+  margin: 8px 0;
+  border: 1px solid var(--border);
+  background: var(--surface-low);
+  border-radius: 12px;
+}
+
 .fit-head {
   display: flex;
   justify-content: space-between;

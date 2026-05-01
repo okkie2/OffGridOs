@@ -4260,7 +4260,7 @@ function ProductionPage({
           </section>
         </div>
 
-        <section className="panel">
+        <section className="panel" style={{ display: 'none' }}>
           <div className="section-head">
             <h2>{t('production.surfaces.title')}</h2>
             <p>{t('location.surfaces.count', { count: localSurfaceSummaries.length })}</p>
@@ -4333,7 +4333,7 @@ function ProductionPage({
           </div>
         </section>
 
-        <section className="panel">
+        <section className="panel" style={{ display: 'none' }}>
           <div className="section-head">
             <h2>{t('production.monthly.title')}</h2>
             <p>Read-only monthly summary.</p>
@@ -6961,55 +6961,33 @@ function BatteryCatalogPage({
 
   const batteryEditor = (
     <>
-      <div className="field">
-        <span>{t('catalog.field.battery_type_id')}</span>
-        <p className="muted">
-          {selectedBattery ? selectedBattery.battery_type_id : (draft.model.trim() ? generateUniqueCatalogId(draft.model.trim(), data.entities.battery_types.map((battery) => battery.battery_type_id)) : t('catalog.ui.generated_after_save'))}
-        </p>
+      <div className="detail-grid two-col catalog-inline-summary">
+        <div className="field">
+          <span>{t('catalog.field.battery_type_id')}</span>
+          <p className="muted">
+            {selectedBattery ? selectedBattery.battery_type_id : (draft.model.trim() ? generateUniqueCatalogId(draft.model.trim(), data.entities.battery_types.map((battery) => battery.battery_type_id)) : t('catalog.ui.generated_after_save'))}
+          </p>
+        </div>
+        <div className="field">
+          <span>{t('catalog.stat.voltage')}</span>
+          <p className="muted">{draft.nominal_voltage ? `${draft.nominal_voltage} V` : 'n/a'}</p>
+        </div>
       </div>
-      <label className="field">
-        <span>{t('catalog.field.brand')}</span>
-        <input
-          value={draft.brand}
-          onChange={(event) => setDraft((current) => ({ ...current, brand: event.target.value }))}
-          placeholder="Pylontech"
-        />
-      </label>
-      <label className="field">
-        <span>{t('catalog.field.model')}</span>
-        <input
-          value={draft.model}
-          onChange={(event) => setDraft((current) => ({ ...current, model: event.target.value }))}
-          placeholder="US5000-1C"
-        />
-      </label>
-      <div className="detail-grid two-col">
+      <div className="detail-grid two-col catalog-inline-basic">
         <label className="field">
-          <span>{t('catalog.field.chemistry')}</span>
+          <span>{t('catalog.field.brand')}</span>
           <input
-            value={draft.chemistry}
-            onChange={(event) => setDraft((current) => ({ ...current, chemistry: event.target.value }))}
-            placeholder="LiFePO4"
+            value={draft.brand}
+            onChange={(event) => setDraft((current) => ({ ...current, brand: event.target.value }))}
+            placeholder="Pylontech"
           />
         </label>
         <label className="field">
-          <span>{t('catalog.field.cooling')}</span>
-          <select
-            value={draft.cooling}
-            onChange={(event) => setDraft((current) => ({ ...current, cooling: event.target.value as 'active' | 'passive' }))}
-          >
-            <option value="passive">passive</option>
-            <option value="active">active</option>
-          </select>
-        </label>
-      </div>
-      <div className="detail-grid two-col">
-        <label className="field">
-          <span>{t('catalog.field.nominal_voltage')}</span>
+          <span>{t('catalog.field.model')}</span>
           <input
-            type="number"
-            value={draft.nominal_voltage}
-            onChange={(event) => setDraft((current) => ({ ...current, nominal_voltage: event.target.value }))}
+            value={draft.model}
+            onChange={(event) => setDraft((current) => ({ ...current, model: event.target.value }))}
+            placeholder="US5000-1C"
           />
         </label>
         <label className="field">
@@ -7020,8 +6998,6 @@ function BatteryCatalogPage({
             onChange={(event) => setDraft((current) => ({ ...current, capacity_kwh: event.target.value }))}
           />
         </label>
-      </div>
-      <div className="detail-grid two-col">
         <label className="field">
           <span>{t('catalog.field.capacity_ah')}</span>
           <input
@@ -7031,102 +7007,101 @@ function BatteryCatalogPage({
           />
         </label>
         <label className="field">
-          <span>{t('catalog.field.victron_can')}</span>
+          <span>{t('catalog.field.nominal_voltage')}</span>
           <input
-            type="checkbox"
-            checked={draft.victron_can}
-            onChange={(event) => setDraft((current) => ({ ...current, victron_can: event.target.checked }))}
+            type="number"
+            value={draft.nominal_voltage}
+            onChange={(event) => setDraft((current) => ({ ...current, nominal_voltage: event.target.value }))}
+          />
+        </label>
+        <label className="field">
+          <span>{t('catalog.field.chemistry')}</span>
+          <input
+            value={draft.chemistry}
+            onChange={(event) => setDraft((current) => ({ ...current, chemistry: event.target.value }))}
+            placeholder="LiFePO4"
           />
         </label>
       </div>
-      <div className="detail-grid two-col">
-        <label className="field">
-          <span>{t('catalog.field.max_charge_rate')}</span>
-          <input
-            type="number"
-            value={draft.max_charge_rate}
-            onChange={(event) => setDraft((current) => ({ ...current, max_charge_rate: event.target.value }))}
-          />
-        </label>
-        <label className="field">
-          <span>{t('catalog.field.max_discharge_rate')}</span>
-          <input
-            type="number"
-            value={draft.max_discharge_rate}
-            onChange={(event) => setDraft((current) => ({ ...current, max_discharge_rate: event.target.value }))}
-          />
-        </label>
-      </div>
-      <div className="detail-grid two-col">
-        <label className="field">
-          <span>{t('catalog.ui.price_per_unit')}</span>
-          <input
-            type="number"
-            value={draft.price}
-            onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))}
-          />
-        </label>
-        <label className="field">
-          <span>{t('catalog.ui.price_source_url')}</span>
-          <input
-            value={draft.price_source_url}
-            onChange={(event) => setDraft((current) => ({ ...current, price_source_url: event.target.value }))}
-            placeholder="https://..."
-          />
-        </label>
-      </div>
-      <label className="field">
-        <span>{t('catalog.ui.notes')}</span>
-        <textarea
-          value={draft.notes}
-          onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))}
-          rows={4}
-        />
-      </label>
-      <div className="stack" style={{ gap: 8 }}>
-        <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.model.trim()}>
+      <details className="catalog-inline-advanced">
+        <summary>Advanced</summary>
+        <div className="stack" style={{ gap: 12 }}>
+          <div className="detail-grid two-col catalog-inline-advanced-grid">
+            <label className="field">
+              <span>{t('catalog.field.cooling')}</span>
+              <select
+                value={draft.cooling}
+                onChange={(event) => setDraft((current) => ({ ...current, cooling: event.target.value as 'active' | 'passive' }))}
+              >
+                <option value="passive">passive</option>
+                <option value="active">active</option>
+              </select>
+            </label>
+            <label className="field">
+              <span>{t('catalog.field.victron_can')}</span>
+              <input
+                type="checkbox"
+                checked={draft.victron_can}
+                onChange={(event) => setDraft((current) => ({ ...current, victron_can: event.target.checked }))}
+              />
+            </label>
+            <label className="field">
+              <span>{t('catalog.field.max_charge_rate')}</span>
+              <input
+                type="number"
+                value={draft.max_charge_rate}
+                onChange={(event) => setDraft((current) => ({ ...current, max_charge_rate: event.target.value }))}
+              />
+            </label>
+            <label className="field">
+              <span>{t('catalog.field.max_discharge_rate')}</span>
+              <input
+                type="number"
+                value={draft.max_discharge_rate}
+                onChange={(event) => setDraft((current) => ({ ...current, max_discharge_rate: event.target.value }))}
+              />
+            </label>
+          </div>
+          <div className="detail-grid two-col catalog-inline-advanced-grid">
+            <label className="field">
+              <span>{t('catalog.ui.price_per_unit')}</span>
+              <input
+                type="number"
+                value={draft.price}
+                onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))}
+              />
+            </label>
+            <label className="field">
+              <span>{t('catalog.ui.price_source_url')}</span>
+              <input
+                value={draft.price_source_url}
+                onChange={(event) => setDraft((current) => ({ ...current, price_source_url: event.target.value }))}
+                placeholder="https://..."
+              />
+            </label>
+          </div>
+          <label className="field">
+            <span>{t('catalog.ui.notes')}</span>
+            <textarea
+              value={draft.notes}
+              onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))}
+              rows={3}
+            />
+          </label>
+        </div>
+      </details>
+      <div className="button-row">
+        <button type="button" className="button button-secondary button-sm" onClick={() => void handleSave()} disabled={isSaving || !draft.model.trim()}>
           {isSaving ? t('common.saving') : t('common.save')}
         </button>
         {selectedBattery ? (
-          <button type="button" className="button button-danger" onClick={() => void handleDelete()} disabled={isSaving}>
+          <button type="button" className="button button-danger button-sm" onClick={() => void handleDelete()} disabled={isSaving}>
             {t('common.delete')}
           </button>
         ) : null}
         {saveError ? <p className="save-error">{saveError}</p> : null}
         {saveMessage ? <p className="save-message">{saveMessage}</p> : null}
       </div>
-      {selectedBattery ? (
-        <dl className="detail-stats panel-spec-grid" style={{ marginTop: 16 }}>
-          <div>
-            <dt>{t('catalog.field.brand')}</dt>
-            <dd>{selectedBattery.brand}</dd>
-          </div>
-          <div>
-            <dt>{t('catalog.stat.capacity')}</dt>
-            <dd>{selectedBattery.capacity_kwh} kWh</dd>
-          </div>
-          <div>
-            <dt>{t('catalog.stat.voltage')}</dt>
-            <dd>{selectedBattery.nominal_voltage} V</dd>
-          </div>
-          <div>
-            <dt>{t('catalog.stat.charge_rate')}</dt>
-            <dd>{selectedBattery.max_charge_rate != null ? `${selectedBattery.max_charge_rate} A` : 'n/a'}</dd>
-          </div>
-          <div>
-            <dt>{t('catalog.stat.discharge_rate')}</dt>
-            <dd>{selectedBattery.max_discharge_rate != null ? `${selectedBattery.max_discharge_rate} A` : 'n/a'}</dd>
-          </div>
-          <div>
-            <dt>{t('catalog.stat.price')}</dt>
-            <dd>{renderPrice(selectedBattery.price, selectedBattery.price_source_url)}</dd>
-          </div>
-          <div>
-            <dt>{t('catalog.stat.price_per_kwh')}</dt>
-            <dd>{selectedBattery.price_per_kwh != null ? renderPrice(selectedBattery.price_per_kwh, selectedBattery.price_source_url) : 'n/a'}</dd>
-          </div>
-        </dl>
-      ) : null}
     </>
   );
 
@@ -7155,6 +7130,15 @@ function BatteryCatalogPage({
                   </tr>
                 </thead>
                 <tbody>
+                  {!selectedBattery ? (
+                    <CatalogInlineEditorRow
+                      colSpan={8}
+                      title={t('catalog.ui.add_item', { item: t('catalog.entry.battery_type') })}
+                      subtitle={t('catalog.ui.changes_saved')}
+                    >
+                      {batteryEditor}
+                    </CatalogInlineEditorRow>
+                  ) : null}
                   {data.entities.battery_types.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="catalog-table-empty">
@@ -7162,47 +7146,57 @@ function BatteryCatalogPage({
                       </td>
                     </tr>
                   ) : data.entities.battery_types.map((battery) => (
-                    <tr
-                      key={battery.battery_type_id}
-                      className={`catalog-table-row ${selectedBatteryTypeId === battery.battery_type_id ? 'catalog-table-row-active' : ''}`}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => {
-                        setSelectedBatteryTypeId(battery.battery_type_id);
-                        setSaveError(null);
-                        setSaveMessage(null);
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
+                    <React.Fragment key={battery.battery_type_id}>
+                      <tr
+                        className={`catalog-table-row ${selectedBatteryTypeId === battery.battery_type_id ? 'catalog-table-row-active' : ''}`}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => {
                           setSelectedBatteryTypeId(battery.battery_type_id);
                           setSaveError(null);
                           setSaveMessage(null);
-                        }
-                      }}
-                    >
-                      <td className="catalog-table-brand-col">{battery.brand}</td>
-                      <td className="catalog-table-model-col">{battery.model}</td>
-                      <td>{battery.capacity_kwh} kWh</td>
-                      <td>{battery.nominal_voltage} V</td>
-                      <td>{renderPrice(battery.price, battery.price_source_url)}</td>
-                      <td>{renderPrice(battery.price_per_kwh, battery.price_source_url)}</td>
-                      <td>{battery.price_source_url ? <a className="price-link" href={battery.price_source_url} target="_blank" rel="noreferrer">{formatPriceSourceName(battery.price_source_url) ?? t('common.open')}</a> : '—'}</td>
-                      <td>
-                        <button
-                          type="button"
-                          className="button button-secondary button-sm"
-                          onClick={(event) => {
-                            event.stopPropagation();
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
                             setSelectedBatteryTypeId(battery.battery_type_id);
                             setSaveError(null);
                             setSaveMessage(null);
-                          }}
+                          }
+                        }}
+                      >
+                        <td className="catalog-table-brand-col">{battery.brand}</td>
+                        <td className="catalog-table-model-col">{battery.model}</td>
+                        <td>{battery.capacity_kwh} kWh</td>
+                        <td>{battery.nominal_voltage} V</td>
+                        <td>{renderPrice(battery.price, battery.price_source_url)}</td>
+                        <td>{renderPrice(battery.price_per_kwh, battery.price_source_url)}</td>
+                        <td>{battery.price_source_url ? <a className="price-link" href={battery.price_source_url} target="_blank" rel="noreferrer">{formatPriceSourceName(battery.price_source_url) ?? t('common.open')}</a> : '—'}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="button button-secondary button-sm"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setSelectedBatteryTypeId(battery.battery_type_id);
+                              setSaveError(null);
+                              setSaveMessage(null);
+                            }}
+                          >
+                            {t('common.edit')}
+                          </button>
+                        </td>
+                      </tr>
+                      {selectedBatteryTypeId === battery.battery_type_id ? (
+                        <CatalogInlineEditorRow
+                          colSpan={8}
+                          title={t('catalog.ui.edit_item', { item: t('catalog.entry.battery_type') })}
+                          subtitle={t('catalog.ui.changes_saved')}
                         >
-                          {t('common.edit')}
-                        </button>
-                      </td>
-                    </tr>
+                          {batteryEditor}
+                        </CatalogInlineEditorRow>
+                      ) : null}
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>
@@ -7210,7 +7204,7 @@ function BatteryCatalogPage({
           </div>
         </section>
 
-        <section className="panel">
+        <section className="panel" style={{ display: 'none' }}>
           <div className="section-head">
             <h2>{selectedBattery ? t('catalog.ui.edit_item', { item: t('catalog.entry.battery_type') }) : t('catalog.ui.add_item', { item: t('catalog.entry.battery_type') })}</h2>
             <p>{t('catalog.ui.changes_saved')}</p>
