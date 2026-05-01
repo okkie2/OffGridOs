@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 20px; background: var(--bg); font-family: var(--font-sans); display: flex; flex-direction: column; gap: 12px; }
+  .panel { background: var(--surface); border: 1px solid var(--border); padding: 20px; border-radius: 10px; }
+  .section-head { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  /* Cost table */
+  .cost-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  .cost-table th, .cost-table td { border: 1px solid var(--border); padding: 9px 10px; text-align: left; }
+  .cost-table thead th {
+    background: var(--surface-low); font-size: 0.7rem;
+    font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
+  }
+  .cost-table tbody tr:hover { background: var(--surface-low); }
+  .cost-table .price { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .cost-table tfoot td { font-weight: 700; background: var(--surface-high); }
+  .cost-table tfoot .price { font-size: 1rem; }
+
+  /* Summary cards */
+  .summary-card { background: var(--surface-low); padding: 14px 16px; border-radius: 8px; }
+  .summary-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 6px; }
+  .summary-value { font-size: 1.2rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); }
+  .summary-detail { margin-top: 4px; color: var(--muted); font-size: 0.78rem; }
+</style>
+</head>
+<body>
+
+  <!-- Cost summary cards -->
+  <div class="panel">
+    <div class="section-head">Cost Summary</div>
+    <div style="display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 16px;">
+      <div class="summary-card">
+        <div class="summary-label">Total estimated</div>
+        <div class="summary-value">€ 24,350</div>
+        <div class="summary-detail">incl. panels, storage, inverter</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Production</div>
+        <div class="summary-value">€ 8,740</div>
+        <div class="summary-detail">panels + MPPTs</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Storage + conversion</div>
+        <div class="summary-value">€ 15,610</div>
+        <div class="summary-detail">batteries + inverter + cabinet</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Work, wiring &amp; fixtures</div>
+        <div class="summary-value" style="color: var(--muted); font-size: 1rem; padding-top: 4px;">Unknown</div>
+        <div class="summary-detail">not yet estimated</div>
+      </div>
+    </div>
+
+    <table class="cost-table">
+      <thead>
+        <tr>
+          <th style="width:28%">Item</th>
+          <th style="width:20%">Type</th>
+          <th style="width:10%">Qty</th>
+          <th style="width:18%">Unit price</th>
+          <th class="price" style="width:18%">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Canadian BiHiKu6 Rood 475</td><td>Panel</td><td>19</td><td>€ 189</td><td class="price">€ 3,591</td></tr>
+        <tr><td>Aiko 475 All Black</td><td>Panel</td><td>6</td><td>—</td><td class="price">—</td></tr>
+        <tr><td>Victron SmartSolar 250/100</td><td>MPPT</td><td>1</td><td>€ 620</td><td class="price">€ 620</td></tr>
+        <tr><td>Victron SmartSolar 150/35</td><td>MPPT</td><td>2</td><td>€ 280</td><td class="price">€ 560</td></tr>
+        <tr><td>Victron SmartSolar 75/15</td><td>MPPT</td><td>2</td><td>€ 140</td><td class="price">€ 280</td></tr>
+        <tr><td>Pylontech US5000</td><td>Battery</td><td>4</td><td>€ 1,450</td><td class="price">€ 5,800</td></tr>
+        <tr><td>Victron MultiPlus-II 48/5000</td><td>Inverter</td><td>1</td><td>€ 1,890</td><td class="price">€ 1,890</td></tr>
+        <tr><td>Schneider IP65 Cabinet</td><td>Cabinet</td><td>1</td><td>€ 780</td><td class="price">€ 780</td></tr>
+        <tr><td>Work, wiring &amp; fixtures</td><td>Installation</td><td>—</td><td>—</td><td class="price" style="color: var(--muted);">Unknown</td></tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="4">Total (known prices)</td>
+          <td class="price">€ 13,521</td>
+        </tr>
+      </tfoot>
+    </table>
+    <p style="font-size:0.75rem;color:var(--muted);margin:10px 0 0;">Items without a stored price are excluded from the total.</p>
+  </div>
+
+</body>
+</html>

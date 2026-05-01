@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 20px; background: var(--bg); font-family: var(--font-sans); display: flex; flex-direction: column; gap: 12px; }
+  .panel { background: var(--surface); border: 1px solid var(--border); padding: 20px; border-radius: 10px; }
+  .section-head { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
+
+  /* Catalog table */
+  .catalog-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; table-layout: fixed; }
+  .catalog-table th, .catalog-table td {
+    border: 1px solid var(--border); padding: 8px 10px;
+    text-align: left; overflow-wrap: anywhere;
+  }
+  .catalog-table thead th {
+    background: var(--surface-low); font-size: 0.72rem;
+    font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
+  }
+  .catalog-table tbody tr { cursor: pointer; }
+  .catalog-table tbody tr:hover { background: var(--surface-low); }
+  .catalog-table tbody tr.active { background: var(--cool-bg); outline: 2px solid var(--primary); outline-offset: -2px; }
+  .catalog-table td:last-child { text-align: center; width: 80px; }
+
+  /* Inline edit form below table */
+  .edit-panel { background: var(--surface-low); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .edit-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .field { display: grid; gap: 4px; }
+  .field span { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+  .field input, .field select {
+    height: 34px; padding: 0 10px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); font-family: var(--font-sans);
+    font-size: 0.84rem; border-radius: 8px; outline: none;
+  }
+  .btn-row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    height: 34px; padding: 0 14px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); font-family: var(--font-sans);
+    font-size: 0.78rem; font-weight: 600; border-radius: 8px; cursor: pointer;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+  }
+  .btn-primary { background: var(--primary); border-color: var(--primary-dim); color: #fff; box-shadow: none; }
+  .btn-danger  { background: var(--danger-bg); border-color: rgba(192,57,43,0.25); color: var(--danger); box-shadow: none; }
+  .search-bar {
+    display: flex; gap: 8px; margin-bottom: 12px; align-items: center;
+  }
+  .search-input {
+    flex: 1; height: 34px; padding: 0 12px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); font-family: var(--font-sans);
+    font-size: 0.84rem; border-radius: 8px; outline: none;
+  }
+</style>
+</head>
+<body>
+<div class="panel">
+  <div class="section-head">Panel types</div>
+  <div class="search-bar">
+    <input class="search-input" type="text" placeholder="Search panels…" />
+    <button class="btn btn-primary">Add panel type</button>
+  </div>
+  <table class="catalog-table">
+    <thead>
+      <tr>
+        <th style="width:14%">Brand</th>
+        <th style="width:28%">Model</th>
+        <th style="width:8%">Wp</th>
+        <th style="width:8%">Voc</th>
+        <th style="width:8%">Vmp</th>
+        <th style="width:8%">Isc</th>
+        <th style="width:12%">Price</th>
+        <th>Edit</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="active">
+        <td>Canadian</td><td>BiHiKu6 Rood 475</td><td>475</td><td>40.0</td><td>33.6</td><td>13.5</td><td>€189.00</td>
+        <td><button class="btn" style="width:100%;font-size:0.72rem;padding:0 6px;">Edit</button></td>
+      </tr>
+      <tr>
+        <td>Aiko</td><td>475 All Black</td><td>475</td><td>41.2</td><td>34.8</td><td>13.8</td><td>—</td>
+        <td><button class="btn" style="width:100%;font-size:0.72rem;padding:0 6px;">Edit</button></td>
+      </tr>
+      <tr>
+        <td>JA Solar</td><td>DeepBlue 3 Rood 470</td><td>470</td><td>39.8</td><td>33.2</td><td>13.4</td><td>€176.00</td>
+        <td><button class="btn" style="width:100%;font-size:0.72rem;padding:0 6px;">Edit</button></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Inline edit form (shown when a row is selected) -->
+<div class="edit-panel">
+  <div style="font-size:0.72rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;">Edit panel type</div>
+  <div class="edit-grid">
+    <div class="field"><span>Brand</span><input value="Canadian" /></div>
+    <div class="field" style="grid-column:span 2"><span>Model</span><input value="BiHiKu6 Rood 475" /></div>
+    <div class="field"><span>Wp</span><input value="475" /></div>
+    <div class="field"><span>Voc</span><input value="40.0" /></div>
+    <div class="field"><span>Vmp</span><input value="33.6" /></div>
+    <div class="field"><span>Isc</span><input value="13.5" /></div>
+    <div class="field"><span>Imp</span><input value="12.8" /></div>
+    <div class="field"><span>Price (€)</span><input value="189.00" /></div>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-danger">Delete</button>
+    <button class="btn">Cancel</button>
+    <button class="btn btn-primary">Save</button>
+  </div>
+</div>
+</body>
+</html>

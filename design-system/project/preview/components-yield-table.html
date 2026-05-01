@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 20px; background: var(--bg); font-family: var(--font-sans); }
+  .panel { background: var(--surface); border: 1px solid var(--border); padding: 20px; border-radius: 10px; }
+  .section-head { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
+
+  .yield-table { width: 100%; border-collapse: collapse; font-size: 0.76rem; }
+  .yield-table th, .yield-table td {
+    border: 1px solid var(--border); padding: 6px 7px;
+    white-space: nowrap; line-height: 1.25;
+  }
+  /* Row headers (surface names) */
+  .yield-table tbody th {
+    background: var(--surface-low); font-weight: 600;
+    text-align: left; font-size: 0.76rem;
+  }
+  /* Column headers (months) */
+  .yield-table thead th {
+    background: var(--surface-low); font-size: 0.68rem;
+    font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--muted); text-align: center;
+  }
+  .yield-table thead th:first-child { text-align: left; }
+  .yield-table td { text-align: right; font-variant-numeric: tabular-nums; color: var(--text); }
+  /* Total row */
+  .yield-table tfoot th, .yield-table tfoot td {
+    font-weight: 700; background: var(--surface-high); text-align: right;
+  }
+  .yield-table tfoot th { text-align: left; }
+  /* Highlight cells */
+  .best  { color: var(--primary-dim); font-weight: 700; }
+  .worst { color: var(--warn);        font-weight: 700; }
+  /* Highlight entire best/worst columns via col backgrounds */
+  .col-best  { background: rgba(0,201,160,0.07) !important; }
+  .col-worst { background: rgba(224,123,32,0.07) !important; }
+</style>
+</head>
+<body>
+<div class="panel">
+  <div class="section-head">Monthly Yield Estimate — kWh</div>
+  <div style="overflow-x: auto;">
+    <table class="yield-table">
+      <thead>
+        <tr>
+          <th style="min-width:90px;">Surface</th>
+          <th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>May</th><th class="best col-best">Jun</th>
+          <th>Jul</th><th>Aug</th><th>Sep</th><th>Oct</th><th>Nov</th><th class="worst col-worst">Dec</th>
+          <th style="border-left: 2px solid var(--border);">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th>NW face</th>
+          <td>28</td><td>51</td><td>110</td><td>168</td><td>245</td><td class="best col-best">272</td>
+          <td>267</td><td>223</td><td>147</td><td>94</td><td>44</td><td class="worst col-worst">24</td>
+          <td style="border-left: 2px solid var(--border);">1,673</td>
+        </tr>
+        <tr>
+          <th>SE face</th>
+          <td>14</td><td>26</td><td>54</td><td>82</td><td>119</td><td class="best col-best">133</td>
+          <td>130</td><td>109</td><td>72</td><td>46</td><td>21</td><td class="worst col-worst">12</td>
+          <td style="border-left: 2px solid var(--border);">818</td>
+        </tr>
+        <tr>
+          <th>Flat NE</th>
+          <td>8</td><td>17</td><td>36</td><td>55</td><td>79</td><td class="best col-best">89</td>
+          <td>87</td><td>73</td><td>48</td><td>31</td><td>14</td><td class="worst col-worst">8</td>
+          <td style="border-left: 2px solid var(--border);">545</td>
+        </tr>
+        <tr>
+          <th>NE face</th>
+          <td>7</td><td>14</td><td>32</td><td>49</td><td>71</td><td class="best col-best">80</td>
+          <td>78</td><td>65</td><td>43</td><td>28</td><td>13</td><td class="worst col-worst">7</td>
+          <td style="border-left: 2px solid var(--border);">487</td>
+        </tr>
+        <tr>
+          <th>SW face</th>
+          <td>8</td><td>10</td><td>25</td><td>39</td><td>56</td><td class="best col-best">62</td>
+          <td>61</td><td>51</td><td>32</td><td>21</td><td>10</td><td class="worst col-worst">5</td>
+          <td style="border-left: 2px solid var(--border);">380</td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <th>Total</th>
+          <td>65</td><td>118</td><td>257</td><td>393</td><td>570</td><td class="best col-best">636</td>
+          <td>623</td><td>521</td><td>342</td><td>220</td><td>102</td><td class="worst col-worst">56</td>
+          <td style="border-left: 2px solid var(--border);">3,903</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  <div style="display: flex; gap: 12px; margin-top: 10px; flex-wrap: wrap;">
+    <div style="display: flex; align-items: center; gap: 6px; font-size: 0.72rem;">
+      <div style="width: 28px; height: 16px; background: rgba(0,201,160,0.07); border: 1px solid var(--border); border-radius: 2px;"></div>
+      <span style="color: var(--primary-dim); font-weight: 700;">Best month (Jun)</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 6px; font-size: 0.72rem;">
+      <div style="width: 28px; height: 16px; background: rgba(224,123,32,0.07); border: 1px solid var(--border); border-radius: 2px;"></div>
+      <span style="color: var(--warn); font-weight: 700;">Weakest month (Dec)</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -302,7 +302,6 @@ preview/                        Design System card HTML files (shown in Design S
   components-badges.html        Status badges + verdict explanation pattern
   components-panels.html        Panel, summary cards, empty state
   components-inputs.html        Form fields, selects, textarea, language switcher
-  components-surface-cards.html Per-surface cards with mini stats + status
   components-chain.html         System chain nodes + relationship status strip
   components-sidebar.html       Full sidebar component (dark)
   icons.html                    All 17 fa-energy SVGs in light + dark context

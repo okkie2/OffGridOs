@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 2026-05-01
+
+- Self-hosted Inter variable font (TTF) in `public/fonts/`, added `@font-face` declarations to `styles.css`, and removed the Google Fonts CDN dependency from `index.html`.
+- Added `col-best`/`col-worst` column highlighting (teal/amber tint) and `best`/`worst` cell text coloring to all yield tables, matching the v2 design spec.
+- Updated yield table `tfoot` background from `color-mix` to `var(--surface-high)` for consistency with the design token.
+- Changed the catalog table active-row style from amber outline to teal (`--primary`) outline with `--cool-bg` background fill, per the v2 design spec.
+- Updated catalog table hover style to `var(--surface-low)` for visible feedback.
+- Synced `design-system/` directory with the v2 bundle: added 5 new/updated component previews, updated `colors_and_type.css`, and added Inter font files.
+
 ## 2026-04-30
 
 - Simplified the `Consumption` battery-bank fit block by removing one extra wrapper layer and making the result panel match the other evaluation screens more closely.

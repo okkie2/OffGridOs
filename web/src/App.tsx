@@ -3075,6 +3075,12 @@ function SurfaceDetail({
     tiltDeg: surfaceTiltDraft,
     latitudeDeg: effectiveLatitude,
   });
+  const estimatedBestMonth = estimatedYieldRows.length > 0
+    ? estimatedYieldRows.reduce((best, row) => (row.monthlyKwh > best.monthlyKwh ? row : best), estimatedYieldRows[0])
+    : null;
+  const estimatedWorstMonth = estimatedYieldRows.length > 0
+    ? estimatedYieldRows.reduce((worst, row) => (row.monthlyKwh < worst.monthlyKwh ? row : worst), estimatedYieldRows[0])
+    : null;
 
   async function handleSaveSurfaceDetails(options?: { photoOverride?: string | null }) {
     const trimmedName = surfaceNameDraft.trim();
@@ -3687,7 +3693,10 @@ function SurfaceDetail({
               <tr>
                 <th>{t('surface.yield.metric')}</th>
                 {estimatedYieldRows.map((row) => (
-                  <th key={row.month}>{getMonthLabel(row.month, t)}</th>
+                  <th
+                    key={row.month}
+                    className={row.month === estimatedBestMonth?.month ? 'col-best' : row.month === estimatedWorstMonth?.month ? 'col-worst' : undefined}
+                  >{getMonthLabel(row.month, t)}</th>
                 ))}
               </tr>
             </thead>
@@ -3695,13 +3704,19 @@ function SurfaceDetail({
               <tr>
                 <th>{t('surface.yield.kwh_day')}</th>
                 {estimatedYieldRows.map((row) => (
-                  <td key={`day-${row.month}`}>{formatDailyYield(row.averageDailyKwh)}</td>
+                  <td
+                    key={`day-${row.month}`}
+                    className={row.month === estimatedBestMonth?.month ? 'col-best best' : row.month === estimatedWorstMonth?.month ? 'col-worst worst' : undefined}
+                  >{formatDailyYield(row.averageDailyKwh)}</td>
                 ))}
               </tr>
               <tr>
                 <th>{t('surface.yield.kwh_month')}</th>
                 {estimatedYieldRows.map((row) => (
-                  <td key={`month-${row.month}`}>{row.monthlyKwh.toLocaleString('en-US', { maximumFractionDigits: 1 })}</td>
+                  <td
+                    key={`month-${row.month}`}
+                    className={row.month === estimatedBestMonth?.month ? 'col-best best' : row.month === estimatedWorstMonth?.month ? 'col-worst worst' : undefined}
+                  >{row.monthlyKwh.toLocaleString('en-US', { maximumFractionDigits: 1 })}</td>
                 ))}
               </tr>
             </tbody>
@@ -4337,7 +4352,10 @@ function ProductionPage({
                   <tr>
                     <th></th>
                     {MONTH_KEYS.map((month) => (
-                      <th key={month}>{getMonthLabel(month, t)}</th>
+                      <th
+                        key={month}
+                        className={month === totalMaxDailyYieldMonth?.month ? 'col-best' : month === totalMinDailyYieldMonth?.month ? 'col-worst' : undefined}
+                      >{getMonthLabel(month, t)}</th>
                     ))}
                   </tr>
                 </thead>
@@ -4346,14 +4364,20 @@ function ProductionPage({
                     <tr key={`monthly-${surface.surface_id}`}>
                       <th>{surface.name}</th>
                       {yieldRows.map((row) => (
-                        <td key={`${surface.surface_id}-${row.month}`}>{formatDailyYield(row.averageDailyKwh)}</td>
+                        <td
+                          key={`${surface.surface_id}-${row.month}`}
+                          className={row.month === totalMaxDailyYieldMonth?.month ? 'col-best best' : row.month === totalMinDailyYieldMonth?.month ? 'col-worst worst' : undefined}
+                        >{formatDailyYield(row.averageDailyKwh)}</td>
                       ))}
                     </tr>
                   ))}
                   <tr>
                     <th>{t('production.monthly.total_avg_kwh_day')}</th>
                     {monthlyTotals.map((row) => (
-                      <td key={`total-day-${row.month}`}>{formatDailyYield(row.averageDailyKwh)}</td>
+                      <td
+                        key={`total-day-${row.month}`}
+                        className={row.month === totalMaxDailyYieldMonth?.month ? 'col-best best' : row.month === totalMinDailyYieldMonth?.month ? 'col-worst worst' : undefined}
+                      >{formatDailyYield(row.averageDailyKwh)}</td>
                     ))}
                   </tr>
                 </tbody>
@@ -6606,6 +6630,92 @@ function CabinetCatalogPage({
 
   const yesNo = (value: boolean) => (value ? t('common.yes') : t('common.no'));
 
+  const cabinetEditor = (
+    <>
+      <div className="field">
+        <span>{t('catalog.field.cabinet_type_id')}</span>
+        <p className="muted">
+          {selectedCabinet ? selectedCabinet.cabinet_type_id : (draft.title.trim() ? generateUniqueCatalogId(draft.title.trim(), data.entities.cabinet_types.map((cabinet) => cabinet.cabinet_type_id)) : t('catalog.ui.generated_after_save'))}
+        </p>
+      </div>
+      <label className="field">
+        <span>{t('catalog.field.title')}</span>
+        <input
+          value={draft.title}
+          onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
+          placeholder="19 inch rack cabinet"
+        />
+      </label>
+      <label className="field">
+        <span>{t('catalog.field.description')}</span>
+        <textarea value={draft.description} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} rows={3} />
+      </label>
+      <div className="detail-grid three-col">
+        <label className="field"><span>{t('catalog.stat.depth')}</span><input type="number" value={draft.depth_mm} onChange={(event) => setDraft((current) => ({ ...current, depth_mm: event.target.value }))} /></label>
+        <label className="field"><span>{t('catalog.stat.width')}</span><input type="number" value={draft.width_mm} onChange={(event) => setDraft((current) => ({ ...current, width_mm: event.target.value }))} /></label>
+        <label className="field"><span>{t('catalog.stat.height')}</span><input type="number" value={draft.height_mm} onChange={(event) => setDraft((current) => ({ ...current, height_mm: event.target.value }))} /></label>
+      </div>
+      <label className="field">
+        <span>{t('catalog.field.units')}</span>
+        <input
+          value={draft.units}
+          onChange={(event) => setDraft((current) => ({ ...current, units: event.target.value }))}
+          placeholder="42U"
+        />
+      </label>
+      <div className="detail-grid two-col">
+        <label className="field"><span>{t('catalog.stat.price')}</span><input type="number" value={draft.price} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} /></label>
+        <label className="field"><span>{t('catalog.ui.source_url')}</span><input value={draft.price_source_url} onChange={(event) => setDraft((current) => ({ ...current, price_source_url: event.target.value }))} placeholder="https://..." /></label>
+      </div>
+      <div className="detail-grid two-col">
+        <label className="field"><span>{t('catalog.field.ip_rating')}</span><input value={draft.ip_rating} onChange={(event) => setDraft((current) => ({ ...current, ip_rating: event.target.value }))} placeholder="IP55" /></label>
+        <label className="field"><span>{t('catalog.field.insurance_rating')}</span><input value={draft.insurance_rating} onChange={(event) => setDraft((current) => ({ ...current, insurance_rating: event.target.value }))} placeholder="Class 60" /></label>
+      </div>
+      <div className="detail-grid two-col">
+        <label className="field"><span>{t('catalog.field.condensation_protection')}</span><input type="checkbox" checked={draft.condensation_protection} onChange={(event) => setDraft((current) => ({ ...current, condensation_protection: event.target.checked }))} /></label>
+        <label className="field"><span>{t('catalog.field.insect_protection')}</span><input type="checkbox" checked={draft.insect_protection} onChange={(event) => setDraft((current) => ({ ...current, insect_protection: event.target.checked }))} /></label>
+      </div>
+      <div className="detail-grid two-col">
+        <label className="field"><span>{t('catalog.field.dust_protection')}</span><input type="checkbox" checked={draft.dust_protection} onChange={(event) => setDraft((current) => ({ ...current, dust_protection: event.target.checked }))} /></label>
+        <label className="field"><span>{t('catalog.field.outside_protection')}</span><input type="checkbox" checked={draft.outside_protection} onChange={(event) => setDraft((current) => ({ ...current, outside_protection: event.target.checked }))} /></label>
+      </div>
+      <div className="detail-grid two-col">
+        <label className="field"><span>{t('catalog.field.frost_protection')}</span><input type="checkbox" checked={draft.frost_protection} onChange={(event) => setDraft((current) => ({ ...current, frost_protection: event.target.checked }))} /></label>
+        <label className="field"><span>{t('catalog.field.fire_protection')}</span><input type="checkbox" checked={draft.fire_protection} onChange={(event) => setDraft((current) => ({ ...current, fire_protection: event.target.checked }))} /></label>
+      </div>
+      <div className="stack" style={{ gap: 8 }}>
+        <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.title.trim()}>
+          {isSaving ? t('common.saving') : t('common.save')}
+        </button>
+        {selectedCabinet ? (
+          <button type="button" className="button button-danger" onClick={() => void handleDelete()} disabled={isSaving}>
+            {t('common.delete')}
+          </button>
+        ) : null}
+        {saveError ? <p className="save-error">{saveError}</p> : null}
+        {saveMessage ? <p className="save-message">{saveMessage}</p> : null}
+      </div>
+      {selectedCabinet ? (
+        <dl className="detail-stats panel-spec-grid" style={{ marginTop: 16 }}>
+          <div><dt>{t('catalog.field.title')}</dt><dd>{selectedCabinet.title}</dd></div>
+          <div><dt>{t('catalog.stat.depth')}</dt><dd>{selectedCabinet.depth_mm} mm</dd></div>
+          <div><dt>{t('catalog.stat.width')}</dt><dd>{selectedCabinet.width_mm} mm</dd></div>
+          <div><dt>{t('catalog.stat.height')}</dt><dd>{selectedCabinet.height_mm} mm</dd></div>
+          <div><dt>{t('catalog.stat.units')}</dt><dd>{selectedCabinet.units ?? '—'}</dd></div>
+          <div><dt>{t('catalog.stat.price')}</dt><dd>{renderPrice(selectedCabinet.price, selectedCabinet.price_source_url)}</dd></div>
+          <div><dt>{t('catalog.stat.ip_rating')}</dt><dd>{selectedCabinet.ip_rating ?? '—'}</dd></div>
+          <div><dt>{t('catalog.stat.insurance_rating')}</dt><dd>{selectedCabinet.insurance_rating ?? '—'}</dd></div>
+          <div><dt>{t('catalog.field.condensation_protection')}</dt><dd>{yesNo(selectedCabinet.condensation_protection)}</dd></div>
+          <div><dt>{t('catalog.field.insect_protection')}</dt><dd>{yesNo(selectedCabinet.insect_protection)}</dd></div>
+          <div><dt>{t('catalog.field.dust_protection')}</dt><dd>{yesNo(selectedCabinet.dust_protection)}</dd></div>
+          <div><dt>{t('catalog.field.outside_protection')}</dt><dd>{yesNo(selectedCabinet.outside_protection)}</dd></div>
+          <div><dt>{t('catalog.field.frost_protection')}</dt><dd>{yesNo(selectedCabinet.frost_protection)}</dd></div>
+          <div><dt>{t('catalog.field.fire_protection')}</dt><dd>{yesNo(selectedCabinet.fire_protection)}</dd></div>
+        </dl>
+      ) : null}
+    </>
+  );
+
   return (
     <>
       <section className="detail-shell">
@@ -6633,139 +6743,68 @@ function CabinetCatalogPage({
                   </tr>
                 </thead>
                 <tbody>
+                  {!selectedCabinet ? (
+                    <CatalogInlineEditorRow
+                      colSpan={10}
+                      title={t('catalog.ui.add_item', { item: t('catalog.entry.cabinet_type') })}
+                      subtitle={t('catalog.ui.changes_saved')}
+                    >
+                      {cabinetEditor}
+                    </CatalogInlineEditorRow>
+                  ) : null}
                   {data.entities.cabinet_types.length === 0 ? (
                     <tr>
                       <td colSpan={10} className="muted">{t('catalog.ui.no_entries')}</td>
                     </tr>
                   ) : data.entities.cabinet_types.map((cabinet) => (
-                    <tr
-                      key={cabinet.cabinet_type_id}
-                      className={selectedCabinetTypeId === cabinet.cabinet_type_id ? 'selected' : ''}
-                      onClick={() => {
-                        setSelectedCabinetTypeId(cabinet.cabinet_type_id);
-                        setSaveError(null);
-                        setSaveMessage(null);
-                      }}
-                    >
-                      <td className="catalog-table-model-col">{cabinet.title}</td>
-                      <td>{cabinet.depth_mm} mm</td>
-                      <td>{cabinet.width_mm} mm</td>
-                      <td>{cabinet.height_mm} mm</td>
-                      <td>{cabinet.units ?? '—'}</td>
-                      <td>{renderPrice(cabinet.price, cabinet.price_source_url)}</td>
-                      <td>{cabinet.price_source_url ? <a className="price-link" href={cabinet.price_source_url} target="_blank" rel="noreferrer">{formatPriceSourceName(cabinet.price_source_url) ?? t('common.open')}</a> : '—'}</td>
-                      <td>{cabinet.ip_rating ?? '—'}</td>
-                      <td>{cabinet.insurance_rating ?? '—'}</td>
-                      <td>
-                        <button
-                          type="button"
-                          className="button button-secondary button-sm"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setSelectedCabinetTypeId(cabinet.cabinet_type_id);
-                            setSaveError(null);
-                            setSaveMessage(null);
-                          }}
+                    <React.Fragment key={cabinet.cabinet_type_id}>
+                      <tr
+                        className={selectedCabinetTypeId === cabinet.cabinet_type_id ? 'selected' : ''}
+                        onClick={() => {
+                          setSelectedCabinetTypeId(cabinet.cabinet_type_id);
+                          setSaveError(null);
+                          setSaveMessage(null);
+                        }}
+                      >
+                        <td className="catalog-table-model-col">{cabinet.title}</td>
+                        <td>{cabinet.depth_mm} mm</td>
+                        <td>{cabinet.width_mm} mm</td>
+                        <td>{cabinet.height_mm} mm</td>
+                        <td>{cabinet.units ?? '—'}</td>
+                        <td>{renderPrice(cabinet.price, cabinet.price_source_url)}</td>
+                        <td>{cabinet.price_source_url ? <a className="price-link" href={cabinet.price_source_url} target="_blank" rel="noreferrer">{formatPriceSourceName(cabinet.price_source_url) ?? t('common.open')}</a> : '—'}</td>
+                        <td>{cabinet.ip_rating ?? '—'}</td>
+                        <td>{cabinet.insurance_rating ?? '—'}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="button button-secondary button-sm"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setSelectedCabinetTypeId(cabinet.cabinet_type_id);
+                              setSaveError(null);
+                              setSaveMessage(null);
+                            }}
+                          >
+                            {t('common.edit')}
+                          </button>
+                        </td>
+                      </tr>
+                      {selectedCabinetTypeId === cabinet.cabinet_type_id ? (
+                        <CatalogInlineEditorRow
+                          colSpan={10}
+                          title={t('catalog.ui.edit_item', { item: t('catalog.entry.cabinet_type') })}
+                          subtitle={t('catalog.ui.changes_saved')}
                         >
-                          {t('common.edit')}
-                        </button>
-                      </td>
-                    </tr>
+                          {cabinetEditor}
+                        </CatalogInlineEditorRow>
+                      ) : null}
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>
             </div>
           </div>
-        </section>
-
-        <section className="panel">
-          <div className="section-head">
-            <h2>{selectedCabinet ? t('catalog.ui.edit_item', { item: t('catalog.entry.cabinet_type') }) : t('catalog.ui.add_item', { item: t('catalog.entry.cabinet_type') })}</h2>
-            <p>{t('catalog.ui.changes_saved')}</p>
-          </div>
-          <div className="stack" style={{ gap: 16 }}>
-            <div className="field">
-              <span>{t('catalog.field.cabinet_type_id')}</span>
-              <p className="muted">
-                {selectedCabinet ? selectedCabinet.cabinet_type_id : (draft.title.trim() ? generateUniqueCatalogId(draft.title.trim(), data.entities.cabinet_types.map((cabinet) => cabinet.cabinet_type_id)) : t('catalog.ui.generated_after_save'))}
-              </p>
-            </div>
-            <label className="field">
-              <span>{t('catalog.field.title')}</span>
-              <input
-                value={draft.title}
-                onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
-                placeholder="19 inch rack cabinet"
-              />
-            </label>
-            <label className="field">
-              <span>{t('catalog.field.description')}</span>
-              <textarea value={draft.description} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} rows={3} />
-            </label>
-            <div className="detail-grid three-col">
-              <label className="field"><span>{t('catalog.stat.depth')}</span><input type="number" value={draft.depth_mm} onChange={(event) => setDraft((current) => ({ ...current, depth_mm: event.target.value }))} /></label>
-              <label className="field"><span>{t('catalog.stat.width')}</span><input type="number" value={draft.width_mm} onChange={(event) => setDraft((current) => ({ ...current, width_mm: event.target.value }))} /></label>
-              <label className="field"><span>{t('catalog.stat.height')}</span><input type="number" value={draft.height_mm} onChange={(event) => setDraft((current) => ({ ...current, height_mm: event.target.value }))} /></label>
-            </div>
-            <label className="field">
-              <span>{t('catalog.field.units')}</span>
-              <input
-                value={draft.units}
-                onChange={(event) => setDraft((current) => ({ ...current, units: event.target.value }))}
-                placeholder="42U"
-              />
-            </label>
-            <div className="detail-grid two-col">
-              <label className="field"><span>{t('catalog.stat.price')}</span><input type="number" value={draft.price} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} /></label>
-              <label className="field"><span>{t('catalog.ui.source_url')}</span><input value={draft.price_source_url} onChange={(event) => setDraft((current) => ({ ...current, price_source_url: event.target.value }))} placeholder="https://..." /></label>
-            </div>
-            <div className="detail-grid two-col">
-              <label className="field"><span>{t('catalog.field.ip_rating')}</span><input value={draft.ip_rating} onChange={(event) => setDraft((current) => ({ ...current, ip_rating: event.target.value }))} placeholder="IP55" /></label>
-              <label className="field"><span>{t('catalog.field.insurance_rating')}</span><input value={draft.insurance_rating} onChange={(event) => setDraft((current) => ({ ...current, insurance_rating: event.target.value }))} placeholder="Class 60" /></label>
-            </div>
-            <div className="detail-grid two-col">
-              <label className="field"><span>{t('catalog.field.condensation_protection')}</span><input type="checkbox" checked={draft.condensation_protection} onChange={(event) => setDraft((current) => ({ ...current, condensation_protection: event.target.checked }))} /></label>
-              <label className="field"><span>{t('catalog.field.insect_protection')}</span><input type="checkbox" checked={draft.insect_protection} onChange={(event) => setDraft((current) => ({ ...current, insect_protection: event.target.checked }))} /></label>
-            </div>
-            <div className="detail-grid two-col">
-              <label className="field"><span>{t('catalog.field.dust_protection')}</span><input type="checkbox" checked={draft.dust_protection} onChange={(event) => setDraft((current) => ({ ...current, dust_protection: event.target.checked }))} /></label>
-              <label className="field"><span>{t('catalog.field.outside_protection')}</span><input type="checkbox" checked={draft.outside_protection} onChange={(event) => setDraft((current) => ({ ...current, outside_protection: event.target.checked }))} /></label>
-            </div>
-            <div className="detail-grid two-col">
-              <label className="field"><span>{t('catalog.field.frost_protection')}</span><input type="checkbox" checked={draft.frost_protection} onChange={(event) => setDraft((current) => ({ ...current, frost_protection: event.target.checked }))} /></label>
-              <label className="field"><span>{t('catalog.field.fire_protection')}</span><input type="checkbox" checked={draft.fire_protection} onChange={(event) => setDraft((current) => ({ ...current, fire_protection: event.target.checked }))} /></label>
-            </div>
-            <div className="stack" style={{ gap: 8 }}>
-              <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.title.trim()}>
-                {isSaving ? t('common.saving') : t('common.save')}
-              </button>
-              {selectedCabinet ? (
-                <button type="button" className="button button-danger" onClick={() => void handleDelete()} disabled={isSaving}>
-                  {t('common.delete')}
-                </button>
-              ) : null}
-              {saveError ? <p className="save-error">{saveError}</p> : null}
-              {saveMessage ? <p className="save-message">{saveMessage}</p> : null}
-            </div>
-          </div>
-          {selectedCabinet ? (
-            <dl className="detail-stats panel-spec-grid" style={{ marginTop: 16 }}>
-              <div><dt>{t('catalog.field.title')}</dt><dd>{selectedCabinet.title}</dd></div>
-              <div><dt>{t('catalog.stat.depth')}</dt><dd>{selectedCabinet.depth_mm} mm</dd></div>
-              <div><dt>{t('catalog.stat.width')}</dt><dd>{selectedCabinet.width_mm} mm</dd></div>
-              <div><dt>{t('catalog.stat.height')}</dt><dd>{selectedCabinet.height_mm} mm</dd></div>
-              <div><dt>{t('catalog.stat.units')}</dt><dd>{selectedCabinet.units ?? '—'}</dd></div>
-              <div><dt>{t('catalog.stat.price')}</dt><dd>{renderPrice(selectedCabinet.price, selectedCabinet.price_source_url)}</dd></div>
-              <div><dt>{t('catalog.stat.ip_rating')}</dt><dd>{selectedCabinet.ip_rating ?? '—'}</dd></div>
-              <div><dt>{t('catalog.stat.insurance_rating')}</dt><dd>{selectedCabinet.insurance_rating ?? '—'}</dd></div>
-              <div><dt>{t('catalog.field.condensation_protection')}</dt><dd>{yesNo(selectedCabinet.condensation_protection)}</dd></div>
-              <div><dt>{t('catalog.field.insect_protection')}</dt><dd>{yesNo(selectedCabinet.insect_protection)}</dd></div>
-              <div><dt>{t('catalog.field.dust_protection')}</dt><dd>{yesNo(selectedCabinet.dust_protection)}</dd></div>
-              <div><dt>{t('catalog.field.outside_protection')}</dt><dd>{yesNo(selectedCabinet.outside_protection)}</dd></div>
-              <div><dt>{t('catalog.field.frost_protection')}</dt><dd>{yesNo(selectedCabinet.frost_protection)}</dd></div>
-              <div><dt>{t('catalog.field.fire_protection')}</dt><dd>{yesNo(selectedCabinet.fire_protection)}</dd></div>
-            </dl>
-          ) : null}
         </section>
       </section>
     </>
@@ -6919,6 +6958,177 @@ function BatteryCatalogPage({
       setIsSaving(false);
     }
   }
+
+  const batteryEditor = (
+    <>
+      <div className="field">
+        <span>{t('catalog.field.battery_type_id')}</span>
+        <p className="muted">
+          {selectedBattery ? selectedBattery.battery_type_id : (draft.model.trim() ? generateUniqueCatalogId(draft.model.trim(), data.entities.battery_types.map((battery) => battery.battery_type_id)) : t('catalog.ui.generated_after_save'))}
+        </p>
+      </div>
+      <label className="field">
+        <span>{t('catalog.field.brand')}</span>
+        <input
+          value={draft.brand}
+          onChange={(event) => setDraft((current) => ({ ...current, brand: event.target.value }))}
+          placeholder="Pylontech"
+        />
+      </label>
+      <label className="field">
+        <span>{t('catalog.field.model')}</span>
+        <input
+          value={draft.model}
+          onChange={(event) => setDraft((current) => ({ ...current, model: event.target.value }))}
+          placeholder="US5000-1C"
+        />
+      </label>
+      <div className="detail-grid two-col">
+        <label className="field">
+          <span>{t('catalog.field.chemistry')}</span>
+          <input
+            value={draft.chemistry}
+            onChange={(event) => setDraft((current) => ({ ...current, chemistry: event.target.value }))}
+            placeholder="LiFePO4"
+          />
+        </label>
+        <label className="field">
+          <span>{t('catalog.field.cooling')}</span>
+          <select
+            value={draft.cooling}
+            onChange={(event) => setDraft((current) => ({ ...current, cooling: event.target.value as 'active' | 'passive' }))}
+          >
+            <option value="passive">passive</option>
+            <option value="active">active</option>
+          </select>
+        </label>
+      </div>
+      <div className="detail-grid two-col">
+        <label className="field">
+          <span>{t('catalog.field.nominal_voltage')}</span>
+          <input
+            type="number"
+            value={draft.nominal_voltage}
+            onChange={(event) => setDraft((current) => ({ ...current, nominal_voltage: event.target.value }))}
+          />
+        </label>
+        <label className="field">
+          <span>{t('catalog.field.capacity_kwh')}</span>
+          <input
+            type="number"
+            value={draft.capacity_kwh}
+            onChange={(event) => setDraft((current) => ({ ...current, capacity_kwh: event.target.value }))}
+          />
+        </label>
+      </div>
+      <div className="detail-grid two-col">
+        <label className="field">
+          <span>{t('catalog.field.capacity_ah')}</span>
+          <input
+            type="number"
+            value={draft.capacity_ah}
+            onChange={(event) => setDraft((current) => ({ ...current, capacity_ah: event.target.value }))}
+          />
+        </label>
+        <label className="field">
+          <span>{t('catalog.field.victron_can')}</span>
+          <input
+            type="checkbox"
+            checked={draft.victron_can}
+            onChange={(event) => setDraft((current) => ({ ...current, victron_can: event.target.checked }))}
+          />
+        </label>
+      </div>
+      <div className="detail-grid two-col">
+        <label className="field">
+          <span>{t('catalog.field.max_charge_rate')}</span>
+          <input
+            type="number"
+            value={draft.max_charge_rate}
+            onChange={(event) => setDraft((current) => ({ ...current, max_charge_rate: event.target.value }))}
+          />
+        </label>
+        <label className="field">
+          <span>{t('catalog.field.max_discharge_rate')}</span>
+          <input
+            type="number"
+            value={draft.max_discharge_rate}
+            onChange={(event) => setDraft((current) => ({ ...current, max_discharge_rate: event.target.value }))}
+          />
+        </label>
+      </div>
+      <div className="detail-grid two-col">
+        <label className="field">
+          <span>{t('catalog.ui.price_per_unit')}</span>
+          <input
+            type="number"
+            value={draft.price}
+            onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))}
+          />
+        </label>
+        <label className="field">
+          <span>{t('catalog.ui.price_source_url')}</span>
+          <input
+            value={draft.price_source_url}
+            onChange={(event) => setDraft((current) => ({ ...current, price_source_url: event.target.value }))}
+            placeholder="https://..."
+          />
+        </label>
+      </div>
+      <label className="field">
+        <span>{t('catalog.ui.notes')}</span>
+        <textarea
+          value={draft.notes}
+          onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))}
+          rows={4}
+        />
+      </label>
+      <div className="stack" style={{ gap: 8 }}>
+        <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.model.trim()}>
+          {isSaving ? t('common.saving') : t('common.save')}
+        </button>
+        {selectedBattery ? (
+          <button type="button" className="button button-danger" onClick={() => void handleDelete()} disabled={isSaving}>
+            {t('common.delete')}
+          </button>
+        ) : null}
+        {saveError ? <p className="save-error">{saveError}</p> : null}
+        {saveMessage ? <p className="save-message">{saveMessage}</p> : null}
+      </div>
+      {selectedBattery ? (
+        <dl className="detail-stats panel-spec-grid" style={{ marginTop: 16 }}>
+          <div>
+            <dt>{t('catalog.field.brand')}</dt>
+            <dd>{selectedBattery.brand}</dd>
+          </div>
+          <div>
+            <dt>{t('catalog.stat.capacity')}</dt>
+            <dd>{selectedBattery.capacity_kwh} kWh</dd>
+          </div>
+          <div>
+            <dt>{t('catalog.stat.voltage')}</dt>
+            <dd>{selectedBattery.nominal_voltage} V</dd>
+          </div>
+          <div>
+            <dt>{t('catalog.stat.charge_rate')}</dt>
+            <dd>{selectedBattery.max_charge_rate != null ? `${selectedBattery.max_charge_rate} A` : 'n/a'}</dd>
+          </div>
+          <div>
+            <dt>{t('catalog.stat.discharge_rate')}</dt>
+            <dd>{selectedBattery.max_discharge_rate != null ? `${selectedBattery.max_discharge_rate} A` : 'n/a'}</dd>
+          </div>
+          <div>
+            <dt>{t('catalog.stat.price')}</dt>
+            <dd>{renderPrice(selectedBattery.price, selectedBattery.price_source_url)}</dd>
+          </div>
+          <div>
+            <dt>{t('catalog.stat.price_per_kwh')}</dt>
+            <dd>{selectedBattery.price_per_kwh != null ? renderPrice(selectedBattery.price_per_kwh, selectedBattery.price_source_url) : 'n/a'}</dd>
+          </div>
+        </dl>
+      ) : null}
+    </>
+  );
 
   return (
     <>
@@ -9130,6 +9340,34 @@ function formatLoadKw(value: number): string {
 
 function formatVoltage(value: number | null | undefined): string {
   return value != null ? `${value} V` : 'n/a';
+}
+
+function CatalogInlineEditorRow({
+  colSpan,
+  title,
+  subtitle,
+  children,
+}: {
+  colSpan: number;
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <tr className="catalog-inline-editor-row">
+      <td colSpan={colSpan}>
+        <div className="catalog-inline-editor">
+          <div className="section-head">
+            <h2>{title}</h2>
+            {subtitle ? <p>{subtitle}</p> : null}
+          </div>
+          <div className="stack" style={{ gap: 16 }}>
+            {children}
+          </div>
+        </div>
+      </td>
+    </tr>
+  );
 }
 
 function LoadCircuitsPage({

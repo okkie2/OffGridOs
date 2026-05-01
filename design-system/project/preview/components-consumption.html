@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 20px; background: var(--bg); font-family: var(--font-sans); display: flex; flex-direction: column; gap: 20px; }
+  .panel { background: var(--surface); border: 1px solid var(--border); padding: 20px; border-radius: 10px; }
+  .section-head { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
+
+  /* Converter master list */
+  .converter-list { display: flex; flex-direction: column; gap: 0; }
+  .converter-row {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 0; border-top: 1px solid var(--border);
+  }
+  .converter-row:first-child { border-top: none; padding-top: 0; }
+  .converter-title { font-weight: 600; font-size: 0.9rem; }
+  .converter-sub { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+  .badge {
+    font-size: 0.65rem; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; padding: 3px 7px; border-radius: 0; white-space: nowrap; flex-shrink: 0;
+  }
+  .badge-good { background: var(--good-bg); color: var(--good-text); }
+  .badge-cool { background: var(--cool-bg); color: var(--cool-text); }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    height: 30px; padding: 0 12px; border: 1px solid var(--border);
+    background: var(--surface-low); color: var(--text); font-family: var(--font-sans);
+    font-size: 0.75rem; font-weight: 600; border-radius: 8px; cursor: pointer;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.7); flex-shrink: 0; margin-left: auto;
+  }
+
+  /* Load circuit cards */
+  .circuit-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+  .circuit-card {
+    background: var(--surface-low); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px;
+  }
+  .circuit-name { font-weight: 600; font-size: 0.88rem; margin-bottom: 6px; }
+  .load-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; border-top: 1px solid var(--border); padding-top: 10px; }
+  .load-item { display: flex; justify-content: space-between; gap: 8px; font-size: 0.78rem; }
+  .load-name { color: var(--text); }
+  .load-power { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .load-total { display: flex; justify-content: space-between; font-size: 0.78rem; font-weight: 700; padding-top: 8px; border-top: 1px solid var(--border); margin-top: 4px; }
+</style>
+</head>
+<body>
+
+  <!-- Converters list -->
+  <div class="panel">
+    <div class="section-head">Converters</div>
+    <div class="converter-list">
+      <div class="converter-row">
+        <div>
+          <div class="converter-title">Victron MultiPlus-II 48/5000</div>
+          <div class="converter-sub">Inverter/charger · 48 V DC → 230 V AC · 5,000 W</div>
+        </div>
+        <span class="badge badge-good">optimal</span>
+        <button class="btn">Open</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Load circuits -->
+  <div class="panel">
+    <div class="section-head">Load circuits</div>
+    <div class="circuit-grid">
+
+      <div class="circuit-card">
+        <div class="circuit-name">Living room</div>
+        <div style="font-size:0.75rem;color:var(--muted);">MultiPlus-II 48/5000</div>
+        <div class="load-list">
+          <div class="load-item"><span class="load-name">TV + media</span><span class="load-power">0.12 kW</span></div>
+          <div class="load-item"><span class="load-name">Lighting</span><span class="load-power">0.06 kW</span></div>
+          <div class="load-item"><span class="load-name">Sockets</span><span class="load-power">0.35 kW</span></div>
+          <div class="load-total"><span>Total</span><span>0.53 kW</span></div>
+        </div>
+      </div>
+
+      <div class="circuit-card">
+        <div class="circuit-name">Kitchen</div>
+        <div style="font-size:0.75rem;color:var(--muted);">MultiPlus-II 48/5000</div>
+        <div class="load-list">
+          <div class="load-item"><span class="load-name">Fridge</span><span class="load-power">0.12 kW</span></div>
+          <div class="load-item"><span class="load-name">Oven</span><span class="load-power">2.20 kW</span></div>
+          <div class="load-item"><span class="load-name">Dishwasher</span><span class="load-power">1.20 kW</span></div>
+          <div class="load-total"><span>Total</span><span>3.52 kW</span></div>
+        </div>
+      </div>
+
+      <div class="circuit-card">
+        <div class="circuit-name">Utility</div>
+        <div style="font-size:0.75rem;color:var(--muted);">MultiPlus-II 48/5000</div>
+        <div class="load-list">
+          <div class="load-item"><span class="load-name">Pump</span><span class="load-power">0.25 kW</span></div>
+          <div class="load-item"><span class="load-name">Washing machine</span><span class="load-power">0.70 kW</span></div>
+          <div class="load-total"><span>Total</span><span>0.95 kW</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</body>
+</html>
