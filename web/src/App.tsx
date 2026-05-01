@@ -10730,7 +10730,7 @@ function LoadsPage({
                       </label>
                       <label className="field">
                         <span>Circuit voltage (V)</span>
-                        <input value={formatVoltage(selectedCircuitVoltageV)} readOnly />
+                        <input value={formatVoltage(activeCircuitVoltageV)} readOnly />
                       </label>
                     </div>
                     <div className="detail-grid two-col">
@@ -10830,7 +10830,7 @@ function LoadsPage({
                               </label>
                               <label className="field">
                                 <span>Circuit voltage (V)</span>
-                                <input value={formatVoltage(selectedCircuitVoltageV)} readOnly />
+                                <input value={formatVoltage(activeCircuitVoltageV)} readOnly />
                               </label>
                             </div>
                             <div className="detail-grid two-col">
