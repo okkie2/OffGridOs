@@ -2,6 +2,8 @@
 
 ## 2026-05-01
 
+- Reworked the Load circuits page into inline editable circuit cards, removed the bottom load-editor panel, and made `Show loads` open the Loads workbench behind an app warning dialog.
+- Moved the Load circuits add action back to a small left-aligned toolbar button so it matches the Consumption converter page rhythm.
 - Turned the Consumption converter info block into the editor itself so Add/Edit now happen in-block with inline Save, Cancel, and Remove controls.
 - Added project-level converters with their own title and description, so Consumption now saves converter instances before showing attached load circuits.
 - Updated load-circuit and load workbench filters to use project converter IDs instead of catalog conversion-device IDs.
