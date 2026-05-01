@@ -6,6 +6,7 @@ import { openDb } from './connection.js';
 import { ensureDatabaseReady } from '../server/bootstrap.js';
 import { buildDigitalTwinExport } from '../output/exportDigitalTwin.js';
 import { deleteCabinetType, getCabinetType, insertCabinetType, listCabinetTypes, updateCabinetType } from './queries.js';
+import { DEFAULT_PROJECT_ID } from '../config/project.js';
 
 const createdDirs: string[] = [];
 
@@ -24,6 +25,7 @@ afterEach(() => {
 describe('cabinet type catalog helpers', () => {
   it('insert, update, export, and delete cabinet types without binding errors', () => {
     const dbPath = makeTempDbPath();
+    const projectId = DEFAULT_PROJECT_ID;
     ensureDatabaseReady(dbPath);
     const db = openDb(dbPath);
 
@@ -80,7 +82,7 @@ describe('cabinet type catalog helpers', () => {
       expect(updated?.title).toBe('Test Cabinet 1 Updated');
       expect(updated?.units).toBe('48U');
 
-      const exportData = buildDigitalTwinExport(db, dbPath);
+      const exportData = buildDigitalTwinExport(db, dbPath, projectId);
       expect(exportData.entities.cabinet_types).toHaveLength(initialCount + 1);
 
       deleteCabinetType(db, 'test-cabinet-1');

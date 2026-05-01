@@ -6,6 +6,7 @@ import { buildDigitalTwinExport } from '../output/exportDigitalTwin.js';
 import { getBatteryBankConfiguration, getInverterConfiguration, getLocation, getSurfaceConfiguration, insertCabinetType, upsertBatteryBankConfiguration, upsertInverterConfiguration, upsertLocation, upsertSurfaceConfiguration, upsertSurfacePanelAssignment } from '../db/queries.js';
 import { openDb } from '../db/connection.js';
 import { ensureDatabaseReady, withDb } from './bootstrap.js';
+import { DEFAULT_PROJECT_ID } from '../config/project.js';
 
 const createdDirs: string[] = [];
 
@@ -24,6 +25,7 @@ afterEach(() => {
 describe('publish rehearsal', () => {
   it('persists representative production state across a restart', () => {
     const dbPath = makeTempDbPath();
+    const projectId = DEFAULT_PROJECT_ID;
 
     ensureDatabaseReady(dbPath);
     expect(existsSync(dbPath)).toBe(true);
@@ -40,7 +42,7 @@ describe('publish rehearsal', () => {
         northing: 557800.12,
         easting: 181200.45,
         site_photo_data_url: 'data:image/png;base64,test-location-photo',
-      });
+      }, projectId);
 
       upsertSurfacePanelAssignment(db, {
         surface_id: 'flat-ne',
@@ -82,21 +84,21 @@ describe('publish rehearsal', () => {
         configured_battery_count: 4,
         batteries_per_string: 2,
         parallel_strings: 2,
-      });
+      }, projectId);
 
       upsertInverterConfiguration(db, {
         inverter_configuration_id: 'inverter-configuration-main',
         selected_inverter_type_id: 'victron-mp2-48-10000',
-      });
+      }, projectId);
     });
 
     const db = openDb(dbPath);
     try {
-      const location = getLocation(db);
+      const location = getLocation(db, projectId);
       const roofFaceConfiguration = getSurfaceConfiguration(db, 'flat-ne');
       const batteryBankConfiguration = getBatteryBankConfiguration(db, 'battery-bank-main');
       const inverterConfiguration = getInverterConfiguration(db, 'inverter-configuration-main');
-      const exportData = buildDigitalTwinExport(db, dbPath);
+      const exportData = buildDigitalTwinExport(db, dbPath, projectId);
 
       expect(location).not.toBeNull();
       expect(location?.title).toBe('18Mad Boerderij');

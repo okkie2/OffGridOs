@@ -3,6 +3,7 @@ import chalk from 'chalk';
 import Database from 'better-sqlite3';
 import { listSurfaces, getSurface, insertSurface, updateSurface, deleteSurface } from '../../db/queries.js';
 import type { Surface } from '../../domain/types.js';
+import { DEFAULT_PROJECT_ID } from '../../config/project.js';
 
 async function promptSurface(existing?: Surface): Promise<Omit<Surface, 'id'>> {
   const ans = await inquirer.prompt([
@@ -79,7 +80,7 @@ async function promptSurface(existing?: Surface): Promise<Omit<Surface, 'id'>> {
 
 export async function surfacesFlow(db: Database.Database): Promise<void> {
   while (true) {
-    const surfaces = listSurfaces(db);
+    const surfaces = listSurfaces(db, DEFAULT_PROJECT_ID);
     const choices = [
       { name: 'Add surface', value: 'add' },
       ...(surfaces.length > 0 ? [
@@ -114,7 +115,7 @@ export async function surfacesFlow(db: Database.Database): Promise<void> {
       if (getSurface(db, data.surface_id)) {
         console.log(chalk.red(`Surface ID "${data.surface_id}" already exists.`));
       } else {
-        insertSurface(db, data);
+        insertSurface(db, data, DEFAULT_PROJECT_ID);
         console.log(chalk.green('Surface saved.'));
       }
       continue;

@@ -177,11 +177,23 @@ Key fields:
 - `load_id`
 - `name`
 - `load_circuit_id`
+- `nominal_current_a`
 - `nominal_power_w`
+- `startup_current_a`
 - `surge_power_w`
+- `standby_power_w`
 - `daily_energy_kwh`
 - `duty_profile`
+- `expected_usage_hours_per_day`
 - `notes`
+
+The inherited circuit supply type and voltage live on the load circuit side of the model, not on the load itself.
+
+Legacy aliases still accepted during the transition:
+
+- `usage_kw`
+- `spike_kw`
+- `sleeping_kw`
 
 ### Generator
 

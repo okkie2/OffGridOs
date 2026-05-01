@@ -23,8 +23,8 @@ OffGridOS uses a single-project SQLite database for both persisted project input
 - `project_converters` stores the project-level converter instances shown on `Consumption`; each row has its own title and description and references one catalog `conversion_device`
 - `dc_busbars` stores the shared DC distribution point for the battery-bank side of the system
 - `battery_bank_configurations.selected_dc_busbar_id` and `inverter_configurations.selected_dc_busbar_id` optionally link those configurations to one shared busbar
-- `load_circuits` groups one or more loads behind one protected distribution point and links to the owning `project_converter`
-- `loads` stores the individual electrical loads and their usage profile inputs
+- `load_circuits` groups one or more loads behind one protected distribution point, links to the owning `project_converter`, and carries the inherited supply type and voltage context through its attached converter
+- `loads` stores the individual electrical loads and their own electrical inputs, such as nominal current, nominal power, surge power, standby power, duty profile, and optional daily energy
 
 ## Notes
 

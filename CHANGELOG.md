@@ -1,7 +1,22 @@
 # CHANGELOG
 
+## 2026-05-01 (continued)
+
+- Wired full multi-project isolation through the backend: added `Project` type, `projects` CRUD queries, and project-scoped filtering for all project-scoped tables (surfaces, locations, loads, load circuits, project converters, battery banks, inverter configs, surface configurations, PV topology, and project preferences).
+- Updated the database schema migration to recreate `project_preferences` with a composite `PRIMARY KEY (project_id, key)` and all callers to accept a `projectId` parameter.
+- Added `X-Project-Id` header pattern to the server: every API request reads the header and isolates data to the resolved project.
+- Added `/api/projects` CRUD routes to the server.
+- Added a module-level `projectFetch` helper to the frontend that attaches `X-Project-Id` on every API call, replacing all 36 bare `fetch(` calls.
+- Added `activeProjectId` state (persisted in `localStorage`) to `AppContent` and a project switcher `<select>` in the app shell header that appears when more than one project exists.
+
 ## 2026-05-01
 
+- Removed `supply_type` and `nominal_voltage_v` from loads so supply type and voltage are inherited from the parent load circuit instead of being duplicated on each load.
+- Moved loads toward a neutral electrical schema with `supply_type`, `nominal_voltage_v`, `nominal_current_a`, `nominal_power_w`, `startup_current_a`, `surge_power_w`, `standby_power_w`, and `daily_energy_kwh`, while keeping legacy kW aliases during the migration.
+- Made Load circuits and Loads reopen on the last selected converter and circuit from the current browser session when opened from the menu.
+- Added a move flow for loads so a load can be reassigned from one circuit to another, with a focused regression covering the circuit change.
+- Reworked the Loads page into inline editable load cards scoped to one circuit at a time, removing the old separate editor and the circuit picker from inside the card.
+- Made the Loads page inherit circuit context from the selected converter and circuit filters, so loads now sit under their parent circuit the same way circuits sit under their parent converter.
 - Reworked the Load circuits page into inline editable circuit cards, removed the bottom load-editor panel, and made `Show loads` open the Loads workbench behind an app warning dialog.
 - Moved the Load circuits add action back to a small left-aligned toolbar button so it matches the Consumption converter page rhythm.
 - Turned the Consumption converter info block into the editor itself so Add/Edit now happen in-block with inline Save, Cancel, and Remove controls.

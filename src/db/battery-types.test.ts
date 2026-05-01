@@ -6,6 +6,7 @@ import { openDb } from './connection.js';
 import { ensureDatabaseReady } from '../server/bootstrap.js';
 import { buildDigitalTwinExport } from '../output/exportDigitalTwin.js';
 import { deleteBatteryType, getBatteryType, insertBatteryType, listBatteryTypes, updateBatteryType } from './queries.js';
+import { DEFAULT_PROJECT_ID } from '../config/project.js';
 
 const createdDirs: string[] = [];
 
@@ -24,6 +25,7 @@ afterEach(() => {
 describe('battery type catalog helpers', () => {
   it('insert, update, export, and delete battery types without binding errors', () => {
     const dbPath = makeTempDbPath();
+    const projectId = DEFAULT_PROJECT_ID;
     ensureDatabaseReady(dbPath);
     const db = openDb(dbPath);
 
@@ -77,7 +79,7 @@ describe('battery type catalog helpers', () => {
       expect(updated?.cooling).toBe('active');
       expect(updated?.price_per_kwh).toBe(100);
 
-      const exportData = buildDigitalTwinExport(db, dbPath);
+      const exportData = buildDigitalTwinExport(db, dbPath, projectId);
       expect(exportData.entities.battery_types).toHaveLength(initialCount + 1);
       expect(exportData.derived.summary.battery_type_count).toBe(initialCount + 1);
 

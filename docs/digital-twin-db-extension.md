@@ -255,10 +255,21 @@ Suggested columns:
 - `load_id TEXT UNIQUE NOT NULL`
 - `load_circuit_id TEXT NOT NULL REFERENCES load_circuits(load_circuit_id)`
 - `name TEXT NOT NULL`
+- `nominal_current_a REAL`
 - `nominal_power_w REAL NOT NULL`
+- `startup_current_a REAL`
 - `surge_power_w REAL`
+- `standby_power_w REAL`
+- `expected_usage_hours_per_day REAL`
 - `daily_energy_kwh REAL`
+- `duty_profile TEXT`
 - `notes TEXT`
+
+The circuit's attached conversion device provides the inherited supply type and voltage context for each load.
+
+Migration note:
+
+- keep old `usage_kw`, `spike_kw`, and `sleeping_kw` aliases only as compatibility fields while the model transitions to neutral electrical names
 
 ### `load_monthly_profiles`
 

@@ -62,6 +62,20 @@ Feature: Navigation
     Given OffGridOS is rendered on the loads page
     Then I should see the Loads page
 
+  Scenario: Remember the last converter on Load circuits
+    Given a remembered load navigation setup exists
+    And OffGridOS is rendered on the load circuits page
+    When I open Location from the menu
+    And I open Load circuits from the menu
+    Then the load circuits page should remember the last selected converter
+
+  Scenario: Remember the last converter and circuit on Loads
+    Given a remembered load navigation setup exists
+    And OffGridOS is rendered on the loads page with remembered filters
+    When I open Location from the menu
+    And I open Loads from the menu
+    Then the loads page should remember the last selected converter and circuit
+
   Scenario: Open filtered load circuits from Consumption
     Given OffGridOS is rendered with project data
     When I open Consumption from the menu
@@ -73,3 +87,10 @@ Feature: Navigation
     Then I should see the Load circuits page
     And the load circuits page should be filtered to the selected converter
     And the load circuits page should show the selected converter title
+
+  Scenario: Move a load to another circuit
+    Given a movable load setup exists for the loads page
+    And OffGridOS is rendered on the movable load source circuit
+    When I move the first load to the target circuit
+    Then the loads page should be filtered to the moved circuit
+    And the moved load should still be visible

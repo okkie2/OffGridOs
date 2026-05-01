@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { upsertLocation } from '../db/queries.js';
 import { ensureDatabaseReady, withDb } from '../server/bootstrap.js';
 import { publishLocalDatabase, readRailwayPublishToken } from './publish-database.js';
+import { DEFAULT_PROJECT_ID } from '../config/project.js';
 
 const createdDirs: string[] = [];
 
@@ -35,6 +36,7 @@ describe('publishLocalDatabase', () => {
   it('uploads the local database payload to the publish endpoint', async () => {
     const sourceDir = makeTempDir();
     const sourcePath = join(sourceDir, 'project.db');
+    const projectId = DEFAULT_PROJECT_ID;
 
     ensureDatabaseReady(sourcePath);
     withDb(sourcePath, (db) => {
@@ -48,7 +50,7 @@ describe('publishLocalDatabase', () => {
         northing: 557800.12,
         easting: 181200.45,
         site_photo_data_url: null,
-      });
+      }, projectId);
     });
 
     const expectedPayload = readFileSync(sourcePath);

@@ -7,6 +7,7 @@ import { evaluateArrayToMpptFit, pickDerivedMpptType } from './arrayToMppt.js';
 import type { ValidationMessage } from '../domain/types.js';
 import { buildDigitalTwinExport } from '../output/exportDigitalTwin.js';
 import { writeReportMarkdown } from '../output/report.js';
+import { DEFAULT_PROJECT_ID } from '../config/project.js';
 
 function printMessages(msgs: ValidationMessage[]): void {
   for (const m of msgs) {
@@ -76,7 +77,7 @@ export function runCalculations(dbPath: string): void {
 
   try {
     input = loadProjectInput(db);
-    exportData = buildDigitalTwinExport(db, dbPath);
+    exportData = buildDigitalTwinExport(db, dbPath, DEFAULT_PROJECT_ID);
   } finally {
     db.close();
   }

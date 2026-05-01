@@ -63,7 +63,12 @@ async function getDigitalTwin() {
       battery_types: Array<{ battery_type_id: string }>;
       mppt_types: Array<{ mppt_type_id: string }>;
       panel_types: Array<{ panel_type_id: string }>;
-      conversion_devices: Array<{ conversion_device_id: string }>;
+      conversion_devices: Array<{
+        conversion_device_id: string;
+        output_voltage_v?: number | null;
+        output_ac_voltage_v?: number | null;
+        output_dc_voltage_v?: number | null;
+      }>;
     };
   }>;
 }
@@ -217,12 +222,64 @@ describe('Load circuit and load routes', () => {
       body: JSON.stringify({
         load_circuit_id: loadCircuitId,
         title: 'Fridge',
-        usage_kw: 0.12,
-        spike_kw: 0.45,
+        nominal_power_w: 120,
+        surge_power_w: 450,
+        standby_power_w: 30,
         expected_usage_hours_per_day: 8,
-        sleeping_kw: 0.01,
+        daily_energy_kwh: 0.96,
       }),
     });
     expect(loadRes.status).toBe(201);
+  });
+
+  it('derives load power from the circuit voltage when only current is provided', async () => {
+    const twin = await getDigitalTwin();
+    const conversionDevice = twin.entities.conversion_devices.find((device) => (
+      device.output_voltage_v != null || device.output_ac_voltage_v != null || device.output_dc_voltage_v != null
+    ));
+    expect(conversionDevice?.conversion_device_id).toBeTruthy();
+
+    const circuitRes = await fetch(`${BASE_URL}/api/load-circuits`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        conversion_device_id: conversionDevice!.conversion_device_id,
+        title: 'Inherited voltage circuit',
+      }),
+    });
+    expect(circuitRes.status).toBe(201);
+
+    const circuitTwin = await circuitRes.json() as {
+      entities: {
+        load_circuits: Array<{ load_circuit_id: string }>;
+      };
+    };
+    const loadCircuitId = circuitTwin.entities.load_circuits[0]?.load_circuit_id;
+    expect(loadCircuitId).toBeTruthy();
+
+    const currentA = 2;
+    const circuitVoltageV = conversionDevice!.output_voltage_v ?? conversionDevice!.output_ac_voltage_v ?? conversionDevice!.output_dc_voltage_v ?? 0;
+    const expectedPowerW = currentA * circuitVoltageV;
+
+    const loadRes = await fetch(`${BASE_URL}/api/loads`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        load_circuit_id: loadCircuitId,
+        title: 'Current-only load',
+        nominal_current_a: currentA,
+        expected_usage_hours_per_day: 1,
+      }),
+    });
+    expect(loadRes.status).toBe(201);
+
+    const loadTwin = await loadRes.json() as {
+      entities: {
+        loads: Array<{ nominal_current_a?: number | null; nominal_power_w?: number | null }>;
+      };
+    };
+    const load = loadTwin.entities.loads[0];
+    expect(load.nominal_current_a).toBe(currentA);
+    expect(load.nominal_power_w).toBeCloseTo(expectedPowerW, 5);
   });
 });

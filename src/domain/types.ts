@@ -246,10 +246,24 @@ export interface Load {
   load_circuit_id: string;
   title: string;
   description?: string | null;
-  usage_kw: number;
-  spike_kw: number;
+  nominal_current_a?: number | null;
+  nominal_power_w?: number | null;
+  startup_current_a?: number | null;
+  surge_power_w?: number | null;
+  standby_power_w?: number | null;
   expected_usage_hours_per_day: number;
-  sleeping_kw: number;
+  daily_energy_kwh?: number | null;
+  duty_profile?: string | null;
+  notes?: string | null;
+  usage_kw?: number;
+  spike_kw?: number;
+  sleeping_kw?: number;
+}
+
+export interface Project {
+  project_id: string;
+  title: string;
+  created_at: string;
 }
 
 export interface ProjectPreferences {

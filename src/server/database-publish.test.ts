@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { getLocation, upsertLocation } from '../db/queries.js';
 import { ensureDatabaseReady, withDb } from './bootstrap.js';
 import { DATABASE_PUBLISH_TOKEN_HEADER, hasValidDatabasePublishToken, publishDatabaseFile, resolveDatabasePublishToken } from './database-publish.js';
+import { DEFAULT_PROJECT_ID } from '../config/project.js';
 
 const createdDirs: string[] = [];
 
@@ -48,6 +49,7 @@ describe('publishDatabaseFile', () => {
     const targetDir = makeTempDir();
     const sourcePath = join(sourceDir, 'project.db');
     const targetPath = join(targetDir, 'project.db');
+    const projectId = DEFAULT_PROJECT_ID;
 
     ensureDatabaseReady(sourcePath);
     withDb(sourcePath, (db) => {
@@ -61,7 +63,7 @@ describe('publishDatabaseFile', () => {
         northing: 557800.12,
         easting: 181200.45,
         site_photo_data_url: 'data:image/png;base64,test-photo',
-      });
+      }, projectId);
     });
 
     const payload = readFileSync(sourcePath);
@@ -70,7 +72,7 @@ describe('publishDatabaseFile', () => {
     expect(result.bytesWritten).toBe(payload.length);
     expect(existsSync(targetPath)).toBe(true);
 
-    const location = withDb(targetPath, (db) => getLocation(db));
+    const location = withDb(targetPath, (db) => getLocation(db, projectId));
     expect(location?.title).toBe('18Mad Boerderij');
     expect(location?.description).toBe('Published from local source of truth');
     expect(location?.site_photo_data_url).toBe('data:image/png;base64,test-photo');

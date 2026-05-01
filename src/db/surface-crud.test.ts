@@ -18,6 +18,7 @@ import {
   upsertSurfaceConfiguration,
   upsertSurfacePanelAssignment,
 } from './queries.js';
+import { DEFAULT_PROJECT_ID } from '../config/project.js';
 
 const createdDirs: string[] = [];
 
@@ -36,6 +37,7 @@ afterEach(() => {
 describe('surface CRUD helpers', () => {
   it('given a new surface, when it is created, then it receives synced PV topology and export data', () => {
     const dbPath = makeTempDbPath();
+    const projectId = DEFAULT_PROJECT_ID;
     ensureDatabaseReady(dbPath);
     const db = openDb(dbPath);
 
@@ -48,7 +50,7 @@ describe('surface CRUD helpers', () => {
         tilt_deg: 25,
         usable_area_m2: undefined,
         notes: 'temporary test surface',
-      });
+      }, projectId);
 
       const surface = getSurface(db, roofFaceId);
       expect(surface).not.toBeNull();
@@ -59,7 +61,7 @@ describe('surface CRUD helpers', () => {
       expect(array?.surface_id).toBe(roofFaceId);
       expect(array?.panel_count).toBe(0);
 
-      const exportData = buildDigitalTwinExport(db, dbPath);
+      const exportData = buildDigitalTwinExport(db, dbPath, projectId);
       expect(exportData.entities.surfaces.some((item) => item.surface_id === roofFaceId)).toBe(true);
       expect(exportData.entities.pv_arrays.some((item) => item.surface_id === roofFaceId)).toBe(true);
       expect(exportData.entities.pv_strings.some((item) => item.surface_id === roofFaceId)).toBe(false);
@@ -71,11 +73,12 @@ describe('surface CRUD helpers', () => {
 
   it('given an existing surface list, when a new surface is created, then it is appended last and starts without an MPPT assignment', () => {
     const dbPath = makeTempDbPath();
+    const projectId = DEFAULT_PROJECT_ID;
     ensureDatabaseReady(dbPath);
     const db = openDb(dbPath);
 
     try {
-      const before = listSurfaces(db).map((item) => item.surface_id);
+      const before = listSurfaces(db, projectId).map((item) => item.surface_id);
       const roofFaceId = 'surface-crud-append-last';
 
       createSurface(db, {
@@ -85,9 +88,9 @@ describe('surface CRUD helpers', () => {
         tilt_deg: 25,
         usable_area_m2: undefined,
         notes: undefined,
-      });
+      }, projectId);
 
-      const after = listSurfaces(db).map((item) => item.surface_id);
+      const after = listSurfaces(db, projectId).map((item) => item.surface_id);
       expect(after.at(-1)).toBe(roofFaceId);
       expect(after.slice(0, -1)).toEqual(before);
 
@@ -104,6 +107,7 @@ describe('surface CRUD helpers', () => {
 
   it('given an existing surface, when it is updated, then the surface and derived array stay in sync', () => {
     const dbPath = makeTempDbPath();
+    const projectId = DEFAULT_PROJECT_ID;
     ensureDatabaseReady(dbPath);
     const db = openDb(dbPath);
 
@@ -116,7 +120,7 @@ describe('surface CRUD helpers', () => {
         tilt_deg: 30,
         usable_area_m2: undefined,
         notes: undefined,
-      });
+      }, projectId);
 
       updateSurface(db, {
         surface_id: roofFaceId,
@@ -136,7 +140,7 @@ describe('surface CRUD helpers', () => {
       const array = getPvArrayBySurface(db, roofFaceId);
       expect(array?.name).toBe('Surface CRUD Updated');
 
-      const exportData = buildDigitalTwinExport(db, dbPath);
+      const exportData = buildDigitalTwinExport(db, dbPath, projectId);
       const exportedSurface = exportData.entities.surfaces.find((item) => item.surface_id === roofFaceId);
       const exportedArray = exportData.entities.pv_arrays.find((item) => item.surface_id === roofFaceId);
 
@@ -150,6 +154,7 @@ describe('surface CRUD helpers', () => {
 
   it('given an existing surface with topology, when it is deleted, then the surface and dependent rows disappear', () => {
     const dbPath = makeTempDbPath();
+    const projectId = DEFAULT_PROJECT_ID;
     ensureDatabaseReady(dbPath);
     const db = openDb(dbPath);
 
@@ -164,7 +169,7 @@ describe('surface CRUD helpers', () => {
         tilt_deg: 20,
         usable_area_m2: undefined,
         notes: undefined,
-      });
+      }, projectId);
 
       upsertSurfacePanelAssignment(db, {
         surface_id: roofFaceId,
@@ -188,9 +193,9 @@ describe('surface CRUD helpers', () => {
       expect(getSurface(db, roofFaceId)).toBeNull();
       expect(getPvArrayBySurface(db, roofFaceId)).toBeNull();
       expect(getArrayToMpptMapping(db, `array-${roofFaceId}`)).toBeNull();
-      expect(listSurfaces(db).some((item) => item.surface_id === roofFaceId)).toBe(false);
+      expect(listSurfaces(db, projectId).some((item) => item.surface_id === roofFaceId)).toBe(false);
 
-      const exportData = buildDigitalTwinExport(db, dbPath);
+      const exportData = buildDigitalTwinExport(db, dbPath, projectId);
       expect(exportData.entities.surfaces.some((item) => item.surface_id === roofFaceId)).toBe(false);
       expect(exportData.entities.pv_arrays.some((item) => item.surface_id === roofFaceId)).toBe(false);
       expect(exportData.entities.pv_strings.some((item) => item.surface_id === roofFaceId)).toBe(false);

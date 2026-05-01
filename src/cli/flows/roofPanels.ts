@@ -8,10 +8,11 @@ import {
   upsertSurfacePanelAssignment,
   deleteSurfacePanelAssignment,
 } from '../../db/queries.js';
+import { DEFAULT_PROJECT_ID } from '../../config/project.js';
 
 export async function surfacePanelAssignmentsFlow(db: Database.Database): Promise<void> {
   while (true) {
-    const surfaces = listSurfaces(db);
+    const surfaces = listSurfaces(db, DEFAULT_PROJECT_ID);
     const panelTypes = listPanelTypes(db);
 
     if (surfaces.length === 0) {

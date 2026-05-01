@@ -191,10 +191,18 @@ interface Load {
   load_circuit_id: string;
   title: string;
   description?: string | null;
-  usage_kw: number;
-  spike_kw: number;
+  nominal_current_a?: number | null;
+  nominal_power_w?: number | null;
+  startup_current_a?: number | null;
+  surge_power_w?: number | null;
+  standby_power_w?: number | null;
   expected_usage_hours_per_day: number;
-  sleeping_kw: number;
+  daily_energy_kwh?: number | null;
+  duty_profile?: string | null;
+  notes?: string | null;
+  usage_kw?: number;
+  spike_kw?: number;
+  sleeping_kw?: number;
 }
 
 interface Generator {
@@ -358,6 +366,8 @@ For the current project phase:
 - one or more load circuits will group downstream loads
 
 In this model, a `Load` may be either a concrete appliance or endpoint, or a modeled load group such as living room sockets or a lighting group, as long as it stays below the `LoadCircuit` level.
+
+Loads should use neutral electrical fields so the same model can describe AC and DC consumers. The circuit owns the inherited supply type and voltage context. Legacy `usage_kw`, `spike_kw`, and `sleeping_kw` aliases remain available during migration, but `nominal_power_w`, `surge_power_w`, `standby_power_w`, and `nominal_current_a` are the preferred load fields.
 
 The type model should still allow future expansion without renaming the core concepts.
 

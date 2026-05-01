@@ -240,9 +240,17 @@ erDiagram
         TEXT load_circuit_id FK
         TEXT title
         TEXT description
+        REAL nominal_current_a
+        REAL nominal_power_w
+        REAL startup_current_a
+        REAL surge_power_w
+        REAL standby_power_w
+        REAL expected_usage_hours_per_day
+        REAL daily_energy_kwh
+        TEXT duty_profile
+        TEXT notes
         REAL usage_kw
         REAL spike_kw
-        REAL expected_usage_hours_per_day
         REAL sleeping_kw
     }
 
@@ -287,7 +295,8 @@ erDiagram
 - `inverter_configurations` stores the selected inverter setup plus optional title, description, notes, and image.
 - `conversion_devices` stores the unified inverter and converter catalog entries for the load side.
 - `load_circuits` stores protected load-side circuits behind one conversion device.
-- `loads` stores the individual load items attached to a load circuit.
+- `loads` stores the individual load items attached to a load circuit, with neutral electrical fields for current, power, and usage plus legacy kW aliases kept for compatibility during migration.
+- `loads` inherit supply type and voltage context from their parent load circuit's attached conversion device.
 - `project_preferences` uses `key` as its primary key (no separate `id` column).
 - monthly solar output by surface is currently derived at export time rather than stored as a base table.
 - the project-level monthly solar total is the sum of those derived surface monthly outputs.

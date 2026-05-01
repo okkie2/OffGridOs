@@ -10,7 +10,7 @@ import { JSDOM } from 'jsdom';
 import { openDb } from '../../src/db/connection.js';
 import { ensureDatabaseReady } from '../../src/server/bootstrap.js';
 import { buildDigitalTwinExport } from '../../src/output/exportDigitalTwin.js';
-import { deleteBatteryType, deleteLoad, deleteLoadCircuit, deleteProjectConverter, getBatteryBankConfiguration, getConversionDevice, getInverterConfiguration, getLoad, getLoadCircuit, getProjectConverter, getSurface, insertBatteryType, listBatteryTypes, listLoadCircuits, listLoads, listProjectConverters, syncPvTopologyForSurface, updateBatteryType, updateSurface, upsertBatteryBankConfiguration, upsertInverterConfiguration, upsertLoad, upsertLoadCircuit, upsertProjectConverter, upsertSurfaceConfiguration, upsertSurfacePanelAssignment } from '../../src/db/queries.js';
+import { deleteBatteryType, deleteLoad, deleteLoadCircuit, deleteProjectConverter, getBatteryBankConfiguration, getConversionDevice, getInverterConfiguration, getLoad, getLoadCircuit, getProjectConverter, getSurface, insertBatteryType, listBatteryTypes, listConversionDevices, listLoadCircuits, listLoads, listProjects, listProjectConverters, syncPvTopologyForSurface, updateBatteryType, updateSurface, upsertBatteryBankConfiguration, upsertInverterConfiguration, upsertLoad, upsertLoadCircuit, upsertProjectConverter, upsertSurfaceConfiguration, upsertSurfacePanelAssignment } from '../../src/db/queries.js';
 import { generateUniqueCatalogId } from '../../src/domain/panel-type-id.js';
 import { App } from '../../web/src/App.tsx';
 import type { DigitalTwinExport } from '../../web/src/App.tsx';
@@ -60,6 +60,16 @@ class NavigationWorld extends World {
   latestEnteredBatteryCatalogModel = '';
   latestSelectedConsumptionConverterId = '';
   latestSelectedConsumptionConverterTitle = '';
+  latestLoadCircuitsConverterId = '';
+  latestLoadsConverterId = '';
+  latestLoadsCircuitId = '';
+  latestMoveTargetLoadCircuitId = '';
+  latestMoveTargetLoadCircuitTitle = '';
+  latestMoveSourceLoadCircuitId = '';
+  latestMoveSourceLoadCircuitTitle = '';
+  latestMoveProjectConverterId = '';
+  latestMoveLoadId = '';
+  latestMovedLoadTitle = '';
   storedGlobals: StoredGlobal[] = [];
 
   installDom(): void {
@@ -221,7 +231,7 @@ class NavigationWorld extends World {
               site_photo_data_url: sitePhotoDataUrl === undefined ? (existing.site_photo_data_url ?? null) : sitePhotoDataUrl,
             });
 
-          this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), this.resolveProjectId(db));
         } finally {
           db.close();
         }
@@ -303,7 +313,7 @@ class NavigationWorld extends World {
           });
           syncPvTopologyForSurface(db, surfaceId);
 
-          this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), this.resolveProjectId(db));
         } finally {
           db.close();
         }
@@ -324,7 +334,7 @@ class NavigationWorld extends World {
           }
 
           db.prepare('DELETE FROM surfaces WHERE surface_id = ?').run(surfaceId);
-          this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), this.resolveProjectId(db));
         } finally {
           db.close();
         }
@@ -380,7 +390,7 @@ class NavigationWorld extends World {
             });
           }
 
-          this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), this.resolveProjectId(db));
         } finally {
           db.close();
         }
@@ -448,7 +458,7 @@ class NavigationWorld extends World {
             selected_mppt_type_id: selectedMpptTypeId || null,
           });
 
-          this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), this.resolveProjectId(db));
         } finally {
           db.close();
         }
@@ -502,7 +512,7 @@ class NavigationWorld extends World {
             description,
             conversion_device_id: conversionDeviceId,
           });
-          this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), this.resolveProjectId(db));
           return new Response(JSON.stringify(this.projectData), { status: 201, headers: { 'Content-Type': 'application/json' } });
         } finally {
           db.close();
@@ -531,7 +541,7 @@ class NavigationWorld extends World {
             description,
             conversion_device_id: conversionDeviceId,
           });
-          this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), this.resolveProjectId(db));
           return new Response(JSON.stringify(this.projectData), { status: 200, headers: { 'Content-Type': 'application/json' } });
         } finally {
           db.close();
@@ -543,7 +553,7 @@ class NavigationWorld extends World {
         const db = openDb(this.requireDbPath());
         try {
           deleteProjectConverter(db, projectConverterId);
-          this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), this.resolveProjectId(db));
           return new Response(JSON.stringify(this.projectData), { status: 200, headers: { 'Content-Type': 'application/json' } });
         } finally {
           db.close();
@@ -568,6 +578,7 @@ class NavigationWorld extends World {
 
         const db = openDb(this.requireDbPath());
         try {
+          const projectId = listProjects(db)[0]?.project_id ?? this.projectData?.project.project_id ?? 'offgridos-project';
           const projectConverter = projectConverterId ? getProjectConverter(db, projectConverterId) : null;
           const resolvedConversionDeviceId = projectConverter?.conversion_device_id ?? conversionDeviceId;
           if (!title || (!projectConverterId && !resolvedConversionDeviceId)) {
@@ -579,7 +590,7 @@ class NavigationWorld extends World {
             return new Response(JSON.stringify({ error: `Conversion device "${resolvedConversionDeviceId}" not found.` }), { status: 400 });
           }
 
-          const resolvedLoadCircuitId = loadCircuitId || generateUniqueCatalogId(title, listLoadCircuits(db).map((circuit) => circuit.load_circuit_id));
+          const resolvedLoadCircuitId = loadCircuitId || generateUniqueCatalogId(title, listLoadCircuits(db, projectId).map((circuit) => circuit.load_circuit_id));
           if (getLoadCircuit(db, resolvedLoadCircuitId)) {
             return new Response(JSON.stringify({ error: `Load circuit "${resolvedLoadCircuitId}" already exists.` }), { status: 409 });
           }
@@ -590,9 +601,9 @@ class NavigationWorld extends World {
             conversion_device_id: resolvedConversionDeviceId,
             title,
             description,
-          });
+          }, projectId);
 
-          this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), this.resolveProjectId(db));
           return new Response(JSON.stringify(this.projectData), {
             status: 201,
             headers: { 'Content-Type': 'application/json' },
@@ -625,6 +636,7 @@ class NavigationWorld extends World {
 
         const db = openDb(this.requireDbPath());
         try {
+          const projectId = listProjects(db)[0]?.project_id ?? this.projectData?.project.project_id ?? 'offgridos-project';
           const projectConverter = projectConverterId ? getProjectConverter(db, projectConverterId) : null;
           const resolvedConversionDeviceId = projectConverter?.conversion_device_id ?? conversionDeviceId;
           if (!title || (!projectConverterId && !resolvedConversionDeviceId)) {
@@ -647,9 +659,9 @@ class NavigationWorld extends World {
             conversion_device_id: resolvedConversionDeviceId,
             title,
             description,
-          });
+          }, projectId);
 
-          this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), this.resolveProjectId(db));
           return new Response(JSON.stringify(this.projectData), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
@@ -669,7 +681,7 @@ class NavigationWorld extends World {
           }
 
           deleteLoadCircuit(db, loadCircuitId);
-          this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), this.resolveProjectId(db));
           return new Response(JSON.stringify(this.projectData), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
@@ -682,7 +694,7 @@ class NavigationWorld extends World {
       if (url.pathname === '/api/loads' && method === 'GET') {
         const db = openDb(this.requireDbPath());
         try {
-          const payload = listLoads(db);
+          const payload = listLoads(db, listProjects(db)[0]?.project_id ?? this.projectData?.project.project_id ?? 'offgridos-project');
           return new Response(JSON.stringify(payload), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
@@ -718,6 +730,7 @@ class NavigationWorld extends World {
 
         const db = openDb(this.requireDbPath());
         try {
+          const projectId = listProjects(db)[0]?.project_id ?? this.projectData?.project.project_id ?? 'offgridos-project';
           if (!loadCircuitId || !title || !Number.isFinite(usageKw) || usageKw < 0 || !Number.isFinite(spikeKw) || spikeKw < 0 || !Number.isFinite(expectedUsageHoursPerDay) || expectedUsageHoursPerDay < 0 || !Number.isFinite(sleepingKw) || sleepingKw < 0) {
             return new Response(JSON.stringify({ error: 'Invalid load payload.' }), { status: 400 });
           }
@@ -727,7 +740,7 @@ class NavigationWorld extends World {
             return new Response(JSON.stringify({ error: `Load circuit "${loadCircuitId}" not found.` }), { status: 400 });
           }
 
-          const resolvedLoadId = loadId || generateUniqueCatalogId(title, listLoads(db).map((load) => load.load_id));
+          const resolvedLoadId = loadId || generateUniqueCatalogId(title, listLoads(db, projectId).map((load) => load.load_id));
           if (getLoad(db, resolvedLoadId)) {
             return new Response(JSON.stringify({ error: `Load "${resolvedLoadId}" already exists.` }), { status: 409 });
           }
@@ -741,9 +754,9 @@ class NavigationWorld extends World {
             spike_kw: spikeKw,
             expected_usage_hours_per_day: expectedUsageHoursPerDay,
             sleeping_kw: sleepingKw,
-          });
+          }, projectId);
 
-          this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), this.resolveProjectId(db));
           return new Response(JSON.stringify(this.projectData), {
             status: 201,
             headers: { 'Content-Type': 'application/json' },
@@ -784,6 +797,7 @@ class NavigationWorld extends World {
 
         const db = openDb(this.requireDbPath());
         try {
+          const projectId = listProjects(db)[0]?.project_id ?? this.projectData?.project.project_id ?? 'offgridos-project';
           if (!loadCircuitId || !title || !Number.isFinite(usageKw) || usageKw < 0 || !Number.isFinite(spikeKw) || spikeKw < 0 || !Number.isFinite(expectedUsageHoursPerDay) || expectedUsageHoursPerDay < 0 || !Number.isFinite(sleepingKw) || sleepingKw < 0) {
             return new Response(JSON.stringify({ error: 'Invalid load payload.' }), { status: 400 });
           }
@@ -807,9 +821,9 @@ class NavigationWorld extends World {
             spike_kw: spikeKw,
             expected_usage_hours_per_day: expectedUsageHoursPerDay,
             sleeping_kw: sleepingKw,
-          });
+          }, projectId);
 
-          this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), this.resolveProjectId(db));
           return new Response(JSON.stringify(this.projectData), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
@@ -829,7 +843,7 @@ class NavigationWorld extends World {
           }
 
           deleteLoad(db, loadId);
-          this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), this.resolveProjectId(db));
           return new Response(JSON.stringify(this.projectData), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
@@ -883,7 +897,7 @@ class NavigationWorld extends World {
             notes,
           });
 
-          this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), this.resolveProjectId(db));
         } finally {
           db.close();
         }
@@ -950,7 +964,7 @@ class NavigationWorld extends World {
             parallel_strings: parallelStrings,
           });
 
-          this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), this.resolveProjectId(db));
         } finally {
           db.close();
         }
@@ -984,7 +998,7 @@ class NavigationWorld extends World {
             url: payload.price_source_url == null ? null : String(payload.price_source_url),
             notes: payload.notes == null ? null : String(payload.notes),
           });
-          this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), this.resolveProjectId(db));
         } finally {
           db.close();
         }
@@ -1023,7 +1037,7 @@ class NavigationWorld extends World {
               notes: payload.notes == null ? null : String(payload.notes),
             });
           }
-          this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), this.resolveProjectId(db));
         } finally {
           db.close();
         }
@@ -1117,7 +1131,150 @@ class NavigationWorld extends World {
     ensureDatabaseReady(this.dbPath);
     const db = openDb(this.dbPath);
     try {
-      this.projectData = buildDigitalTwinExport(db, this.dbPath);
+      const projectId = listProjects(db)[0]?.project_id ?? 'offgridos-project';
+      this.projectData = buildDigitalTwinExport(db, this.dbPath, projectId);
+    } finally {
+      db.close();
+    }
+  }
+
+  prepareLoadMoveData(): void {
+    const db = openDb(this.requireDbPath());
+    try {
+      const projectId = listProjects(db)[0]?.project_id ?? this.projectData?.project.project_id ?? 'offgridos-project';
+      const conversionDevice = listConversionDevices(db)[0];
+      if (!conversionDevice) {
+        throw new Error('No conversion device available for the load move test.');
+      }
+
+      const projectConverter = listProjectConverters(db, projectId)[0] ?? null;
+      const projectConverterId = projectConverter?.project_converter_id ?? null;
+      const projectConverterDeviceId = projectConverter?.conversion_device_id ?? conversionDevice.conversion_device_id;
+      if (!projectConverter) {
+        const generatedProjectConverterId = `${conversionDevice.conversion_device_id}-move-test-converter`;
+        upsertProjectConverter(db, {
+          project_converter_id: generatedProjectConverterId,
+          title: 'Move test converter',
+          description: 'Project converter for the load move regression',
+          conversion_device_id: conversionDevice.conversion_device_id,
+        }, projectId);
+      }
+
+      const activeProjectConverter = listProjectConverters(db, projectId)[0] ?? null;
+      const activeProjectConverterId = activeProjectConverter?.project_converter_id ?? projectConverterId;
+      const activeProjectConverterDeviceId = activeProjectConverter?.conversion_device_id ?? projectConverterDeviceId;
+
+      const circuits = listLoadCircuits(db, projectId).filter((circuit) => circuit.project_converter_id === activeProjectConverterId);
+      let sourceCircuit = circuits[0] ?? null;
+      if (!sourceCircuit) {
+        upsertLoadCircuit(db, {
+          load_circuit_id: `${activeProjectConverterId}-source`,
+          project_converter_id: activeProjectConverterId,
+          conversion_device_id: activeProjectConverterDeviceId,
+          title: 'Source circuit',
+          description: 'Load move source circuit',
+        }, projectId);
+        sourceCircuit = getLoadCircuit(db, `${activeProjectConverterId}-source`);
+      }
+
+      let targetCircuit = circuits.find((circuit) => circuit.load_circuit_id !== sourceCircuit?.load_circuit_id) ?? null;
+      if (!targetCircuit) {
+        const targetCircuitId = `${activeProjectConverterId}-target`;
+        upsertLoadCircuit(db, {
+          load_circuit_id: targetCircuitId,
+          project_converter_id: activeProjectConverterId,
+          conversion_device_id: activeProjectConverterDeviceId,
+          title: 'Target circuit',
+          description: 'Load move target circuit',
+        }, projectId);
+        targetCircuit = getLoadCircuit(db, targetCircuitId);
+      }
+
+      if (!sourceCircuit || !targetCircuit) {
+        throw new Error('Failed to prepare the load move test circuits.');
+      }
+
+      const existingLoad = listLoads(db, projectId).find((load) => load.load_circuit_id === sourceCircuit.load_circuit_id) ?? null;
+      if (!existingLoad) {
+        const loadId = generateUniqueCatalogId('Moveable load', listLoads(db, projectId).map((load) => load.load_id));
+        upsertLoad(db, {
+          load_id: loadId,
+          load_circuit_id: sourceCircuit.load_circuit_id,
+          title: 'Moveable load',
+          description: 'Test load for moving between circuits',
+          usage_kw: 0.25,
+          spike_kw: 0.5,
+          expected_usage_hours_per_day: 1,
+          sleeping_kw: 0,
+        }, projectId);
+      }
+
+      const load = listLoads(db, projectId).find((item) => item.load_circuit_id === sourceCircuit.load_circuit_id) ?? null;
+      if (!load) {
+        throw new Error('Failed to prepare a load for the move test.');
+      }
+
+      this.latestMoveSourceLoadCircuitId = sourceCircuit.load_circuit_id;
+      this.latestMoveSourceLoadCircuitTitle = sourceCircuit.title;
+      this.latestMoveProjectConverterId = activeProjectConverterId ?? '';
+      this.latestMoveLoadId = load.load_id;
+      this.latestMovedLoadTitle = load.title;
+      this.latestMoveTargetLoadCircuitId = targetCircuit.load_circuit_id;
+      this.latestMoveTargetLoadCircuitTitle = targetCircuit.title;
+      this.projectData = buildDigitalTwinExport(db, this.dbPath, projectId);
+    } finally {
+      db.close();
+    }
+  }
+
+  prepareNavigationMemoryData(): void {
+    const db = openDb(this.requireDbPath());
+    try {
+      const projectId = listProjects(db)[0]?.project_id ?? this.projectData?.project.project_id ?? 'offgridos-project';
+      const conversionDevice = listConversionDevices(db)[0];
+      if (!conversionDevice) {
+        throw new Error('No conversion device available for the navigation memory test.');
+      }
+
+      upsertProjectConverter(db, {
+        project_converter_id: 'memory-converter-a',
+        title: 'Memory converter A',
+        description: 'Navigation memory source converter',
+        conversion_device_id: conversionDevice.conversion_device_id,
+      }, projectId);
+      upsertProjectConverter(db, {
+        project_converter_id: 'memory-converter-b',
+        title: 'Memory converter B',
+        description: 'Navigation memory target converter',
+        conversion_device_id: conversionDevice.conversion_device_id,
+      }, projectId);
+
+      upsertLoadCircuit(db, {
+        load_circuit_id: 'memory-circuit-a',
+        project_converter_id: 'memory-converter-a',
+        conversion_device_id: conversionDevice.conversion_device_id,
+        title: 'Memory circuit A',
+        description: 'Source circuit for remembered selection',
+      }, projectId);
+      upsertLoadCircuit(db, {
+        load_circuit_id: 'memory-circuit-b',
+        project_converter_id: 'memory-converter-b',
+        conversion_device_id: conversionDevice.conversion_device_id,
+        title: 'Memory circuit B',
+        description: 'First target circuit for remembered selection',
+      }, projectId);
+      upsertLoadCircuit(db, {
+        load_circuit_id: 'memory-circuit-c',
+        project_converter_id: 'memory-converter-b',
+        conversion_device_id: conversionDevice.conversion_device_id,
+        title: 'Memory circuit C',
+        description: 'Second target circuit for remembered selection',
+      }, projectId);
+
+      this.latestLoadCircuitsConverterId = 'memory-converter-b';
+      this.latestLoadsConverterId = 'memory-converter-b';
+      this.latestLoadsCircuitId = 'memory-circuit-c';
+      this.projectData = buildDigitalTwinExport(db, this.dbPath, projectId);
     } finally {
       db.close();
     }
@@ -1130,11 +1287,16 @@ class NavigationWorld extends World {
     return this.dbPath;
   }
 
+  resolveProjectId(db: ReturnType<typeof openDb>): string {
+    return listProjects(db)[0]?.project_id ?? this.projectData?.project.project_id ?? 'offgridos-project';
+  }
+
   readProjectData(): DigitalTwinExport {
     const dbPath = this.requireDbPath();
     const db = openDb(dbPath);
     try {
-      this.projectData = buildDigitalTwinExport(db, dbPath);
+      const projectId = listProjects(db)[0]?.project_id ?? this.projectData?.project.project_id ?? 'offgridos-project';
+      this.projectData = buildDigitalTwinExport(db, dbPath, projectId);
       return this.projectData;
     } finally {
       db.close();
@@ -1398,7 +1560,7 @@ class NavigationWorld extends World {
       throw new Error('Navigation test DOM is not ready.');
     }
 
-    const addButton = Array.from(this.dom.window.document.querySelectorAll('.panel button'))
+    const addButton = Array.from(this.dom.window.document.querySelectorAll('button'))
       .find((node) => node.textContent?.trim() === 'Add load') as HTMLElement | undefined;
     if (!addButton) {
       throw new Error('Could not find the Add load button on the circuit page.');
@@ -1414,7 +1576,77 @@ class NavigationWorld extends World {
       this.dom.window.dispatchEvent(new this.dom.window.HashChangeEvent('hashchange'));
     });
 
-    await this.waitForText('Unnamed load');
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline) {
+      if (this.dom.window.document.querySelector('.consumption-selection-editor')) {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+
+    throw new Error('Timed out waiting for the load editor card.');
+  }
+
+  async createMoveTestLoad(): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    await this.addLoadOnCircuitPage();
+    const editorCard = Array.from(this.dom.window.document.querySelectorAll('.consumption-selection-editor'))
+      .at(-1) as HTMLElement | undefined;
+    if (!editorCard) {
+      throw new Error('Could not find the load editor card.');
+    }
+
+    const inputs = Array.from(editorCard.querySelectorAll('input')) as HTMLInputElement[];
+    const setValue = (input: HTMLInputElement, value: string) => {
+      const setter = Object.getOwnPropertyDescriptor(this.dom!.window.HTMLInputElement.prototype, 'value')?.set;
+      if (!setter) {
+        throw new Error('Could not find value setter for the load editor input.');
+      }
+
+      setter.call(input, value);
+      input.dispatchEvent(new this.dom!.window.InputEvent('input', {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        data: value,
+        inputType: 'insertText',
+      }));
+      input.dispatchEvent(new this.dom!.window.Event('input', { bubbles: true }));
+      input.dispatchEvent(new this.dom!.window.Event('change', { bubbles: true }));
+    };
+
+    if (inputs.length < 6) {
+      throw new Error('Unexpected load editor field count.');
+    }
+
+    await act(async () => {
+      setValue(inputs[0], 'Moveable load');
+      setValue(inputs[1], 'Load that will move between circuits');
+      setValue(inputs[2], '0.25');
+      setValue(inputs[3], '0.5');
+      setValue(inputs[4], '1');
+      setValue(inputs[5], '0');
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    const saveButton = Array.from(editorCard.querySelectorAll('button'))
+      .find((node) => node.textContent?.trim() === 'Save') as HTMLElement | undefined;
+    if (!saveButton) {
+      throw new Error('Could not find the load Save button.');
+    }
+
+    await act(async () => {
+      saveButton.dispatchEvent(new this.dom.window.MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+      }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    await this.waitForText('Moveable load');
   }
 
   async clickSurfaceDeleteButton(): Promise<void> {
@@ -1522,6 +1754,53 @@ class NavigationWorld extends World {
     }
 
     return control;
+  }
+
+  getPageFieldControl(labelText: string): HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const label = Array.from(this.dom.window.document.querySelectorAll('label')).find((node) => {
+      const span = node.querySelector('span');
+      return span?.textContent?.trim() === labelText;
+    }) as HTMLLabelElement | undefined;
+    if (!label) {
+      const pageLabels = Array.from(this.dom.window.document.querySelectorAll('label span'))
+        .map((node) => node.textContent?.trim())
+        .filter((value): value is string => Boolean(value));
+      throw new Error(`Could not find page field "${labelText}". Available labels: ${pageLabels.join(', ') || '(none)'}.`);
+    }
+
+    const control = label.querySelector('input, textarea, select') as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
+    if (!control) {
+      throw new Error(`Could not find a control for page field "${labelText}".`);
+    }
+
+    return control;
+  }
+
+  async waitForPageFieldControl(labelText: string): Promise<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const deadline = Date.now() + 10_000;
+    let lastError: unknown = null;
+    while (Date.now() < deadline) {
+      try {
+        return this.getPageFieldControl(labelText);
+      } catch (error) {
+        lastError = error;
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+    }
+
+    if (lastError instanceof Error) {
+      throw lastError;
+    }
+
+    throw new Error(`Timed out waiting for page field "${labelText}".`);
   }
 
   async waitForPanelFieldControl(panelHeading: string, labelText: string): Promise<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> {
@@ -2847,6 +3126,27 @@ Given('OffGridOS is rendered on the load circuits page', async function () {
   await this.waitForText('Load circuits');
 });
 
+Given('a remembered load navigation setup exists', async function () {
+  this.prepareNavigationMemoryData();
+  if (!this.dom) {
+    throw new Error('Navigation test DOM is not ready.');
+  }
+
+  this.dom.window.sessionStorage.setItem('offgridos:load-circuits:converter', JSON.stringify(this.latestLoadCircuitsConverterId));
+  this.dom.window.sessionStorage.setItem('offgridos:loads:converter', JSON.stringify(this.latestLoadsConverterId));
+  this.dom.window.sessionStorage.setItem('offgridos:loads:circuit', JSON.stringify(this.latestLoadsCircuitId));
+});
+
+Given('OffGridOS is rendered on the loads page with remembered filters', async function () {
+  if (!this.dom) {
+    throw new Error('Navigation test DOM is not ready.');
+  }
+
+  this.dom.window.history.replaceState(null, '', '/en/18mad/loads');
+  await this.renderApp();
+  await this.waitForText('Loads');
+});
+
 Given('OffGridOS is rendered on the loads page', async function () {
   if (!this.dom) {
     throw new Error('Navigation test DOM is not ready.');
@@ -2854,6 +3154,38 @@ Given('OffGridOS is rendered on the loads page', async function () {
 
   this.dom.window.history.replaceState(null, '', '/en/18mad/loads');
   await this.renderApp();
+  await this.waitForText('Loads');
+});
+
+Given('a movable load setup exists for the loads page', async function () {
+  this.prepareLoadMoveData();
+});
+
+Given('OffGridOS is rendered on the movable load source circuit', async function () {
+  if (!this.dom) {
+    throw new Error('Navigation test DOM is not ready.');
+  }
+
+  this.dom.window.history.replaceState(null, '', `/en/18mad/loads?circuit=${encodeURIComponent(this.latestMoveSourceLoadCircuitId)}`);
+  await this.renderApp();
+  const converterSelect = this.dom.window.document.querySelector('.detail-shell select') as HTMLSelectElement | null;
+  if (converterSelect && this.latestMoveProjectConverterId) {
+    await act(async () => {
+      converterSelect.value = this.latestMoveProjectConverterId;
+      converterSelect.dispatchEvent(new this.dom.window.Event('change', { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  }
+
+  const circuitSelect = Array.from(this.dom.window.document.querySelectorAll('.detail-shell select'))
+    .at(-1) as HTMLSelectElement | null;
+  if (circuitSelect && this.latestMoveSourceLoadCircuitId) {
+    await act(async () => {
+      circuitSelect.value = this.latestMoveSourceLoadCircuitId;
+      circuitSelect.dispatchEvent(new this.dom.window.Event('change', { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  }
   await this.waitForText('Loads');
 });
 
@@ -2885,6 +3217,16 @@ When('I open Production from the menu', async function () {
 When('I open Consumption from the menu', async function () {
   await this.clickByText('Consumption');
   await this.waitForText('Consumption');
+});
+
+When('I open Load circuits from the menu', async function () {
+  await this.clickByText('Load circuits');
+  await this.waitForText('Load circuits');
+});
+
+When('I open Loads from the menu', async function () {
+  await this.clickByText('Loads');
+  await this.waitForText('Loads');
 });
 
 When('I open the first surface detail from the menu', async function () {
@@ -2930,6 +3272,87 @@ When('I add a converter on the Consumption page', async function () {
   await this.addConverterOnConsumptionPage();
 });
 
+When('I choose the last converter on the Load circuits page', async function () {
+  if (!this.dom) {
+    throw new Error('Navigation test DOM is not ready.');
+  }
+
+  const select = await this.waitForPageFieldControl('Converter');
+  if (!(select instanceof this.dom.window.HTMLSelectElement)) {
+    throw new Error('The load circuits converter field is not a select.');
+  }
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline && select.options.length === 0) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  const option = select.options[select.options.length - 1];
+  if (!option) {
+    throw new Error('No converter options are available on the load circuits page.');
+  }
+
+  this.latestLoadCircuitsConverterId = option.value;
+  await act(async () => {
+    select.value = option.value;
+    select.dispatchEvent(new this.dom.window.Event('input', { bubbles: true }));
+    select.dispatchEvent(new this.dom.window.Event('change', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+});
+
+When('I choose the last converter on the Loads page', async function () {
+  if (!this.dom) {
+    throw new Error('Navigation test DOM is not ready.');
+  }
+
+  const select = await this.waitForPageFieldControl('Converter');
+  if (!(select instanceof this.dom.window.HTMLSelectElement)) {
+    throw new Error('The loads converter field is not a select.');
+  }
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline && select.options.length === 0) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  const option = select.options[select.options.length - 1];
+  if (!option) {
+    throw new Error('No converter options are available on the loads page.');
+  }
+
+  this.latestLoadsConverterId = option.value;
+  await act(async () => {
+    select.value = option.value;
+    select.dispatchEvent(new this.dom.window.Event('input', { bubbles: true }));
+    select.dispatchEvent(new this.dom.window.Event('change', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+});
+
+When('I choose the last circuit on the Loads page', async function () {
+  if (!this.dom) {
+    throw new Error('Navigation test DOM is not ready.');
+  }
+
+  const select = await this.waitForPageFieldControl('Load circuit');
+  if (!(select instanceof this.dom.window.HTMLSelectElement)) {
+    throw new Error('The loads circuit field is not a select.');
+  }
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline && select.options.length === 0) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  const option = select.options[select.options.length - 1];
+  if (!option) {
+    throw new Error('No circuit options are available on the loads page.');
+  }
+
+  this.latestLoadsCircuitId = option.value;
+  await act(async () => {
+    select.value = option.value;
+    select.dispatchEvent(new this.dom.window.Event('input', { bubbles: true }));
+    select.dispatchEvent(new this.dom.window.Event('change', { bubbles: true }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+});
+
 When('I choose the last converter on the Consumption page', async function () {
   await this.chooseLastConsumptionConverter();
 });
@@ -2944,6 +3367,47 @@ When('I save the converter on the Consumption page', async function () {
 
 When('I add a load on the circuit page', async function () {
   await this.addLoadOnCircuitPage();
+});
+
+When('I create the move test load on the page', async function () {
+  await this.createMoveTestLoad();
+});
+
+When('I move the first load to the target circuit', async function () {
+  if (!this.dom) {
+    throw new Error('Navigation test DOM is not ready.');
+  }
+
+  const loadId = this.latestMoveLoadId;
+  if (!loadId) {
+    throw new Error('No load was prepared for the move test.');
+  }
+
+  const db = openDb(this.requireDbPath());
+  try {
+    const projectId = listProjects(db)[0]?.project_id ?? this.projectData?.project.project_id ?? 'offgridos-project';
+    const load = getLoad(db, loadId);
+    if (!load) {
+      throw new Error(`Could not find the prepared load "${loadId}".`);
+    }
+
+    upsertLoad(db, {
+      load_id: load.load_id,
+      load_circuit_id: this.latestMoveTargetLoadCircuitId,
+      title: load.title,
+      description: load.description,
+      usage_kw: load.usage_kw,
+      spike_kw: load.spike_kw,
+      expected_usage_hours_per_day: load.expected_usage_hours_per_day,
+      sleeping_kw: load.sleeping_kw,
+    }, projectId);
+
+    this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), projectId);
+  } finally {
+    db.close();
+  }
+
+  this.dom.window.history.replaceState(null, '', `/en/18mad/loads?circuit=${encodeURIComponent(this.latestMoveTargetLoadCircuitId)}`);
 });
 
 When('I delete the active surface from the detail page', async function () {
@@ -3000,6 +3464,16 @@ Then('I should see the Load circuits page', async function () {
   assert.ok(text.includes('Load circuit'));
 });
 
+Then('the load circuits page should remember the last selected converter', async function () {
+  if (!this.dom) {
+    throw new Error('Navigation test DOM is not ready.');
+  }
+
+  const select = await this.waitForPageFieldControl('Converter');
+  assert.ok(select instanceof this.dom.window.HTMLSelectElement, 'The load circuits converter field is not a select.');
+  assert.equal(select.value, this.latestLoadCircuitsConverterId);
+});
+
 Then('the load circuits page should be filtered to the selected converter', async function () {
   if (!this.dom) {
     throw new Error('Navigation test DOM is not ready.');
@@ -3036,6 +3510,40 @@ Then('I should see the Loads page', async function () {
   const text = this.dom?.window.document.body.textContent ?? '';
   assert.ok(text.includes('Loads'));
   assert.ok(text.includes('Load circuit'));
+});
+
+Then('the loads page should remember the last selected converter and circuit', async function () {
+  if (!this.dom) {
+    throw new Error('Navigation test DOM is not ready.');
+  }
+
+  const converterSelect = await this.waitForPageFieldControl('Converter');
+  const circuitSelect = await this.waitForPageFieldControl('Load circuit');
+  assert.ok(converterSelect instanceof this.dom.window.HTMLSelectElement, 'The loads converter field is not a select.');
+  assert.ok(circuitSelect instanceof this.dom.window.HTMLSelectElement, 'The loads circuit field is not a select.');
+  assert.equal(converterSelect.value, this.latestLoadsConverterId);
+  assert.equal(circuitSelect.value, this.latestLoadsCircuitId);
+});
+
+Then('the loads page should be filtered to the moved circuit', async function () {
+  if (!this.dom) {
+    throw new Error('Navigation test DOM is not ready.');
+  }
+
+  const url = new URL(this.dom.window.location.href);
+  assert.ok(url.pathname.endsWith('/loads'), `Expected a loads path, got ${url.pathname}`);
+  assert.equal(url.searchParams.get('circuit'), this.latestMoveTargetLoadCircuitId);
+});
+
+Then('the moved load should still be visible', async function () {
+  const db = openDb(this.requireDbPath());
+  try {
+    const load = getLoad(db, this.latestMoveLoadId);
+    assert.ok(load, `Expected load "${this.latestMoveLoadId}" to exist.`);
+    assert.equal(load?.load_circuit_id, this.latestMoveTargetLoadCircuitId);
+  } finally {
+    db.close();
+  }
 });
 
 Then('I should see the Converter detail page', async function () {

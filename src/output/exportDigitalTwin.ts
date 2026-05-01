@@ -19,6 +19,7 @@ import type {
 } from '../domain/types.js';
 import {
   getLocation,
+  getProject,
   getProjectPreferences,
   listCabinetTypes,
   listBatteryTypes,
@@ -40,6 +41,7 @@ import {
   evaluateArrayToMpptFit,
   pickDerivedMpptType,
 } from '../calc/arrayToMppt.js';
+import { DEFAULT_PROJECT_ID } from '../config/project.js';
 
 interface ExportArray {
   array_id: string;
@@ -149,9 +151,17 @@ interface ExportLoad {
   load_circuit_id: string;
   title: string;
   description: string | null;
+  nominal_current_a: number | null;
+  nominal_power_w: number | null;
+  startup_current_a: number | null;
+  surge_power_w: number | null;
+  standby_power_w: number | null;
+  expected_usage_hours_per_day: number;
+  daily_energy_kwh: number | null;
+  duty_profile: string | null;
+  notes: string | null;
   usage_kw: number;
   spike_kw: number;
-  expected_usage_hours_per_day: number;
   sleeping_kw: number;
 }
 
@@ -490,10 +500,10 @@ function buildSolarMonthlyProfiles(
   return { solarMonthlyProfiles, projectMonthlySolarOutput };
 }
 
-function toProject(location: Location | null, projectPreferences: ProjectPreferences): ExportProject {
+function toProject(projectId: string, projectTitle: string, location: Location | null, projectPreferences: ProjectPreferences): ExportProject {
   return {
-    project_id: 'offgridos-project',
-    name: 'OffGridOS - 18Mad Boerderij',
+    project_id: projectId,
+    name: projectTitle,
     location: location ? {
       title: location.title ?? null,
       country: location.country,
@@ -933,27 +943,28 @@ function buildMonthlyBalance(): DigitalTwinExport['derived']['monthly_balance'] 
   }));
 }
 
-export function buildDigitalTwinExport(db: Database.Database, dbPath: string): DigitalTwinExport {
-  const location = getLocation(db);
-  const projectPreferences = getProjectPreferences(db);
-  const surfaces = listSurfaces(db);
-  const surfaceConfigurations = listSurfaceConfigurations(db);
-  const batteryBankConfigurations = listBatteryBankConfigurations(db);
+export function buildDigitalTwinExport(db: Database.Database, dbPath: string, projectId: string): DigitalTwinExport {
+  const project = getProject(db, projectId);
+  const location = getLocation(db, projectId);
+  const projectPreferences = getProjectPreferences(db, projectId);
+  const surfaces = listSurfaces(db, projectId);
+  const surfaceConfigurations = listSurfaceConfigurations(db, projectId);
+  const batteryBankConfigurations = listBatteryBankConfigurations(db, projectId);
   const cabinetTypes = listCabinetTypes(db);
   const panelTypes = listPanelTypes(db);
   const mpptTypes = listMpptTypes(db);
   const batteryTypes = listBatteryTypes(db);
   const conversionDevices = listConversionDevices(db);
-  const projectConverters = listProjectConverters(db);
+  const projectConverters = listProjectConverters(db, projectId);
   const inverterTypes = conversionDevices
     .map((device) => conversionDeviceToInverterType(device))
     .filter((device): device is InverterType => device != null);
-  const inverterConfigurations = listInverterConfigurations(db);
-  const loadCircuits = listLoadCircuits(db);
-  const loads = listLoads(db);
-  const pvArrays = listPvArrays(db);
-  const pvStrings = listPvStrings(db);
-  const arrayToMpptMappings = listArrayToMpptMappings(db);
+  const inverterConfigurations = listInverterConfigurations(db, projectId);
+  const loadCircuits = listLoadCircuits(db, projectId);
+  const loads = listLoads(db, projectId);
+  const pvArrays = listPvArrays(db, projectId);
+  const pvStrings = listPvStrings(db, projectId);
+  const arrayToMpptMappings = listArrayToMpptMappings(db, projectId);
 
   const { pvArrays: exportedPvArrays, arrayStates, totalInstalledWp } = buildArrays(pvArrays, pvStrings, panelTypes);
   const { solarMonthlyProfiles, projectMonthlySolarOutput } = buildSolarMonthlyProfiles(surfaces, exportedPvArrays, location);
@@ -971,7 +982,7 @@ export function buildDigitalTwinExport(db: Database.Database, dbPath: string): D
   ].some((status) => status === 'outside_limits');
 
   return {
-    project: toProject(location, projectPreferences),
+    project: toProject(projectId, project?.title ?? projectId, location, projectPreferences),
     entities: {
       surfaces,
       surface_configurations: surfaceConfigurations.map((design) => ({
@@ -1056,10 +1067,18 @@ export function buildDigitalTwinExport(db: Database.Database, dbPath: string): D
         load_circuit_id: load.load_circuit_id,
         title: load.title,
         description: load.description ?? null,
-        usage_kw: load.usage_kw,
-        spike_kw: load.spike_kw,
+        nominal_current_a: load.nominal_current_a ?? null,
+        nominal_power_w: load.nominal_power_w ?? null,
+        startup_current_a: load.startup_current_a ?? null,
+        surge_power_w: load.surge_power_w ?? null,
+        standby_power_w: load.standby_power_w ?? null,
         expected_usage_hours_per_day: load.expected_usage_hours_per_day,
-        sleeping_kw: load.sleeping_kw,
+        daily_energy_kwh: load.daily_energy_kwh ?? null,
+        duty_profile: load.duty_profile ?? null,
+        notes: load.notes ?? null,
+        usage_kw: load.usage_kw ?? ((load.nominal_power_w ?? 0) / 1000),
+        spike_kw: load.spike_kw ?? ((load.surge_power_w ?? 0) / 1000),
+        sleeping_kw: load.sleeping_kw ?? ((load.standby_power_w ?? 0) / 1000),
       })),
       solar_monthly_profiles: solarMonthlyProfiles,
       generators: [],
@@ -1140,8 +1159,8 @@ export function buildDigitalTwinExport(db: Database.Database, dbPath: string): D
   };
 }
 
-export function writeDigitalTwinExport(db: Database.Database, dbPath: string, outPath: string): string {
-  const exportData = buildDigitalTwinExport(db, dbPath);
+export function writeDigitalTwinExport(db: Database.Database, dbPath: string, outPath: string, projectId = DEFAULT_PROJECT_ID): string {
+  const exportData = buildDigitalTwinExport(db, dbPath, projectId);
   const resolvedOutPath = path.resolve(outPath);
   fs.writeFileSync(resolvedOutPath, `${JSON.stringify(exportData, null, 2)}\n`, 'utf-8');
   return resolvedOutPath;

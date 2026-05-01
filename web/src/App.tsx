@@ -443,10 +443,18 @@ interface Load {
   load_circuit_id: string;
   title: string;
   description?: string | null;
-  usage_kw: number;
-  spike_kw: number;
+  nominal_current_a?: number | null;
+  nominal_power_w?: number | null;
+  startup_current_a?: number | null;
+  surge_power_w?: number | null;
+  standby_power_w?: number | null;
   expected_usage_hours_per_day: number;
-  sleeping_kw: number;
+  daily_energy_kwh?: number | null;
+  duty_profile?: string | null;
+  notes?: string | null;
+  usage_kw?: number;
+  spike_kw?: number;
+  sleeping_kw?: number;
 }
 
 interface LoadCircuitDraft {
@@ -469,20 +477,29 @@ interface LoadDraft {
   load_circuit_id: string;
   title: string;
   description: string;
-  usage_kw: string;
-  spike_kw: string;
+  nominal_current_a: string;
+  nominal_power_w: string;
+  startup_current_a: string;
+  surge_power_w: string;
+  standby_power_w: string;
   expected_usage_hours_per_day: string;
-  sleeping_kw: string;
+  daily_energy_kwh: string;
+  duty_profile: string;
+  notes: string;
 }
 
 interface LoadPreset {
   load_preset_id: string;
   title: string;
   description: string;
-  usage_kw: number;
-  spike_kw: number;
+  nominal_current_a: number | null;
+  nominal_power_w: number;
+  startup_current_a: number | null;
+  surge_power_w: number;
+  standby_power_w: number;
   expected_usage_hours_per_day: number;
-  sleeping_kw: number;
+  daily_energy_kwh?: number | null;
+  duty_profile?: string | null;
 }
 
 const LOAD_PRESETS: LoadPreset[] = [
@@ -490,55 +507,73 @@ const LOAD_PRESETS: LoadPreset[] = [
     load_preset_id: 'fridge',
     title: 'Fridge',
     description: 'Cold storage appliance',
-    usage_kw: 0.12,
-    spike_kw: 0.4,
+    nominal_current_a: null,
+    nominal_power_w: 120,
+    startup_current_a: null,
+    surge_power_w: 400,
+    standby_power_w: 30,
     expected_usage_hours_per_day: 24,
-    sleeping_kw: 0.03,
+    daily_energy_kwh: 2.88,
   },
   {
     load_preset_id: 'pump',
     title: 'Pump',
     description: 'Water or circulation pump',
-    usage_kw: 0.25,
-    spike_kw: 0.9,
+    nominal_current_a: 4.5,
+    nominal_power_w: 54,
+    startup_current_a: null,
+    surge_power_w: 90,
+    standby_power_w: 0,
     expected_usage_hours_per_day: 1.5,
-    sleeping_kw: 0,
+    daily_energy_kwh: 0.081,
   },
   {
     load_preset_id: 'living-room-sockets',
     title: 'Living room sockets',
     description: 'Grouped socket demand',
-    usage_kw: 0.35,
-    spike_kw: 1.2,
+    nominal_current_a: null,
+    nominal_power_w: 350,
+    startup_current_a: null,
+    surge_power_w: 1200,
+    standby_power_w: 0,
     expected_usage_hours_per_day: 4,
-    sleeping_kw: 0,
+    daily_energy_kwh: 1.4,
   },
   {
     load_preset_id: 'upstairs-lighting',
     title: 'Upstairs lighting',
     description: 'Lighting group',
-    usage_kw: 0.08,
-    spike_kw: 0.15,
+    nominal_current_a: null,
+    nominal_power_w: 80,
+    startup_current_a: null,
+    surge_power_w: 150,
+    standby_power_w: 0,
     expected_usage_hours_per_day: 5,
-    sleeping_kw: 0,
+    daily_energy_kwh: 0.4,
   },
   {
     load_preset_id: 'oven',
     title: 'Oven',
     description: 'High-power cooking appliance',
-    usage_kw: 2.2,
-    spike_kw: 3.2,
+    nominal_current_a: null,
+    nominal_power_w: 2200,
+    startup_current_a: null,
+    surge_power_w: 3200,
+    standby_power_w: 0,
     expected_usage_hours_per_day: 0.8,
-    sleeping_kw: 0,
+    daily_energy_kwh: 1.76,
   },
   {
     load_preset_id: 'washing-machine',
     title: 'Washing machine',
     description: 'Laundry appliance',
-    usage_kw: 0.7,
-    spike_kw: 2.0,
+    nominal_current_a: null,
+    nominal_power_w: 700,
+    startup_current_a: null,
+    surge_power_w: 2000,
+    standby_power_w: 0,
     expected_usage_hours_per_day: 1.2,
-    sleeping_kw: 0,
+    daily_energy_kwh: 0.84,
   },
 ];
 
@@ -810,8 +845,16 @@ function useLocalStorageRevision(): number {
   return revision;
 }
 
+let _currentProjectId: string = localStorage.getItem('offgridos:active-project-id') ?? 'default-project';
+
+function projectFetch(url: string, options?: RequestInit): Promise<Response> {
+  const headers = new Headers(options?.headers);
+  headers.set('X-Project-Id', _currentProjectId);
+  return fetch(url, { ...options, headers });
+}
+
 async function fetchProjectData(): Promise<DigitalTwinExport> {
-  const response = await fetch('/api/digital-twin');
+  const response = await projectFetch('/api/digital-twin');
   if (!response.ok) {
     throw new Error(`Failed to load project data (${response.status})`);
   }
@@ -2863,6 +2906,9 @@ function AppFrame({
   openMobileSidebar,
   closeMobileSidebar,
   toggleSidebarCollapsed,
+  projects,
+  activeProjectId,
+  onSwitchProject,
   children,
 }: {
   route: Route;
@@ -2875,6 +2921,9 @@ function AppFrame({
   openMobileSidebar: () => void;
   closeMobileSidebar: () => void;
   toggleSidebarCollapsed: () => void;
+  projects?: Array<{ project_id: string; title: string }>;
+  activeProjectId?: string;
+  onSwitchProject?: (projectId: string) => void;
   children: React.ReactNode;
 }) {
   const { t } = useTranslation();
@@ -2908,6 +2957,18 @@ function AppFrame({
           >
             <span aria-hidden="true">☰</span>
           </button>
+          {projects && projects.length > 1 && onSwitchProject ? (
+            <select
+              className="project-switcher"
+              value={activeProjectId}
+              onChange={(e) => onSwitchProject(e.target.value)}
+              aria-label="Switch project"
+            >
+              {projects.map((p) => (
+                <option key={p.project_id} value={p.project_id}>{p.title}</option>
+              ))}
+            </select>
+          ) : null}
         </div>
         {route.kind !== 'surface' ? <PageHeader route={route} data={data} locationSlug={locationSlug} title={title} context={context} /> : null}
         {children}
@@ -3193,7 +3254,7 @@ function SurfaceDetail({
     setSurfaceSaveMessage(null);
 
     try {
-      const response = await fetch(`/api/surfaces/${encodeURIComponent(surfaceId)}`, {
+      const response = await projectFetch(`/api/surfaces/${encodeURIComponent(surfaceId)}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -3241,7 +3302,7 @@ function SurfaceDetail({
     setSurfaceSaveMessage(null);
 
     try {
-      const response = await fetch(`/api/surfaces/${encodeURIComponent(surfaceId)}`, { method: 'DELETE' });
+      const response = await projectFetch(`/api/surfaces/${encodeURIComponent(surfaceId)}`, { method: 'DELETE' });
       const payload = await response.json() as { error?: string };
 
       if (!response.ok) {
@@ -3267,7 +3328,7 @@ function SurfaceDetail({
     setPanelSaveMessage(null);
 
     try {
-      const response = await fetch(`/api/surface-panel-assignments/${encodeURIComponent(surfaceId)}`, {
+      const response = await projectFetch(`/api/surface-panel-assignments/${encodeURIComponent(surfaceId)}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -3324,7 +3385,7 @@ function SurfaceDetail({
     setSurfaceDesignSaveMessage(null);
 
     try {
-      const response = await fetch(`/api/surface-configurations/${encodeURIComponent(surfaceId)}`, {
+      const response = await projectFetch(`/api/surface-configurations/${encodeURIComponent(surfaceId)}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -3926,7 +3987,7 @@ function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refr
     setSaveMessage(null);
 
     try {
-      const response = await fetch('/api/location', {
+      const response = await projectFetch('/api/location', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -4224,7 +4285,7 @@ function ProductionPage({
     setSurfaceMessage(null);
     const surfaceId = `surface-${Date.now()}`;
     try {
-      const response = await fetch('/api/surfaces', {
+      const response = await projectFetch('/api/surfaces', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ surface_id: surfaceId, name: 'Unnamed surface', orientation_deg: 0, tilt_deg: 30 }),
@@ -4248,7 +4309,7 @@ function ProductionPage({
     setSurfaceError(null);
     setSurfaceMessage(null);
     try {
-      const response = await fetch(`/api/surfaces/${encodeURIComponent(surfaceId)}`, { method: 'DELETE' });
+      const response = await projectFetch(`/api/surfaces/${encodeURIComponent(surfaceId)}`, { method: 'DELETE' });
       const payload = await response.json() as { error?: string };
       if (!response.ok) throw new Error(payload.error ?? `Failed to delete surface (${response.status})`);
       setSurfaceMessage(t('location.surface.delete.success'));
@@ -4681,7 +4742,7 @@ function BatteryArrayPage({
     setBatteryDesignSaveMessage(null);
 
     try {
-      const response = await fetch('/api/battery-bank-configuration', {
+      const response = await projectFetch('/api/battery-bank-configuration', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -5262,7 +5323,7 @@ function InverterArrayPage({
     setInverterDesignSaveError(null);
 
     try {
-      const response = await fetch('/api/inverter-configuration', {
+      const response = await projectFetch('/api/inverter-configuration', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -5687,7 +5748,7 @@ function ConsumptionPage({
     try {
       setIsSaving(true);
       setSaveError(null);
-      const response = await fetch(editorMode === 'edit' ? `/api/project-converters/${encodeURIComponent(projectConverterId)}` : '/api/project-converters', {
+      const response = await projectFetch(editorMode === 'edit' ? `/api/project-converters/${encodeURIComponent(projectConverterId)}` : '/api/project-converters', {
         method: editorMode === 'edit' ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -5718,7 +5779,7 @@ function ConsumptionPage({
     try {
       setIsSaving(true);
       setSaveError(null);
-      const response = await fetch(`/api/project-converters/${encodeURIComponent(draft.project_converter_id)}`, { method: 'DELETE' });
+      const response = await projectFetch(`/api/project-converters/${encodeURIComponent(draft.project_converter_id)}`, { method: 'DELETE' });
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: string } | null;
         throw new Error(payload?.error ?? `Failed to remove converter (${response.status})`);
@@ -5749,7 +5810,7 @@ function ConsumptionPage({
     if (!hasCircuit) {
       const title = 'Unnamed circuit';
       const loadCircuitId = generateUniqueCatalogId(title, data.entities.load_circuits.map((circuit) => circuit.load_circuit_id));
-      const response = await fetch('/api/load-circuits', {
+      const response = await projectFetch('/api/load-circuits', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -6105,14 +6166,15 @@ function ConverterDetailPage({
   const converterBankCompatibility = selectedConverter && batteryArrayConfig
     ? evaluateConverterBankCompatibility(batteryArrayConfig, [selectedConverter])
     : null;
-  const selectedCircuitVoltageV = selectedConverter?.output_voltage_v ?? null;
+  const selectedCircuitVoltageV = loadCircuitVoltageV(selectedConverter);
+  const selectedCircuitSupplyType = loadCircuitSupplyType(selectedConverter);
   const selectedCircuitLoads = selectedLoadCircuit
     ? data.entities.loads.filter((load) => load.load_circuit_id === selectedLoadCircuit.load_circuit_id)
     : [];
   const converterLoadCircuitIdsKey = converterLoadCircuits.map((circuit) => circuit.load_circuit_id).join('|');
   const selectedCircuitLoadIdsKey = selectedCircuitLoads.map((load) => load.load_id).join('|');
-  const selectedCircuitUsageKw = selectedCircuitLoads.reduce((sum, load) => sum + load.usage_kw, 0);
-  const selectedCircuitSpikeKw = selectedCircuitLoads.reduce((sum, load) => sum + load.spike_kw, 0);
+  const selectedCircuitNominalPowerW = selectedCircuitLoads.reduce((sum, load) => sum + loadNominalPowerW(load), 0);
+  const selectedCircuitSurgePowerW = selectedCircuitLoads.reduce((sum, load) => sum + loadSurgePowerW(load), 0);
 
   const [isWorking, setIsWorking] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -6129,7 +6191,7 @@ function ConverterDetailPage({
     Object.fromEntries(
       selectedCircuitLoads.map((load) => [
         load.load_id,
-        loadDraftFromEntity(load),
+        loadDraftFromEntity(load, selectedCircuitVoltageV),
       ]),
     )
   ));
@@ -6167,7 +6229,7 @@ function ConverterDetailPage({
       const next: Record<string, LoadDraft> = {};
 
       for (const load of selectedCircuitLoads) {
-        next[load.load_id] = current[load.load_id] ?? loadDraftFromEntity(load);
+        next[load.load_id] = current[load.load_id] ?? loadDraftFromEntity(load, selectedCircuitVoltageV);
       }
 
       return next;
@@ -6182,7 +6244,7 @@ function ConverterDetailPage({
       setIsWorking(true);
       setActionError(null);
 
-      const response = await fetch('/api/load-circuits', {
+      const response = await projectFetch('/api/load-circuits', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -6217,7 +6279,7 @@ function ConverterDetailPage({
       setIsWorking(true);
       setActionError(null);
 
-      const response = await fetch(`/api/load-circuits/${encodeURIComponent(loadCircuit.load_circuit_id)}`, { method: 'DELETE' });
+      const response = await projectFetch(`/api/load-circuits/${encodeURIComponent(loadCircuit.load_circuit_id)}`, { method: 'DELETE' });
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: string } | null;
         throw new Error(payload?.error ?? `Failed to delete load circuit (${response.status})`);
@@ -6250,7 +6312,7 @@ function ConverterDetailPage({
       setIsWorking(true);
       setActionError(null);
 
-      const response = await fetch(`/api/load-circuits/${encodeURIComponent(loadCircuitId)}`, {
+      const response = await projectFetch(`/api/load-circuits/${encodeURIComponent(loadCircuitId)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -6287,16 +6349,42 @@ function ConverterDetailPage({
     const load = selectedCircuitLoads.find((item) => item.load_id === loadId) ?? null;
     if (!load) return;
 
-    const draft = loadDrafts[loadId] ?? loadDraftFromEntity(load);
+    const draft = loadDrafts[loadId] ?? loadDraftFromEntity(load, selectedCircuitVoltageV);
     const title = draft.title.trim();
     const description = draft.description.trim() === '' ? null : draft.description.trim();
-    const usageKw = Number(draft.usage_kw);
-    const spikeKw = Number(draft.spike_kw);
+    const nominalCurrentA = draft.nominal_current_a.trim() === '' ? null : Number(draft.nominal_current_a);
+    let nominalPowerW = draft.nominal_power_w.trim() === '' ? null : Number(draft.nominal_power_w);
+    const startupCurrentA = draft.startup_current_a.trim() === '' ? null : Number(draft.startup_current_a);
+    let surgePowerW = draft.surge_power_w.trim() === '' ? null : Number(draft.surge_power_w);
+    const standbyPowerW = draft.standby_power_w.trim() === '' ? null : Number(draft.standby_power_w);
     const expectedUsageHoursPerDay = Number(draft.expected_usage_hours_per_day);
-    const sleepingKw = Number(draft.sleeping_kw);
+    const dailyEnergyKwh = draft.daily_energy_kwh.trim() === '' ? null : Number(draft.daily_energy_kwh);
+    const dutyProfile = draft.duty_profile.trim() === '' ? null : draft.duty_profile.trim();
+    const notes = draft.notes.trim() === '' ? null : draft.notes.trim();
 
-    if (!title || !Number.isFinite(usageKw) || usageKw < 0 || !Number.isFinite(spikeKw) || spikeKw < 0 || !Number.isFinite(expectedUsageHoursPerDay) || expectedUsageHoursPerDay < 0 || !Number.isFinite(sleepingKw) || sleepingKw < 0) {
+    if (
+      !title
+      || (nominalCurrentA != null && (!Number.isFinite(nominalCurrentA) || nominalCurrentA < 0))
+      || (nominalPowerW != null && (!Number.isFinite(nominalPowerW) || nominalPowerW < 0))
+      || (startupCurrentA != null && (!Number.isFinite(startupCurrentA) || startupCurrentA < 0))
+      || (surgePowerW != null && (!Number.isFinite(surgePowerW) || surgePowerW < 0))
+      || (standbyPowerW != null && (!Number.isFinite(standbyPowerW) || standbyPowerW < 0))
+      || !Number.isFinite(expectedUsageHoursPerDay)
+      || expectedUsageHoursPerDay < 0
+      || (dailyEnergyKwh != null && (!Number.isFinite(dailyEnergyKwh) || dailyEnergyKwh < 0))
+    ) {
       setActionError('Fill in the load title and numeric fields.');
+      return;
+    }
+
+    if (nominalPowerW == null && nominalCurrentA != null) {
+      nominalPowerW = selectedCircuitVoltageV != null ? nominalCurrentA * selectedCircuitVoltageV : null;
+    }
+    if (surgePowerW == null && startupCurrentA != null) {
+      surgePowerW = selectedCircuitVoltageV != null ? startupCurrentA * selectedCircuitVoltageV : null;
+    }
+    if (nominalPowerW == null) {
+      setActionError('Nominal power is required. Enter power directly, or provide current on a circuit with a voltage.');
       return;
     }
 
@@ -6304,7 +6392,7 @@ function ConverterDetailPage({
       setIsWorking(true);
       setActionError(null);
 
-      const response = await fetch(`/api/loads/${encodeURIComponent(loadId)}`, {
+      const response = await projectFetch(`/api/loads/${encodeURIComponent(loadId)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -6312,10 +6400,15 @@ function ConverterDetailPage({
           load_circuit_id: selectedLoadCircuit?.load_circuit_id ?? load.load_circuit_id,
           title,
           description,
-          usage_kw: usageKw,
-          spike_kw: spikeKw,
+          nominal_current_a: nominalCurrentA,
+          nominal_power_w: nominalPowerW,
+          startup_current_a: startupCurrentA,
+          surge_power_w: surgePowerW,
+          standby_power_w: standbyPowerW,
           expected_usage_hours_per_day: expectedUsageHoursPerDay,
-          sleeping_kw: sleepingKw,
+          daily_energy_kwh: dailyEnergyKwh,
+          duty_profile: dutyProfile,
+          notes,
         }),
       });
 
@@ -6332,10 +6425,15 @@ function ConverterDetailPage({
           load_circuit_id: selectedLoadCircuit?.load_circuit_id ?? load.load_circuit_id,
           title,
           description: description ?? '',
-          usage_kw: String(usageKw),
-          spike_kw: String(spikeKw),
+          nominal_current_a: nominalCurrentA == null ? '' : String(nominalCurrentA),
+          nominal_power_w: nominalPowerW == null ? '' : String(nominalPowerW),
+          startup_current_a: startupCurrentA == null ? '' : String(startupCurrentA),
+          surge_power_w: surgePowerW == null ? '' : String(surgePowerW),
+          standby_power_w: standbyPowerW == null ? '' : String(standbyPowerW),
           expected_usage_hours_per_day: String(expectedUsageHoursPerDay),
-          sleeping_kw: String(sleepingKw),
+          daily_energy_kwh: dailyEnergyKwh == null ? '' : String(dailyEnergyKwh),
+          duty_profile: dutyProfile ?? '',
+          notes: notes ?? '',
         },
       }));
     } catch (error) {
@@ -6356,7 +6454,7 @@ function ConverterDetailPage({
       setIsWorking(true);
       setActionError(null);
 
-      const response = await fetch('/api/loads', {
+      const response = await projectFetch('/api/loads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -6364,10 +6462,14 @@ function ConverterDetailPage({
           load_circuit_id: selectedLoadCircuit.load_circuit_id,
           title,
           description: preset?.description ?? null,
-          usage_kw: preset?.usage_kw ?? 0,
-          spike_kw: preset?.spike_kw ?? 0,
+          nominal_current_a: preset?.nominal_current_a ?? null,
+          nominal_power_w: preset?.nominal_power_w ?? 0,
+          startup_current_a: preset?.startup_current_a ?? null,
+          surge_power_w: preset?.surge_power_w ?? 0,
+          standby_power_w: preset?.standby_power_w ?? 0,
           expected_usage_hours_per_day: preset?.expected_usage_hours_per_day ?? 0,
-          sleeping_kw: preset?.sleeping_kw ?? 0,
+          daily_energy_kwh: preset?.daily_energy_kwh ?? null,
+          duty_profile: preset?.duty_profile ?? null,
         }),
       });
 
@@ -6394,7 +6496,7 @@ function ConverterDetailPage({
       setIsWorking(true);
       setActionError(null);
 
-      const response = await fetch(`/api/loads/${encodeURIComponent(load.load_id)}`, { method: 'DELETE' });
+      const response = await projectFetch(`/api/loads/${encodeURIComponent(load.load_id)}`, { method: 'DELETE' });
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: string } | null;
         throw new Error(payload?.error ?? `Failed to delete load (${response.status})`);
@@ -6433,12 +6535,12 @@ function ConverterDetailPage({
                     <dd>{selectedCircuitLoads.length}</dd>
                   </div>
                   <div>
-                    <dt>Usage</dt>
-                    <dd>{formatLoadKw(selectedCircuitUsageKw)}</dd>
+                    <dt>Nominal power</dt>
+                    <dd>{formatPowerW(selectedCircuitNominalPowerW)}</dd>
                   </div>
                   <div>
-                    <dt>Spike</dt>
-                    <dd>{formatLoadKw(selectedCircuitSpikeKw)}</dd>
+                    <dt>Surge power</dt>
+                    <dd>{formatPowerW(selectedCircuitSurgePowerW)}</dd>
                   </div>
                   <div>
                     <dt>Inherited voltage</dt>
@@ -6464,12 +6566,12 @@ function ConverterDetailPage({
                       <dd>{selectedCircuitLoads.length}</dd>
                     </div>
                     <div>
-                      <dt>Usage</dt>
-                      <dd>{formatLoadKw(selectedCircuitUsageKw)}</dd>
+                      <dt>Nominal power</dt>
+                      <dd>{formatPowerW(selectedCircuitNominalPowerW)}</dd>
                     </div>
                     <div>
-                      <dt>Spike</dt>
-                      <dd>{formatLoadKw(selectedCircuitSpikeKw)}</dd>
+                      <dt>Surge power</dt>
+                      <dd>{formatPowerW(selectedCircuitSurgePowerW)}</dd>
                     </div>
                     <div>
                       <dt>Voltage</dt>
@@ -6602,7 +6704,7 @@ function ConverterDetailPage({
                   </div>
                 ) : (
                   selectedCircuitLoads.map((load) => {
-                    const loadDraft = loadDrafts[load.load_id] ?? loadDraftFromEntity(load);
+                    const loadDraft = loadDrafts[load.load_id] ?? loadDraftFromEntity(load, selectedCircuitVoltageV);
                     return (
                       <div key={load.load_id} className="surface-card-stack">
                         <div className="surface-card">
@@ -6643,23 +6745,35 @@ function ConverterDetailPage({
                           </label>
                           <dl className="detail-stats compact-stats" style={{ marginTop: 8, marginBottom: 0 }}>
                             <div>
-                              <dt>Usage</dt>
-                              <dd>{formatLoadKw(load.usage_kw)}</dd>
+                              <dt>Supply</dt>
+                              <dd>{selectedCircuitSupplyType?.toUpperCase() ?? 'n/a'}</dd>
                             </div>
                             <div>
-                              <dt>Spike</dt>
-                              <dd>{formatLoadKw(load.spike_kw)}</dd>
+                              <dt>Nominal power</dt>
+                              <dd>{formatPowerW(loadNominalPowerW(load))}</dd>
+                            </div>
+                            <div>
+                              <dt>Surge power</dt>
+                              <dd>{formatPowerW(loadSurgePowerW(load))}</dd>
+                            </div>
+                            <div>
+                              <dt>Current</dt>
+                              <dd>{loadNominalCurrentA(load, selectedCircuitVoltageV) != null ? formatCurrentA(loadNominalCurrentA(load, selectedCircuitVoltageV)!) : 'n/a'}</dd>
                             </div>
                             <div>
                               <dt>Hours</dt>
                               <dd>{load.expected_usage_hours_per_day.toLocaleString('en-US', { maximumFractionDigits: 1 })} h/day</dd>
                             </div>
                             <div>
-                              <dt>Sleep</dt>
-                              <dd>{formatLoadKw(load.sleeping_kw)}</dd>
+                              <dt>Daily energy</dt>
+                              <dd>{formatEnergyKwh(loadDailyEnergyKwh(load))}</dd>
                             </div>
                             <div>
-                              <dt>{t('catalog.stat.voltage')}</dt>
+                              <dt>Standby power</dt>
+                              <dd>{formatPowerW(loadStandbyPowerW(load))}</dd>
+                            </div>
+                            <div>
+                              <dt>Circuit voltage</dt>
                               <dd>{formatVoltage(selectedCircuitVoltageV)}</dd>
                             </div>
                           </dl>
@@ -6691,11 +6805,11 @@ function ConverterDetailPage({
                   <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
                     <p style={{ marginTop: 0, marginBottom: 0 }}>No load circuits found.</p>
                   </div>
-                ) : (
+                  ) : (
                   converterLoadCircuits.map((circuit) => {
                     const circuitLoads = data.entities.loads.filter((load) => load.load_circuit_id === circuit.load_circuit_id);
-                    const circuitUsage = circuitLoads.reduce((sum, load) => sum + load.usage_kw, 0);
-                    const circuitSpike = circuitLoads.reduce((sum, load) => sum + load.spike_kw, 0);
+                    const circuitNominalPowerW = circuitLoads.reduce((sum, load) => sum + loadNominalPowerW(load), 0);
+                    const circuitSurgePowerW = circuitLoads.reduce((sum, load) => sum + loadSurgePowerW(load), 0);
                     const isActive = selectedLoadCircuit?.load_circuit_id === circuit.load_circuit_id;
                     return (
                       <div
@@ -6745,12 +6859,12 @@ function ConverterDetailPage({
                               <dd>{circuitLoads.length}</dd>
                             </div>
                             <div>
-                              <dt>Usage</dt>
-                              <dd>{formatLoadKw(circuitUsage)}</dd>
+                              <dt>Nominal power</dt>
+                              <dd>{formatPowerW(circuitNominalPowerW)}</dd>
                             </div>
                             <div>
-                              <dt>Spike</dt>
-                              <dd>{formatLoadKw(circuitSpike)}</dd>
+                              <dt>Surge power</dt>
+                              <dd>{formatPowerW(circuitSurgePowerW)}</dd>
                             </div>
                           </dl>
                           <div className="button-row">
@@ -6892,7 +7006,7 @@ function CabinetCatalogPage({
       setSaveMessage(null);
 
       const isEdit = Boolean(selectedCabinet);
-      const response = await fetch(isEdit ? `/api/cabinet-types/${encodeURIComponent(selectedCabinetTypeId)}` : '/api/cabinet-types', {
+      const response = await projectFetch(isEdit ? `/api/cabinet-types/${encodeURIComponent(selectedCabinetTypeId)}` : '/api/cabinet-types', {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -6961,7 +7075,7 @@ function CabinetCatalogPage({
       setSaveError(null);
       setSaveMessage(null);
 
-      const response = await fetch(`/api/cabinet-types/${encodeURIComponent(selectedCabinet.cabinet_type_id)}`, { method: 'DELETE' });
+      const response = await projectFetch(`/api/cabinet-types/${encodeURIComponent(selectedCabinet.cabinet_type_id)}`, { method: 'DELETE' });
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: string } | null;
         throw new Error(payload?.error ?? `Failed to delete cabinet (${response.status})`);
@@ -7301,7 +7415,7 @@ function BatteryCatalogPage({
       setSaveError(null);
       setSaveMessage(null);
 
-      const response = await fetch(isEdit ? `/api/battery-types/${encodeURIComponent(selectedBatteryTypeId)}` : '/api/battery-types', {
+      const response = await projectFetch(isEdit ? `/api/battery-types/${encodeURIComponent(selectedBatteryTypeId)}` : '/api/battery-types', {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -7370,7 +7484,7 @@ function BatteryCatalogPage({
       setSaveError(null);
       setSaveMessage(null);
 
-      const response = await fetch(`/api/battery-types/${encodeURIComponent(selectedBattery.battery_type_id)}`, { method: 'DELETE' });
+      const response = await projectFetch(`/api/battery-types/${encodeURIComponent(selectedBattery.battery_type_id)}`, { method: 'DELETE' });
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: string } | null;
         throw new Error(payload?.error ?? `Failed to delete battery (${response.status})`);
@@ -8377,7 +8491,7 @@ function PanelCatalogPage({
       setSaveMessage(null);
 
       const isEdit = Boolean(selectedPanel);
-      const response = await fetch(isEdit ? `/api/panel-types/${encodeURIComponent(selectedPanelTypeId)}` : '/api/panel-types', {
+      const response = await projectFetch(isEdit ? `/api/panel-types/${encodeURIComponent(selectedPanelTypeId)}` : '/api/panel-types', {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -8438,7 +8552,7 @@ function PanelCatalogPage({
       setSaveError(null);
       setSaveMessage(null);
 
-      const response = await fetch(`/api/panel-types/${encodeURIComponent(selectedPanel.panel_type_id)}`, { method: 'DELETE' });
+      const response = await projectFetch(`/api/panel-types/${encodeURIComponent(selectedPanel.panel_type_id)}`, { method: 'DELETE' });
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: string } | null;
         throw new Error(payload?.error ?? `Failed to delete panel (${response.status})`);
@@ -8709,7 +8823,7 @@ function MpptCatalogPage({
       setSaveMessage(null);
 
       const isEdit = Boolean(selectedMppt);
-      const response = await fetch(isEdit ? `/api/mppt-types/${encodeURIComponent(selectedMpptTypeId)}` : '/api/mppt-types', {
+      const response = await projectFetch(isEdit ? `/api/mppt-types/${encodeURIComponent(selectedMpptTypeId)}` : '/api/mppt-types', {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -8770,7 +8884,7 @@ function MpptCatalogPage({
       setSaveError(null);
       setSaveMessage(null);
 
-      const response = await fetch(`/api/mppt-types/${encodeURIComponent(selectedMppt.mppt_type_id)}`, { method: 'DELETE' });
+      const response = await projectFetch(`/api/mppt-types/${encodeURIComponent(selectedMppt.mppt_type_id)}`, { method: 'DELETE' });
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: string } | null;
         throw new Error(payload?.error ?? `Failed to delete MPPT (${response.status})`);
@@ -9020,7 +9134,7 @@ function InverterCatalogPage({
       setSaveMessage(null);
 
       const isEdit = Boolean(selectedInverter);
-      const response = await fetch(isEdit ? `/api/inverter-types/${encodeURIComponent(selectedInverterTypeId)}` : '/api/inverter-types', {
+      const response = await projectFetch(isEdit ? `/api/inverter-types/${encodeURIComponent(selectedInverterTypeId)}` : '/api/inverter-types', {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -9079,7 +9193,7 @@ function InverterCatalogPage({
       setSaveError(null);
       setSaveMessage(null);
 
-      const response = await fetch(`/api/inverter-types/${encodeURIComponent(selectedInverter.inverter_id)}`, { method: 'DELETE' });
+      const response = await projectFetch(`/api/inverter-types/${encodeURIComponent(selectedInverter.inverter_id)}`, { method: 'DELETE' });
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: string } | null;
         throw new Error(payload?.error ?? `Failed to delete inverter (${response.status})`);
@@ -9357,7 +9471,7 @@ function ConversionDeviceCatalogPage({
       setSaveMessage(null);
 
       const isEdit = Boolean(selectedConversionDevice);
-      const response = await fetch(isEdit ? `/api/conversion-devices/${encodeURIComponent(selectedConversionDeviceId)}` : '/api/conversion-devices', {
+      const response = await projectFetch(isEdit ? `/api/conversion-devices/${encodeURIComponent(selectedConversionDeviceId)}` : '/api/conversion-devices', {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -9428,7 +9542,7 @@ function ConversionDeviceCatalogPage({
       setSaveError(null);
       setSaveMessage(null);
 
-      const response = await fetch(`/api/conversion-devices/${encodeURIComponent(selectedConversionDevice.conversion_device_id)}`, { method: 'DELETE' });
+      const response = await projectFetch(`/api/conversion-devices/${encodeURIComponent(selectedConversionDevice.conversion_device_id)}`, { method: 'DELETE' });
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: string } | null;
         throw new Error(payload?.error ?? `Failed to delete conversion device (${response.status})`);
@@ -9625,23 +9739,33 @@ function emptyLoadDraft(loadCircuitId: string = ''): LoadDraft {
     load_circuit_id: loadCircuitId,
     title: '',
     description: '',
-    usage_kw: '',
-    spike_kw: '',
+    nominal_current_a: '',
+    nominal_power_w: '',
+    startup_current_a: '',
+    surge_power_w: '',
+    standby_power_w: '',
     expected_usage_hours_per_day: '',
-    sleeping_kw: '',
+    daily_energy_kwh: '',
+    duty_profile: '',
+    notes: '',
   };
 }
 
-function loadDraftFromEntity(load: Load | null): LoadDraft {
+function loadDraftFromEntity(load: Load | null, circuitVoltageV: number | null): LoadDraft {
   return load ? {
     load_id: load.load_id,
     load_circuit_id: load.load_circuit_id,
     title: load.title,
     description: load.description ?? '',
-    usage_kw: String(load.usage_kw),
-    spike_kw: String(load.spike_kw),
+    nominal_current_a: loadNominalCurrentA(load, circuitVoltageV) == null ? '' : String(loadNominalCurrentA(load, circuitVoltageV)),
+    nominal_power_w: String(load.nominal_power_w ?? ((load.usage_kw ?? 0) * 1000)),
+    startup_current_a: load.startup_current_a == null ? '' : String(load.startup_current_a),
+    surge_power_w: String(load.surge_power_w ?? ((load.spike_kw ?? 0) * 1000)),
+    standby_power_w: String(load.standby_power_w ?? ((load.sleeping_kw ?? 0) * 1000)),
     expected_usage_hours_per_day: String(load.expected_usage_hours_per_day),
-    sleeping_kw: String(load.sleeping_kw),
+    daily_energy_kwh: String(loadDailyEnergyKwh(load)),
+    duty_profile: load.duty_profile ?? '',
+    notes: load.notes ?? '',
   } : emptyLoadDraft();
 }
 
@@ -9651,19 +9775,87 @@ function loadDraftFromPreset(preset: LoadPreset, loadCircuitId: string = ''): Lo
     load_circuit_id: loadCircuitId,
     title: preset.title,
     description: preset.description,
-    usage_kw: String(preset.usage_kw),
-    spike_kw: String(preset.spike_kw),
+    nominal_current_a: preset.nominal_current_a == null ? '' : String(preset.nominal_current_a),
+    nominal_power_w: String(preset.nominal_power_w),
+    startup_current_a: preset.startup_current_a == null ? '' : String(preset.startup_current_a),
+    surge_power_w: String(preset.surge_power_w),
+    standby_power_w: String(preset.standby_power_w),
     expected_usage_hours_per_day: String(preset.expected_usage_hours_per_day),
-    sleeping_kw: String(preset.sleeping_kw),
+    daily_energy_kwh: preset.daily_energy_kwh == null ? '' : String(preset.daily_energy_kwh),
+    duty_profile: preset.duty_profile ?? '',
+    notes: '',
   };
 }
 
-function formatLoadKw(value: number): string {
-  return `${value.toLocaleString('en-US', { maximumFractionDigits: 2 })} kW`;
+function formatPowerW(value: number): string {
+  if (Math.abs(value) >= 1000) {
+    return `${(value / 1000).toLocaleString('en-US', { maximumFractionDigits: 2 })} kW`;
+  }
+
+  return `${value.toLocaleString('en-US', { maximumFractionDigits: 0 })} W`;
+}
+
+function formatCurrentA(value: number): string {
+  return `${value.toLocaleString('en-US', { maximumFractionDigits: 2 })} A`;
+}
+
+function formatEnergyKwh(value: number): string {
+  return `${value.toLocaleString('en-US', { maximumFractionDigits: 2 })} kWh`;
+}
+
+function loadNominalPowerW(load: Pick<Load, 'nominal_power_w' | 'usage_kw'>): number {
+  return load.nominal_power_w ?? ((load.usage_kw ?? 0) * 1000);
+}
+
+function loadSurgePowerW(load: Pick<Load, 'surge_power_w' | 'spike_kw'>): number {
+  return load.surge_power_w ?? ((load.spike_kw ?? 0) * 1000);
+}
+
+function loadStandbyPowerW(load: Pick<Load, 'standby_power_w' | 'sleeping_kw'>): number {
+  return load.standby_power_w ?? ((load.sleeping_kw ?? 0) * 1000);
+}
+
+function loadNominalCurrentA(load: Pick<Load, 'nominal_current_a' | 'nominal_power_w' | 'usage_kw'>, circuitVoltageV: number | null): number | null {
+  if (load.nominal_current_a != null) {
+    return load.nominal_current_a;
+  }
+
+  if (circuitVoltageV != null && circuitVoltageV > 0) {
+    return loadNominalPowerW(load) / circuitVoltageV;
+  }
+
+  return null;
+}
+
+function loadDailyEnergyKwh(load: Pick<Load, 'daily_energy_kwh' | 'expected_usage_hours_per_day' | 'nominal_power_w' | 'usage_kw'>): number {
+  if (load.daily_energy_kwh != null) {
+    return load.daily_energy_kwh;
+  }
+
+  return (loadNominalPowerW(load) / 1000) * load.expected_usage_hours_per_day;
 }
 
 function formatVoltage(value: number | null | undefined): string {
   return value != null ? `${value} V` : 'n/a';
+}
+
+function loadCircuitVoltageV(conversionDevice: Pick<ConversionDevice, 'output_voltage_v' | 'output_ac_voltage_v' | 'output_dc_voltage_v'> | null): number | null {
+  return conversionDevice?.output_voltage_v
+    ?? conversionDevice?.output_dc_voltage_v
+    ?? conversionDevice?.output_ac_voltage_v
+    ?? null;
+}
+
+function loadCircuitSupplyType(conversionDevice: Pick<ConversionDevice, 'output_ac_voltage_v' | 'output_dc_voltage_v'> | null): 'ac' | 'dc' | null {
+  if (conversionDevice?.output_ac_voltage_v != null) {
+    return 'ac';
+  }
+
+  if (conversionDevice?.output_dc_voltage_v != null) {
+    return 'dc';
+  }
+
+  return null;
 }
 
 function CatalogInlineEditorRow({
@@ -9706,8 +9898,14 @@ function LoadCircuitsPage({
     if (typeof window === 'undefined') return '';
     return new URLSearchParams(window.location.search).get('converter') ?? '';
   };
+  const sessionFilterKey = 'offgridos:load-circuits:converter';
+  const initialUrlFilter = readFilterFromUrl();
+  const initialSessionFilter = readSessionState(sessionFilterKey, '');
 
-  const [filterProjectConverterId, setFilterProjectConverterId] = useState(() => readFilterFromUrl());
+  const [filterProjectConverterId, setFilterProjectConverterId] = useSessionState(
+    sessionFilterKey,
+    initialUrlFilter || initialSessionFilter || (data.entities.project_converters[0]?.project_converter_id ?? ''),
+  );
   const [editorMode, setEditorMode] = useState<'closed' | 'add' | 'edit'>('closed');
   const [draft, setDraft] = useState<LoadCircuitDraft>(() => emptyLoadCircuitDraft());
   const [isSaving, setIsSaving] = useState(false);
@@ -9730,7 +9928,9 @@ function LoadCircuitsPage({
 
   useEffect(() => {
     const nextFilter = readFilterFromUrl();
-    setFilterProjectConverterId((current) => (current === nextFilter ? current : nextFilter));
+    if (nextFilter) {
+      setFilterProjectConverterId((current) => (current === nextFilter ? current : nextFilter));
+    }
   }, [currentSearch]);
 
   useEffect(() => {
@@ -9824,7 +10024,7 @@ function LoadCircuitsPage({
       setSaveError(null);
       setSaveMessage(null);
 
-      const response = await fetch(isEdit ? `/api/load-circuits/${encodeURIComponent(loadCircuitId)}` : '/api/load-circuits', {
+      const response = await projectFetch(isEdit ? `/api/load-circuits/${encodeURIComponent(loadCircuitId)}` : '/api/load-circuits', {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -9860,7 +10060,7 @@ function LoadCircuitsPage({
       setSaveError(null);
       setSaveMessage(null);
 
-      const response = await fetch(`/api/load-circuits/${encodeURIComponent(targetLoadCircuit.load_circuit_id)}`, { method: 'DELETE' });
+      const response = await projectFetch(`/api/load-circuits/${encodeURIComponent(targetLoadCircuit.load_circuit_id)}`, { method: 'DELETE' });
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: string } | null;
         throw new Error(payload?.error ?? `Failed to delete load circuit (${response.status})`);
@@ -9879,20 +10079,23 @@ function LoadCircuitsPage({
   return (
     <>
       <section className="detail-shell">
+        <div className="button-row button-row-between" style={{ marginBottom: 12 }}>
+          <label className="field" style={{ minWidth: 260 }}>
+            <span>Converter</span>
+            <select value={filterProjectConverterId} onChange={(event) => updateConverterFilter(event.target.value)}>
+              {data.entities.project_converters.map((converter) => (
+                <option key={converter.project_converter_id} value={converter.project_converter_id}>
+                  {converter.title}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div style={{ marginBottom: 12 }} />
+      </section>
+      <section className="detail-shell">
         <section className="panel">
           <div className="fit-card">
-            <div className="button-row button-row-between">
-              <label className="field" style={{ minWidth: 260 }}>
-                <span>Converter</span>
-                <select value={filterProjectConverterId} onChange={(event) => updateConverterFilter(event.target.value)}>
-                  {data.entities.project_converters.map((converter) => (
-                    <option key={converter.project_converter_id} value={converter.project_converter_id}>
-                      {converter.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
             <div className="button-row button-row-start" style={{ marginTop: 12 }}>
               <button
                 type="button"
@@ -9959,8 +10162,8 @@ function LoadCircuitsPage({
               ) : null}
               {filteredLoadCircuits.map((circuit) => {
                 const circuitLoads = data.entities.loads.filter((load) => load.load_circuit_id === circuit.load_circuit_id);
-                const circuitUsage = circuitLoads.reduce((sum, load) => sum + load.usage_kw, 0);
-                const circuitSpike = circuitLoads.reduce((sum, load) => sum + load.spike_kw, 0);
+                const circuitNominalPowerW = circuitLoads.reduce((sum, load) => sum + loadNominalPowerW(load), 0);
+                const circuitSurgePowerW = circuitLoads.reduce((sum, load) => sum + loadSurgePowerW(load), 0);
                 const converter = data.entities.conversion_devices.find((item) => item.conversion_device_id === circuit.conversion_device_id) ?? null;
                 const isEditing = editorMode === 'edit' && draft.load_circuit_id === circuit.load_circuit_id;
                 const circuitTitle = isEditing ? draft.title.trim() || circuit.title : circuit.title;
@@ -10011,12 +10214,12 @@ function LoadCircuitsPage({
                               <dd>{formatVoltage(converter?.output_voltage_v ?? null)}</dd>
                             </div>
                             <div>
-                              <dt>Usage</dt>
-                              <dd>{formatLoadKw(circuitUsage)}</dd>
+                              <dt>Nominal power</dt>
+                              <dd>{formatPowerW(circuitNominalPowerW)}</dd>
                             </div>
                             <div>
-                              <dt>Spike</dt>
-                              <dd>{formatLoadKw(circuitSpike)}</dd>
+                              <dt>Surge power</dt>
+                              <dd>{formatPowerW(circuitSurgePowerW)}</dd>
                             </div>
                           </dl>
                           <div className="button-row">
@@ -10045,12 +10248,12 @@ function LoadCircuitsPage({
                               <dd>{circuitLoads.length}</dd>
                             </div>
                             <div>
-                              <dt>Usage</dt>
-                              <dd>{formatLoadKw(circuitUsage)}</dd>
+                              <dt>Nominal power</dt>
+                              <dd>{formatPowerW(circuitNominalPowerW)}</dd>
                             </div>
                             <div>
-                              <dt>Spike</dt>
-                              <dd>{formatLoadKw(circuitSpike)}</dd>
+                              <dt>Surge power</dt>
+                              <dd>{formatPowerW(circuitSurgePowerW)}</dd>
                             </div>
                             <div>
                               <dt>Voltage</dt>
@@ -10131,68 +10334,69 @@ function LoadsPage({
       circuit: params.get('circuit') ?? '',
     };
   };
+  const sessionConverterKey = 'offgridos:loads:converter';
+  const sessionCircuitKey = 'offgridos:loads:circuit';
+
   const initialLoadsFilters = readLoadsFiltersFromUrl();
-  const [filterProjectConverterId, setFilterProjectConverterId] = useState(initialLoadsFilters.converter);
-  const [filterLoadCircuitId, setFilterLoadCircuitId] = useState(initialLoadsFilters.circuit);
-  const filteredLoadCircuitOptions = useMemo(() => data.entities.load_circuits.filter((circuit) => (
-    filterProjectConverterId === '' || circuit.project_converter_id === filterProjectConverterId
-  )), [data.entities.load_circuits, filterProjectConverterId]);
-  const filteredLoads = useMemo(() => data.entities.loads.filter((load) => (
-    (filterLoadCircuitId === '' || load.load_circuit_id === filterLoadCircuitId)
-    && (filterProjectConverterId === '' || data.entities.load_circuits.some((circuit) => (
-      circuit.load_circuit_id === load.load_circuit_id && circuit.project_converter_id === filterProjectConverterId
-    )))
-  )), [data.entities.load_circuits, data.entities.loads, filterProjectConverterId, filterLoadCircuitId]);
-  const [selectedLoadId, setSelectedLoadId] = useState(() => filteredLoads[0]?.load_id ?? (filterProjectConverterId || filterLoadCircuitId ? '' : data.entities.loads[0]?.load_id ?? ''));
-  const selectedLoad = selectedLoadId ? data.entities.loads.find((item) => item.load_id === selectedLoadId) ?? null : null;
-  const [draft, setDraft] = useState<LoadDraft>(() => loadDraftFromEntity(selectedLoad));
-  const [loadEntryMode, setLoadEntryMode] = useState<'manual' | 'catalog'>('manual');
-  const [selectedLoadPresetId, setSelectedLoadPresetId] = useState(LOAD_PRESETS[0]?.load_preset_id ?? '');
+  const [filterProjectConverterId, setFilterProjectConverterId] = useSessionState(
+    sessionConverterKey,
+    initialLoadsFilters.converter || readSessionState(sessionConverterKey, ''),
+  );
+  const [filterLoadCircuitId, setFilterLoadCircuitId] = useSessionState(
+    sessionCircuitKey,
+    initialLoadsFilters.circuit || readSessionState(sessionCircuitKey, ''),
+  );
+  const [editorMode, setEditorMode] = useState<'closed' | 'add' | 'edit' | 'move'>('closed');
+  const [draft, setDraft] = useState<LoadDraft>(() => emptyLoadDraft());
+  const [moveTargetLoadCircuitId, setMoveTargetLoadCircuitId] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [pendingDeleteLoad, setPendingDeleteLoad] = useState<Load | null>(null);
   const currentSearch = typeof window === 'undefined' ? '' : window.location.search;
+
+  const filteredLoadCircuitOptions = useMemo(() => data.entities.load_circuits.filter((circuit) => (
+    filterProjectConverterId === '' || circuit.project_converter_id === filterProjectConverterId
+  )), [data.entities.load_circuits, filterProjectConverterId]);
+  const activeLoadCircuit = filterLoadCircuitId
+    ? filteredLoadCircuitOptions.find((circuit) => circuit.load_circuit_id === filterLoadCircuitId) ?? null
+    : filteredLoadCircuitOptions[0] ?? null;
+  const activeCircuitLoads = activeLoadCircuit
+    ? data.entities.loads.filter((load) => load.load_circuit_id === activeLoadCircuit.load_circuit_id)
+    : [];
+  const activeConverter = activeLoadCircuit
+    ? data.entities.conversion_devices.find((item) => item.conversion_device_id === activeLoadCircuit.conversion_device_id) ?? null
+    : null;
+  const activeCircuitVoltageV = loadCircuitVoltageV(activeConverter);
+  const activeCircuitSupplyType = loadCircuitSupplyType(activeConverter);
 
   useEffect(() => {
     const nextFilters = readLoadsFiltersFromUrl();
-    setFilterProjectConverterId((current) => (current === nextFilters.converter ? current : nextFilters.converter));
-    setFilterLoadCircuitId((current) => (current === nextFilters.circuit ? current : nextFilters.circuit));
+    if (nextFilters.converter) {
+      setFilterProjectConverterId((current) => (current === nextFilters.converter ? current : nextFilters.converter));
+    }
+    if (nextFilters.circuit) {
+      setFilterLoadCircuitId((current) => (current === nextFilters.circuit ? current : nextFilters.circuit));
+    }
   }, [currentSearch]);
 
   useEffect(() => {
-    if (selectedLoadId) {
-      const current = data.entities.loads.find((item) => item.load_id === selectedLoadId) ?? null;
-      setDraft(loadDraftFromEntity(current));
-      setLoadEntryMode('manual');
-    } else {
-      setDraft(emptyLoadDraft(filteredLoadCircuitOptions[0]?.load_circuit_id ?? data.entities.load_circuits[0]?.load_circuit_id ?? ''));
-      setLoadEntryMode('manual');
-    }
-  }, [data, filteredLoadCircuitOptions, selectedLoadId]);
+    if (filterProjectConverterId || data.entities.project_converters.length === 0) return;
+    setFilterProjectConverterId(data.entities.project_converters[0].project_converter_id);
+  }, [data.entities.project_converters, filterProjectConverterId]);
 
   useEffect(() => {
-    if (selectedLoadId && filteredLoads.some((load) => load.load_id === selectedLoadId)) {
-      return;
-    }
-    setSelectedLoadId(filteredLoads[0]?.load_id ?? (filterProjectConverterId || filterLoadCircuitId ? '' : data.entities.loads[0]?.load_id ?? ''));
-  }, [data.entities.loads, filterProjectConverterId, filterLoadCircuitId, filteredLoads, selectedLoadId]);
+    if (!filterProjectConverterId) return;
+    if (filterLoadCircuitId && filteredLoadCircuitOptions.some((circuit) => circuit.load_circuit_id === filterLoadCircuitId)) return;
+    setFilterLoadCircuitId(filteredLoadCircuitOptions[0]?.load_circuit_id ?? '');
+  }, [filteredLoadCircuitOptions, filterLoadCircuitId, filterProjectConverterId]);
 
   useEffect(() => {
-    if (!filterLoadCircuitId) return;
-    const selectedCircuit = data.entities.load_circuits.find((circuit) => circuit.load_circuit_id === filterLoadCircuitId) ?? null;
-    if (!selectedCircuit || (filterProjectConverterId && selectedCircuit.project_converter_id !== filterProjectConverterId)) {
-      setFilterLoadCircuitId('');
-    }
-  }, [data.entities.load_circuits, filterProjectConverterId, filterLoadCircuitId]);
-
-  const selectedLoadCircuit = draft.load_circuit_id
-    ? data.entities.load_circuits.find((item) => item.load_circuit_id === draft.load_circuit_id) ?? null
-    : null;
-  const selectedConverter = selectedLoadCircuit
-    ? data.entities.conversion_devices.find((item) => item.conversion_device_id === selectedLoadCircuit.conversion_device_id) ?? null
-    : null;
-  const selectedLoadCircuitVoltageV = selectedConverter?.output_voltage_v ?? null;
-  const selectedLoadPreset = LOAD_PRESETS.find((preset) => preset.load_preset_id === selectedLoadPresetId) ?? LOAD_PRESETS[0] ?? null;
+    if (editorMode !== 'edit') return;
+    if (draft.load_id && data.entities.loads.some((load) => load.load_id === draft.load_id)) return;
+    closeEditor();
+  }, [data.entities.loads, draft.load_id, editorMode]);
 
   function syncLoadsFilters(nextProjectConverterId: string, nextLoadCircuitId: string) {
     const params = new URLSearchParams();
@@ -10207,14 +10411,24 @@ function LoadsPage({
     );
   }
 
+  function closeEditor() {
+    setEditorMode('closed');
+    setMoveTargetLoadCircuitId('');
+    setSaveError(null);
+    setSaveMessage(null);
+    setIsDeleteConfirmOpen(false);
+    setPendingDeleteLoad(null);
+    setDraft(emptyLoadDraft());
+  }
+
   function updateLoadsConverterFilter(nextProjectConverterId: string) {
-    const nextCircuitId = filterLoadCircuitId && data.entities.load_circuits.some((circuit) => (
-      circuit.load_circuit_id === filterLoadCircuitId && (!nextProjectConverterId || circuit.project_converter_id === nextProjectConverterId)
-    ))
+    const nextConverterCircuits = data.entities.load_circuits.filter((circuit) => circuit.project_converter_id === nextProjectConverterId);
+    const nextCircuitId = nextConverterCircuits.some((circuit) => circuit.load_circuit_id === filterLoadCircuitId)
       ? filterLoadCircuitId
-      : '';
+      : nextConverterCircuits[0]?.load_circuit_id ?? '';
     setFilterProjectConverterId(nextProjectConverterId);
     setFilterLoadCircuitId(nextCircuitId);
+    closeEditor();
     syncLoadsFilters(nextProjectConverterId, nextCircuitId);
   }
 
@@ -10223,39 +10437,89 @@ function LoadsPage({
     const nextProjectConverterId = selectedCircuit?.project_converter_id ?? filterProjectConverterId;
     setFilterProjectConverterId(nextProjectConverterId);
     setFilterLoadCircuitId(nextLoadCircuitId);
+    closeEditor();
     syncLoadsFilters(nextProjectConverterId, nextLoadCircuitId);
   }
 
   function startAddNew() {
-    setSelectedLoadId('');
+    if (!activeLoadCircuit) return;
+    setEditorMode('add');
     setSaveError(null);
     setSaveMessage(null);
-    setDraft(emptyLoadDraft(filterLoadCircuitId || filteredLoadCircuitOptions[0]?.load_circuit_id || data.entities.load_circuits[0]?.load_circuit_id || ''));
-    setLoadEntryMode('manual');
+    setDraft(emptyLoadDraft(activeLoadCircuit.load_circuit_id));
   }
 
-  function applySelectedLoadPreset() {
-    if (!selectedLoadPreset) return;
-    const fallbackLoadCircuitId = draft.load_circuit_id || data.entities.load_circuits[0]?.load_circuit_id || '';
-    setSelectedLoadId('');
+  function startEditLoad(load: Load) {
+    setEditorMode('edit');
     setSaveError(null);
     setSaveMessage(null);
-    setLoadEntryMode('catalog');
-    setDraft(loadDraftFromPreset(selectedLoadPreset, fallbackLoadCircuitId));
+    setMoveTargetLoadCircuitId('');
+    setDraft(loadDraftFromEntity(load, activeCircuitVoltageV));
+    window.requestAnimationFrame(() => {
+      document.getElementById(`load-card-${load.load_id}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    });
+  }
+
+  function startMoveLoad(load: Load) {
+    const nextCircuitId = filteredLoadCircuitOptions.find((circuit) => circuit.load_circuit_id !== load.load_circuit_id)?.load_circuit_id ?? '';
+    setEditorMode('move');
+    setSaveError(null);
+    setSaveMessage(null);
+    setDraft(loadDraftFromEntity(load, activeCircuitVoltageV));
+    setMoveTargetLoadCircuitId(nextCircuitId);
+    window.requestAnimationFrame(() => {
+      document.getElementById(`load-card-${load.load_id}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    });
+  }
+
+  function requestDeleteLoad(load: Load) {
+    setSaveError(null);
+    setPendingDeleteLoad(load);
+    setIsDeleteConfirmOpen(true);
   }
 
   async function handleSave() {
-    const loadId = selectedLoad ? selectedLoadId : generateUniqueCatalogId(draft.title.trim(), data.entities.loads.map((load) => load.load_id));
+    const isEdit = editorMode === 'edit';
+    const loadId = isEdit
+      ? draft.load_id
+      : generateUniqueCatalogId(draft.title.trim(), data.entities.loads.map((load) => load.load_id));
     const title = draft.title.trim();
     const description = draft.description.trim() === '' ? null : draft.description.trim();
-    const loadCircuitId = draft.load_circuit_id.trim();
-    const usageKw = Number(draft.usage_kw);
-    const spikeKw = Number(draft.spike_kw);
+    const loadCircuitId = draft.load_circuit_id.trim() || activeLoadCircuit?.load_circuit_id || '';
+    const nominalCurrentA = draft.nominal_current_a.trim() === '' ? null : Number(draft.nominal_current_a);
+    let nominalPowerW = draft.nominal_power_w.trim() === '' ? null : Number(draft.nominal_power_w);
+    const startupCurrentA = draft.startup_current_a.trim() === '' ? null : Number(draft.startup_current_a);
+    let surgePowerW = draft.surge_power_w.trim() === '' ? null : Number(draft.surge_power_w);
+    const standbyPowerW = draft.standby_power_w.trim() === '' ? null : Number(draft.standby_power_w);
     const expectedUsageHoursPerDay = Number(draft.expected_usage_hours_per_day);
-    const sleepingKw = Number(draft.sleeping_kw);
+    const dailyEnergyKwh = draft.daily_energy_kwh.trim() === '' ? null : Number(draft.daily_energy_kwh);
+    const dutyProfile = draft.duty_profile.trim() === '' ? null : draft.duty_profile.trim();
+    const notes = draft.notes.trim() === '' ? null : draft.notes.trim();
 
-    if (!title || !loadCircuitId || !Number.isFinite(usageKw) || usageKw < 0 || !Number.isFinite(spikeKw) || spikeKw < 0 || !Number.isFinite(expectedUsageHoursPerDay) || expectedUsageHoursPerDay < 0 || !Number.isFinite(sleepingKw) || sleepingKw < 0) {
-      setSaveError('Fill in the title, load circuit, and numeric load fields.');
+    if (
+      !title
+      || !loadCircuitId
+      || (nominalCurrentA != null && (!Number.isFinite(nominalCurrentA) || nominalCurrentA < 0))
+      || (nominalPowerW != null && (!Number.isFinite(nominalPowerW) || nominalPowerW < 0))
+      || (startupCurrentA != null && (!Number.isFinite(startupCurrentA) || startupCurrentA < 0))
+      || (surgePowerW != null && (!Number.isFinite(surgePowerW) || surgePowerW < 0))
+      || (standbyPowerW != null && (!Number.isFinite(standbyPowerW) || standbyPowerW < 0))
+      || !Number.isFinite(expectedUsageHoursPerDay)
+      || expectedUsageHoursPerDay < 0
+      || (dailyEnergyKwh != null && (!Number.isFinite(dailyEnergyKwh) || dailyEnergyKwh < 0))
+    ) {
+      setSaveError('Fill in the title and numeric load fields.');
+      return;
+    }
+
+    if (nominalPowerW == null && nominalCurrentA != null) {
+      nominalPowerW = activeCircuitVoltageV != null ? nominalCurrentA * activeCircuitVoltageV : null;
+    }
+    if (surgePowerW == null && startupCurrentA != null) {
+      surgePowerW = activeCircuitVoltageV != null ? startupCurrentA * activeCircuitVoltageV : null;
+    }
+    if (nominalPowerW == null) {
+      setSaveError('Nominal power is required. Enter power directly, or provide current on a circuit with a voltage.');
       return;
     }
 
@@ -10264,8 +10528,7 @@ function LoadsPage({
       setSaveError(null);
       setSaveMessage(null);
 
-      const isEdit = Boolean(selectedLoad);
-      const response = await fetch(isEdit ? `/api/loads/${encodeURIComponent(selectedLoadId)}` : '/api/loads', {
+      const response = await projectFetch(isEdit ? `/api/loads/${encodeURIComponent(loadId)}` : '/api/loads', {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -10273,10 +10536,15 @@ function LoadsPage({
           load_circuit_id: loadCircuitId,
           title,
           description,
-          usage_kw: usageKw,
-          spike_kw: spikeKw,
+          nominal_current_a: nominalCurrentA,
+          nominal_power_w: nominalPowerW,
+          startup_current_a: startupCurrentA,
+          surge_power_w: surgePowerW,
+          standby_power_w: standbyPowerW,
           expected_usage_hours_per_day: expectedUsageHoursPerDay,
-          sleeping_kw: sleepingKw,
+          daily_energy_kwh: dailyEnergyKwh,
+          duty_profile: dutyProfile,
+          notes,
         }),
       });
 
@@ -10286,17 +10554,7 @@ function LoadsPage({
       }
 
       await refreshProjectData();
-      setSelectedLoadId(loadId);
-      setDraft({
-        load_id: loadId,
-        load_circuit_id: loadCircuitId,
-        title,
-        description: description ?? '',
-        usage_kw: String(usageKw),
-        spike_kw: String(spikeKw),
-        expected_usage_hours_per_day: String(expectedUsageHoursPerDay),
-        sleeping_kw: String(sleepingKw),
-      });
+      closeEditor();
       setSaveMessage(`Load "${loadId}" saved.`);
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Failed to save load.');
@@ -10305,29 +10563,84 @@ function LoadsPage({
     }
   }
 
-  async function handleDelete(loadId?: string) {
-    const targetLoad = loadId
-      ? data.entities.loads.find((item) => item.load_id === loadId) ?? null
-      : selectedLoad;
-    if (!targetLoad) return;
-
-    if (!window.confirm(`Delete load "${targetLoad.load_id}"?`)) return;
+  async function handleMoveLoad() {
+    const targetLoad = draft.load_id ? data.entities.loads.find((load) => load.load_id === draft.load_id) ?? null : null;
+    const targetCircuit = data.entities.load_circuits.find((circuit) => circuit.load_circuit_id === moveTargetLoadCircuitId) ?? null;
+    if (!targetLoad || !targetCircuit || !moveTargetLoadCircuitId || moveTargetLoadCircuitId === targetLoad.load_circuit_id) {
+      setSaveError('Choose a different target circuit.');
+      return;
+    }
 
     try {
       setIsSaving(true);
       setSaveError(null);
       setSaveMessage(null);
 
-      const response = await fetch(`/api/loads/${encodeURIComponent(targetLoad.load_id)}`, { method: 'DELETE' });
+      let targetNominalPowerW = targetLoad.nominal_power_w ?? null;
+      if (targetNominalPowerW == null && targetLoad.nominal_current_a != null) {
+        targetNominalPowerW = activeCircuitVoltageV != null ? targetLoad.nominal_current_a * activeCircuitVoltageV : null;
+      }
+      let targetSurgePowerW = targetLoad.surge_power_w ?? null;
+      if (targetSurgePowerW == null && targetLoad.startup_current_a != null) {
+        targetSurgePowerW = activeCircuitVoltageV != null ? targetLoad.startup_current_a * activeCircuitVoltageV : null;
+      }
+      if (targetNominalPowerW == null) {
+        throw new Error('Nominal power is required. Enter power directly, or provide current on a circuit with a voltage.');
+      }
+
+      const response = await projectFetch(`/api/loads/${encodeURIComponent(targetLoad.load_id)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          load_id: targetLoad.load_id,
+          load_circuit_id: moveTargetLoadCircuitId,
+          title: targetLoad.title,
+          description: targetLoad.description,
+          nominal_current_a: targetLoad.nominal_current_a,
+          nominal_power_w: targetNominalPowerW,
+          startup_current_a: targetLoad.startup_current_a,
+          surge_power_w: targetSurgePowerW,
+          standby_power_w: targetLoad.standby_power_w,
+          expected_usage_hours_per_day: targetLoad.expected_usage_hours_per_day,
+          daily_energy_kwh: targetLoad.daily_energy_kwh,
+          duty_profile: targetLoad.duty_profile,
+          notes: targetLoad.notes,
+        }),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? `Failed to move load (${response.status})`);
+      }
+
+      await refreshProjectData();
+      closeEditor();
+      setFilterLoadCircuitId(moveTargetLoadCircuitId);
+      syncLoadsFilters(filterProjectConverterId, moveTargetLoadCircuitId);
+      setSaveMessage(`Load "${targetLoad.title}" moved to "${targetCircuit.title}".`);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Failed to move load.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    const targetLoad = pendingDeleteLoad;
+    if (!targetLoad) return;
+
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+      setSaveMessage(null);
+
+      const response = await projectFetch(`/api/loads/${encodeURIComponent(targetLoad.load_id)}`, { method: 'DELETE' });
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: string } | null;
         throw new Error(payload?.error ?? `Failed to delete load (${response.status})`);
       }
 
       await refreshProjectData();
-      const nextLoad = data.entities.loads.find((item) => item.load_id !== targetLoad.load_id) ?? null;
-      setSelectedLoadId(nextLoad?.load_id ?? '');
-      setDraft(loadDraftFromEntity(nextLoad));
+      closeEditor();
       setSaveMessage(`Load "${targetLoad.load_id}" deleted.`);
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Failed to delete load.');
@@ -10338,204 +10651,365 @@ function LoadsPage({
 
   return (
     <>
-    <section className="detail-shell">
+      <section className="detail-shell">
+        <div style={{ display: 'grid', gap: 12, maxWidth: 360, marginBottom: 12 }}>
+          <label className="field">
+            <span>Converter</span>
+            <select value={filterProjectConverterId} onChange={(event) => updateLoadsConverterFilter(event.target.value)}>
+              {data.entities.project_converters.map((converter) => (
+                <option key={converter.project_converter_id} value={converter.project_converter_id}>
+                  {converter.title}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>Load circuit</span>
+            <select value={filterLoadCircuitId} onChange={(event) => updateLoadsCircuitFilter(event.target.value)}>
+              {filteredLoadCircuitOptions.map((circuit) => (
+                <option key={circuit.load_circuit_id} value={circuit.load_circuit_id}>
+                  {circuit.title}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="button-row button-row-start" style={{ marginBottom: 12 }}>
+          <button
+            type="button"
+            className="button button-secondary button-sm"
+            onClick={startAddNew}
+            disabled={!activeLoadCircuit}
+          >
+            Add load
+          </button>
+        </div>
+      </section>
+      <section className="detail-shell">
         <section className="panel">
-          <div className="stack" style={{ gap: 12 }}>
-            <div className="button-row button-row-between">
-              <label className="field" style={{ minWidth: 260 }}>
-                <span>Converter</span>
-                <select value={filterProjectConverterId} onChange={(event) => updateLoadsConverterFilter(event.target.value)}>
-                  <option value="">All converters</option>
-                  {data.entities.project_converters.map((converter) => (
-                    <option key={converter.project_converter_id} value={converter.project_converter_id}>
-                      {converter.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="field" style={{ minWidth: 260 }}>
-                <span>Load circuit</span>
-                <select value={filterLoadCircuitId} onChange={(event) => updateLoadsCircuitFilter(event.target.value)}>
-                  <option value="">All circuits</option>
-                  {filteredLoadCircuitOptions.map((circuit) => (
-                    <option key={circuit.load_circuit_id} value={circuit.load_circuit_id}>
-                      {circuit.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button type="button" className="button button-secondary" onClick={startAddNew}>
-                Add load
-              </button>
-            </div>
-            <div className="surface-grid">
-              {filteredLoads.length === 0 ? (
-                <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
-                  <p style={{ marginTop: 0, marginBottom: 0 }}>No loads found.</p>
-                </div>
-              ) : filteredLoads.map((load) => {
-                const circuit = data.entities.load_circuits.find((item) => item.load_circuit_id === load.load_circuit_id);
-                const converter = circuit ? data.entities.conversion_devices.find((item) => item.conversion_device_id === circuit.conversion_device_id) : null;
-                const projectConverter = circuit?.project_converter_id
-                  ? data.entities.project_converters.find((item) => item.project_converter_id === circuit.project_converter_id) ?? null
-                  : null;
-                const isActive = selectedLoadId === load.load_id;
-                return (
-                  <div key={load.load_id} className="surface-card-stack">
-                    <div className="surface-card">
-                      <div className="surface-card-top">
-                        <div>
-                          <h3>{load.title}</h3>
-                          <p>{load.description?.trim() || circuit?.title || t('catalog.entry.load')}</p>
-                        </div>
-                      </div>
-                      <dl className="detail-stats compact-stats" style={{ marginTop: 8, marginBottom: 0 }}>
-                        <div>
-                          <dt>Load circuit</dt>
-                          <dd>{circuit?.title ?? load.load_circuit_id}</dd>
-                        </div>
-                        <div>
-                          <dt>Converter</dt>
-                          <dd>{projectConverter?.title ?? converter?.title ?? '—'}</dd>
-                        </div>
-                        <div>
-                          <dt>{t('catalog.stat.voltage')}</dt>
-                          <dd>{formatVoltage(converter?.output_voltage_v ?? null)}</dd>
-                        </div>
-                        <div>
-                          <dt>Usage</dt>
-                          <dd>{formatLoadKw(load.usage_kw)}</dd>
-                        </div>
-                        <div>
-                          <dt>Spike</dt>
-                          <dd>{formatLoadKw(load.spike_kw)}</dd>
-                        </div>
-                      </dl>
-                      <div className="button-row">
-                        <button
-                          type="button"
-                          className="button button-secondary button-sm"
-                          onClick={() => {
-                            setSelectedLoadId(load.load_id);
-                            setSaveError(null);
-                            setSaveMessage(null);
-                          }}
-                        >
-                          {t('common.detail')}
-                        </button>
-                        <button
-                          type="button"
-                          className="button button-danger button-sm"
-                          onClick={() => void handleDelete(load.load_id)}
-                          disabled={isSaving}
-                        >
-                          {t('common.delete')}
-                        </button>
-                      </div>
+          <div className="fit-card">
+            {saveMessage ? <p className="save-message">{saveMessage}</p> : null}
+            <div className="consumption-converter-grid surface-grid">
+              {editorMode === 'add' ? (
+                <div key="new-load" className="surface-card-stack">
+                  <div className="surface-card consumption-selection-card consumption-selection-editor">
+                    <label className="config-field" style={{ marginTop: 8 }}>
+                      <span>Title</span>
+                      <input
+                        value={draft.title}
+                        onInput={(event) => {
+                          const value = event.currentTarget.value;
+                          setDraft((current) => ({ ...current, title: value }));
+                        }}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          setDraft((current) => ({ ...current, title: value }));
+                        }}
+                        placeholder="Fridge"
+                      />
+                    </label>
+                    <label className="config-field">
+                      <span>{t('catalog.field.description')}</span>
+                      <input
+                        value={draft.description}
+                        onInput={(event) => {
+                          const value = event.currentTarget.value;
+                          setDraft((current) => ({ ...current, description: value }));
+                        }}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          setDraft((current) => ({ ...current, description: value }));
+                        }}
+                        placeholder="Cold storage appliance"
+                      />
+                    </label>
+                    <div className="detail-grid two-col">
+                      <label className="field">
+                        <span>Circuit supply</span>
+                        <input value={activeCircuitSupplyType?.toUpperCase() ?? 'n/a'} readOnly />
+                      </label>
+                      <label className="field">
+                        <span>Circuit voltage (V)</span>
+                        <input value={formatVoltage(selectedCircuitVoltageV)} readOnly />
+                      </label>
+                    </div>
+                    <div className="detail-grid two-col">
+                      <label className="field"><span>Nominal current (A)</span><input type="number" step="0.1" value={draft.nominal_current_a} onChange={(event) => setDraft((current) => ({ ...current, nominal_current_a: event.target.value }))} /></label>
+                      <label className="field"><span>Nominal power (W)</span><input type="number" step="1" value={draft.nominal_power_w} onChange={(event) => setDraft((current) => ({ ...current, nominal_power_w: event.target.value }))} /></label>
+                    </div>
+                    <div className="detail-grid two-col">
+                      <label className="field"><span>Startup current (A)</span><input type="number" step="0.1" value={draft.startup_current_a} onChange={(event) => setDraft((current) => ({ ...current, startup_current_a: event.target.value }))} /></label>
+                      <label className="field"><span>Surge power (W)</span><input type="number" step="1" value={draft.surge_power_w} onChange={(event) => setDraft((current) => ({ ...current, surge_power_w: event.target.value }))} /></label>
+                    </div>
+                    <div className="detail-grid two-col">
+                      <label className="field"><span>Standby power (W)</span><input type="number" step="1" value={draft.standby_power_w} onChange={(event) => setDraft((current) => ({ ...current, standby_power_w: event.target.value }))} /></label>
+                      <label className="field"><span>Hours per day</span><input type="number" step="0.1" value={draft.expected_usage_hours_per_day} onChange={(event) => setDraft((current) => ({ ...current, expected_usage_hours_per_day: event.target.value }))} /></label>
+                    </div>
+                    <div className="detail-grid two-col">
+                      <label className="field"><span>Daily energy (kWh)</span><input type="number" step="0.01" value={draft.daily_energy_kwh} onChange={(event) => setDraft((current) => ({ ...current, daily_energy_kwh: event.target.value }))} /></label>
+                      <label className="field"><span>Duty profile</span><input value={draft.duty_profile} onChange={(event) => setDraft((current) => ({ ...current, duty_profile: event.target.value }))} /></label>
+                    </div>
+                    <label className="config-field">
+                      <span>Notes</span>
+                      <textarea
+                        value={draft.notes}
+                        onInput={(event) => {
+                          const value = event.currentTarget.value;
+                          setDraft((current) => ({ ...current, notes: value }));
+                        }}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          setDraft((current) => ({ ...current, notes: value }));
+                        }}
+                        rows={2}
+                        placeholder="Any special electrical or usage notes"
+                      />
+                    </label>
+                    {saveError ? <p className="save-error">{saveError}</p> : null}
+                    <div className="button-row">
+                      <button type="button" className="button button-success button-sm" onClick={() => void handleSave()} disabled={isSaving || !draft.title.trim()}>
+                        {isSaving ? t('common.saving') : t('common.save')}
+                      </button>
+                      <button type="button" className="button button-secondary button-sm" onClick={closeEditor} disabled={isSaving}>
+                        Cancel
+                      </button>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="section-head">
-            <h2>{selectedLoad ? 'Edit load' : 'Add load'}</h2>
-            <p>Use loads for appliances, endpoints, or grouped demand. Each load inherits voltage from its circuit and converter.</p>
-          </div>
-          <div className="stack" style={{ gap: 16 }}>
-            {!selectedLoad ? (
-              <div className="stack" style={{ gap: 12 }}>
-                <label className="field">
-                  <span>{t('catalog.ui.load_source')}</span>
-                  <select value={loadEntryMode} onChange={(event) => setLoadEntryMode(event.target.value as 'manual' | 'catalog')}>
-                    <option value="manual">{t('catalog.ui.manual_entry')}</option>
-                    <option value="catalog">{t('catalog.ui.from_catalog')}</option>
-                  </select>
-                </label>
-                {loadEntryMode === 'catalog' ? (
-                  <div className="button-row button-row-between row-synced-wrap">
-                    <label className="field" style={{ minWidth: 260 }}>
-                      <span>{t('catalog.ui.load_template')}</span>
-                      <select value={selectedLoadPresetId} onChange={(event) => setSelectedLoadPresetId(event.target.value)}>
-                        {LOAD_PRESETS.map((preset) => (
-                          <option key={preset.load_preset_id} value={preset.load_preset_id}>
-                            {preset.title}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <button type="button" className="button button-secondary" onClick={applySelectedLoadPreset} disabled={!selectedLoadPreset}>
-                      {t('catalog.ui.add_from_catalog')}
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-            <div className="field">
-              <span>Load ID</span>
-              <p className="muted">
-                {selectedLoad ? selectedLoad.load_id : (draft.title.trim() ? generateUniqueCatalogId(draft.title.trim(), data.entities.loads.map((load) => load.load_id)) : 'Generated after save')}
-              </p>
-            </div>
-            <label className="field">
-              <span>{t('catalog.field.title')}</span>
-              <input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} placeholder="Fridge" />
-            </label>
-            <label className="field">
-              <span>Load circuit</span>
-              <select value={draft.load_circuit_id} onChange={(event) => setDraft((current) => ({ ...current, load_circuit_id: event.target.value }))}>
-                <option value="">Choose load circuit</option>
-                {filteredLoadCircuitOptions.map((circuit) => (
-                  <option key={circuit.load_circuit_id} value={circuit.load_circuit_id}>
-                    {circuit.title}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              <span>{t('catalog.field.description')}</span>
-              <textarea value={draft.description} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} rows={3} />
-            </label>
-            <div className="detail-grid two-col">
-              <label className="field"><span>Usage (kW)</span><input type="number" step="0.01" value={draft.usage_kw} onChange={(event) => setDraft((current) => ({ ...current, usage_kw: event.target.value }))} /></label>
-              <label className="field"><span>Spike (kW)</span><input type="number" step="0.01" value={draft.spike_kw} onChange={(event) => setDraft((current) => ({ ...current, spike_kw: event.target.value }))} /></label>
-            </div>
-            <div className="detail-grid two-col">
-              <label className="field"><span>Hours per day</span><input type="number" step="0.1" value={draft.expected_usage_hours_per_day} onChange={(event) => setDraft((current) => ({ ...current, expected_usage_hours_per_day: event.target.value }))} /></label>
-              <label className="field"><span>Sleeping (kW)</span><input type="number" step="0.01" value={draft.sleeping_kw} onChange={(event) => setDraft((current) => ({ ...current, sleeping_kw: event.target.value }))} /></label>
-            </div>
-            <div className="stack" style={{ gap: 8 }}>
-              <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.title.trim() || !draft.load_circuit_id.trim()}>
-                {isSaving ? t('common.saving') : t('common.save')}
-              </button>
-              {selectedLoad ? (
-                <button type="button" className="button button-danger" onClick={() => void handleDelete()} disabled={isSaving}>
-                  {t('common.delete')}
-                </button>
+                </div>
               ) : null}
-              {saveError ? <p className="save-error">{saveError}</p> : null}
-              {saveMessage ? <p className="save-message">{saveMessage}</p> : null}
+              {activeLoadCircuit ? (
+                activeCircuitLoads.length === 0 && editorMode === 'closed' ? (
+                  <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
+                    <p style={{ marginTop: 0, marginBottom: 0 }}>No loads in this circuit yet.</p>
+                  </div>
+                ) : activeCircuitLoads.map((load) => {
+                const isEditing = editorMode === 'edit' && draft.load_id === load.load_id;
+                const isMoving = editorMode === 'move' && draft.load_id === load.load_id;
+                const loadTitle = isEditing ? draft.title.trim() || load.title : load.title;
+                const loadDescription = isEditing ? draft.description.trim() || load.description?.trim() || t('catalog.entry.load') : load.description?.trim() || t('catalog.entry.load');
+                const moveCircuitOptions = filteredLoadCircuitOptions.filter((circuit) => circuit.load_circuit_id !== load.load_circuit_id);
+                return (
+                  <div key={load.load_id} id={`load-card-${load.load_id}`} className="surface-card-stack">
+                      <div className={`surface-card consumption-selection-card ${isEditing || isMoving ? 'consumption-selection-editor' : ''}`}>
+                        {isEditing ? (
+                          <>
+                            <label className="config-field" style={{ marginTop: 8 }}>
+                              <span>Title</span>
+                              <input
+                                value={draft.title}
+                                onInput={(event) => {
+                                  const value = event.currentTarget.value;
+                                  setDraft((current) => ({ ...current, title: value }));
+                                }}
+                                onChange={(event) => {
+                                  const value = event.target.value;
+                                  setDraft((current) => ({ ...current, title: value }));
+                                }}
+                                placeholder="Fridge"
+                              />
+                            </label>
+                            <label className="config-field">
+                              <span>{t('catalog.field.description')}</span>
+                              <input
+                                value={draft.description}
+                                onInput={(event) => {
+                                  const value = event.currentTarget.value;
+                                  setDraft((current) => ({ ...current, description: value }));
+                                }}
+                                onChange={(event) => {
+                                  const value = event.target.value;
+                                  setDraft((current) => ({ ...current, description: value }));
+                                }}
+                                placeholder="Cold storage appliance"
+                              />
+                            </label>
+                            <div className="detail-grid two-col">
+                              <label className="field">
+                                <span>Circuit supply</span>
+                                <input value={activeCircuitSupplyType?.toUpperCase() ?? 'n/a'} readOnly />
+                              </label>
+                              <label className="field">
+                                <span>Circuit voltage (V)</span>
+                                <input value={formatVoltage(selectedCircuitVoltageV)} readOnly />
+                              </label>
+                            </div>
+                            <div className="detail-grid two-col">
+                              <label className="field"><span>Nominal current (A)</span><input type="number" step="0.1" value={draft.nominal_current_a} onChange={(event) => setDraft((current) => ({ ...current, nominal_current_a: event.target.value }))} /></label>
+                              <label className="field"><span>Nominal power (W)</span><input type="number" step="1" value={draft.nominal_power_w} onChange={(event) => setDraft((current) => ({ ...current, nominal_power_w: event.target.value }))} /></label>
+                            </div>
+                            <div className="detail-grid two-col">
+                              <label className="field"><span>Startup current (A)</span><input type="number" step="0.1" value={draft.startup_current_a} onChange={(event) => setDraft((current) => ({ ...current, startup_current_a: event.target.value }))} /></label>
+                              <label className="field"><span>Surge power (W)</span><input type="number" step="1" value={draft.surge_power_w} onChange={(event) => setDraft((current) => ({ ...current, surge_power_w: event.target.value }))} /></label>
+                            </div>
+                            <div className="detail-grid two-col">
+                              <label className="field"><span>Standby power (W)</span><input type="number" step="1" value={draft.standby_power_w} onChange={(event) => setDraft((current) => ({ ...current, standby_power_w: event.target.value }))} /></label>
+                              <label className="field"><span>Hours per day</span><input type="number" step="0.1" value={draft.expected_usage_hours_per_day} onChange={(event) => setDraft((current) => ({ ...current, expected_usage_hours_per_day: event.target.value }))} /></label>
+                            </div>
+                            <div className="detail-grid two-col">
+                              <label className="field"><span>Daily energy (kWh)</span><input type="number" step="0.01" value={draft.daily_energy_kwh} onChange={(event) => setDraft((current) => ({ ...current, daily_energy_kwh: event.target.value }))} /></label>
+                              <label className="field"><span>Duty profile</span><input value={draft.duty_profile} onChange={(event) => setDraft((current) => ({ ...current, duty_profile: event.target.value }))} /></label>
+                            </div>
+                            <label className="config-field">
+                              <span>Notes</span>
+                              <textarea
+                                value={draft.notes}
+                                onInput={(event) => {
+                                  const value = event.currentTarget.value;
+                                  setDraft((current) => ({ ...current, notes: value }));
+                                }}
+                                onChange={(event) => {
+                                  const value = event.target.value;
+                                  setDraft((current) => ({ ...current, notes: value }));
+                                }}
+                                rows={2}
+                                placeholder="Any special electrical or usage notes"
+                              />
+                            </label>
+                            <dl className="mini-stats">
+                              <div>
+                                <dt>Voltage</dt>
+                                <dd>{formatVoltage(activeCircuitVoltageV)}</dd>
+                              </div>
+                              <div>
+                                <dt>Nominal power</dt>
+                                <dd>{formatPowerW(Number(draft.nominal_power_w) || 0)}</dd>
+                              </div>
+                              <div>
+                                <dt>Surge power</dt>
+                                <dd>{formatPowerW(Number(draft.surge_power_w) || 0)}</dd>
+                              </div>
+                            </dl>
+                            <div className="button-row">
+                              <button type="button" className="button button-success button-sm" onClick={() => void handleSave()} disabled={isSaving || !draft.title.trim()}>
+                                {isSaving ? t('common.saving') : t('common.save')}
+                              </button>
+                              <button type="button" className="button button-secondary button-sm" onClick={closeEditor} disabled={isSaving}>
+                                Cancel
+                              </button>
+                              <button type="button" className="button button-danger button-sm" onClick={() => requestDeleteLoad(load)} disabled={isSaving}>
+                                Remove
+                              </button>
+                            </div>
+                          </>
+                        ) : isMoving ? (
+                          <>
+                            <label className="field" style={{ marginTop: 8 }}>
+                              <span>Target circuit</span>
+                              <select value={moveTargetLoadCircuitId} onChange={(event) => setMoveTargetLoadCircuitId(event.target.value)} disabled={isSaving || moveCircuitOptions.length === 0}>
+                                {moveCircuitOptions.map((circuit) => (
+                                  <option key={circuit.load_circuit_id} value={circuit.load_circuit_id}>
+                                    {circuit.title}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <p className="save-message" style={{ marginTop: 8, marginBottom: 0 }}>
+                              This load will keep its own fields and move to another circuit in the same converter.
+                            </p>
+                            {saveError ? <p className="save-error">{saveError}</p> : null}
+                            <div className="button-row">
+                              <button type="button" className="button button-success button-sm" onClick={() => void handleMoveLoad()} disabled={isSaving || !moveTargetLoadCircuitId}>
+                                {isSaving ? t('common.saving') : 'Move'}
+                              </button>
+                              <button type="button" className="button button-secondary button-sm" onClick={closeEditor} disabled={isSaving}>
+                                Cancel
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="surface-card-top">
+                              <div>
+                                <h3>{loadTitle}</h3>
+                                <p>{loadDescription}</p>
+                              </div>
+                            </div>
+                            <dl className="detail-stats compact-stats" style={{ marginTop: 8, marginBottom: 0 }}>
+                              <div>
+                                <dt>Supply</dt>
+                                <dd>{activeCircuitSupplyType?.toUpperCase() ?? 'n/a'}</dd>
+                              </div>
+                              <div>
+                                <dt>Nominal power</dt>
+                                <dd>{formatPowerW(loadNominalPowerW(load))}</dd>
+                              </div>
+                              <div>
+                                <dt>Surge power</dt>
+                                <dd>{formatPowerW(loadSurgePowerW(load))}</dd>
+                              </div>
+                              <div>
+                                <dt>Current</dt>
+                                <dd>{loadNominalCurrentA(load, activeCircuitVoltageV) != null ? formatCurrentA(loadNominalCurrentA(load, activeCircuitVoltageV)!) : 'n/a'}</dd>
+                              </div>
+                              <div>
+                                <dt>Hours</dt>
+                                <dd>{load.expected_usage_hours_per_day.toLocaleString('en-US', { maximumFractionDigits: 1 })} h/day</dd>
+                              </div>
+                              <div>
+                                <dt>Daily energy</dt>
+                                <dd>{formatEnergyKwh(loadDailyEnergyKwh(load))}</dd>
+                              </div>
+                              <div>
+                                <dt>Standby power</dt>
+                                <dd>{formatPowerW(loadStandbyPowerW(load))}</dd>
+                              </div>
+                              <div>
+                                <dt>Circuit voltage</dt>
+                                <dd>{formatVoltage(activeCircuitVoltageV)}</dd>
+                              </div>
+                            </dl>
+                            <div className="button-row">
+                              <button type="button" className="button button-secondary button-sm" onClick={() => startEditLoad(load)}>
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                className="button button-secondary button-sm"
+                                onClick={() => startMoveLoad(load)}
+                                disabled={moveCircuitOptions.length === 0}
+                              >
+                                Move
+                              </button>
+                              <button type="button" className="button button-danger button-sm" onClick={() => requestDeleteLoad(load)} disabled={isSaving}>
+                                Remove
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
+                  <p style={{ marginTop: 0, marginBottom: 0 }}>No load circuit selected.</p>
+                </div>
+              )}
             </div>
           </div>
-          {selectedLoad ? (
-            <>
-              <dl className="detail-stats panel-spec-grid" style={{ marginTop: 16 }}>
-                <div><dt>Load circuit</dt><dd>{selectedLoadCircuit?.title ?? selectedLoad.load_circuit_id}</dd></div>
-                <div><dt>Converter</dt><dd>{selectedConverter?.title ?? '—'}</dd></div>
-                <div><dt>{t('catalog.stat.inherited_voltage')}</dt><dd>{formatVoltage(selectedLoadCircuitVoltageV)}</dd></div>
-                <div><dt>Usage</dt><dd>{formatLoadKw(selectedLoad.usage_kw)}</dd></div>
-                <div><dt>Spike</dt><dd>{formatLoadKw(selectedLoad.spike_kw)}</dd></div>
-              </dl>
-            </>
-          ) : null}
         </section>
       </section>
+      {isDeleteConfirmOpen && pendingDeleteLoad ? (
+        <ConfirmDialog
+          title="Remove load?"
+          message={`Are you sure you want to remove "${pendingDeleteLoad.title}"? This will delete the load and close the editor.`}
+          confirmLabel={t('catalog.confirm.delete_action')}
+          cancelLabel={t('common.cancel')}
+          confirmTone="danger"
+          onConfirm={() => {
+            setIsDeleteConfirmOpen(false);
+            void handleDelete();
+          }}
+          onCancel={() => {
+            setIsDeleteConfirmOpen(false);
+            setPendingDeleteLoad(null);
+          }}
+        />
+      ) : null}
     </>
   );
 }
+
 
 function AppContent() {
   const [data, setData] = useState<DigitalTwinExport | null>(null);
@@ -10545,7 +11019,29 @@ function AppContent() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = usePersistentState('offgridos:sidebar-collapsed', false);
   const [lightboxMedia, setLightboxMedia] = useState<LightboxMedia | null>(null);
+  const [activeProjectId, setActiveProjectId] = useState<string>(() => _currentProjectId);
+  const [projects, setProjects] = useState<Array<{ project_id: string; title: string }>>([]);
   useLocalStorageRevision();
+
+  async function loadProjects(): Promise<void> {
+    try {
+      const response = await fetch('/api/projects');
+      if (response.ok) {
+        const list = await response.json() as Array<{ project_id: string; title: string }>;
+        setProjects(list);
+      }
+    } catch {
+      // non-critical
+    }
+  }
+
+  function switchProject(projectId: string): void {
+    _currentProjectId = projectId;
+    localStorage.setItem('offgridos:active-project-id', projectId);
+    setActiveProjectId(projectId);
+    setData(null);
+    void refreshProjectData();
+  }
 
   async function refreshProjectData(): Promise<void> {
     try {
@@ -10558,6 +11054,7 @@ function AppContent() {
   }
 
   useEffect(() => {
+    void loadProjects();
     void refreshProjectData();
   }, []);
 
@@ -10652,6 +11149,12 @@ function AppContent() {
     }
   }, [data, language, locationSlug, route, setLanguage]);
 
+  const projectSwitcherProps = {
+    projects,
+    activeProjectId,
+    onSwitchProject: switchProject,
+  };
+
   if (error) {
     return (
       <AppFrame
@@ -10663,6 +11166,7 @@ function AppContent() {
         openMobileSidebar={() => setIsMobileSidebarOpen(true)}
         closeMobileSidebar={() => setIsMobileSidebarOpen(false)}
         toggleSidebarCollapsed={toggleSidebarCollapsed}
+        {...projectSwitcherProps}
       >
           <section className="panel error-panel">
             <p>{error}</p>
@@ -10683,6 +11187,7 @@ function AppContent() {
         openMobileSidebar={() => setIsMobileSidebarOpen(true)}
         closeMobileSidebar={() => setIsMobileSidebarOpen(false)}
         toggleSidebarCollapsed={toggleSidebarCollapsed}
+        {...projectSwitcherProps}
       >
           <section className="panel error-panel">
             <p>{t('app.loading')}</p>
@@ -10759,6 +11264,7 @@ function AppContent() {
           openMobileSidebar={() => setIsMobileSidebarOpen(true)}
           closeMobileSidebar={() => setIsMobileSidebarOpen(false)}
           toggleSidebarCollapsed={toggleSidebarCollapsed}
+          {...projectSwitcherProps}
         >
             <SurfaceDetail
               key={`surface:${route.surfaceId}`}
@@ -10789,6 +11295,7 @@ function AppContent() {
         openMobileSidebar={() => setIsMobileSidebarOpen(true)}
         closeMobileSidebar={() => setIsMobileSidebarOpen(false)}
         toggleSidebarCollapsed={toggleSidebarCollapsed}
+        {...projectSwitcherProps}
       >
           {route.kind === 'location' ? (
             <LocationPage {...context} />

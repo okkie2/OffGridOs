@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import { seedMpptTypes, seedBatteryTypes, seedInverterTypes, seedConversionDevices, seedInverterConfigurations, seedLocation, seedPanelTypes, seedSurfaces, seedSurfacePanelAssignments } from './seeds.js';
 import { syncPvTopology } from './queries.js';
+import { DEFAULT_PROJECT_ID } from '../config/project.js';
 
 function hasTable(db: Database.Database, tableName: string): boolean {
   const row = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?").get(tableName) as { name?: string } | undefined;
@@ -17,8 +18,8 @@ function ensureProjectsTable(db: Database.Database): void {
   `);
   db.prepare(`
     INSERT OR IGNORE INTO projects (project_id, title, created_at)
-    VALUES ('default-project', '18Mad Boerderij', datetime('now'))
-  `).run();
+    VALUES (@project_id, '18Mad Boerderij', datetime('now'))
+  `).run({ project_id: DEFAULT_PROJECT_ID });
 }
 
 function ensureProjectId(db: Database.Database, tableName: string): void {
@@ -29,15 +30,29 @@ function ensureProjectId(db: Database.Database, tableName: string): void {
   // SQLite does not allow a non-NULL default on a REFERENCES column, so we add
   // the column as nullable, backfill, then rely on application-layer enforcement.
   db.exec(`ALTER TABLE ${tableName} ADD COLUMN project_id TEXT REFERENCES projects(project_id);`);
-  db.prepare(`UPDATE ${tableName} SET project_id = 'default-project' WHERE project_id IS NULL`).run();
+  db.prepare(`UPDATE ${tableName} SET project_id = ? WHERE project_id IS NULL`).run(DEFAULT_PROJECT_ID);
 }
 
-function ensureProjectPreferencesProjectId(db: Database.Database): void {
-  const cols = new Set(
-    (db.prepare("PRAGMA table_info('project_preferences')").all() as { name: string }[]).map((r) => r.name),
-  );
-  if (cols.has('project_id')) return;
-  db.exec("ALTER TABLE project_preferences ADD COLUMN project_id TEXT NOT NULL DEFAULT 'default-project';");
+function ensureProjectPreferencesMigration(db: Database.Database): void {
+  const tableInfo = db.prepare("PRAGMA table_info('project_preferences')").all() as Array<{ name: string; pk: number }>;
+  const pkCols = tableInfo.filter((c) => c.pk > 0).map((c) => c.name);
+  if (pkCols.length === 2 && pkCols.includes('project_id') && pkCols.includes('key')) return;
+  const hasProjectId = tableInfo.some((c) => c.name === 'project_id');
+  if (!hasProjectId) {
+    db.exec(`ALTER TABLE project_preferences ADD COLUMN project_id TEXT NOT NULL DEFAULT '${DEFAULT_PROJECT_ID}';`);
+  }
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS project_preferences_new (
+      project_id  TEXT NOT NULL DEFAULT '${DEFAULT_PROJECT_ID}' REFERENCES projects(project_id),
+      key         TEXT NOT NULL,
+      value       TEXT NOT NULL,
+      PRIMARY KEY (project_id, key)
+    );
+    INSERT OR IGNORE INTO project_preferences_new (project_id, key, value)
+      SELECT COALESCE(project_id, '${DEFAULT_PROJECT_ID}'), key, value FROM project_preferences;
+    DROP TABLE project_preferences;
+    ALTER TABLE project_preferences_new RENAME TO project_preferences;
+  `);
 }
 
 function ensureLoadCircuitsProjectConverterId(db: Database.Database): void {
@@ -72,6 +87,39 @@ function ensureLoadCircuitsProjectConverterId(db: Database.Database): void {
       AND conversion_device_id IN (
         SELECT project_converter_id FROM project_converters
       );
+  `);
+}
+
+function ensureLoadColumns(db: Database.Database): void {
+  const cols = new Set(
+    (db.prepare("PRAGMA table_info('loads')").all() as { name: string }[]).map((r) => r.name),
+  );
+
+  const additions = [
+    !cols.has('nominal_current_a') ? 'ALTER TABLE loads ADD COLUMN nominal_current_a REAL;' : '',
+    !cols.has('nominal_power_w') ? 'ALTER TABLE loads ADD COLUMN nominal_power_w REAL;' : '',
+    !cols.has('startup_current_a') ? 'ALTER TABLE loads ADD COLUMN startup_current_a REAL;' : '',
+    !cols.has('surge_power_w') ? 'ALTER TABLE loads ADD COLUMN surge_power_w REAL;' : '',
+    !cols.has('standby_power_w') ? 'ALTER TABLE loads ADD COLUMN standby_power_w REAL;' : '',
+    !cols.has('daily_energy_kwh') ? 'ALTER TABLE loads ADD COLUMN daily_energy_kwh REAL;' : '',
+    !cols.has('duty_profile') ? 'ALTER TABLE loads ADD COLUMN duty_profile TEXT;' : '',
+    !cols.has('notes') ? 'ALTER TABLE loads ADD COLUMN notes TEXT;' : '',
+  ].filter(Boolean);
+
+  if (additions.length > 0) {
+    db.exec(additions.join('\n'));
+  }
+
+  db.exec(`
+    UPDATE loads
+    SET nominal_power_w = COALESCE(nominal_power_w, usage_kw * 1000.0),
+        surge_power_w = COALESCE(surge_power_w, spike_kw * 1000.0),
+        standby_power_w = COALESCE(standby_power_w, sleeping_kw * 1000.0),
+        daily_energy_kwh = COALESCE(daily_energy_kwh, (usage_kw * expected_usage_hours_per_day))
+    WHERE nominal_power_w IS NULL
+      OR surge_power_w IS NULL
+      OR standby_power_w IS NULL
+      OR daily_energy_kwh IS NULL;
   `);
 }
 
@@ -636,9 +684,17 @@ export function initSchema(db: Database.Database): void {
       load_circuit_id        TEXT NOT NULL REFERENCES load_circuits(load_circuit_id),
       title                  TEXT NOT NULL,
       description            TEXT,
+      nominal_current_a      REAL,
+      nominal_power_w        REAL,
+      startup_current_a      REAL,
+      surge_power_w          REAL,
+      standby_power_w        REAL,
+      expected_usage_hours_per_day REAL NOT NULL,
+      daily_energy_kwh       REAL,
+      duty_profile           TEXT,
+      notes                  TEXT,
       usage_kw               REAL NOT NULL,
       spike_kw               REAL NOT NULL,
-      expected_usage_hours_per_day REAL NOT NULL,
       sleeping_kw            REAL NOT NULL
     );
 
@@ -673,8 +729,9 @@ export function initSchema(db: Database.Database): void {
   ensureProjectId(db, 'project_converters');
   ensureProjectId(db, 'load_circuits');
   ensureProjectId(db, 'loads');
-  ensureProjectPreferencesProjectId(db);
+  ensureProjectPreferencesMigration(db);
   ensureLoadCircuitsProjectConverterId(db);
+  ensureLoadColumns(db);
   seedLocation(db);
   seedSurfaces(db);
   seedPanelTypes(db);

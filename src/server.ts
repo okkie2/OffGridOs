@@ -1,10 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 import http, { type IncomingMessage, type ServerResponse } from 'http';
-import { createSurface, deleteCabinetType, deleteConversionDevice, deleteLoad, deleteLoadCircuit, deleteProjectConverter, deleteSurface, deleteSurfacePanelAssignmentsForSurface, getBatteryBankConfiguration, getBatteryType, getCabinetType, getConversionDevice, getInverterType, getLoad, getLoadCircuit, getMpptType, getPreferences, getPanelType, getProjectConverter, getSurface, getSurfaceConfiguration, insertBatteryType, insertCabinetType, insertInverterType, insertMpptType, insertPanelType, listArrayToMpptMappings, listBatteryBankConfigurations, listBatteryTypes, listCabinetTypes, listConversionDevices, listInverterConfigurations, listInverterTypes, listLoadCircuits, listLoads, listMpptTypes, listPanelTypes, listProjectConverters, listPvArrays, listSurfaceConfigurations, listSurfacePanelAssignments, setPref, updateBatteryType, updateCabinetType, updateInverterType, updateMpptType, updatePanelType, updateSurface, upsertBatteryBankConfiguration, upsertConversionDevice, upsertInverterConfiguration, upsertLoad, upsertLoadCircuit, upsertLocation, upsertProjectConverter, upsertSurfaceConfiguration, upsertSurfacePanelAssignment, syncPvTopologyForSurface } from './db/queries.js';
+import { createProject, createSurface, deleteProject, deleteCabinetType, deleteConversionDevice, deleteLoad, deleteLoadCircuit, deleteProjectConverter, deleteSurface, deleteSurfacePanelAssignmentsForSurface, getBatteryBankConfiguration, getBatteryType, getCabinetType, getConversionDevice, getInverterType, getLoad, getLoadCircuit, getMpptType, getProject, getPreferences, getPanelType, getProjectConverter, getSurface, getSurfaceConfiguration, insertBatteryType, insertCabinetType, insertInverterType, insertMpptType, insertPanelType, listArrayToMpptMappings, listBatteryBankConfigurations, listBatteryTypes, listCabinetTypes, listConversionDevices, listInverterConfigurations, listInverterTypes, listLoadCircuits, listLoads, listMpptTypes, listPanelTypes, listProjectConverters, listProjects, listPvArrays, listSurfaceConfigurations, listSurfacePanelAssignments, setPref, updateBatteryType, updateCabinetType, updateInverterType, updateMpptType, updatePanelType, updateProject, updateSurface, upsertBatteryBankConfiguration, upsertConversionDevice, upsertInverterConfiguration, upsertLoad, upsertLoadCircuit, upsertLocation, upsertProjectConverter, upsertSurfaceConfiguration, upsertSurfacePanelAssignment, syncPvTopologyForSurface } from './db/queries.js';
 import { buildDigitalTwinExport } from './output/exportDigitalTwin.js';
 import { generateUniqueCatalogId } from './domain/panel-type-id.js';
 import { resolveDatabasePath, resolveServerHost, resolveServerPort, resolveWebDistPath } from './config/runtime.js';
+import { DEFAULT_PROJECT_ID } from './config/project.js';
 import { ensureDatabaseReady, withDb } from './server/bootstrap.js';
 import { DATABASE_PUBLISH_TOKEN_HEADER, hasValidDatabasePublishToken, publishDatabaseFile, resolveDatabasePublishToken } from './server/database-publish.js';
 
@@ -38,6 +39,104 @@ async function readRequestBody(request: IncomingMessage): Promise<Buffer> {
 async function readJsonBody<T>(request: IncomingMessage): Promise<T> {
   const rawBody = (await readRequestBody(request)).toString('utf-8').trim();
   return (rawBody === '' ? {} : JSON.parse(rawBody)) as T;
+}
+
+type LoadPayload = {
+  load_id?: unknown;
+  load_circuit_id?: unknown;
+  title?: unknown;
+  description?: unknown;
+  nominal_current_a?: unknown;
+  nominal_power_w?: unknown;
+  startup_current_a?: unknown;
+  surge_power_w?: unknown;
+  standby_power_w?: unknown;
+  expected_usage_hours_per_day?: unknown;
+  daily_energy_kwh?: unknown;
+  duty_profile?: unknown;
+  notes?: unknown;
+  usage_kw?: unknown;
+  spike_kw?: unknown;
+  sleeping_kw?: unknown;
+};
+
+function readOptionalText(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
+}
+
+function readOptionalNumber(value: unknown): number | null {
+  if (value == null || value === '') {
+    return null;
+  }
+
+  const numericValue = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(numericValue) ? numericValue : null;
+}
+
+function resolveLoadPowerW(payload: LoadPayload, circuitVoltageV: number | null): number | null {
+  const nominalPowerW = readOptionalNumber(payload.nominal_power_w);
+  if (nominalPowerW != null) {
+    return nominalPowerW;
+  }
+
+  const nominalCurrentA = readOptionalNumber(payload.nominal_current_a);
+  if (nominalCurrentA != null && circuitVoltageV != null) {
+    return nominalCurrentA * circuitVoltageV;
+  }
+
+  const legacyUsageKw = readOptionalNumber(payload.usage_kw);
+  if (legacyUsageKw != null) {
+    return legacyUsageKw * 1000;
+  }
+
+  return null;
+}
+
+function resolveLoadSurgePowerW(payload: LoadPayload, circuitVoltageV: number | null): number | null {
+  const surgePowerW = readOptionalNumber(payload.surge_power_w);
+  if (surgePowerW != null) {
+    return surgePowerW;
+  }
+
+  const startupCurrentA = readOptionalNumber(payload.startup_current_a);
+  if (startupCurrentA != null && circuitVoltageV != null) {
+    return startupCurrentA * circuitVoltageV;
+  }
+
+  const legacySpikeKw = readOptionalNumber(payload.spike_kw);
+  if (legacySpikeKw != null) {
+    return legacySpikeKw * 1000;
+  }
+
+  return null;
+}
+
+function resolveLoadStandbyPowerW(payload: LoadPayload): number | null {
+  const standbyPowerW = readOptionalNumber(payload.standby_power_w);
+  if (standbyPowerW != null) {
+    return standbyPowerW;
+  }
+
+  const legacySleepingKw = readOptionalNumber(payload.sleeping_kw);
+  if (legacySleepingKw != null) {
+    return legacySleepingKw * 1000;
+  }
+
+  return null;
+}
+
+function resolveLoadDailyEnergyKwh(payload: LoadPayload, nominalPowerW: number | null): number | null {
+  const dailyEnergyKwh = readOptionalNumber(payload.daily_energy_kwh);
+  if (dailyEnergyKwh != null) {
+    return dailyEnergyKwh;
+  }
+
+  const expectedUsageHoursPerDay = readOptionalNumber(payload.expected_usage_hours_per_day);
+  if (expectedUsageHoursPerDay != null && nominalPowerW != null) {
+    return (nominalPowerW / 1000) * expectedUsageHoursPerDay;
+  }
+
+  return null;
 }
 
 function isValidLatitude(value: number): boolean {
@@ -108,8 +207,80 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
     return false;
   }
 
+  const projectId = (request.headers['x-project-id'] as string | undefined)?.trim() || DEFAULT_PROJECT_ID;
+
   if (method === 'GET' && url.pathname === '/api/health') {
     sendJson(response, 200, { ok: true });
+    return true;
+  }
+
+  // ── Projects ──────────────────────────────────────────────────────────────
+
+  if (method === 'GET' && url.pathname === '/api/projects') {
+    try {
+      const payload = withDb(databasePath, (db) => listProjects(db));
+      sendJson(response, 200, payload);
+    } catch (error) {
+      sendJson(response, 500, { error: error instanceof Error ? error.message : 'Unknown server error' });
+    }
+    return true;
+  }
+
+  if (method === 'POST' && url.pathname === '/api/projects') {
+    void (async () => {
+      try {
+        const body = await readJsonBody<{ title?: unknown }>(request);
+        const title = isValidNonEmptyText(body.title) ? body.title.trim() : '';
+        if (!title) {
+          sendJson(response, 400, { error: 'title is required.' });
+          return;
+        }
+        const newProjectId = `proj-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        const project = withDb(databasePath, (db) => createProject(db, newProjectId, title));
+        sendJson(response, 201, project);
+      } catch (error) {
+        sendJson(response, 500, { error: error instanceof Error ? error.message : 'Unknown server error' });
+      }
+    })();
+    return true;
+  }
+
+  if (method === 'PUT' && url.pathname.startsWith('/api/projects/')) {
+    const targetProjectId = decodeURIComponent(url.pathname.slice('/api/projects/'.length));
+    void (async () => {
+      try {
+        const body = await readJsonBody<{ title?: unknown }>(request);
+        const title = isValidNonEmptyText(body.title) ? body.title.trim() : '';
+        if (!title) {
+          sendJson(response, 400, { error: 'title is required.' });
+          return;
+        }
+        const exists = withDb(databasePath, (db) => getProject(db, targetProjectId));
+        if (!exists) {
+          sendJson(response, 404, { error: `Project "${targetProjectId}" not found.` });
+          return;
+        }
+        withDb(databasePath, (db) => updateProject(db, targetProjectId, title));
+        sendJson(response, 200, { project_id: targetProjectId, title });
+      } catch (error) {
+        sendJson(response, 500, { error: error instanceof Error ? error.message : 'Unknown server error' });
+      }
+    })();
+    return true;
+  }
+
+  if (method === 'DELETE' && url.pathname.startsWith('/api/projects/')) {
+    const targetProjectId = decodeURIComponent(url.pathname.slice('/api/projects/'.length));
+    if (targetProjectId === DEFAULT_PROJECT_ID) {
+      sendJson(response, 400, { error: 'Cannot delete the default project.' });
+      return true;
+    }
+    try {
+      withDb(databasePath, (db) => deleteProject(db, targetProjectId));
+      sendJson(response, 200, { ok: true });
+    } catch (error) {
+      sendJson(response, 500, { error: error instanceof Error ? error.message : 'Unknown server error' });
+    }
     return true;
   }
 
@@ -159,7 +330,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
   if (method === 'GET' && url.pathname === '/api/digital-twin') {
     try {
-      const payload = withDb(databasePath, (db) => buildDigitalTwinExport(db, databasePath));
+      const payload = withDb(databasePath, (db) => buildDigitalTwinExport(db, databasePath, projectId));
       sendJson(response, 200, payload);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown server error';
@@ -257,7 +428,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             notes,
           });
 
-          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -358,7 +529,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             notes,
           });
 
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -386,7 +557,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           }
 
           const usedInConfiguration = getBatteryBankConfiguration(db, 'battery-bank-main')?.selected_battery_type_id === batteryTypeId;
-          const preferredBatteryTypeId = getPreferences(db).preferred_battery_type_id;
+          const preferredBatteryTypeId = getPreferences(db, projectId).preferred_battery_type_id;
 
           if (usedInConfiguration || preferredBatteryTypeId === batteryTypeId) {
             return { status: 400 as const, body: { error: `Battery type "${batteryTypeId}" is still referenced by the current project configuration.` } };
@@ -394,7 +565,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
           db.prepare('DELETE FROM battery_types WHERE battery_type_id = ?').run(batteryTypeId);
 
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -491,7 +662,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             notes,
           });
 
-          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -588,7 +759,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             notes,
           });
 
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -621,7 +792,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           }
 
           db.prepare('DELETE FROM panel_types WHERE panel_type_id = ?').run(panelTypeId);
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -725,7 +896,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             insurance_rating: insuranceRating,
           });
 
-          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -829,7 +1000,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             insurance_rating: insuranceRating,
           });
 
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -857,7 +1028,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           }
 
           deleteCabinetType(db, cabinetTypeId);
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -958,7 +1129,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             notes,
           });
 
-          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -1059,7 +1230,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             notes,
           });
 
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -1086,13 +1257,13 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             return { status: 404 as const, body: { error: `MPPT type "${mpptTypeId}" not found.` } };
           }
 
-          const usedInFaceConfiguration = listSurfaceConfigurations(db).some((configuration) => configuration.selected_mppt_type_id === mpptTypeId);
+          const usedInFaceConfiguration = listSurfaceConfigurations(db, projectId).some((configuration) => configuration.selected_mppt_type_id === mpptTypeId);
           if (usedInFaceConfiguration) {
             return { status: 400 as const, body: { error: `MPPT type "${mpptTypeId}" is still referenced by surface configurations.` } };
           }
 
           db.prepare('DELETE FROM mppt_types WHERE mppt_type_id = ?').run(mpptTypeId);
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -1204,7 +1375,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             notes,
           });
 
-          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -1316,7 +1487,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             notes,
           });
 
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -1343,14 +1514,14 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             return { status: 404 as const, body: { error: `Inverter type "${inverterId}" not found.` } };
           }
 
-          const usedInConfiguration = listInverterConfigurations(db).some((configuration) => configuration.selected_inverter_type_id === inverterId);
+          const usedInConfiguration = listInverterConfigurations(db, projectId).some((configuration) => configuration.selected_inverter_type_id === inverterId);
           if (usedInConfiguration) {
             return { status: 400 as const, body: { error: `Inverter type "${inverterId}" is still referenced by the current project configuration.` } };
           }
 
           db.prepare('DELETE FROM inverter_types WHERE inverter_id = ?').run(inverterId);
           deleteConversionDevice(db, inverterId);
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -1477,7 +1648,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             notes,
           });
 
-          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -1604,7 +1775,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             notes,
           });
 
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -1632,7 +1803,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           }
 
           deleteConversionDevice(db, conversionDeviceId);
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -1646,7 +1817,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
   if (method === 'GET' && url.pathname === '/api/project-converters') {
     try {
-      const payload = withDb(databasePath, (db) => listProjectConverters(db));
+      const payload = withDb(databasePath, (db) => listProjectConverters(db, projectId));
       sendJson(response, 200, payload);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown server error';
@@ -1681,7 +1852,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             return { status: 400 as const, body: { error: `Conversion device "${conversionDeviceId}" not found.` } };
           }
 
-          const projectConverterId = requestedId || generateUniqueCatalogId(title, listProjectConverters(db).map((converter) => converter.project_converter_id));
+          const projectConverterId = requestedId || generateUniqueCatalogId(title, listProjectConverters(db, projectId).map((converter) => converter.project_converter_id));
           if (getProjectConverter(db, projectConverterId)) {
             return { status: 409 as const, body: { error: `Project converter "${projectConverterId}" already exists.` } };
           }
@@ -1691,9 +1862,9 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             title,
             description,
             conversion_device_id: conversionDeviceId,
-          });
+          }, projectId);
 
-          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -1752,10 +1923,10 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             title,
             description,
             conversion_device_id: conversionDeviceId,
-          });
+          }, projectId);
 
           db.prepare('UPDATE load_circuits SET conversion_device_id = ? WHERE project_converter_id = ?').run(conversionDeviceId, projectConverterId);
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -1783,7 +1954,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           }
 
           deleteProjectConverter(db, projectConverterId);
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -1797,7 +1968,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
   if (method === 'GET' && url.pathname === '/api/load-circuits') {
     try {
-      const payload = withDb(databasePath, (db) => listLoadCircuits(db));
+      const payload = withDb(databasePath, (db) => listLoadCircuits(db, projectId));
       sendJson(response, 200, payload);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown server error';
@@ -1829,7 +2000,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         }
 
         const updated = withDb(databasePath, (db) => {
-          const resolvedLoadCircuitId = loadCircuitId || generateUniqueCatalogId(title, listLoadCircuits(db).map((circuit) => circuit.load_circuit_id));
+          const resolvedLoadCircuitId = loadCircuitId || generateUniqueCatalogId(title, listLoadCircuits(db, projectId).map((circuit) => circuit.load_circuit_id));
           if (getLoadCircuit(db, resolvedLoadCircuitId)) {
             return { status: 409 as const, body: { error: `Load circuit "${resolvedLoadCircuitId}" already exists.` } };
           }
@@ -1851,9 +2022,9 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             conversion_device_id: resolvedConversionDeviceId,
             title,
             description,
-          });
+          }, projectId);
 
-          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -1921,9 +2092,9 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             conversion_device_id: resolvedConversionDeviceId,
             title,
             description,
-          });
+          }, projectId);
 
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -1951,7 +2122,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           }
 
           deleteLoadCircuit(db, loadCircuitId);
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -1965,7 +2136,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
   if (method === 'GET' && url.pathname === '/api/loads') {
     try {
-      const payload = withDb(databasePath, (db) => listLoads(db));
+      const payload = withDb(databasePath, (db) => listLoads(db, projectId));
       sendJson(response, 200, payload);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown server error';
@@ -1977,33 +2148,24 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
   if (method === 'POST' && url.pathname === '/api/loads') {
     void (async () => {
       try {
-        const payload = await readJsonBody<{
-          load_id?: unknown;
-          load_circuit_id?: unknown;
-          title?: unknown;
-          description?: unknown;
-          usage_kw?: unknown;
-          spike_kw?: unknown;
-          expected_usage_hours_per_day?: unknown;
-          sleeping_kw?: unknown;
-        }>(request);
+        const payload = await readJsonBody<LoadPayload>(request);
 
         const loadId = typeof payload.load_id === 'string' ? payload.load_id.trim() : '';
         const loadCircuitId = typeof payload.load_circuit_id === 'string' ? payload.load_circuit_id.trim() : '';
         const title = typeof payload.title === 'string' ? payload.title.trim() : '';
-        const description = typeof payload.description === 'string' ? payload.description.trim() : null;
-        const usageKw = typeof payload.usage_kw === 'number' ? payload.usage_kw : Number(payload.usage_kw);
-        const spikeKw = typeof payload.spike_kw === 'number' ? payload.spike_kw : Number(payload.spike_kw);
-        const expectedUsageHoursPerDay = typeof payload.expected_usage_hours_per_day === 'number' ? payload.expected_usage_hours_per_day : Number(payload.expected_usage_hours_per_day);
-        const sleepingKw = typeof payload.sleeping_kw === 'number' ? payload.sleeping_kw : Number(payload.sleeping_kw);
-
-        if (!title || !loadCircuitId || !Number.isFinite(usageKw) || usageKw < 0 || !Number.isFinite(spikeKw) || spikeKw < 0 || !Number.isFinite(expectedUsageHoursPerDay) || expectedUsageHoursPerDay < 0 || !Number.isFinite(sleepingKw) || sleepingKw < 0) {
-          sendJson(response, 400, { error: 'Invalid load payload. Provide title, load_circuit_id, usage_kw, spike_kw, expected_usage_hours_per_day, and sleeping_kw.' });
-          return;
-        }
+        const description = readOptionalText(payload.description);
+        const nominalCurrentA = readOptionalNumber(payload.nominal_current_a);
+        const startupCurrentA = readOptionalNumber(payload.startup_current_a);
+        const expectedUsageHoursPerDay = readOptionalNumber(payload.expected_usage_hours_per_day) ?? 0;
+        const dutyProfile = readOptionalText(payload.duty_profile);
+        const notes = readOptionalText(payload.notes);
 
         const updated = withDb(databasePath, (db) => {
-          const resolvedLoadId = loadId || generateUniqueCatalogId(title, listLoads(db).map((load) => load.load_id));
+          if (!title || !loadCircuitId) {
+            return { status: 400 as const, body: { error: 'Invalid load payload. Provide a title and load_circuit_id.' } };
+          }
+
+          const resolvedLoadId = loadId || generateUniqueCatalogId(title, listLoads(db, projectId).map((load) => load.load_id));
           if (getLoad(db, resolvedLoadId)) {
             return { status: 409 as const, body: { error: `Load "${resolvedLoadId}" already exists.` } };
           }
@@ -2013,18 +2175,34 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             return { status: 400 as const, body: { error: `Load circuit "${loadCircuitId}" not found.` } };
           }
 
+          const loadCircuitDevice = getConversionDevice(db, loadCircuit.conversion_device_id);
+          const circuitVoltageV = loadCircuitDevice?.output_voltage_v ?? loadCircuitDevice?.output_dc_voltage_v ?? loadCircuitDevice?.output_ac_voltage_v ?? null;
+          const nominalPowerW = resolveLoadPowerW(payload, circuitVoltageV);
+          const surgePowerW = resolveLoadSurgePowerW(payload, circuitVoltageV);
+          const standbyPowerW = resolveLoadStandbyPowerW(payload);
+          const dailyEnergyKwh = resolveLoadDailyEnergyKwh(payload, nominalPowerW);
+
+          if (nominalPowerW == null || nominalPowerW < 0 || (surgePowerW != null && surgePowerW < 0) || (standbyPowerW != null && standbyPowerW < 0) || expectedUsageHoursPerDay < 0 || (dailyEnergyKwh != null && dailyEnergyKwh < 0)) {
+            return { status: 400 as const, body: { error: 'Invalid load payload. Provide title, load_circuit_id, and nominal_power_w, or legacy usage_kw, spike_kw, and sleeping_kw values.' } };
+          }
+
           upsertLoad(db, {
             load_id: resolvedLoadId,
             load_circuit_id: loadCircuitId,
             title,
             description,
-            usage_kw: usageKw,
-            spike_kw: spikeKw,
+            nominal_current_a: nominalCurrentA,
+            nominal_power_w: nominalPowerW,
+            startup_current_a: startupCurrentA,
+            surge_power_w: surgePowerW,
+            standby_power_w: standbyPowerW,
             expected_usage_hours_per_day: expectedUsageHoursPerDay,
-            sleeping_kw: sleepingKw,
-          });
+            daily_energy_kwh: dailyEnergyKwh,
+            duty_profile: dutyProfile,
+            notes,
+          }, projectId);
 
-          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -2045,37 +2223,28 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           return;
         }
 
-        const payload = await readJsonBody<{
-          load_id?: unknown;
-          load_circuit_id?: unknown;
-          title?: unknown;
-          description?: unknown;
-          usage_kw?: unknown;
-          spike_kw?: unknown;
-          expected_usage_hours_per_day?: unknown;
-          sleeping_kw?: unknown;
-        }>(request);
+        const payload = await readJsonBody<LoadPayload>(request);
 
         const bodyLoadId = typeof payload.load_id === 'string' ? payload.load_id.trim() : loadId;
         const loadCircuitId = typeof payload.load_circuit_id === 'string' ? payload.load_circuit_id.trim() : '';
         const title = typeof payload.title === 'string' ? payload.title.trim() : '';
-        const description = typeof payload.description === 'string' ? payload.description.trim() : null;
-        const usageKw = typeof payload.usage_kw === 'number' ? payload.usage_kw : Number(payload.usage_kw);
-        const spikeKw = typeof payload.spike_kw === 'number' ? payload.spike_kw : Number(payload.spike_kw);
-        const expectedUsageHoursPerDay = typeof payload.expected_usage_hours_per_day === 'number' ? payload.expected_usage_hours_per_day : Number(payload.expected_usage_hours_per_day);
-        const sleepingKw = typeof payload.sleeping_kw === 'number' ? payload.sleeping_kw : Number(payload.sleeping_kw);
+        const description = readOptionalText(payload.description);
+        const nominalCurrentA = readOptionalNumber(payload.nominal_current_a);
+        const startupCurrentA = readOptionalNumber(payload.startup_current_a);
+        const expectedUsageHoursPerDay = readOptionalNumber(payload.expected_usage_hours_per_day) ?? 0;
+        const dutyProfile = readOptionalText(payload.duty_profile);
+        const notes = readOptionalText(payload.notes);
 
         if (bodyLoadId !== loadId) {
           sendJson(response, 400, { error: 'Load id in the URL must match the load_id in the payload.' });
           return;
         }
 
-        if (!title || !loadCircuitId || !Number.isFinite(usageKw) || usageKw < 0 || !Number.isFinite(spikeKw) || spikeKw < 0 || !Number.isFinite(expectedUsageHoursPerDay) || expectedUsageHoursPerDay < 0 || !Number.isFinite(sleepingKw) || sleepingKw < 0) {
-          sendJson(response, 400, { error: 'Invalid load payload. Provide title, load_circuit_id, usage_kw, spike_kw, expected_usage_hours_per_day, and sleeping_kw.' });
-          return;
-        }
-
         const updated = withDb(databasePath, (db) => {
+          if (!title || !loadCircuitId) {
+            return { status: 400 as const, body: { error: 'Invalid load payload. Provide a title and load_circuit_id.' } };
+          }
+
           const existing = getLoad(db, loadId);
           if (!existing) {
             return { status: 404 as const, body: { error: `Load "${loadId}" not found.` } };
@@ -2086,18 +2255,34 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             return { status: 400 as const, body: { error: `Load circuit "${loadCircuitId}" not found.` } };
           }
 
+          const loadCircuitDevice = getConversionDevice(db, loadCircuit.conversion_device_id);
+          const circuitVoltageV = loadCircuitDevice?.output_voltage_v ?? loadCircuitDevice?.output_dc_voltage_v ?? loadCircuitDevice?.output_ac_voltage_v ?? null;
+          const nominalPowerW = resolveLoadPowerW(payload, circuitVoltageV);
+          const surgePowerW = resolveLoadSurgePowerW(payload, circuitVoltageV);
+          const standbyPowerW = resolveLoadStandbyPowerW(payload);
+          const dailyEnergyKwh = resolveLoadDailyEnergyKwh(payload, nominalPowerW);
+
+          if (nominalPowerW == null || nominalPowerW < 0 || (surgePowerW != null && surgePowerW < 0) || (standbyPowerW != null && standbyPowerW < 0) || expectedUsageHoursPerDay < 0 || (dailyEnergyKwh != null && dailyEnergyKwh < 0)) {
+            return { status: 400 as const, body: { error: 'Invalid load payload. Provide title, load_circuit_id, and nominal_power_w, or legacy usage_kw, spike_kw, and sleeping_kw values.' } };
+          }
+
           upsertLoad(db, {
             load_id: loadId,
             load_circuit_id: loadCircuitId,
             title,
             description,
-            usage_kw: usageKw,
-            spike_kw: spikeKw,
+            nominal_current_a: nominalCurrentA,
+            nominal_power_w: nominalPowerW,
+            startup_current_a: startupCurrentA,
+            surge_power_w: surgePowerW,
+            standby_power_w: standbyPowerW,
             expected_usage_hours_per_day: expectedUsageHoursPerDay,
-            sleeping_kw: sleepingKw,
-          });
+            daily_energy_kwh: dailyEnergyKwh,
+            duty_profile: dutyProfile,
+            notes,
+          }, projectId);
 
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -2125,7 +2310,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           }
 
           deleteLoad(db, loadId);
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -2200,10 +2385,10 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             northing,
             easting,
             site_photo_data_url: sitePhotoDataUrl,
-          });
+          }, projectId);
         });
 
-        const refreshedPayload = withDb(databasePath, (db) => buildDigitalTwinExport(db, databasePath));
+        const refreshedPayload = withDb(databasePath, (db) => buildDigitalTwinExport(db, databasePath, projectId));
         sendJson(response, 200, refreshedPayload);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown server error';
@@ -2259,8 +2444,8 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             usable_area_m2: undefined,
             notes,
             photo_data_url: photoDataUrl,
-          });
-          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath) };
+          }, projectId);
+          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -2348,7 +2533,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           });
           syncPvTopologyForSurface(db, roofFaceId);
 
-          return buildDigitalTwinExport(db, databasePath);
+          return buildDigitalTwinExport(db, databasePath, projectId);
         });
 
         if (!updated) {
@@ -2381,7 +2566,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           }
 
           deleteSurface(db, roofFaceId);
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -2440,7 +2625,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             });
           }
 
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -2519,7 +2704,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             selected_mppt_type_id: selectedMpptTypeId || null,
           });
 
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -2579,8 +2764,10 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           return;
         }
 
+        const batteryBankId = projectId === DEFAULT_PROJECT_ID ? 'battery-bank-main' : `${projectId}-battery-bank-main`;
+
         const updated = withDb(databasePath, (db) => {
-          const existingConfiguration = getBatteryBankConfiguration(db, 'battery-bank-main');
+          const existingConfiguration = getBatteryBankConfiguration(db, batteryBankId);
 
           if (selectedBatteryTypeId) {
             const batteryType = db.prepare('SELECT 1 FROM battery_types WHERE battery_type_id = ?').get(selectedBatteryTypeId);
@@ -2604,7 +2791,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           }
 
           upsertBatteryBankConfiguration(db, {
-            battery_bank_id: 'battery-bank-main',
+            battery_bank_id: batteryBankId,
             title: title === undefined ? (existingConfiguration?.title ?? null) : title,
             description: description === undefined ? (existingConfiguration?.description ?? null) : description,
             image_data_url: imageDataUrl === undefined ? (existingConfiguration?.image_data_url ?? null) : imageDataUrl,
@@ -2614,9 +2801,9 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             configured_battery_count: configuredBatteryCount,
             batteries_per_string: batteriesPerString,
             parallel_strings: parallelStrings,
-          });
+          }, projectId);
 
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -2663,20 +2850,21 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             }
           }
 
-          const existing = db.prepare('SELECT * FROM inverter_configurations WHERE inverter_configuration_id = ?').get('inverter-configuration-main') as { title?: string; description?: string; image_data_url?: string; notes?: string } | undefined;
+          const inverterConfigId = projectId === DEFAULT_PROJECT_ID ? 'inverter-configuration-main' : `${projectId}-inverter-configuration-main`;
+          const existing = db.prepare('SELECT * FROM inverter_configurations WHERE inverter_configuration_id = ?').get(inverterConfigId) as { title?: string; description?: string; image_data_url?: string; notes?: string } | undefined;
 
           upsertInverterConfiguration(db, {
-            inverter_configuration_id: 'inverter-configuration-main',
+            inverter_configuration_id: inverterConfigId,
             selected_inverter_type_id: selectedInverterTypeId,
             selected_cabinet_type_id: selectedCabinetTypeId || null,
             title: title ?? existing?.title ?? null,
             description: description ?? existing?.description ?? null,
             image_data_url: imageDataUrl !== undefined ? imageDataUrl : (existing?.image_data_url ?? null),
             notes: notes ?? existing?.notes ?? null,
-          });
-          setPref(db, 'preferred_inverter_type_id', selectedInverterTypeId);
+          }, projectId);
+          setPref(db, projectId, 'preferred_inverter_type_id', selectedInverterTypeId);
 
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
         });
 
         sendJson(response, updated.status, updated.body);

@@ -2,9 +2,10 @@ import inquirer from 'inquirer';
 import chalk from 'chalk';
 import Database from 'better-sqlite3';
 import { getLocation, upsertLocation } from '../../db/queries.js';
+import { DEFAULT_PROJECT_ID } from '../../config/project.js';
 
 export async function locationFlow(db: Database.Database): Promise<void> {
-  const existing = getLocation(db);
+  const existing = getLocation(db, DEFAULT_PROJECT_ID);
 
   if (existing) {
     console.log(chalk.cyan('\nCurrent location:'));
@@ -69,6 +70,6 @@ export async function locationFlow(db: Database.Database): Promise<void> {
     },
   ]);
 
-  upsertLocation(db, answers);
+  upsertLocation(db, answers, DEFAULT_PROJECT_ID);
   console.log(chalk.green('Location saved.'));
 }

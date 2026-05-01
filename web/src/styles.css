@@ -438,6 +438,23 @@ h1, h2, h3, p, dl, dd, dt {
   transform: translateY(1px);
 }
 
+.project-switcher {
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.project-switcher:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 .app-language {
   display: inline-flex;
   align-items: center;

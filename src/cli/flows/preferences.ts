@@ -2,10 +2,11 @@ import inquirer from 'inquirer';
 import chalk from 'chalk';
 import Database from 'better-sqlite3';
 import { getProjectPreferences, setProjectPreference, listMpptTypes, listBatteryTypes } from '../../db/queries.js';
+import { DEFAULT_PROJECT_ID } from '../../config/project.js';
 
 export async function preferencesFlow(db: Database.Database): Promise<void> {
   while (true) {
-    const preferences = getProjectPreferences(db);
+    const preferences = getProjectPreferences(db, DEFAULT_PROJECT_ID);
 
     console.log(chalk.cyan('\nCurrent project preferences:'));
     console.log(`  Target battery voltage:  ${preferences.target_battery_voltage ?? chalk.gray('not set')}`);
@@ -107,7 +108,7 @@ export async function preferencesFlow(db: Database.Database): Promise<void> {
 
     for (const [key, value] of Object.entries(keyMap)) {
       if (value !== '' && value !== undefined) {
-        setProjectPreference(db, key, value);
+        setProjectPreference(db, DEFAULT_PROJECT_ID, key, value);
       }
     }
 
