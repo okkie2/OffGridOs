@@ -1143,6 +1143,11 @@ h1, h2, h3, p, dl, dd, dt {
   text-align: center;
 }
 
+.catalog-table-battery-source-col {
+  width: 16%;
+  text-align: center;
+}
+
 .catalog-table td:last-child .button-sm {
   width: 100%;
   min-width: 0;
@@ -1571,6 +1576,8 @@ h1, h2, h3, p, dl, dd, dt {
 }
 
 .catalog-inline-editor {
+  width: 100%;
+  box-sizing: border-box;
   padding: 10px 12px;
   margin: 6px 0;
   border: 1px solid var(--border);

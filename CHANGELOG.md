@@ -2,7 +2,28 @@
 
 ## 2026-05-01
 
-- Compacted the battery inline editor by grouping core fields tightly and moving less-used fields behind an `Advanced` disclosure.
+- Compacted the battery catalog toolbar so `Add battery` and `Edit battery` use the smaller control sizing instead of the heavier default button height.
+- Fixed the battery inline editor row so it spans the table cleanly after the edit column was removed, instead of making the edit state feel narrower than the browse state.
+- Reworked the battery catalog so clicking a row only selects it, `Edit battery` opens the selected row from the toolbar, and the source column keeps its width after the table lost the old edit column.
+- Made the battery catalog insert the new inline draft row at the top of the table, then let the saved battery settle back into the normal sorted list.
+- Stabilized battery catalog CRUD: Cancel closes the inline editor, Save persists and closes it, and Delete opens an app-owned confirmation dialog before deleting the row.
+- Removed the hidden legacy battery editor from the battery catalog page so only the inline row editor remains.
+- Added BDD coverage for the battery catalog add/cancel/save/delete flow, including app-dialog confirmation and persistence checks.
+- Made the battery editor's inline Save button use the shared green positive-button style so it matches the design system.
+- Changed the battery editor's delete confirmation copy to the explicit warning `Are you sure you want to delete this row?`
+- Added extra spacing below the battery editor's `Non-table fields` summary so the first row no longer feels crowded.
+- Made the battery editor remember the `Non-table fields` open/closed state per row while switching between catalog entries.
+- Restored normal-sized Save/Delete buttons in the battery inline editor so the actions no longer read like tiny catalog controls.
+- Reordered the battery inline editor to follow the table column sequence, with the table-facing fields first and the non-table fields grouped below them.
+- Made the battery inline editor labels left-aligned, reduced the `Victron CAN` checkbox to a plain black-and-white control, and shrank `Notes` to half-width.
+- Flattened the battery inline editor so the 6-column layout is actually visible and removed the grey card-style wrappers from the field labels.
+- Removed the battery inline editor's top summary row so `Battery type ID` and `Voltage` no longer crowd the first line of the form.
+- Gave the battery inline editor a real 6-column grid, added a distinct field surface color, and removed the noisy catalog helper copy about SQLite refreshes.
+- Switched the battery inline editor from the 9-column experiment to a cleaner 6-column grid and gave the `Victron CAN` checkbox a compact neutral style.
+- Expanded the battery inline editor into a true 9-column layout with narrower field spans so the full page width is used more deliberately.
+- Reworked the battery inline editor to use a wide 9-column grid with shorter spans so the form fills the available page width instead of stacking like a narrow card.
+- Made the battery inline editor much denser by shrinking the control chrome, moving advanced settings behind `Non-table fields`, and shortening the visible form height.
+- Compacted the battery inline editor by grouping core fields tightly and moving less-used fields behind a `Non-table fields` disclosure.
 - Converted the battery catalog page from a bottom editor into an inline expandable row pattern, with the selected row revealing the editor directly underneath it.
 - Self-hosted Inter variable font (TTF) in `public/fonts/`, added `@font-face` declarations to `styles.css`, and removed the Google Fonts CDN dependency from `index.html`.
 - Added `col-best`/`col-worst` column highlighting (teal/amber tint) and `best`/`worst` cell text coloring to all yield tables, matching the v2 design spec.

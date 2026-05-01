@@ -6927,6 +6927,16 @@ function BatteryCatalogPage({
     setDeleteConfirmOpen(false);
   }
 
+  function selectBatteryType(batteryTypeId: string) {
+    setSelectedBatteryTypeId(batteryTypeId);
+    setIsAddingNew(false);
+    setAddBatteryReturnId(null);
+    setOpenBatteryEditorId(null);
+    setSaveError(null);
+    setSaveMessage(null);
+    setDeleteConfirmOpen(false);
+  }
+
   function closeBatteryEditor() {
     if (isAddingNew) {
       setSelectedBatteryTypeId(addBatteryReturnId ?? '');
@@ -6992,7 +7002,7 @@ function BatteryCatalogPage({
 
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: string } | null;
-        throw new Error(payload?.error ?? `Failed to save battery type (${response.status})`);
+        throw new Error(payload?.error ?? `Failed to save battery (${response.status})`);
       }
 
       await refreshProjectData();
@@ -7020,7 +7030,7 @@ function BatteryCatalogPage({
         url: priceSourceUrl,
         notes,
       }));
-      setSaveMessage(t('catalog.message.saved', { item: t('catalog.entry.battery_type'), id: batteryTypeId }));
+      setSaveMessage(t('catalog.message.saved', { item: t('catalog.entry.battery'), id: batteryTypeId }));
       return true;
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : t('catalog.validation.optional_numeric_fields'));
@@ -7041,7 +7051,7 @@ function BatteryCatalogPage({
       const response = await fetch(`/api/battery-types/${encodeURIComponent(selectedBattery.battery_type_id)}`, { method: 'DELETE' });
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: string } | null;
-        throw new Error(payload?.error ?? `Failed to delete battery type (${response.status})`);
+        throw new Error(payload?.error ?? `Failed to delete battery (${response.status})`);
       }
 
       await refreshProjectData();
@@ -7052,10 +7062,10 @@ function BatteryCatalogPage({
       setOpenBatteryEditorId(null);
       setDeleteConfirmOpen(false);
       setDraft(batteryDraftFromType(nextBattery));
-      setSaveMessage(t('catalog.message.deleted', { item: t('catalog.entry.battery_type'), id: selectedBattery.battery_type_id }));
+      setSaveMessage(t('catalog.message.deleted', { item: t('catalog.entry.battery'), id: selectedBattery.battery_type_id }));
       return true;
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Failed to delete battery type.');
+      setSaveError(error instanceof Error ? error.message : 'Failed to delete battery.');
       return false;
     } finally {
       setIsSaving(false);
@@ -7244,9 +7254,23 @@ function BatteryCatalogPage({
         <section className="panel">
           <div className="stack" style={{ gap: 12 }}>
             <div className="button-row button-row-between">
-              <button type="button" className="button button-secondary" onClick={startAddNew}>
-                {t('catalog.ui.add_item', { item: t('catalog.entry.battery') })}
-              </button>
+              <div className="button-row">
+                <button type="button" className="button button-secondary button-sm" onClick={startAddNew}>
+                  {t('catalog.ui.add_item', { item: t('catalog.entry.battery') })}
+                </button>
+                <button
+                  type="button"
+                  className="button button-secondary button-sm"
+                  onClick={() => {
+                    if (selectedBatteryTypeId) {
+                      openExistingBatteryEditor(selectedBatteryTypeId);
+                    }
+                  }}
+                  disabled={!selectedBattery}
+                >
+                  {t('common.edit')} {t('catalog.entry.battery')}
+                </button>
+              </div>
             </div>
             <div className="yield-table-wrap">
               <table className="yield-table catalog-table">
@@ -7258,14 +7282,13 @@ function BatteryCatalogPage({
                     <th>{t('catalog.stat.voltage')}</th>
                     <th>{t('catalog.stat.price')}</th>
                     <th>{t('catalog.stat.price_per_kwh')}</th>
-                    <th>{t('catalog.ui.source')}</th>
-                    <th>{t('common.edit')}</th>
+                    <th className="catalog-table-battery-source-col">{t('catalog.ui.source')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {isAddingNew ? (
                     <CatalogInlineEditorRow
-                      colSpan={8}
+                      colSpan={7}
                       title={t('catalog.ui.add_item', { item: t('catalog.entry.battery') })}
                       subtitle={t('catalog.ui.changes_saved')}
                     >
@@ -7288,12 +7311,15 @@ function BatteryCatalogPage({
                         role="button"
                         tabIndex={0}
                         onClick={() => {
+                          selectBatteryType(battery.battery_type_id);
+                        }}
+                        onDoubleClick={() => {
                           openExistingBatteryEditor(battery.battery_type_id);
                         }}
                         onKeyDown={(event) => {
                           if (event.key === 'Enter' || event.key === ' ') {
                             event.preventDefault();
-                            openExistingBatteryEditor(battery.battery_type_id);
+                            selectBatteryType(battery.battery_type_id);
                           }
                         }}
                       >
@@ -7303,23 +7329,11 @@ function BatteryCatalogPage({
                         <td>{battery.nominal_voltage} V</td>
                         <td>{renderPrice(battery.price, battery.price_source_url)}</td>
                         <td>{renderPrice(battery.price_per_kwh, battery.price_source_url)}</td>
-                        <td>{battery.price_source_url ? <a className="price-link" href={battery.price_source_url} target="_blank" rel="noreferrer">{formatPriceSourceName(battery.price_source_url) ?? t('common.open')}</a> : '—'}</td>
-                        <td>
-                          <button
-                            type="button"
-                            className="button button-secondary button-sm"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              openExistingBatteryEditor(battery.battery_type_id);
-                            }}
-                          >
-                            {t('common.edit')}
-                          </button>
-                        </td>
+                        <td className="catalog-table-battery-source-col">{battery.price_source_url ? <a className="price-link" href={battery.price_source_url} target="_blank" rel="noreferrer">{formatPriceSourceName(battery.price_source_url) ?? t('common.open')}</a> : '—'}</td>
                       </tr>
                       {openBatteryEditorId === battery.battery_type_id ? (
                         <CatalogInlineEditorRow
-                          colSpan={8}
+                          colSpan={7}
                           title={t('catalog.ui.edit_item', { item: t('catalog.entry.battery') })}
                           subtitle={t('catalog.ui.changes_saved')}
                         >
@@ -7337,7 +7351,7 @@ function BatteryCatalogPage({
       </section>
       {deleteConfirmOpen && selectedBattery ? (
         <ConfirmDialog
-          title={t('catalog.confirm.delete', { item: t('catalog.entry.battery_type'), id: batteryEditorIdentifier })}
+          title={t('catalog.confirm.delete', { item: t('catalog.entry.battery'), id: batteryEditorIdentifier })}
           message={t('catalog.confirm.delete_body')}
           confirmLabel={t('catalog.confirm.delete_action')}
           cancelLabel={t('common.cancel')}

@@ -10,7 +10,7 @@ import { JSDOM } from 'jsdom';
 import { openDb } from '../../src/db/connection.js';
 import { ensureDatabaseReady } from '../../src/server/bootstrap.js';
 import { buildDigitalTwinExport } from '../../src/output/exportDigitalTwin.js';
-import { deleteLoad, deleteLoadCircuit, getBatteryBankConfiguration, getConversionDevice, getInverterConfiguration, getLoad, getLoadCircuit, getSurface, listLoadCircuits, listLoads, syncPvTopologyForSurface, updateSurface, upsertBatteryBankConfiguration, upsertInverterConfiguration, upsertLoad, upsertLoadCircuit, upsertSurfaceConfiguration, upsertSurfacePanelAssignment } from '../../src/db/queries.js';
+import { deleteBatteryType, deleteLoad, deleteLoadCircuit, getBatteryBankConfiguration, getConversionDevice, getInverterConfiguration, getLoad, getLoadCircuit, getSurface, insertBatteryType, listBatteryTypes, listLoadCircuits, listLoads, syncPvTopologyForSurface, updateBatteryType, updateSurface, upsertBatteryBankConfiguration, upsertInverterConfiguration, upsertLoad, upsertLoadCircuit, upsertSurfaceConfiguration, upsertSurfacePanelAssignment } from '../../src/db/queries.js';
 import { generateUniqueCatalogId } from '../../src/domain/panel-type-id.js';
 import { App } from '../../web/src/App.tsx';
 import type { DigitalTwinExport } from '../../web/src/App.tsx';
@@ -57,6 +57,7 @@ class NavigationWorld extends World {
   latestEnteredBatteryNotes = '';
   latestSelectedBatteryTypeId = '';
   latestSelectedBatteryCount = '';
+  latestEnteredBatteryCatalogModel = '';
   storedGlobals: StoredGlobal[] = [];
 
   installDom(): void {
@@ -86,6 +87,18 @@ class NavigationWorld extends World {
     assign('MouseEvent', this.dom.window.MouseEvent);
     assign('HashChangeEvent', this.dom.window.HashChangeEvent);
     assign('PopStateEvent', this.dom.window.PopStateEvent as unknown as typeof PopStateEvent);
+    if (!('attachEvent' in this.dom.window.HTMLElement.prototype)) {
+      Object.defineProperty(this.dom.window.HTMLElement.prototype, 'attachEvent', {
+        value: () => undefined,
+        configurable: true,
+      });
+    }
+    if (!('detachEvent' in this.dom.window.HTMLElement.prototype)) {
+      Object.defineProperty(this.dom.window.HTMLElement.prototype, 'detachEvent', {
+        value: () => undefined,
+        configurable: true,
+      });
+    }
     this.dom.window.confirm = (() => true) as unknown as typeof window.confirm;
     assign('confirm', this.dom.window.confirm);
     const domWindow = this.dom.window;
@@ -858,6 +871,79 @@ class NavigationWorld extends World {
         });
       }
 
+      if (url.pathname === '/api/battery-types' && method === 'POST') {
+        const rawBody = typeof init?.body === 'string' ? init.body : '{}';
+        const payload = JSON.parse(rawBody) as Record<string, unknown>;
+        const db = openDb(this.requireDbPath());
+        try {
+          insertBatteryType(db, {
+            battery_type_id: String(payload.battery_type_id ?? '').trim(),
+            brand: String(payload.brand ?? '').trim(),
+            model: String(payload.model ?? '').trim(),
+            chemistry: String(payload.chemistry ?? '').trim(),
+            nominal_voltage: Number(payload.nominal_voltage),
+            capacity_ah: Number(payload.capacity_ah),
+            capacity_kwh: Number(payload.capacity_kwh),
+            max_charge_rate: payload.max_charge_rate == null ? null : Number(payload.max_charge_rate),
+            max_discharge_rate: payload.max_discharge_rate == null ? null : Number(payload.max_discharge_rate),
+            victron_can: Boolean(payload.victron_can),
+            cooling: payload.cooling === 'active' ? 'active' : 'passive',
+            price: payload.price == null ? null : Number(payload.price),
+            price_source_url: payload.price_source_url == null ? null : String(payload.price_source_url),
+            source: payload.price_source_url == null ? null : String(payload.price_source_url),
+            url: payload.price_source_url == null ? null : String(payload.price_source_url),
+            notes: payload.notes == null ? null : String(payload.notes),
+          });
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
+        } finally {
+          db.close();
+        }
+
+        return new Response(JSON.stringify(this.projectData), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (url.pathname.startsWith('/api/battery-types/') && (method === 'PUT' || method === 'DELETE')) {
+        const batteryTypeId = decodeURIComponent(url.pathname.slice('/api/battery-types/'.length));
+        const db = openDb(this.requireDbPath());
+        try {
+          if (method === 'DELETE') {
+            deleteBatteryType(db, batteryTypeId);
+          } else {
+            const rawBody = typeof init?.body === 'string' ? init.body : '{}';
+            const payload = JSON.parse(rawBody) as Record<string, unknown>;
+            updateBatteryType(db, {
+              battery_type_id: batteryTypeId,
+              brand: String(payload.brand ?? '').trim(),
+              model: String(payload.model ?? '').trim(),
+              chemistry: String(payload.chemistry ?? '').trim(),
+              nominal_voltage: Number(payload.nominal_voltage),
+              capacity_ah: Number(payload.capacity_ah),
+              capacity_kwh: Number(payload.capacity_kwh),
+              max_charge_rate: payload.max_charge_rate == null ? null : Number(payload.max_charge_rate),
+              max_discharge_rate: payload.max_discharge_rate == null ? null : Number(payload.max_discharge_rate),
+              victron_can: Boolean(payload.victron_can),
+              cooling: payload.cooling === 'active' ? 'active' : 'passive',
+              price: payload.price == null ? null : Number(payload.price),
+              price_source_url: payload.price_source_url == null ? null : String(payload.price_source_url),
+              source: payload.price_source_url == null ? null : String(payload.price_source_url),
+              url: payload.price_source_url == null ? null : String(payload.price_source_url),
+              notes: payload.notes == null ? null : String(payload.notes),
+            });
+          }
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
+        } finally {
+          db.close();
+        }
+
+        return new Response(JSON.stringify(this.projectData), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
       return new Response(JSON.stringify({ error: `Unhandled fetch in BDD world: ${method} ${url.pathname}` }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' },
@@ -931,6 +1017,7 @@ class NavigationWorld extends World {
     this.latestEnteredBatteryNotes = '';
     this.latestSelectedBatteryTypeId = '';
     this.latestSelectedBatteryCount = '';
+    this.latestEnteredBatteryCatalogModel = '';
   }
 
   prepareProjectData(): void {
@@ -1329,7 +1416,13 @@ class NavigationWorld extends World {
       }
 
       setter.call(control, value);
-      control.dispatchEvent(new this.dom.window.Event('input', { bubbles: true }));
+      control.dispatchEvent(new this.dom.window.InputEvent('input', {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        data: value,
+        inputType: 'insertText',
+      }));
       control.dispatchEvent(new this.dom.window.Event('change', { bubbles: true }));
     });
 
@@ -2283,6 +2376,211 @@ class NavigationWorld extends World {
     return batteryTypeId;
   }
 
+  async openBatteryTypesCatalog(): Promise<void> {
+    await this.clickByText('Open Batteries');
+    await this.waitForText('Batteries');
+  }
+
+  async startBatteryTypeAdd(): Promise<void> {
+    await this.clickByText('Add battery');
+    await this.waitForText('Non-table fields');
+  }
+
+  async setBatteryCatalogFieldValue(labelText: string, value: string): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const label = Array.from(this.dom.window.document.querySelectorAll('.catalog-inline-editor label')).find((node) => {
+      const span = node.querySelector('span');
+      return span?.textContent?.trim() === labelText;
+    }) as HTMLLabelElement | undefined;
+
+    if (!label) {
+      throw new Error(`Could not find battery catalog field "${labelText}".`);
+    }
+
+    const control = label.querySelector('input, textarea, select') as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
+    if (!control) {
+      throw new Error(`Could not find control for battery catalog field "${labelText}".`);
+    }
+
+    await act(async () => {
+      const setNativeValue = (element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement, nextValue: string) => {
+        const prototype = element instanceof this.dom!.window.HTMLSelectElement
+          ? this.dom!.window.HTMLSelectElement.prototype
+          : element instanceof this.dom!.window.HTMLTextAreaElement
+            ? this.dom!.window.HTMLTextAreaElement.prototype
+            : this.dom!.window.HTMLInputElement.prototype;
+        const descriptor = Object.getOwnPropertyDescriptor(prototype, 'value');
+        descriptor?.set?.call(element, nextValue);
+      };
+
+      if (control instanceof this.dom.window.HTMLSelectElement) {
+        const optionExists = Array.from(control.options).some((option) => option.value === value);
+        if (!optionExists) {
+          throw new Error(`Could not find option "${value}" for battery catalog field "${labelText}".`);
+        }
+        setNativeValue(control, value);
+        control.dispatchEvent(new this.dom.window.Event('input', { bubbles: true }));
+        control.dispatchEvent(new this.dom.window.Event('change', { bubbles: true }));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        return;
+      }
+
+      setNativeValue(control, value);
+      control.dispatchEvent(new this.dom.window.Event('input', { bubbles: true }));
+      control.dispatchEvent(new this.dom.window.Event('change', { bubbles: true }));
+    });
+
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline) {
+      if (control.value === value) {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+
+    throw new Error(`Timed out waiting for battery catalog field "${labelText}" to match "${value}".`);
+  }
+
+  async fillBatteryTypeForm(model: string): Promise<void> {
+    this.latestEnteredBatteryCatalogModel = model;
+    await this.setBatteryCatalogFieldValue('Brand', 'TestBrand');
+    await this.setBatteryCatalogFieldValue('Model', model);
+    if (this.dom) {
+      const disclosure = Array.from(this.dom.window.document.querySelectorAll('.catalog-inline-advanced summary'))
+        .find((node) => node.textContent?.trim() === 'Non-table fields') as HTMLElement | undefined;
+      if (disclosure) {
+        await act(async () => {
+          disclosure.click();
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        });
+      }
+    }
+    await this.setBatteryCatalogFieldValue('Chemistry', 'LiFePO4');
+    await this.setBatteryCatalogFieldValue('Nominal voltage', '48');
+    await this.setBatteryCatalogFieldValue('Capacity (kWh)', '5.12');
+    await this.setBatteryCatalogFieldValue('Capacity (Ah)', '100');
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline) {
+      const saveButton = Array.from(this.dom.window.document.querySelectorAll('.catalog-inline-editor button'))
+        .find((node) => node.textContent?.trim() === 'Save') as HTMLButtonElement | undefined;
+      if (saveButton && !saveButton.disabled) {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+
+    throw new Error('Timed out waiting for the battery editor Save button to become enabled.');
+  }
+
+  async clickBatteryEditorButton(label: string): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const button = Array.from(this.dom.window.document.querySelectorAll('.catalog-inline-editor button'))
+      .find((node) => node.textContent?.trim() === label) as HTMLElement | undefined;
+    if (!button) {
+      throw new Error(`Could not find the battery editor button "${label}".`);
+    }
+
+    await act(async () => {
+      button.click();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  }
+
+  async clickBatteryDeleteWarningButton(label: string): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const button = Array.from(this.dom.window.document.querySelectorAll('.confirm-dialog button'))
+      .find((node) => node.textContent?.trim() === label) as HTMLElement | undefined;
+    if (!button) {
+      throw new Error(`Could not find the battery delete warning button "${label}".`);
+    }
+
+    await act(async () => {
+      button.click();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  }
+
+  async clickBatteryRowByModel(model: string): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const row = Array.from(this.dom.window.document.querySelectorAll('.catalog-table-row'))
+      .find((node) => node.textContent?.includes(model)) as HTMLElement | undefined;
+    if (!row) {
+      throw new Error(`Could not find battery catalog row containing "${model}".`);
+    }
+
+    await act(async () => {
+      row.dispatchEvent(new this.dom.window.MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+      }));
+      this.dom.window.dispatchEvent(new this.dom.window.HashChangeEvent('hashchange'));
+    });
+  }
+
+  async assertBatteryTypeExists(model: string): Promise<void> {
+    const deadline = Date.now() + 10_000;
+    let lastError: Error | null = null;
+
+    while (Date.now() < deadline) {
+      const db = openDb(this.requireDbPath());
+      try {
+        const row = listBatteryTypes(db).find((item) => item.model === model) ?? null;
+        if (!row) {
+          throw new Error(`Battery type with model "${model}" was not found.`);
+        }
+        return;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+      } finally {
+        db.close();
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+
+    throw lastError ?? new Error(`Timed out waiting for battery with model "${model}" to persist.`);
+  }
+
+  async assertBatteryTypeMissing(model: string): Promise<void> {
+    const deadline = Date.now() + 10_000;
+    let lastError: Error | null = null;
+
+    while (Date.now() < deadline) {
+      const db = openDb(this.requireDbPath());
+      try {
+        const row = listBatteryTypes(db).find((item) => item.model === model) ?? null;
+        if (row) {
+          throw new Error(`Battery type with model "${model}" still exists.`);
+        }
+        return;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+      } finally {
+        db.close();
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+
+    throw lastError ?? new Error(`Timed out waiting for battery with model "${model}" to disappear.`);
+  }
+
   async setBatteryCount(value: string): Promise<void> {
     this.latestSelectedBatteryCount = value;
     await this.setPanelFieldValue('Battery selection', 'Amount of batteries', value);
@@ -2439,6 +2737,10 @@ When('I open Panel types from Catalogs', async function () {
   await this.waitForText('Panels');
 });
 
+When('I open Batteries from Catalogs', async function () {
+  await this.openBatteryTypesCatalog();
+});
+
 When('I go back to Catalogs using the menu', async function () {
   await this.clickByText('Catalogs');
   await this.waitForText('Manage reusable product catalog entries');
@@ -2497,6 +2799,13 @@ Then('I should see the Catalogs page', async function () {
 
 Then('I should see the Panel types page', async function () {
   assert.ok(this.dom?.window.document.body.textContent?.includes('Panels'));
+});
+
+Then('I should see the Batteries page', async function () {
+  const text = this.dom?.window.document.body.textContent ?? '';
+  assert.ok(text.includes('Batteries'));
+  assert.ok(text.includes('Brand'));
+  assert.ok(text.includes('Model'));
 });
 
 Then('I should see the Battery array page', async function () {
@@ -2816,6 +3125,57 @@ When('I choose the last battery type', async function () {
   await this.chooseLastBatteryType();
 });
 
+When('I add a battery type', async function () {
+  await this.startBatteryTypeAdd();
+});
+
+When('I press Edit battery', async function () {
+  await this.clickByText('Edit battery');
+  await this.waitForText('Non-table fields');
+});
+
+Then('the battery draft row should be at the top of the table', async function () {
+  if (!this.dom) {
+    throw new Error('Navigation test DOM is not ready.');
+  }
+
+  const tbody = this.dom.window.document.querySelector('.catalog-table tbody');
+  if (!tbody) {
+    throw new Error('Could not find the battery catalog table body.');
+  }
+
+  const firstRow = tbody.firstElementChild as HTMLElement | null;
+  assert.ok(firstRow, 'Expected the battery catalog table to contain a first row.');
+  assert.ok(firstRow.classList.contains('catalog-inline-editor-row'), 'Expected the battery draft row to be inserted at the top of the table.');
+});
+
+When('I fill in the battery type form with model {string}', async function (model: string) {
+  await this.fillBatteryTypeForm(model);
+});
+
+When('I press Cancel in the battery editor', async function () {
+  await this.clickBatteryEditorButton('Cancel');
+});
+
+When('I press Save in the battery editor', async function () {
+  await this.clickBatteryEditorButton('Save');
+  if (this.latestEnteredBatteryCatalogModel.trim() !== '') {
+    await this.assertBatteryTypeExists(this.latestEnteredBatteryCatalogModel);
+  }
+});
+
+When('I press Delete in the battery editor', async function () {
+  await this.clickBatteryEditorButton('Delete');
+});
+
+When('I confirm the battery delete warning', async function () {
+  await this.clickBatteryDeleteWarningButton('Delete row');
+});
+
+When('I open the battery row with model {string}', async function (model: string) {
+  await this.clickBatteryRowByModel(model);
+});
+
 When('I set the battery count to {string}', async function (count: string) {
   await this.setBatteryCount(count);
 });
@@ -2862,4 +3222,24 @@ Then('the battery bank image should persist', function () {
 
 Then('the battery bank image should still be visible', async function () {
   await this.waitForSelector('.panel .photo-frame .photo-image');
+});
+
+Then('the battery type with model {string} should exist', async function (model: string) {
+  await this.assertBatteryTypeExists(model);
+});
+
+Then('the battery type with model {string} should not exist', async function (model: string) {
+  await this.assertBatteryTypeMissing(model);
+});
+
+Then('I should see the battery delete warning', async function () {
+  if (!this.dom) {
+    throw new Error('Navigation test DOM is not ready.');
+  }
+
+  const dialog = this.dom.window.document.querySelector('.confirm-dialog') as HTMLElement | null;
+  assert.ok(dialog, 'Expected the battery delete warning dialog to be visible.');
+  const dialogText = dialog.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+  assert.ok(dialogText.includes('Delete battery'), `Expected dialog text to mention the battery, got: ${dialogText || '(empty)'}`);
+  assert.ok(dialogText.includes('Are you sure you want to delete this row?'), `Expected explicit delete warning copy, got: ${dialogText || '(empty)'}`);
 });
