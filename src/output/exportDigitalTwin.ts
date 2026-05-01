@@ -744,34 +744,37 @@ function buildBatteryBanks(
   cabinetTypes: CabinetType[],
   projectPreferences: ProjectPreferences,
   batteryBankConfigurations: BatteryBankConfiguration[],
+  location: Location | null,
 ): ExportBatteryBank[] {
   const design = batteryBankConfigurations[0] ?? null;
+  if (!design) {
+    return [];
+  }
+
   const selectedBatteryType = design?.selected_battery_type_id
     ? batteryTypes.find((batteryType) => batteryType.battery_type_id === design.selected_battery_type_id) ?? null
     : null;
   const selectedCabinetType = design?.selected_cabinet_type_id
     ? cabinetTypes.find((cabinetType) => cabinetType.cabinet_type_id === design.selected_cabinet_type_id) ?? null
     : null;
-  const derivedBatteryType = selectedBatteryType ?? pickDerivedBatteryType(batteryTypes, projectPreferences);
   const configuredBatteryCount = design?.configured_battery_count ?? 1;
   const batteriesPerString = design?.batteries_per_string ?? 1;
   const parallelStrings = design?.parallel_strings ?? 1;
+  const batteryBankId = design?.battery_bank_id ?? `battery-bank-${location?.location_id ?? 'main'}`;
 
   return [{
-    battery_bank_id: 'battery-bank-main',
-    battery_type_id: derivedBatteryType?.battery_type_id,
+    battery_bank_id: batteryBankId,
+    battery_type_id: selectedBatteryType?.battery_type_id,
     selected_cabinet_type_id: selectedCabinetType?.cabinet_type_id ?? null,
-    name: design?.title?.trim() || (derivedBatteryType ? `${derivedBatteryType.model} bank` : 'Main battery bank'),
+    name: design.title?.trim() || 'Battery bank',
     module_count: Math.max(configuredBatteryCount, 1),
-    nominal_voltage_v: derivedBatteryType?.nominal_voltage,
-    capacity_kwh: derivedBatteryType ? Number((derivedBatteryType.capacity_kwh * Math.max(configuredBatteryCount, 1)).toFixed(2)) : null,
+    nominal_voltage_v: selectedBatteryType?.nominal_voltage ?? null,
+    capacity_kwh: selectedBatteryType ? Number((selectedBatteryType.capacity_kwh * Math.max(configuredBatteryCount, 1)).toFixed(2)) : null,
     provisional: !selectedBatteryType,
-    notes: design?.notes?.trim() || (
+    notes: design.notes?.trim() || (
       selectedBatteryType
         ? `Uses the saved battery-bank configuration (${batteriesPerString}s ${parallelStrings}p).`
-        : derivedBatteryType
-          ? 'Derived provisional battery-bank choice uses one module of the preferred or best-priced compatible battery type.'
-          : 'No provisional battery-bank choice could be derived from the current project preferences and battery catalog.'
+        : 'No battery type has been selected for this battery bank.'
     ),
   }];
 }
@@ -853,6 +856,9 @@ function buildMpptToBatteryBankRelationships(
   batteryTypes: BatteryType[],
 ): DigitalTwinExport['relationships']['mppt_to_battery_bank'] {
   const batteryBank = batteryBanks[0];
+  if (!batteryBank) {
+    return [];
+  }
   const mpptTypesById = new Map(mpptTypes.map((mpptType) => [mpptType.mppt_type_id, mpptType]));
   const batteryTypesById = new Map(batteryTypes.map((batteryType) => [batteryType.battery_type_id, batteryType]));
   const batteryType = batteryBank?.battery_type_id ? batteryTypesById.get(batteryBank.battery_type_id) : undefined;
@@ -923,15 +929,18 @@ function buildBatteryBankToInverterRelationships(
 ): DigitalTwinExport['relationships']['battery_bank_to_inverter'] {
   const batteryBank = batteryBanks[0];
   const inverterConfiguration = inverterConfigurations[0];
+  if (!batteryBank || !inverterConfiguration) {
+    return [];
+  }
   const inverterTypesById = new Map(inverterTypes.map((inverter) => [inverter.inverter_id, inverter]));
   const inverter = inverterConfiguration?.inverter_id ? inverterTypesById.get(inverterConfiguration.inverter_id) : undefined;
 
-  if (!batteryBank || !inverterConfiguration || !inverter || batteryBank.nominal_voltage_v == null) {
+  if (!inverter || batteryBank.nominal_voltage_v == null) {
     return [{
-      relationship_id: `${batteryBank?.battery_bank_id ?? 'battery-bank-main'}__${inverterConfiguration?.inverter_configuration_id ?? 'inverter-configuration-main'}`,
-      from_battery_bank_id: batteryBank?.battery_bank_id ?? 'battery-bank-main',
-      to_inverter_configuration_id: inverterConfiguration?.inverter_configuration_id ?? 'inverter-configuration-main',
-      nominal_voltage_v: batteryBank?.nominal_voltage_v ?? null,
+      relationship_id: `${batteryBank.battery_bank_id}__${inverterConfiguration.inverter_configuration_id}`,
+      from_battery_bank_id: batteryBank.battery_bank_id,
+      to_inverter_configuration_id: inverterConfiguration.inverter_configuration_id,
+      nominal_voltage_v: batteryBank.nominal_voltage_v ?? null,
       continuous_power_w: inverter?.continuous_power_w ?? null,
       evaluation: {
         electrical_status: 'outside_limits',
@@ -980,10 +989,11 @@ export function buildDigitalTwinExport(db: Database.Database, dbPath: string, pr
   const project = getProject(db, projectId);
   const locations = listLocations(db, projectId);
   const location = getLocation(db, projectId, locationId) ?? locations[0] ?? null;
+  const activeLocationId = location?.location_id ?? null;
   const projectPreferences = getProjectPreferences(db, projectId);
-  const surfaces = listSurfaces(db, projectId);
-  const surfaceConfigurations = listSurfaceConfigurations(db, projectId);
-  const batteryBankConfigurations = listBatteryBankConfigurations(db, projectId);
+  const surfaces = listSurfaces(db, projectId, activeLocationId);
+  const surfaceConfigurations = listSurfaceConfigurations(db, projectId, activeLocationId);
+  const batteryBankConfigurations = listBatteryBankConfigurations(db, projectId, activeLocationId);
   const cabinetTypes = listCabinetTypes(db);
   const panelTypes = listPanelTypes(db);
   const mpptTypes = listMpptTypes(db);
@@ -994,17 +1004,17 @@ export function buildDigitalTwinExport(db: Database.Database, dbPath: string, pr
     .map((device) => conversionDeviceToInverterType(device))
     .filter((device): device is InverterType => device != null);
   const inverterConfigurations = listInverterConfigurations(db, projectId);
-  const loadCircuits = listLoadCircuits(db, projectId);
-  const loads = listLoads(db, projectId);
-  const pvArrays = listPvArrays(db, projectId);
-  const pvStrings = listPvStrings(db, projectId);
-  const arrayToMpptMappings = listArrayToMpptMappings(db, projectId);
+  const loadCircuits = listLoadCircuits(db, projectId, activeLocationId);
+  const loads = listLoads(db, projectId, activeLocationId);
+  const pvArrays = listPvArrays(db, projectId, activeLocationId);
+  const pvStrings = listPvStrings(db, projectId, activeLocationId);
+  const arrayToMpptMappings = listArrayToMpptMappings(db, projectId, activeLocationId);
 
   const { pvArrays: exportedPvArrays, arrayStates, totalInstalledWp } = buildArrays(pvArrays, pvStrings, panelTypes);
   const { solarMonthlyProfiles, projectMonthlySolarOutput } = buildSolarMonthlyProfiles(surfaces, exportedPvArrays, location);
   const mpptConfigurations = buildMpptConfigurations(exportedPvArrays, arrayToMpptMappings, panelTypes, mpptTypes);
   const arrayToMppt = buildArrayToMpptRelationships(exportedPvArrays, arrayToMpptMappings, mpptConfigurations, panelTypes, mpptTypes);
-  const batteryBanks = buildBatteryBanks(batteryTypes, cabinetTypes, projectPreferences, batteryBankConfigurations);
+  const batteryBanks = buildBatteryBanks(batteryTypes, cabinetTypes, projectPreferences, batteryBankConfigurations, location);
   const derivedInverterConfigurations = buildInverterConfigurations(inverterConfigurations, inverterTypes);
   const mpptToBatteryBank = buildMpptToBatteryBankRelationships(mpptConfigurations, batteryBanks, mpptTypes, batteryTypes);
   const batteryBankStates = buildBatteryBankStates(batteryBanks, mpptToBatteryBank);

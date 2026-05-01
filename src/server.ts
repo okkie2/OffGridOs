@@ -437,7 +437,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             notes,
           });
 
-          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -538,7 +538,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             notes,
           });
 
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -565,7 +565,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             return { status: 404 as const, body: { error: `Battery type "${batteryTypeId}" not found.` } };
           }
 
-          const usedInConfiguration = getBatteryBankConfiguration(db, 'battery-bank-main')?.selected_battery_type_id === batteryTypeId;
+          const usedInConfiguration = listBatteryBankConfigurations(db, projectId).some((configuration) => configuration.selected_battery_type_id === batteryTypeId);
           const preferredBatteryTypeId = getPreferences(db, projectId).preferred_battery_type_id;
 
           if (usedInConfiguration || preferredBatteryTypeId === batteryTypeId) {
@@ -574,7 +574,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
           db.prepare('DELETE FROM battery_types WHERE battery_type_id = ?').run(batteryTypeId);
 
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -671,7 +671,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             notes,
           });
 
-          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -768,7 +768,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             notes,
           });
 
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -801,7 +801,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           }
 
           db.prepare('DELETE FROM panel_types WHERE panel_type_id = ?').run(panelTypeId);
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -905,7 +905,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             insurance_rating: insuranceRating,
           });
 
-          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -1009,7 +1009,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             insurance_rating: insuranceRating,
           });
 
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -1037,7 +1037,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           }
 
           deleteCabinetType(db, cabinetTypeId);
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -1138,7 +1138,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             notes,
           });
 
-          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -1239,7 +1239,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             notes,
           });
 
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -1272,7 +1272,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           }
 
           db.prepare('DELETE FROM mppt_types WHERE mppt_type_id = ?').run(mpptTypeId);
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -1384,7 +1384,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             notes,
           });
 
-          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -1496,7 +1496,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             notes,
           });
 
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -1530,7 +1530,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
           db.prepare('DELETE FROM inverter_types WHERE inverter_id = ?').run(inverterId);
           deleteConversionDevice(db, inverterId);
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -1657,7 +1657,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             notes,
           });
 
-          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -1784,7 +1784,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             notes,
           });
 
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -1812,7 +1812,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           }
 
           deleteConversionDevice(db, conversionDeviceId);
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -1873,7 +1873,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             conversion_device_id: conversionDeviceId,
           }, projectId);
 
-          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -1935,7 +1935,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           }, projectId);
 
           db.prepare('UPDATE load_circuits SET conversion_device_id = ? WHERE project_converter_id = ?').run(conversionDeviceId, projectConverterId);
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -1963,7 +1963,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           }
 
           deleteProjectConverter(db, projectConverterId);
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -1977,7 +1977,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
   if (method === 'GET' && url.pathname === '/api/load-circuits') {
     try {
-      const payload = withDb(databasePath, (db) => listLoadCircuits(db, projectId));
+      const payload = withDb(databasePath, (db) => listLoadCircuits(db, projectId, locationId));
       sendJson(response, 200, payload);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown server error';
@@ -2031,9 +2031,9 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             conversion_device_id: resolvedConversionDeviceId,
             title,
             description,
-          }, projectId);
+          }, projectId, locationId);
 
-          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -2101,9 +2101,9 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             conversion_device_id: resolvedConversionDeviceId,
             title,
             description,
-          }, projectId);
+          }, projectId, locationId);
 
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -2131,7 +2131,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           }
 
           deleteLoadCircuit(db, loadCircuitId);
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -2145,7 +2145,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
   if (method === 'GET' && url.pathname === '/api/loads') {
     try {
-      const payload = withDb(databasePath, (db) => listLoads(db, projectId));
+      const payload = withDb(databasePath, (db) => listLoads(db, projectId, locationId));
       sendJson(response, 200, payload);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown server error';
@@ -2209,9 +2209,9 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             daily_energy_kwh: dailyEnergyKwh,
             duty_profile: dutyProfile,
             notes,
-          }, projectId);
+          }, projectId, locationId);
 
-          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -2289,9 +2289,9 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             daily_energy_kwh: dailyEnergyKwh,
             duty_profile: dutyProfile,
             notes,
-          }, projectId);
+          }, projectId, locationId);
 
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -2319,7 +2319,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           }
 
           deleteLoad(db, loadId);
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -2541,8 +2541,8 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             usable_area_m2: undefined,
             notes,
             photo_data_url: photoDataUrl,
-          }, projectId);
-          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          }, projectId, locationId);
+          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -2630,7 +2630,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           });
           syncPvTopologyForSurface(db, roofFaceId);
 
-          return buildDigitalTwinExport(db, databasePath, projectId);
+          return buildDigitalTwinExport(db, databasePath, projectId, locationId);
         });
 
         if (!updated) {
@@ -2663,7 +2663,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           }
 
           deleteSurface(db, roofFaceId);
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -2722,7 +2722,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             });
           }
 
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -2801,7 +2801,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             selected_mppt_type_id: selectedMpptTypeId || null,
           });
 
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -2861,10 +2861,9 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           return;
         }
 
-        const batteryBankId = projectId === DEFAULT_PROJECT_ID ? 'battery-bank-main' : `${projectId}-battery-bank-main`;
-
         const updated = withDb(databasePath, (db) => {
-          const existingConfiguration = getBatteryBankConfiguration(db, batteryBankId);
+          const existingConfiguration = listBatteryBankConfigurations(db, projectId, locationId)[0] ?? null;
+          const batteryBankId = existingConfiguration?.battery_bank_id ?? `battery-bank-${locationId ?? 'main'}`;
 
           if (selectedBatteryTypeId) {
             const batteryType = db.prepare('SELECT 1 FROM battery_types WHERE battery_type_id = ?').get(selectedBatteryTypeId);
@@ -2898,9 +2897,9 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             configured_battery_count: configuredBatteryCount,
             batteries_per_string: batteriesPerString,
             parallel_strings: parallelStrings,
-          }, projectId);
+          }, projectId, locationId);
 
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);
@@ -2961,7 +2960,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           }, projectId);
           setPref(db, projectId, 'preferred_inverter_type_id', selectedInverterTypeId);
 
-          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId) };
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
         sendJson(response, updated.status, updated.body);

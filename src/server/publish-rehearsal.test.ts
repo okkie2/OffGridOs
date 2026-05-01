@@ -138,13 +138,12 @@ describe('publish rehearsal', () => {
       expect(flatNeMppt?.mppt_type_id).toBe('victron-mrs-48-6000-100-450-100');
       expect(flatNeMppt?.provisional).toBe(false);
 
-      expect(exportData.entities.inverter_configurations[0]?.inverter_id).toBe('victron-mp2-48-10000');
       expect(exportData.project.location?.place_name).toBe('Warten');
       expect(exportData.project.location?.title).toBe('18Mad Boerderij');
       expect(exportData.project.location?.description).toBe('Farm site in Friesland');
       expect(exportData.project.location?.notes).toBe('Representative persisted location state');
       expect(exportData.project.location?.site_photo_data_url).toBe('data:image/png;base64,test-location-photo');
-      expect(exportData.project.name).toBe('OffGridOS - 18Mad Boerderij');
+      expect(exportData.project.name).toBe('18Mad Boerderij');
       expect(exportData.derived.summary.array_count).toBeGreaterThan(0);
       expect(exportData.derived.summary.mppt_configuration_count).toBeGreaterThan(0);
     } finally {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useEffect, useMemo, useState, type ChangeEvent, type MouseEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type MouseEvent } from 'react';
 import { LANGUAGE_OPTIONS, LanguageProvider, readLanguageFromPath, useTranslation, type LanguageCode, type TranslationKey } from './i18n';
 
 declare const __BUILD_INFO__: string;
@@ -804,8 +804,22 @@ function readPersistentState<T>(key: string, fallback: T): T {
 
 function usePersistentState<T>(key: string, fallback: T) {
   const [value, setValue] = useState<T>(() => readPersistentState(key, fallback));
+  const keyRef = useRef(key);
 
   useEffect(() => {
+    if (keyRef.current === key) {
+      return;
+    }
+
+    keyRef.current = key;
+    setValue(readPersistentState(key, fallback));
+  }, [fallback, key]);
+
+  useEffect(() => {
+    if (keyRef.current !== key) {
+      return;
+    }
+
     try {
       window.localStorage.setItem(key, JSON.stringify(value));
       window.dispatchEvent(new Event('offgridos-local-storage-change'));
@@ -909,6 +923,11 @@ function getProjectStorageKey(data: DigitalTwinExport): string {
   return data.project.project_id ?? '1';
 }
 
+function getLocationStorageKey(data: DigitalTwinExport): string {
+  const locationId = data.project.active_location_id ?? data.project.locations?.[0]?.location_id ?? 'default';
+  return `${getProjectStorageKey(data)}:location:${locationId}`;
+}
+
 function getConversionDeviceCatalogSelectionStorageKey(data: DigitalTwinExport): string {
   return `${getProjectStorageKey(data)}:catalog:conversion-device`;
 }
@@ -960,7 +979,7 @@ function getLocationSlug(data: DigitalTwinExport): string {
 }
 
 function buildLocalSurfaceSummaries(data: DigitalTwinExport): LocalSurfaceSummary[] {
-  const projectId = getProjectStorageKey(data);
+  const projectId = getLocationStorageKey(data);
   const configurationBySurfaceId = new Map(data.entities.surface_configurations.map((configuration) => [configuration.surface_id, configuration]));
 
   return data.entities.surfaces.map((surface) => {
@@ -3139,7 +3158,7 @@ function SurfaceDetail({
     ? data.entities.mppt_types.find((item) => item.mppt_type_id === projectMppt.mppt_type_id) ?? null
     : null;
   const installedPanelCount = arrayState?.panel_count ?? array?.panel_count ?? 0;
-  const storagePrefix = `${data.project.project_id}:surface:${surfaceId}`;
+  const storagePrefix = `${getLocationStorageKey(data)}:surface:${surfaceId}`;
   const [surfaceNameDraft, setSurfaceNameDraft] = useState(surface?.name ?? surfaceId);
   const [surfaceDescription, setSurfaceDescription] = useState(surface?.description ?? '');
   const [surfaceAzimuthDraft, setSurfaceAzimuthDraft] = usePersistentState(`${storagePrefix}:azimuth`, surface?.orientation_deg ?? 0);
@@ -3256,9 +3275,9 @@ function SurfaceDetail({
   const livePanelCount = arrayConfig?.configuredPanelCount ?? arrayState?.panel_count ?? 0;
   const liveInstalledWp = arrayConfig ? arrayConfig.arrayPower : arrayState?.installed_wp ?? 0;
   const liveArrayName = (surfaceNameDraft || surface.name).trim() || array.name;
-  const projectStorageKey = getProjectStorageKey(data);
+  const projectStorageKey = getLocationStorageKey(data);
   const storedLatitude = readPersistentState<string>(
-    `${projectStorageKey}:location:latitude`,
+    `${projectStorageKey}:latitude`,
     data.project.location?.latitude != null ? String(data.project.location.latitude) : '',
   );
   const numericLatitude = Number(storedLatitude);
@@ -3953,10 +3972,13 @@ type PageContext = {
 
 function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refreshProjectData, openMediaPreview }: PageContext) {
   const { t } = useTranslation();
-  const storagePrefix = `${data.project.project_id}:location`;
-  const defaultLocationName = data.project.location?.title ?? '18Mad Boerderij';
-  const defaultLatitude = data.project.location?.latitude ?? 53.126579;
-  const defaultLongitude = data.project.location?.longitude ?? 5.899564;
+  const storagePrefix = getLocationStorageKey(data);
+  const activeLocationId = data.project.active_location_id ?? data.project.location?.location_id ?? '';
+  const defaultLocationName = data.project.location?.title?.trim()
+    || data.project.location?.place_name?.trim()
+    || 'New location';
+  const defaultLatitude = data.project.location?.latitude ?? 0;
+  const defaultLongitude = data.project.location?.longitude ?? 0;
   const [title, setTitle] = usePersistentState(
     `${storagePrefix}:title`,
     defaultLocationName,
@@ -4079,11 +4101,11 @@ function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refr
         body: JSON.stringify({
           title: null,
           place_name: `Location ${data.project.locations?.length ? data.project.locations.length + 1 : 2}`,
-          country: data.project.location?.country ?? 'NL',
+          country: data.project.location?.country?.trim() || 'NL',
           description: null,
           notes: null,
-          latitude: defaultLatitude,
-          longitude: defaultLongitude,
+          latitude: 0,
+          longitude: 0,
           site_photo_data_url: null,
         }),
       });
@@ -4091,6 +4113,12 @@ function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refr
       const payload = await response.json() as { error?: string };
       if (!response.ok) {
         throw new Error(payload.error ?? `Failed to create location (${response.status})`);
+      }
+
+      const createdLocationId = payload?.project?.active_location_id ?? payload?.project?.locations?.at(-1)?.location_id ?? '';
+      if (createdLocationId) {
+        _currentLocationId = createdLocationId;
+        localStorage.setItem('offgridos:active-location-id', createdLocationId);
       }
 
       await refreshProjectData();
@@ -4116,34 +4144,27 @@ function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refr
 
   useEffect(() => {
     setPhoto(data.project.location?.site_photo_data_url ?? null);
-  }, [data.project.location?.site_photo_data_url]);
+  }, [activeLocationId, data.project.location?.site_photo_data_url]);
 
   useEffect(() => {
-    const savedTitle = data.project.location?.title?.trim();
-    if (savedTitle) {
-      setTitle(savedTitle);
-      return;
-    }
-
     setTitle(defaultLocationName);
-  }, [data.project.location?.title, defaultLocationName, setTitle]);
+  }, [activeLocationId, defaultLocationName, setTitle]);
 
   useEffect(() => {
     setDescription(data.project.location?.description ?? '');
-  }, [data.project.location?.description, setDescription]);
+  }, [activeLocationId, data.project.location?.description, setDescription]);
 
   useEffect(() => {
     setNotes(data.project.location?.notes ?? '');
-  }, [data.project.location?.notes, setNotes]);
+  }, [activeLocationId, data.project.location?.notes, setNotes]);
 
   useEffect(() => {
-    if (latitude.trim() === '') {
-      setLatitude(String(defaultLatitude));
-    }
-    if (longitude.trim() === '') {
-      setLongitude(String(defaultLongitude));
-    }
-  }, [defaultLatitude, defaultLongitude, latitude, longitude, setLatitude, setLongitude]);
+    setLatitude(String(defaultLatitude));
+  }, [activeLocationId, defaultLatitude, setLatitude]);
+
+  useEffect(() => {
+    setLongitude(String(defaultLongitude));
+  }, [activeLocationId, defaultLongitude, setLongitude]);
 
   return (
     <>
@@ -4404,9 +4425,9 @@ function ProductionPage({
       setSurfaceError(error instanceof Error ? error.message : t('location.surface.delete.error'));
     }
   }
-  const projectStorageKey = getProjectStorageKey(data);
+  const projectStorageKey = getLocationStorageKey(data);
   const storedLatitude = readPersistentState<string>(
-    `${projectStorageKey}:location:latitude`,
+    `${projectStorageKey}:latitude`,
     data.project.location?.latitude != null ? String(data.project.location.latitude) : '',
   );
   const numericLatitude = Number(storedLatitude);
@@ -4636,15 +4657,16 @@ function BatteryArrayPage({
   refreshProjectData,
 }: PageContext) {
   const { t } = useTranslation();
-  const storagePrefix = `${data.project.project_id}:battery-array`;
-  const persistedDesign = data.entities.battery_bank_configurations.find((item) => item.battery_bank_id === 'battery-bank-main') ?? null;
-  const [batteryTitle, setBatteryTitle] = useState(persistedDesign?.title ?? batteryBank?.name ?? '');
+  const storagePrefix = `${getLocationStorageKey(data)}:battery-array`;
+  const persistedDesign = data.entities.battery_bank_configurations[0] ?? null;
+  const activeLocationId = data.project.active_location_id ?? data.project.location?.location_id ?? '';
+  const [batteryTitle, setBatteryTitle] = useState(persistedDesign?.title ?? '');
   const [batteryDescription, setBatteryDescription] = useState(persistedDesign?.description ?? '');
   const [batteryImage, setBatteryImage] = useState<string | null>(persistedDesign?.image_data_url ?? null);
   const [batteryNotes, setBatteryNotes] = useState(persistedDesign?.notes ?? '');
   const [selectedBatteryTypeId, setSelectedBatteryTypeId] = usePersistentState(
     `${storagePrefix}:battery-type`,
-    persistedDesign?.selected_battery_type_id ?? batteryBank?.battery_type_id ?? data.entities.battery_types[0]?.battery_type_id ?? '',
+    persistedDesign?.selected_battery_type_id ?? '',
   );
   const [selectedCabinetTypeId, setSelectedCabinetTypeId] = usePersistentState(
     `${storagePrefix}:cabinet-type`,
@@ -4670,7 +4692,7 @@ function BatteryArrayPage({
     : null;
   const [selectedBatteryBrand, setSelectedBatteryBrand] = usePersistentState(
     `${storagePrefix}:battery-brand`,
-    selectedBatteryType?.brand ?? data.entities.battery_types[0]?.brand ?? '',
+    selectedBatteryType?.brand ?? '',
   );
 
   const selectedCabinetType = selectedCabinetTypeId
@@ -4679,8 +4701,8 @@ function BatteryArrayPage({
   const batteryBrandOptions = Array.from(new Set(data.entities.battery_types.map((item) => item.brand).filter((brand) => brand.trim() !== ''))).sort((left, right) => left.localeCompare(right));
   const batteryTypesForBrand = selectedBatteryBrand
     ? data.entities.battery_types.filter((item) => item.brand === selectedBatteryBrand)
-    : data.entities.battery_types;
-  const selectedBatteryBrandValid = batteryBrandOptions.includes(selectedBatteryBrand);
+    : [];
+  const selectedBatteryBrandValid = selectedBatteryBrand === '' || batteryBrandOptions.includes(selectedBatteryBrand);
   const selectedBatteryTypeInBrand = selectedBatteryType && selectedBatteryType.brand === selectedBatteryBrand ? selectedBatteryType : null;
 
   useEffect(() => {
@@ -4690,23 +4712,38 @@ function BatteryArrayPage({
   }, [selectedBatteryBrand, selectedBatteryType, setSelectedBatteryBrand]);
 
   useEffect(() => {
-    if (!selectedBatteryBrandValid && batteryBrandOptions.length > 0) {
-      setSelectedBatteryBrand(batteryBrandOptions[0]!);
+    if (!selectedBatteryBrandValid) {
+      setSelectedBatteryBrand('');
       return;
     }
+    if (selectedBatteryBrand === '') {
+      if (selectedBatteryTypeId) {
+        setSelectedBatteryTypeId('');
+      }
+      return;
+    }
+
     if (batteryTypesForBrand.length === 0) {
+      if (selectedBatteryTypeId) {
+        setSelectedBatteryTypeId('');
+      }
       return;
     }
+
     const currentTypeIsInBrand = selectedBatteryTypeId
       ? batteryTypesForBrand.some((item) => item.battery_type_id === selectedBatteryTypeId)
       : false;
     if (!currentTypeIsInBrand) {
-      setSelectedBatteryTypeId(batteryTypesForBrand[0]!.battery_type_id);
+      setSelectedBatteryTypeId('');
     }
-  }, [batteryBrandOptions, batteryTypesForBrand, selectedBatteryBrandValid, selectedBatteryTypeId, setSelectedBatteryBrand, setSelectedBatteryTypeId]);
+  }, [batteryTypesForBrand, selectedBatteryBrand, selectedBatteryBrandValid, selectedBatteryTypeId, setSelectedBatteryBrand, setSelectedBatteryTypeId]);
 
   function handleBatteryBrandChange(nextBrand: string) {
     setSelectedBatteryBrand(nextBrand);
+    if (!nextBrand) {
+      setSelectedBatteryTypeId('');
+      return;
+    }
     const nextType = data.entities.battery_types.find((item) => item.brand === nextBrand) ?? null;
     if (nextType) {
       setSelectedBatteryTypeId(nextType.battery_type_id);
@@ -4715,6 +4752,10 @@ function BatteryArrayPage({
 
   function handleBatteryTypeChange(nextBatteryTypeId: string) {
     setSelectedBatteryTypeId(nextBatteryTypeId);
+    if (!nextBatteryTypeId) {
+      setSelectedBatteryBrand('');
+      return;
+    }
     const nextBatteryType = data.entities.battery_types.find((item) => item.battery_type_id === nextBatteryTypeId) ?? null;
     if (nextBatteryType) {
       setSelectedBatteryBrand(nextBatteryType.brand);
@@ -4796,19 +4837,13 @@ function BatteryArrayPage({
   });
 
   useEffect(() => {
-    setBatteryTitle(persistedDesign?.title ?? batteryBank?.name ?? '');
+    setBatteryTitle(persistedDesign?.title ?? '');
     setBatteryDescription(persistedDesign?.description ?? '');
     setBatteryImage(persistedDesign?.image_data_url ?? null);
     setBatteryNotes(persistedDesign?.notes ?? '');
-  }, [persistedDesign?.title, persistedDesign?.description, persistedDesign?.image_data_url, persistedDesign?.notes, batteryBank?.name]);
+  }, [activeLocationId, persistedDesign?.title, persistedDesign?.description, persistedDesign?.image_data_url, persistedDesign?.notes, setBatteryDescription, setBatteryImage, setBatteryNotes, setBatteryTitle]);
 
   async function handleSaveBatteryDesign(options?: { imageOverride?: string | null }) {
-    if (!selectedBatteryTypeId) {
-      setBatteryDesignSaveError(t('battery.save.error.choose_type'));
-      setBatteryDesignSaveMessage(null);
-      return;
-    }
-
     if (configuredBatteryCount < 1 || batteriesPerString < 1 || parallelStrings < 1) {
       setBatteryDesignSaveError(t('battery.save.error.invalid_counts'));
       setBatteryDesignSaveMessage(null);
@@ -4978,6 +5013,7 @@ function BatteryArrayPage({
               <label className="config-field">
                 <span>{t('catalog.field.brand')}</span>
                 <select value={selectedBatteryBrand} onChange={(event) => handleBatteryBrandChange(event.target.value)}>
+                  <option value="">{t('common.none')}</option>
                   {batteryBrandOptions.map((brand) => (
                     <option key={brand} value={brand}>
                       {brand}
@@ -4988,6 +5024,7 @@ function BatteryArrayPage({
               <label className="config-field config-field-span-2">
                 <span>{`${t('catalog.field.model')} (${batteryTypesForBrand.length})`}</span>
                 <select value={selectedBatteryTypeInBrand?.battery_type_id ?? ''} onChange={(event) => handleBatteryTypeChange(event.target.value)}>
+                  <option value="">{t('common.none')}</option>
                   {batteryTypesForBrand.map((option) => (
                     <option key={option.battery_type_id} value={option.battery_type_id}>
                       {option.model}
@@ -5320,10 +5357,10 @@ function InverterArrayPage({
   refreshProjectData,
 }: PageContext) {
   const { t } = useTranslation();
-  const batteryStoragePrefix = `${data.project.project_id}:battery-array`;
+  const batteryStoragePrefix = `${getLocationStorageKey(data)}:battery-array`;
   const [selectedBatteryTypeId] = usePersistentState(
     `${batteryStoragePrefix}:battery-type`,
-    batteryBank?.battery_type_id ?? data.entities.battery_types[0]?.battery_type_id ?? '',
+    batteryBank?.battery_type_id ?? '',
   );
   const [configuredBatteryCount] = usePersistentState(
     `${batteryStoragePrefix}:battery-count`,
@@ -5340,7 +5377,7 @@ function InverterArrayPage({
   const currentBatteryType = selectedBatteryTypeId
     ? data.entities.battery_types.find((item) => item.battery_type_id === selectedBatteryTypeId) ?? null
     : null;
-  const storagePrefix = `${data.project.project_id}:inverter-array`;
+  const storagePrefix = `${getLocationStorageKey(data)}:inverter-array`;
   const [selectedInverterTypeId, setSelectedInverterTypeId] = usePersistentState(
     `${storagePrefix}:inverter-type`,
     data.entities.inverter_configurations[0]?.selected_inverter_type_id ?? data.entities.inverter_types[0]?.inverter_id ?? '',
@@ -5729,10 +5766,10 @@ function ConsumptionPage({
   refreshProjectData,
 }: PageContext) {
   const { t } = useTranslation();
-  const batteryStoragePrefix = `${data.project.project_id}:battery-array`;
+  const batteryStoragePrefix = `${getLocationStorageKey(data)}:battery-array`;
   const [selectedBatteryTypeId] = usePersistentState(
     `${batteryStoragePrefix}:battery-type`,
-    batteryBank?.battery_type_id ?? data.entities.battery_types[0]?.battery_type_id ?? '',
+    batteryBank?.battery_type_id ?? '',
   );
   const [configuredBatteryCount] = usePersistentState(
     `${batteryStoragePrefix}:battery-count`,
@@ -6223,10 +6260,10 @@ function ConverterDetailPage({
     ? converterLoadCircuits.find((item) => item.load_circuit_id === route.loadCircuitId) ?? null
     : null;
 
-  const batteryStoragePrefix = `${data.project.project_id}:battery-array`;
+  const batteryStoragePrefix = `${getLocationStorageKey(data)}:battery-array`;
   const [selectedBatteryTypeId] = usePersistentState(
     `${batteryStoragePrefix}:battery-type`,
-    batteryBank?.battery_type_id ?? data.entities.battery_types[0]?.battery_type_id ?? '',
+    batteryBank?.battery_type_id ?? '',
   );
   const [configuredBatteryCount] = usePersistentState(
     `${batteryStoragePrefix}:battery-count`,
@@ -8004,7 +8041,7 @@ function VerdictSummaryPage({
     ? getRelationshipVerdictLabel('battery_to_inverter', batteryToInverter.evaluation.electrical_status, batteryToInverter.evaluation.fit_status, t)
     : t('status.not_evaluated');
 
-  const batteryDesign = data.entities.battery_bank_configurations.find((item) => item.battery_bank_id === 'battery-bank-main') ?? null;
+  const batteryDesign = data.entities.battery_bank_configurations[0] ?? null;
   const batterySelectedType = batteryBank?.battery_type_id
     ? data.entities.battery_types.find((item) => item.battery_type_id === batteryBank.battery_type_id) ?? null
     : batteryDesign?.selected_battery_type_id

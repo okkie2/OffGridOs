@@ -487,6 +487,7 @@ function ensureInverterTypesColumns(db: Database.Database): void {
 function ensureBatteryBankConfigurationColumns(db: Database.Database): void {
   const cols = new Set((db.prepare("PRAGMA table_info('battery_bank_configurations')").all() as { name: string }[]).map((row) => row.name));
   const additions = [
+    !cols.has('location_id') ? 'ALTER TABLE battery_bank_configurations ADD COLUMN location_id TEXT;' : '',
     !cols.has('title') ? 'ALTER TABLE battery_bank_configurations ADD COLUMN title TEXT;' : '',
     !cols.has('description') ? 'ALTER TABLE battery_bank_configurations ADD COLUMN description TEXT;' : '',
     !cols.has('image_data_url') ? 'ALTER TABLE battery_bank_configurations ADD COLUMN image_data_url TEXT;' : '',
@@ -498,6 +499,21 @@ function ensureBatteryBankConfigurationColumns(db: Database.Database): void {
   if (additions.length > 0) {
     db.exec(additions.join('\n'));
   }
+
+  db.exec(`
+    UPDATE battery_bank_configurations
+    SET location_id = COALESCE(
+      location_id,
+      (
+        SELECT location_id
+        FROM locations
+        WHERE locations.project_id = battery_bank_configurations.project_id
+        ORDER BY id
+        LIMIT 1
+      )
+    )
+    WHERE location_id IS NULL;
+  `);
 }
 
 function ensureDcBusbarColumns(db: Database.Database): void {
@@ -721,6 +737,8 @@ export function initSchema(db: Database.Database): void {
 
     CREATE TABLE IF NOT EXISTS battery_bank_configurations (
       id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id               TEXT REFERENCES projects(project_id),
+      location_id              TEXT NOT NULL REFERENCES locations(location_id),
       battery_bank_id          TEXT UNIQUE NOT NULL,
       title                    TEXT,
       description              TEXT,
@@ -866,7 +884,6 @@ export function initSchema(db: Database.Database): void {
   dropLegacyLocationTable(db);
   ensureSurfaceColumns(db);
   ensureDcBusbarColumns(db);
-  ensureBatteryBankConfigurationColumns(db);
   ensureConversionDeviceColumns(db);
   ensureInverterConfigurationColumns(db);
   ensureCabinetTypesColumns(db);
@@ -881,6 +898,7 @@ export function initSchema(db: Database.Database): void {
   ensureProjectsTable(db);
   migrateLegacyDefaultProjectId(db);
   ensureProjectId(db, 'locations');
+  ensureBatteryBankConfigurationColumns(db);
   ensureProjectId(db, 'surfaces');
   ensureSurfaceLocationId(db);
   ensureProjectId(db, 'surface_panel_assignments');
@@ -888,7 +906,6 @@ export function initSchema(db: Database.Database): void {
   ensureProjectId(db, 'pv_strings');
   ensureProjectId(db, 'array_to_mppt_mappings');
   ensureProjectId(db, 'surface_configurations');
-  ensureProjectId(db, 'battery_bank_configurations');
   ensureProjectId(db, 'inverter_configurations');
   ensureProjectId(db, 'project_converters');
   ensureProjectId(db, 'load_circuits');

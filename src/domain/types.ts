@@ -119,6 +119,8 @@ export interface SurfaceConfiguration {
 
 export interface BatteryBankConfiguration {
   id: number;
+  project_id: string;
+  location_id: string;
   battery_bank_id: string;
   title?: string | null;
   description?: string | null;

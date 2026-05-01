@@ -139,12 +139,14 @@ export function createLocation(db: Database.Database, data: Omit<Location, 'id' 
 // ── Surfaces ──────────────────────────────────────────────────────────────────
 
 export function listSurfaces(db: Database.Database, projectId: string, locationId?: string | null): Surface[] {
+  if (!locationId) {
+    return db.prepare('SELECT * FROM surfaces WHERE project_id = ? ORDER BY sort_order, id').all(projectId) as Surface[];
+  }
   const location = getLocation(db, projectId, locationId);
   if (!location) {
     return [];
   }
-
-  return db.prepare('SELECT * FROM surfaces WHERE location_id = ? ORDER BY sort_order, id').all(location.location_id) as Surface[];
+  return db.prepare('SELECT * FROM surfaces WHERE project_id = ? AND location_id = ? ORDER BY sort_order, id').all(projectId, location.location_id) as Surface[];
 }
 
 export function getSurface(db: Database.Database, surface_id: string): Surface | null {
@@ -386,13 +388,23 @@ export function deleteSurfacePanelAssignmentsForSurface(db: Database.Database, s
 
 // ── PV topology persistence ─────────────────────────────────────────────────
 
-export function listPvArrays(db: Database.Database, projectId: string): PvArray[] {
+export function listPvArrays(db: Database.Database, projectId: string, locationId?: string | null): PvArray[] {
+  if (!locationId) {
+    return db.prepare(`
+      SELECT pa.* FROM pv_arrays pa
+      JOIN surfaces s ON pa.surface_id = s.surface_id
+      WHERE s.project_id = ?
+      ORDER BY pa.surface_id
+    `).all(projectId) as PvArray[];
+  }
+  const location = getLocation(db, projectId, locationId);
+  if (!location) return [];
   return db.prepare(`
     SELECT pa.* FROM pv_arrays pa
     JOIN surfaces s ON pa.surface_id = s.surface_id
-    WHERE s.project_id = ?
+    WHERE s.project_id = ? AND s.location_id = ?
     ORDER BY pa.surface_id
-  `).all(projectId) as PvArray[];
+  `).all(projectId, location.location_id) as PvArray[];
 }
 
 export function getPvArrayBySurface(db: Database.Database, surface_id: string): PvArray | null {
@@ -442,13 +454,23 @@ export function deletePvArrayForSurface(db: Database.Database, surface_id: strin
   db.prepare('DELETE FROM pv_arrays WHERE surface_id = ?').run(surface_id);
 }
 
-export function listPvStrings(db: Database.Database, projectId: string): PvString[] {
+export function listPvStrings(db: Database.Database, projectId: string, locationId?: string | null): PvString[] {
+  if (!locationId) {
+    return db.prepare(`
+      SELECT ps.* FROM pv_strings ps
+      JOIN surfaces s ON ps.surface_id = s.surface_id
+      WHERE s.project_id = ?
+      ORDER BY ps.surface_id, ps.string_index
+    `).all(projectId) as PvString[];
+  }
+  const location = getLocation(db, projectId, locationId);
+  if (!location) return [];
   return db.prepare(`
     SELECT ps.* FROM pv_strings ps
     JOIN surfaces s ON ps.surface_id = s.surface_id
-    WHERE s.project_id = ?
+    WHERE s.project_id = ? AND s.location_id = ?
     ORDER BY ps.surface_id, ps.string_index
-  `).all(projectId) as PvString[];
+  `).all(projectId, location.location_id) as PvString[];
 }
 
 export function deletePvStringsForArray(db: Database.Database, array_id: string): void {
@@ -482,14 +504,25 @@ export function upsertPvString(db: Database.Database, data: Omit<PvString, 'id'>
   `).run(data);
 }
 
-export function listArrayToMpptMappings(db: Database.Database, projectId: string): ArrayToMpptMapping[] {
+export function listArrayToMpptMappings(db: Database.Database, projectId: string, locationId?: string | null): ArrayToMpptMapping[] {
+  if (!locationId) {
+    return db.prepare(`
+      SELECT m.* FROM array_to_mppt_mappings m
+      JOIN pv_arrays pa ON m.array_id = pa.array_id
+      JOIN surfaces s ON pa.surface_id = s.surface_id
+      WHERE s.project_id = ?
+      ORDER BY m.array_id
+    `).all(projectId) as ArrayToMpptMapping[];
+  }
+  const location = getLocation(db, projectId, locationId);
+  if (!location) return [];
   return db.prepare(`
     SELECT m.* FROM array_to_mppt_mappings m
     JOIN pv_arrays pa ON m.array_id = pa.array_id
     JOIN surfaces s ON pa.surface_id = s.surface_id
-    WHERE s.project_id = ?
+    WHERE s.project_id = ? AND s.location_id = ?
     ORDER BY m.array_id
-  `).all(projectId) as ArrayToMpptMapping[];
+  `).all(projectId, location.location_id) as ArrayToMpptMapping[];
 }
 
 export function getArrayToMpptMapping(db: Database.Database, array_id: string): ArrayToMpptMapping | null {
@@ -625,13 +658,23 @@ export function syncPvTopology(db: Database.Database): void {
 
 // ── Surface configuration state ──────────────────────────────────────────────
 
-export function listSurfaceConfigurations(db: Database.Database, projectId: string): SurfaceConfiguration[] {
+export function listSurfaceConfigurations(db: Database.Database, projectId: string, locationId?: string | null): SurfaceConfiguration[] {
+  if (!locationId) {
+    return db.prepare(`
+      SELECT sc.* FROM surface_configurations sc
+      JOIN surfaces s ON sc.surface_id = s.surface_id
+      WHERE s.project_id = ?
+      ORDER BY sc.surface_id
+    `).all(projectId) as SurfaceConfiguration[];
+  }
+  const location = getLocation(db, projectId, locationId);
+  if (!location) return [];
   return db.prepare(`
     SELECT sc.* FROM surface_configurations sc
     JOIN surfaces s ON sc.surface_id = s.surface_id
-    WHERE s.project_id = ?
+    WHERE s.project_id = ? AND s.location_id = ?
     ORDER BY sc.surface_id
-  `).all(projectId) as SurfaceConfiguration[];
+  `).all(projectId, location.location_id) as SurfaceConfiguration[];
 }
 
 export function getSurfaceConfiguration(db: Database.Database, surface_id: string): SurfaceConfiguration | null {
@@ -652,18 +695,30 @@ export function upsertSurfaceConfiguration(db: Database.Database, data: Omit<Sur
 
 // ── Battery-bank configuration state ─────────────────────────────────────────
 
-export function listBatteryBankConfigurations(db: Database.Database, projectId: string): BatteryBankConfiguration[] {
-  return db.prepare('SELECT * FROM battery_bank_configurations WHERE project_id = ? ORDER BY battery_bank_id').all(projectId) as BatteryBankConfiguration[];
+export function listBatteryBankConfigurations(db: Database.Database, projectId: string, locationId?: string | null): BatteryBankConfiguration[] {
+  if (!locationId) {
+    return db.prepare('SELECT * FROM battery_bank_configurations WHERE project_id = ? ORDER BY battery_bank_id').all(projectId) as BatteryBankConfiguration[];
+  }
+  const location = getLocation(db, projectId, locationId);
+  if (!location) return [];
+  return db.prepare('SELECT * FROM battery_bank_configurations WHERE project_id = ? AND location_id = ? ORDER BY battery_bank_id').all(projectId, location.location_id) as BatteryBankConfiguration[];
 }
 
 export function getBatteryBankConfiguration(db: Database.Database, battery_bank_id: string): BatteryBankConfiguration | null {
   return (db.prepare('SELECT * FROM battery_bank_configurations WHERE battery_bank_id = ?').get(battery_bank_id) as BatteryBankConfiguration) ?? null;
 }
 
-export function upsertBatteryBankConfiguration(db: Database.Database, data: Omit<BatteryBankConfiguration, 'id'>, projectId: string): void {
+export function upsertBatteryBankConfiguration(db: Database.Database, data: Omit<BatteryBankConfiguration, 'id' | 'project_id' | 'location_id'>, projectId: string, locationId?: string | null): void {
+  const location = getLocation(db, projectId, locationId);
+  if (!location) {
+    throw new Error(`No location found for project "${projectId}".`);
+  }
+  const batteryBankId = data.battery_bank_id || `battery-bank-${location.location_id}`;
+  const existing = db.prepare('SELECT * FROM battery_bank_configurations WHERE project_id = ? AND location_id = ? LIMIT 1').get(projectId, location.location_id) as BatteryBankConfiguration | undefined;
   db.prepare(`
     INSERT INTO battery_bank_configurations (
       project_id,
+      location_id,
       battery_bank_id,
       title,
       description,
@@ -678,6 +733,7 @@ export function upsertBatteryBankConfiguration(db: Database.Database, data: Omit
     )
     VALUES (
       @project_id,
+      @location_id,
       @battery_bank_id,
       @title,
       @description,
@@ -691,6 +747,7 @@ export function upsertBatteryBankConfiguration(db: Database.Database, data: Omit
       @parallel_strings
     )
     ON CONFLICT(battery_bank_id) DO UPDATE SET
+      location_id = excluded.location_id,
       title = excluded.title,
       description = excluded.description,
       image_data_url = excluded.image_data_url,
@@ -704,6 +761,8 @@ export function upsertBatteryBankConfiguration(db: Database.Database, data: Omit
   `).run({
     ...data,
     project_id: projectId,
+    location_id: location.location_id,
+    battery_bank_id: existing?.battery_bank_id ?? batteryBankId,
     title: data.title ?? null,
     description: data.description ?? null,
     image_data_url: data.image_data_url ?? null,
@@ -1164,6 +1223,9 @@ export function deleteProjectConverter(db: Database.Database, project_converter_
 // ── Load circuits ────────────────────────────────────────────────────────────
 
 export function listLoadCircuits(db: Database.Database, projectId: string, locationId?: string | null): LoadCircuit[] {
+  if (!locationId) {
+    return db.prepare('SELECT * FROM load_circuits WHERE project_id = ? ORDER BY title, load_circuit_id').all(projectId) as LoadCircuit[];
+  }
   const location = getLocation(db, projectId, locationId);
   if (!location) return [];
   return db.prepare('SELECT * FROM load_circuits WHERE project_id = ? AND location_id = ? ORDER BY title, load_circuit_id').all(projectId, location.location_id) as LoadCircuit[];
@@ -1218,6 +1280,9 @@ export function deleteLoadCircuit(db: Database.Database, load_circuit_id: string
 // ── Loads ────────────────────────────────────────────────────────────────────
 
 export function listLoads(db: Database.Database, projectId: string, locationId?: string | null): Load[] {
+  if (!locationId) {
+    return db.prepare('SELECT * FROM loads WHERE project_id = ? ORDER BY load_circuit_id, title, load_id').all(projectId) as Load[];
+  }
   const location = getLocation(db, projectId, locationId);
   if (!location) return [];
   return db.prepare('SELECT * FROM loads WHERE project_id = ? AND location_id = ? ORDER BY load_circuit_id, title, load_id').all(projectId, location.location_id) as Load[];
