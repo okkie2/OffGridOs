@@ -1,11 +1,30 @@
 
 # OffGridOS
 
-OffGridOS is a single-project, single-user off-grid system planning tool built around a small SQLite project database, a Node server, and a React web app.
+**Problem**
 
-The core flow - location, production, surfaces, battery bank, converters, load circuits, and loads - is server-backed and persists to SQLite. Reusable panel, MPPT, battery, inverter, and conversion-device catalogs live under a shared `Catalogs` section, and the read-only `Verdict summary` and `Cost summary` pages live under `Reports`. The next work targets replacing provisional derived configurations with explicit persisted project data and stabilising the schema.
+Designing reliable off‑grid power systems is complex and error‑prone. Installers and engineers juggle spreadsheets and scattered specs to size arrays, storage, and conversion, often missing constraints, mispricing components, and delivering suboptimal performance.
 
-For planning, treat `TODO.md` as the concrete publish-blocker queue and `ROADMAP.md` as the post-MVP theme queue.
+**Solution**
+
+OffGridOS is a web app that guides end‑to‑end off‑grid system design—from site and production modeling to surfaces, battery banks, converters, circuits, and loads—with a persistent project database, reusable component catalogs, and read‑only verdict and cost summaries for fast, defensible decisions.
+
+**Products/Services**
+
+- OffGridOS SaaS planner with versioned, server‑backed projects
+- Curated catalogs for panels, MPPTs, batteries, inverters, and converters
+- Automated sizing, validation, and performance/cost reporting
+- Bill of materials and cost export; audit trails
+- Team collaboration and API/integrations (post‑MVP roadmap)
+
+**Customers**
+
+- Solar installers and EPCs
+- Energy consultants and system designers
+- Off‑grid property owners, NGOs, and microgrid developers
+- RV/marine upfitters and specialty OEMs
+
+
 
 ## Quick Start
 Install dependencies:

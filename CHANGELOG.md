@@ -1,5 +1,24 @@
 # CHANGELOG
 
+## 2026-04-30
+
+- Simplified the `Consumption` battery-bank fit block by removing one extra wrapper layer and making the result panel match the other evaluation screens more closely.
+- Reworked the top of `Consumption` into a normal section-header plus block grid so it matches the rhythm of the cleaned-up support pages more closely.
+- Improved the `/load-circuits` page by giving it a clear section header and tighter editor copy so the support route reads less like a split admin screen.
+- Simplified the `/loads` editor by nesting the load source selector inside the form stack instead of keeping it as a separate floating control row.
+- Refreshed the UI consistency audit TODO to move completed navigation and breadcrumb cleanup into a done section and reprioritize the remaining `/loads` and `/load-circuits` work.
+- Removed the active selection outline from the first cards on the `/load-circuits` and `/loads` pages so those collections no longer look visually singled out by default.
+- Restored the `Load circuits` and `Loads` Consumption submenu entries after the consistency cleanup temporarily filtered them out of the menu.
+- Separated the Production monthly summary into a more report-like block with explicit read-only copy so the bottom of the page no longer feels like a generic editor section.
+- Removed the direct `Load circuits` and `Loads` sidebar support links so Consumption now stays the primary entrypoint, and added direct-route regressions for both support pages.
+- Wrote the UI consistency audit TODO, including the page-type rules, URL and breadcrumb conventions, root breadcrumb recommendation, and the small-model execution prompt.
+- Fixed the direct `/load-circuits` white page by restoring the circuit page's own load draft state and missing voltage/button state, and added a regression that mounts the page directly.
+- Simplified the `Loads` page by moving the catalogue/manual source choice into the load editor, and fixed the draft-sync React loop that showed up in the consumption regression.
+- Tightened the app organization note and breadcrumb behavior so the root project crumb now uses the configured location title, and `/load-circuits` / `/loads` are documented as support routes instead of primary destinations.
+- Fixed the load-circuit detail page delete path while continuing the block-based cleanup of the downstream load and circuit screens.
+- Changed the `Consumption` detail flow so a converter now opens into a load-circuit master-detail page, automatically creates a first unnamed circuit when needed, and renders downstream loads as blocks instead of the removed inline editor.
+- Added test-harness support for creating and deleting loads so the new circuit block flow can be exercised end to end in BDD.
+
 ## 2026-04-29
 
 - Added a surface-detail delete action in the lower-right action area, with confirmation and a return to the Location page after deletion.

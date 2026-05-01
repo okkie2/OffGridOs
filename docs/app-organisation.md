@@ -55,6 +55,29 @@ The full conceptual chain is:
 
 The app does not need one page per node at first, but this should remain the conceptual drill-down path.
 
+## URL And Breadcrumb Consistency
+
+URLs should reflect the conceptual drill-down path and avoid skipping levels.
+
+Preferred patterns:
+
+- `/location`
+- `/production`
+- `/production/surfaces/:surfaceId`
+- `/storage`
+- `/consumption`
+- `/consumption/converters/:converterId`
+- `/consumption/converters/:converterId/load-circuits/:loadCircuitId`
+
+Routing rules:
+
+- a nested page should keep its parent visible in breadcrumbs
+- breadcrumb labels should use configured entity titles where available
+- the root breadcrumb should use the configured location or project title, not a vague `Project` label
+- if `/load-circuits` or `/loads` stay as direct pages, they should be treated as support routes rather than primary navigation destinations
+- catalog routes should stay under `Catalogs`
+- report routes should stay under `Reports`
+
 ## Page Pattern
 
 Detailed pages should follow this basic rhythm:

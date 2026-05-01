@@ -10,7 +10,8 @@ import { JSDOM } from 'jsdom';
 import { openDb } from '../../src/db/connection.js';
 import { ensureDatabaseReady } from '../../src/server/bootstrap.js';
 import { buildDigitalTwinExport } from '../../src/output/exportDigitalTwin.js';
-import { getBatteryBankConfiguration, getInverterConfiguration, getSurface, syncPvTopologyForSurface, updateSurface, upsertBatteryBankConfiguration, upsertInverterConfiguration, upsertSurfaceConfiguration, upsertSurfacePanelAssignment } from '../../src/db/queries.js';
+import { deleteLoad, deleteLoadCircuit, getBatteryBankConfiguration, getConversionDevice, getInverterConfiguration, getLoad, getLoadCircuit, getSurface, listLoadCircuits, listLoads, syncPvTopologyForSurface, updateSurface, upsertBatteryBankConfiguration, upsertInverterConfiguration, upsertLoad, upsertLoadCircuit, upsertSurfaceConfiguration, upsertSurfacePanelAssignment } from '../../src/db/queries.js';
+import { generateUniqueCatalogId } from '../../src/domain/panel-type-id.js';
 import { App } from '../../web/src/App.tsx';
 import type { DigitalTwinExport } from '../../web/src/App.tsx';
 
@@ -443,6 +444,298 @@ class NavigationWorld extends World {
         });
       }
 
+      if (url.pathname === '/api/load-circuits' && method === 'GET') {
+        const db = openDb(this.requireDbPath());
+        try {
+          const payload = listLoadCircuits(db);
+          return new Response(JSON.stringify(payload), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        } finally {
+          db.close();
+        }
+      }
+
+      if (url.pathname === '/api/load-circuits' && method === 'POST') {
+        const rawBody = typeof init?.body === 'string' ? init.body : '{}';
+        const payload = JSON.parse(rawBody) as {
+          load_circuit_id?: unknown;
+          conversion_device_id?: unknown;
+          title?: unknown;
+          description?: unknown;
+        };
+
+        const loadCircuitId = typeof payload.load_circuit_id === 'string' ? payload.load_circuit_id.trim() : '';
+        const conversionDeviceId = typeof payload.conversion_device_id === 'string' ? payload.conversion_device_id.trim() : '';
+        const title = typeof payload.title === 'string' ? payload.title.trim() : '';
+        const description = typeof payload.description === 'string' ? payload.description.trim() : null;
+
+        const db = openDb(this.requireDbPath());
+        try {
+          if (!title || !conversionDeviceId) {
+            return new Response(JSON.stringify({ error: 'Invalid load circuit payload. Provide title and conversion_device_id.' }), { status: 400 });
+          }
+
+          const conversionDevice = getConversionDevice(db, conversionDeviceId);
+          if (!conversionDevice) {
+            return new Response(JSON.stringify({ error: `Conversion device "${conversionDeviceId}" not found.` }), { status: 400 });
+          }
+
+          const resolvedLoadCircuitId = loadCircuitId || generateUniqueCatalogId(title, listLoadCircuits(db).map((circuit) => circuit.load_circuit_id));
+          if (getLoadCircuit(db, resolvedLoadCircuitId)) {
+            return new Response(JSON.stringify({ error: `Load circuit "${resolvedLoadCircuitId}" already exists.` }), { status: 409 });
+          }
+
+          upsertLoadCircuit(db, {
+            load_circuit_id: resolvedLoadCircuitId,
+            conversion_device_id: conversionDeviceId,
+            title,
+            description,
+          });
+
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
+          return new Response(JSON.stringify(this.projectData), {
+            status: 201,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        } finally {
+          db.close();
+        }
+      }
+
+      if (url.pathname.startsWith('/api/load-circuits/') && method === 'PUT') {
+        const loadCircuitId = decodeURIComponent(url.pathname.slice('/api/load-circuits/'.length));
+        const rawBody = typeof init?.body === 'string' ? init.body : '{}';
+        const payload = JSON.parse(rawBody) as {
+          load_circuit_id?: unknown;
+          conversion_device_id?: unknown;
+          title?: unknown;
+          description?: unknown;
+        };
+
+        const bodyLoadCircuitId = typeof payload.load_circuit_id === 'string' ? payload.load_circuit_id.trim() : loadCircuitId;
+        const conversionDeviceId = typeof payload.conversion_device_id === 'string' ? payload.conversion_device_id.trim() : '';
+        const title = typeof payload.title === 'string' ? payload.title.trim() : '';
+        const description = typeof payload.description === 'string' ? payload.description.trim() : null;
+
+        if (bodyLoadCircuitId !== loadCircuitId) {
+          return new Response(JSON.stringify({ error: 'Load circuit id in the URL must match the load_circuit_id in the payload.' }), { status: 400 });
+        }
+
+        const db = openDb(this.requireDbPath());
+        try {
+          if (!title || !conversionDeviceId) {
+            return new Response(JSON.stringify({ error: 'Invalid load circuit payload. Provide title and conversion_device_id.' }), { status: 400 });
+          }
+
+          const existing = getLoadCircuit(db, loadCircuitId);
+          if (!existing) {
+            return new Response(JSON.stringify({ error: `Load circuit "${loadCircuitId}" not found.` }), { status: 404 });
+          }
+
+          const conversionDevice = getConversionDevice(db, conversionDeviceId);
+          if (!conversionDevice) {
+            return new Response(JSON.stringify({ error: `Conversion device "${conversionDeviceId}" not found.` }), { status: 400 });
+          }
+
+          upsertLoadCircuit(db, {
+            load_circuit_id: loadCircuitId,
+            conversion_device_id: conversionDeviceId,
+            title,
+            description,
+          });
+
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
+          return new Response(JSON.stringify(this.projectData), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        } finally {
+          db.close();
+        }
+      }
+
+      if (url.pathname.startsWith('/api/load-circuits/') && method === 'DELETE') {
+        const loadCircuitId = decodeURIComponent(url.pathname.slice('/api/load-circuits/'.length));
+        const db = openDb(this.requireDbPath());
+        try {
+          const existing = getLoadCircuit(db, loadCircuitId);
+          if (!existing) {
+            return new Response(JSON.stringify({ error: `Load circuit "${loadCircuitId}" not found.` }), { status: 404 });
+          }
+
+          deleteLoadCircuit(db, loadCircuitId);
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
+          return new Response(JSON.stringify(this.projectData), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        } finally {
+          db.close();
+        }
+      }
+
+      if (url.pathname === '/api/loads' && method === 'GET') {
+        const db = openDb(this.requireDbPath());
+        try {
+          const payload = listLoads(db);
+          return new Response(JSON.stringify(payload), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        } finally {
+          db.close();
+        }
+      }
+
+      if (url.pathname === '/api/loads' && method === 'POST') {
+        const rawBody = typeof init?.body === 'string' ? init.body : '{}';
+        const payload = JSON.parse(rawBody) as {
+          load_id?: unknown;
+          load_circuit_id?: unknown;
+          title?: unknown;
+          description?: unknown;
+          usage_kw?: unknown;
+          spike_kw?: unknown;
+          expected_usage_hours_per_day?: unknown;
+          sleeping_kw?: unknown;
+        };
+
+        const loadId = typeof payload.load_id === 'string' ? payload.load_id.trim() : '';
+        const loadCircuitId = typeof payload.load_circuit_id === 'string' ? payload.load_circuit_id.trim() : '';
+        const title = typeof payload.title === 'string' ? payload.title.trim() : '';
+        const description = typeof payload.description === 'string' ? payload.description.trim() : null;
+        const usageKw = typeof payload.usage_kw === 'number' ? payload.usage_kw : Number(payload.usage_kw);
+        const spikeKw = typeof payload.spike_kw === 'number' ? payload.spike_kw : Number(payload.spike_kw);
+        const expectedUsageHoursPerDay = typeof payload.expected_usage_hours_per_day === 'number'
+          ? payload.expected_usage_hours_per_day
+          : Number(payload.expected_usage_hours_per_day);
+        const sleepingKw = typeof payload.sleeping_kw === 'number' ? payload.sleeping_kw : Number(payload.sleeping_kw);
+
+        const db = openDb(this.requireDbPath());
+        try {
+          if (!loadCircuitId || !title || !Number.isFinite(usageKw) || usageKw < 0 || !Number.isFinite(spikeKw) || spikeKw < 0 || !Number.isFinite(expectedUsageHoursPerDay) || expectedUsageHoursPerDay < 0 || !Number.isFinite(sleepingKw) || sleepingKw < 0) {
+            return new Response(JSON.stringify({ error: 'Invalid load payload.' }), { status: 400 });
+          }
+
+          const loadCircuit = getLoadCircuit(db, loadCircuitId);
+          if (!loadCircuit) {
+            return new Response(JSON.stringify({ error: `Load circuit "${loadCircuitId}" not found.` }), { status: 400 });
+          }
+
+          const resolvedLoadId = loadId || generateUniqueCatalogId(title, listLoads(db).map((load) => load.load_id));
+          if (getLoad(db, resolvedLoadId)) {
+            return new Response(JSON.stringify({ error: `Load "${resolvedLoadId}" already exists.` }), { status: 409 });
+          }
+
+          upsertLoad(db, {
+            load_id: resolvedLoadId,
+            load_circuit_id: loadCircuitId,
+            title,
+            description,
+            usage_kw: usageKw,
+            spike_kw: spikeKw,
+            expected_usage_hours_per_day: expectedUsageHoursPerDay,
+            sleeping_kw: sleepingKw,
+          });
+
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
+          return new Response(JSON.stringify(this.projectData), {
+            status: 201,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        } finally {
+          db.close();
+        }
+      }
+
+      if (url.pathname.startsWith('/api/loads/') && method === 'PUT') {
+        const loadId = decodeURIComponent(url.pathname.slice('/api/loads/'.length));
+        const rawBody = typeof init?.body === 'string' ? init.body : '{}';
+        const payload = JSON.parse(rawBody) as {
+          load_id?: unknown;
+          load_circuit_id?: unknown;
+          title?: unknown;
+          description?: unknown;
+          usage_kw?: unknown;
+          spike_kw?: unknown;
+          expected_usage_hours_per_day?: unknown;
+          sleeping_kw?: unknown;
+        };
+
+        const bodyLoadId = typeof payload.load_id === 'string' ? payload.load_id.trim() : loadId;
+        const loadCircuitId = typeof payload.load_circuit_id === 'string' ? payload.load_circuit_id.trim() : '';
+        const title = typeof payload.title === 'string' ? payload.title.trim() : '';
+        const description = typeof payload.description === 'string' ? payload.description.trim() : null;
+        const usageKw = typeof payload.usage_kw === 'number' ? payload.usage_kw : Number(payload.usage_kw);
+        const spikeKw = typeof payload.spike_kw === 'number' ? payload.spike_kw : Number(payload.spike_kw);
+        const expectedUsageHoursPerDay = typeof payload.expected_usage_hours_per_day === 'number'
+          ? payload.expected_usage_hours_per_day
+          : Number(payload.expected_usage_hours_per_day);
+        const sleepingKw = typeof payload.sleeping_kw === 'number' ? payload.sleeping_kw : Number(payload.sleeping_kw);
+
+        if (bodyLoadId !== loadId) {
+          return new Response(JSON.stringify({ error: 'Load id in the URL must match the load_id in the payload.' }), { status: 400 });
+        }
+
+        const db = openDb(this.requireDbPath());
+        try {
+          if (!loadCircuitId || !title || !Number.isFinite(usageKw) || usageKw < 0 || !Number.isFinite(spikeKw) || spikeKw < 0 || !Number.isFinite(expectedUsageHoursPerDay) || expectedUsageHoursPerDay < 0 || !Number.isFinite(sleepingKw) || sleepingKw < 0) {
+            return new Response(JSON.stringify({ error: 'Invalid load payload.' }), { status: 400 });
+          }
+
+          const existing = getLoad(db, loadId);
+          if (!existing) {
+            return new Response(JSON.stringify({ error: `Load "${loadId}" not found.` }), { status: 404 });
+          }
+
+          const loadCircuit = getLoadCircuit(db, loadCircuitId);
+          if (!loadCircuit) {
+            return new Response(JSON.stringify({ error: `Load circuit "${loadCircuitId}" not found.` }), { status: 400 });
+          }
+
+          upsertLoad(db, {
+            load_id: loadId,
+            load_circuit_id: loadCircuitId,
+            title,
+            description,
+            usage_kw: usageKw,
+            spike_kw: spikeKw,
+            expected_usage_hours_per_day: expectedUsageHoursPerDay,
+            sleeping_kw: sleepingKw,
+          });
+
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
+          return new Response(JSON.stringify(this.projectData), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        } finally {
+          db.close();
+        }
+      }
+
+      if (url.pathname.startsWith('/api/loads/') && method === 'DELETE') {
+        const loadId = decodeURIComponent(url.pathname.slice('/api/loads/'.length));
+        const db = openDb(this.requireDbPath());
+        try {
+          const existing = getLoad(db, loadId);
+          if (!existing) {
+            return new Response(JSON.stringify({ error: `Load "${loadId}" not found.` }), { status: 404 });
+          }
+
+          deleteLoad(db, loadId);
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath());
+          return new Response(JSON.stringify(this.projectData), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        } finally {
+          db.close();
+        }
+      }
+
       if (url.pathname === '/api/inverter-configuration' && method === 'PUT') {
         const rawBody = typeof init?.body === 'string' ? init.body : '{}';
         const payload = JSON.parse(rawBody) as {
@@ -700,6 +993,23 @@ class NavigationWorld extends World {
     throw new Error(`Timed out waiting for text "${text}".`);
   }
 
+  async waitForPathnameContains(fragment: string): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline) {
+      if (this.dom.window.location.pathname.includes(fragment)) {
+        return;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+
+    throw new Error(`Timed out waiting for pathname to include "${fragment}".`);
+  }
+
   async clickByText(text: string, selector = 'a,button'): Promise<void> {
     if (!this.dom) {
       throw new Error('Navigation test DOM is not ready.');
@@ -768,6 +1078,98 @@ class NavigationWorld extends World {
     });
   }
 
+  async clickFirstConverterDetailFromPage(): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const firstDetailButton = Array.from(this.dom.window.document.querySelectorAll('.consumption-selection-card .button'))
+      .find((node) => node.textContent?.trim() === 'Detail') as HTMLElement | undefined;
+    if (!firstDetailButton) {
+      throw new Error('Could not find the first converter detail button on the page.');
+    }
+
+    await act(async () => {
+      firstDetailButton.dispatchEvent(
+        new this.dom.window.MouseEvent('click', {
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      this.dom.window.dispatchEvent(new this.dom.window.HashChangeEvent('hashchange'));
+    });
+  }
+
+  async addConverterOnConsumptionPage(): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const addButton = Array.from(this.dom.window.document.querySelectorAll('button'))
+      .find((node) => node.textContent?.trim() === 'Add converter') as HTMLElement | undefined;
+    if (!addButton) {
+      throw new Error('Could not find the Add converter button on the Consumption page.');
+    }
+
+    await act(async () => {
+      addButton.dispatchEvent(
+        new this.dom.window.MouseEvent('click', {
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      this.dom.window.dispatchEvent(new this.dom.window.HashChangeEvent('hashchange'));
+    });
+  }
+
+  async chooseLastConsumptionConverter(): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const select = Array.from(this.dom.window.document.querySelectorAll('.consumption-selection-card select'))
+      .at(-1) as HTMLSelectElement | undefined;
+    if (!select) {
+      throw new Error('Could not find a converter select on the Consumption page.');
+    }
+
+    const option = select.options[select.options.length - 1];
+    if (!option) {
+      throw new Error('No converter options are available on the Consumption page.');
+    }
+
+    await act(async () => {
+      select.value = option.value;
+      select.dispatchEvent(new this.dom.window.Event('input', { bubbles: true }));
+      select.dispatchEvent(new this.dom.window.Event('change', { bubbles: true }));
+      this.dom.window.dispatchEvent(new this.dom.window.HashChangeEvent('hashchange'));
+    });
+  }
+
+  async addLoadOnCircuitPage(): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const addButton = Array.from(this.dom.window.document.querySelectorAll('.panel button'))
+      .find((node) => node.textContent?.trim() === 'Add load') as HTMLElement | undefined;
+    if (!addButton) {
+      throw new Error('Could not find the Add load button on the circuit page.');
+    }
+
+    await act(async () => {
+      addButton.dispatchEvent(
+        new this.dom.window.MouseEvent('click', {
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      this.dom.window.dispatchEvent(new this.dom.window.HashChangeEvent('hashchange'));
+    });
+
+    await this.waitForText('Unnamed load');
+  }
+
   async clickSurfaceDeleteButton(): Promise<void> {
     if (!this.dom) {
       throw new Error('Navigation test DOM is not ready.');
@@ -823,7 +1225,7 @@ class NavigationWorld extends World {
     }
 
     const panel = Array.from(this.dom.window.document.querySelectorAll('.panel, .panel-with-actions, .panel-span-2'))
-      .find((node) => node.querySelector('h2')?.textContent?.trim() === heading) as HTMLElement | undefined;
+      .find((node) => Array.from(node.querySelectorAll('h2')).some((h2) => h2.textContent?.trim() === heading)) as HTMLElement | undefined;
     if (!panel) {
       throw new Error(`Could not find panel with heading "${heading}".`);
     }
@@ -1977,6 +2379,26 @@ Given('OffGridOS is rendered with project data', async function () {
   await this.waitForText('OffGridOS');
 });
 
+Given('OffGridOS is rendered on the load circuits page', async function () {
+  if (!this.dom) {
+    throw new Error('Navigation test DOM is not ready.');
+  }
+
+  this.dom.window.history.replaceState(null, '', '/en/18mad/load-circuits');
+  await this.renderApp();
+  await this.waitForText('Load circuits');
+});
+
+Given('OffGridOS is rendered on the loads page', async function () {
+  if (!this.dom) {
+    throw new Error('Navigation test DOM is not ready.');
+  }
+
+  this.dom.window.history.replaceState(null, '', '/en/18mad/loads');
+  await this.renderApp();
+  await this.waitForText('Loads');
+});
+
 When('I open Location from the menu', async function () {
   await this.clickByText('Location');
   await this.waitForText('Location details');
@@ -2037,6 +2459,23 @@ When('I open the first surface detail from the page', async function () {
   await this.waitForText('Panel');
 });
 
+When('I open the first converter detail from the page', async function () {
+  await this.clickFirstConverterDetailFromPage();
+  await this.waitForText('Add load');
+});
+
+When('I add a converter on the Consumption page', async function () {
+  await this.addConverterOnConsumptionPage();
+});
+
+When('I choose the last converter on the Consumption page', async function () {
+  await this.chooseLastConsumptionConverter();
+});
+
+When('I add a load on the circuit page', async function () {
+  await this.addLoadOnCircuitPage();
+});
+
 When('I delete the active surface from the detail page', async function () {
   const surfaceId = this.readCurrentSurfaceId();
   await this.clickSurfaceDeleteButton();
@@ -2073,6 +2512,31 @@ Then('I should see the Consumption page', async function () {
   const text = this.dom?.window.document.body.textContent ?? '';
   assert.ok(text.includes('Consumption'));
   assert.ok(text.includes('Converter bank fit'));
+});
+
+Then('I should see the Load circuits page', async function () {
+  const text = this.dom?.window.document.body.textContent ?? '';
+  assert.ok(text.includes('Load circuits'));
+  assert.ok(text.includes('Load circuit'));
+});
+
+Then('I should see the Loads page', async function () {
+  const text = this.dom?.window.document.body.textContent ?? '';
+  assert.ok(text.includes('Loads'));
+  assert.ok(text.includes('Load circuit'));
+});
+
+Then('I should see the Converter detail page', async function () {
+  const text = this.dom?.window.document.body.textContent ?? '';
+  assert.ok(text.includes('Load circuits'));
+  assert.ok(text.includes('Converter bank fit'));
+  assert.ok(text.includes('Add circuit'));
+});
+
+Then('I should see the Circuit detail page', async function () {
+  const text = this.dom?.window.document.body.textContent ?? '';
+  assert.ok(text.includes('Loads'));
+  assert.ok(text.includes('Add load'));
 });
 
 Then('I should see the Surface detail page', async function () {

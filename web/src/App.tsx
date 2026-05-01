@@ -411,6 +411,73 @@ interface LoadDraft {
   sleeping_kw: string;
 }
 
+interface LoadPreset {
+  load_preset_id: string;
+  title: string;
+  description: string;
+  usage_kw: number;
+  spike_kw: number;
+  expected_usage_hours_per_day: number;
+  sleeping_kw: number;
+}
+
+const LOAD_PRESETS: LoadPreset[] = [
+  {
+    load_preset_id: 'fridge',
+    title: 'Fridge',
+    description: 'Cold storage appliance',
+    usage_kw: 0.12,
+    spike_kw: 0.4,
+    expected_usage_hours_per_day: 24,
+    sleeping_kw: 0.03,
+  },
+  {
+    load_preset_id: 'pump',
+    title: 'Pump',
+    description: 'Water or circulation pump',
+    usage_kw: 0.25,
+    spike_kw: 0.9,
+    expected_usage_hours_per_day: 1.5,
+    sleeping_kw: 0,
+  },
+  {
+    load_preset_id: 'living-room-sockets',
+    title: 'Living room sockets',
+    description: 'Grouped socket demand',
+    usage_kw: 0.35,
+    spike_kw: 1.2,
+    expected_usage_hours_per_day: 4,
+    sleeping_kw: 0,
+  },
+  {
+    load_preset_id: 'upstairs-lighting',
+    title: 'Upstairs lighting',
+    description: 'Lighting group',
+    usage_kw: 0.08,
+    spike_kw: 0.15,
+    expected_usage_hours_per_day: 5,
+    sleeping_kw: 0,
+  },
+  {
+    load_preset_id: 'oven',
+    title: 'Oven',
+    description: 'High-power cooking appliance',
+    usage_kw: 2.2,
+    spike_kw: 3.2,
+    expected_usage_hours_per_day: 0.8,
+    sleeping_kw: 0,
+  },
+  {
+    load_preset_id: 'washing-machine',
+    title: 'Washing machine',
+    description: 'Laundry appliance',
+    usage_kw: 0.7,
+    spike_kw: 2.0,
+    expected_usage_hours_per_day: 1.2,
+    sleeping_kw: 0,
+  },
+];
+
 interface ArrayEntity {
   array_id: string;
   surface_id: string;
@@ -2697,6 +2764,8 @@ function AppFrame({
   route,
   data,
   locationSlug,
+  title,
+  context,
   isMobileSidebarOpen,
   isSidebarCollapsed,
   openMobileSidebar,
@@ -2707,6 +2776,8 @@ function AppFrame({
   route: Route;
   data: DigitalTwinExport | null;
   locationSlug: string;
+  title?: string;
+  context?: string;
   isMobileSidebarOpen: boolean;
   isSidebarCollapsed: boolean;
   openMobileSidebar: () => void;
@@ -2746,7 +2817,7 @@ function AppFrame({
             <span aria-hidden="true">☰</span>
           </button>
         </div>
-        {route.kind !== 'surface' ? <PageHeader route={route} data={data} locationSlug={locationSlug} /> : null}
+        {route.kind !== 'surface' ? <PageHeader route={route} data={data} locationSlug={locationSlug} title={title} context={context} /> : null}
         {children}
       </main>
     </div>
@@ -2755,10 +2826,11 @@ function AppFrame({
 
 function Breadcrumbs({ route, data, locationSlug }: { route: Route; data: DigitalTwinExport | null; locationSlug: string }) {
   const { t } = useTranslation();
+  const projectLabel = data ? getLocationDisplayName(data, t) : t('breadcrumbs.project');
 
   const crumbs: Array<{ label: string; route?: Route; current?: boolean }> = [
     {
-      label: t('breadcrumbs.project'),
+      label: projectLabel,
       route: { kind: 'location' },
     },
   ];
@@ -4130,12 +4202,6 @@ function ProductionPage({
 
   return (
     <>
-      <section className="panel">
-        <div className="section-head">
-          <h1>{t('page.consumption')}</h1>
-          <p>{t('page.consumption.context')}</p>
-        </div>
-      </section>
       <section className="detail-shell">
         <div className="detail-grid detail-intro-grid">
           <section className="panel panel-span-2">
@@ -4255,34 +4321,44 @@ function ProductionPage({
         <section className="panel">
           <div className="section-head">
             <h2>{t('production.monthly.title')}</h2>
+            <p>Read-only monthly summary.</p>
           </div>
-          <div className="yield-table-wrap">
-            <table className="yield-table">
-              <thead>
-                <tr>
-                  <th></th>
-                  {MONTH_KEYS.map((month) => (
-                    <th key={month}>{getMonthLabel(month, t)}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {surfaceYieldRows.map(({ surface, yieldRows }) => (
-                  <tr key={`monthly-${surface.surface_id}`}>
-                    <th>{surface.name}</th>
-                    {yieldRows.map((row) => (
-                      <td key={`${surface.surface_id}-${row.month}`}>{formatDailyYield(row.averageDailyKwh)}</td>
+          <div className="outcome-panel">
+            <div className="outcome-summary">
+              <div className="outcome-status-line">
+                <p className="result-label">Monthly production</p>
+                <span>{t('production.monthly.total_avg_kwh_day')}</span>
+              </div>
+              <p className="fit-note">This section is read-only and summarizes the derived production by month.</p>
+            </div>
+            <div className="yield-table-wrap">
+              <table className="yield-table">
+                <thead>
+                  <tr>
+                    <th></th>
+                    {MONTH_KEYS.map((month) => (
+                      <th key={month}>{getMonthLabel(month, t)}</th>
                     ))}
                   </tr>
-                ))}
-                <tr>
-                  <th>{t('production.monthly.total_avg_kwh_day')}</th>
-                  {monthlyTotals.map((row) => (
-                    <td key={`total-day-${row.month}`}>{formatDailyYield(row.averageDailyKwh)}</td>
+                </thead>
+                <tbody>
+                  {surfaceYieldRows.map(({ surface, yieldRows }) => (
+                    <tr key={`monthly-${surface.surface_id}`}>
+                      <th>{surface.name}</th>
+                      {yieldRows.map((row) => (
+                        <td key={`${surface.surface_id}-${row.month}`}>{formatDailyYield(row.averageDailyKwh)}</td>
+                      ))}
+                    </tr>
                   ))}
-                </tr>
-              </tbody>
-            </table>
+                  <tr>
+                    <th>{t('production.monthly.total_avg_kwh_day')}</th>
+                    {monthlyTotals.map((row) => (
+                      <td key={`total-day-${row.month}`}>{formatDailyYield(row.averageDailyKwh)}</td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
       </section>
@@ -5418,7 +5494,6 @@ function ConsumptionPage({
     : null;
 
   const consumptionSelectionStorageKey = getConsumptionSelectionStorageKey(data);
-  const catalogSelectionStorageKey = getConversionDeviceCatalogSelectionStorageKey(data);
   const [selectedConversionDeviceIds, setSelectedConversionDeviceIds] = usePersistentState<string[]>(
     consumptionSelectionStorageKey,
     [],
@@ -5453,39 +5528,58 @@ function ConsumptionPage({
     setSelectedConversionDeviceIds((current) => current.filter((_, itemIndex) => itemIndex !== index));
   }
 
-  function openConverterDetails(converterId: string) {
-    try {
-      window.localStorage.setItem(catalogSelectionStorageKey, JSON.stringify(converterId));
-      window.dispatchEvent(new Event('offgridos-local-storage-change'));
-    } catch {
-      // Keep navigation working even if persistence fails.
+  async function openConverterDetails(converterId: string) {
+    const existingCircuits = data.entities.load_circuits.filter((circuit) => circuit.conversion_device_id === converterId);
+    if (existingCircuits[0]) {
+      navigateTo({ kind: 'converter', converterId, loadCircuitId: existingCircuits[0].load_circuit_id });
+      return;
     }
 
-    window.history.pushState({}, '', routeHref({ kind: 'catalog', catalog: 'conversion-devices' }));
-    window.dispatchEvent(new PopStateEvent('popstate'));
+    const title = 'Unnamed circuit';
+    const loadCircuitId = generateUniqueCatalogId(title, data.entities.load_circuits.map((circuit) => circuit.load_circuit_id));
+
+    try {
+      const response = await fetch('/api/load-circuits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          load_circuit_id: loadCircuitId,
+          conversion_device_id: converterId,
+          title,
+          description: null,
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? `Failed to create load circuit (${response.status})`);
+      }
+
+      await refreshProjectData();
+      navigateTo({ kind: 'converter', converterId, loadCircuitId });
+    } catch (error) {
+      console.error(error);
+      navigateTo({ kind: 'converter', converterId });
+    }
   }
 
   return (
     <>
       <section className="detail-shell">
-        <section className="panel panel-with-actions">
+        <section className="panel">
           <div className="section-head">
             <h2>Selected converters</h2>
+            <p>Add one or more converters to evaluate the battery bank.</p>
           </div>
           <div className="fit-card">
-            <div className="button-row button-row-between config-control-row row-synced-wrap">
-              <div className="stack" style={{ gap: 4, minWidth: 280, flex: '1 1 320px' }}>
-                <span className="result-label">Add converter</span>
-              </div>
-              <div className="button-row">
-                <button type="button" className="button button-secondary" onClick={addSelectedConverter}>
-                  Add converter
-                </button>
-              </div>
+            <div className="button-row button-row-end">
+              <button type="button" className="button button-secondary" onClick={addSelectedConverter}>
+                Add converter
+              </button>
             </div>
 
             {selectedConversionDeviceIds.length === 0 ? (
-              <p className="fit-note">Add one or more converters to start the fit check.</p>
+              <p className="fit-note">No converters selected yet.</p>
             ) : (
               <div className="consumption-converter-grid surface-grid">
                 {selectedConversionDeviceIds.map((conversionDeviceId, index) => {
@@ -5499,56 +5593,56 @@ function ConsumptionPage({
 
                   return (
                     <div key={`converter-slot-${index}`} className="surface-card-stack">
-                    <div className="surface-card consumption-selection-card">
-                      <div className="surface-card-top">
-                        <div>
-                          <h3>{nextTitle}</h3>
-                          <p>{nextSubtitle}</p>
+                      <div className="surface-card consumption-selection-card">
+                        <div className="surface-card-top">
+                          <div>
+                            <h3>{nextTitle}</h3>
+                            <p>{nextSubtitle}</p>
+                          </div>
                         </div>
-                      </div>
-                      <label className="config-field" style={{ marginTop: 8 }}>
-                        <span>Converter</span>
-                        <select value={conversionDeviceId} onChange={(event) => updateSelectedConverter(index, event.target.value)}>
-                          <option value="">{data.entities.conversion_devices.length === 0 ? 'No converters available' : 'Choose converter'}</option>
-                          {data.entities.conversion_devices.map((option) => (
-                            <option key={option.conversion_device_id} value={option.conversion_device_id}>
-                              {option.title}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <dl className="mini-stats">
-                        <div>
-                          <dt>{t('catalog.field.device_type')}</dt>
-                          <dd>{device ? getConversionDeviceTypeLabel(device.device_type, t) : '—'}</dd>
+                        <label className="config-field" style={{ marginTop: 8 }}>
+                          <span>Converter</span>
+                          <select value={conversionDeviceId} onChange={(event) => updateSelectedConverter(index, event.target.value)}>
+                            <option value="">{data.entities.conversion_devices.length === 0 ? 'No converters available' : 'Choose converter'}</option>
+                            {data.entities.conversion_devices.map((option) => (
+                              <option key={option.conversion_device_id} value={option.conversion_device_id}>
+                                {option.title}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <dl className="mini-stats">
+                          <div>
+                            <dt>{t('catalog.field.device_type')}</dt>
+                            <dd>{device ? getConversionDeviceTypeLabel(device.device_type, t) : '—'}</dd>
+                          </div>
+                          <div>
+                            <dt>{t('catalog.stat.input_voltage')}</dt>
+                            <dd>{device?.input_voltage_v != null ? `${device.input_voltage_v} V` : '0 V'}</dd>
+                          </div>
+                          <div>
+                            <dt>{t('catalog.stat.output_voltage')}</dt>
+                            <dd>{device?.output_voltage_v != null ? `${device.output_voltage_v} V` : '0 V'}</dd>
+                          </div>
+                          <div>
+                            <dt>{t('catalog.stat.continuous_power')}</dt>
+                            <dd>{nextSize}</dd>
+                          </div>
+                          <div>
+                            <dt>{t('catalog.stat.peak_power')}</dt>
+                            <dd>{nextPeak}</dd>
+                          </div>
+                        </dl>
+                        <div className="button-row">
+                          <button type="button" className="button button-secondary button-sm" onClick={() => device ? void openConverterDetails(device.conversion_device_id) : undefined} disabled={!device}>
+                            Detail
+                          </button>
+                          <button type="button" className="button button-danger button-sm" onClick={() => removeSelectedConverter(index)}>
+                            {t('common.delete')}
+                          </button>
                         </div>
-                        <div>
-                          <dt>{t('catalog.stat.input_voltage')}</dt>
-                          <dd>{device?.input_voltage_v != null ? `${device.input_voltage_v} V` : '0 V'}</dd>
-                        </div>
-                        <div>
-                          <dt>{t('catalog.stat.output_voltage')}</dt>
-                          <dd>{device?.output_voltage_v != null ? `${device.output_voltage_v} V` : '0 V'}</dd>
-                        </div>
-                        <div>
-                          <dt>{t('catalog.stat.continuous_power')}</dt>
-                          <dd>{nextSize}</dd>
-                        </div>
-                        <div>
-                          <dt>{t('catalog.stat.peak_power')}</dt>
-                          <dd>{nextPeak}</dd>
-                        </div>
-                      </dl>
-                      <div className="button-row">
-                        <button type="button" className="button button-secondary button-sm" onClick={() => device ? openConverterDetails(device.conversion_device_id) : undefined} disabled={!device}>
-                          Detail
-                        </button>
-                        <button type="button" className="button button-danger button-sm" onClick={() => removeSelectedConverter(index)}>
-                          {t('common.delete')}
-                        </button>
                       </div>
                     </div>
-                  </div>
                   );
                 })}
               </div>
@@ -5559,64 +5653,801 @@ function ConsumptionPage({
         <section className="panel">
           <div className="section-head">
             <h2>Converter bank fit</h2>
-            <p>Can the selected battery bank support the selected converters?</p>
+            <p>Combined converter output compared with the battery bank.</p>
+          </div>
+          {converterBankCompatibility ? (
+            <div className="outcome-panel">
+              <div className="outcome-summary">
+                <div className="outcome-status-line">
+                  <p className="result-label">Converter bank fit</p>
+                  <StatusBadge status={converterBankCompatibility.status} />
+                </div>
+                <p className="fit-note">
+                  {converterBankCompatibility.status === 'unknown'
+                    ? 'The selected battery bank does not publish discharge limits, so this fit is unknown.'
+                    : converterBankCompatibility.status === 'outside_limits'
+                    ? (converterBankCompatibility.reasons.includes('battery_discharge_current_unknown') || converterBankCompatibility.reasons.includes('battery_discharge_power_unknown')
+                      ? 'The selected battery bank does not expose discharge limits, so the selected converters cannot be confirmed.'
+                      : 'The selected battery bank cannot support the combined converters.')
+                    : 'The selected battery bank can support the combined converters.'}
+                </p>
+                <ul className="reason-list">
+                  {converterBankCompatibility.reasons.map((reason) => (
+                    <li key={reason}>{formatReasonFallback(reason)}</li>
+                  ))}
+                </ul>
+              </div>
+              <dl className="detail-stats outcome-checks">
+                <div>
+                  <dt>Selected converters</dt>
+                  <dd>{selectedConverters.length}</dd>
+                </div>
+                <div>
+                  <dt>Combined output</dt>
+                  <dd>{formatKw(converterBankCompatibility.totalContinuousPowerW)}</dd>
+                </div>
+                <div>
+                  <dt>Combined peak</dt>
+                  <dd>{`${converterBankCompatibility.totalPeakPowerVA.toLocaleString('en-US')} VA`}</dd>
+                </div>
+                <div>
+                  <dt>Battery discharge limit</dt>
+                  <dd>{batteryArrayConfig?.maxDischargePowerW != null ? formatKw(batteryArrayConfig.maxDischargePowerW) : 'n/a'}</dd>
+                </div>
+                <div>
+                  <dt>Estimated battery current</dt>
+                  <dd>{converterBankCompatibility.estimatedCurrentA != null ? formatAmps(converterBankCompatibility.estimatedCurrentA) : 'n/a'}</dd>
+                </div>
+              </dl>
+            </div>
+          ) : (
+            <p className="fit-note">
+              {selectedConversionDeviceIds.length === 0
+                ? 'No converters selected yet.'
+                : selectedConverters.length === 0
+                  ? 'Choose a converter inside the unnamed block to evaluate the battery bank.'
+                  : 'Select a battery bank in Storage first.'}
+            </p>
+          )}
+        </section>
+      </section>
+    </>
+  );
+}
+
+function ConverterDetailPage({
+  data,
+  batteryBank,
+  batteryBankState,
+  route,
+  refreshProjectData,
+}: PageContext) {
+  const { t } = useTranslation();
+
+  if (route.kind !== 'converter') {
+    return null;
+  }
+
+  const selectedConverter = data.entities.conversion_devices.find((device) => device.conversion_device_id === route.converterId) ?? null;
+  const converterLoadCircuits = data.entities.load_circuits.filter((circuit) => circuit.conversion_device_id === route.converterId);
+  const selectedLoadCircuit = route.loadCircuitId
+    ? converterLoadCircuits.find((item) => item.load_circuit_id === route.loadCircuitId) ?? null
+    : null;
+
+  const batteryStoragePrefix = `${data.project.project_id}:battery-array`;
+  const [selectedBatteryTypeId] = usePersistentState(
+    `${batteryStoragePrefix}:battery-type`,
+    batteryBank?.battery_type_id ?? data.entities.battery_types[0]?.battery_type_id ?? '',
+  );
+  const [configuredBatteryCount] = usePersistentState(
+    `${batteryStoragePrefix}:battery-count`,
+    Math.max(batteryBankState?.module_count ?? batteryBank?.module_count ?? 1, 1),
+  );
+  const [batteriesPerString] = usePersistentState(
+    `${batteryStoragePrefix}:batteries-per-string`,
+    Math.max(batteryBankState?.module_count ?? batteryBank?.module_count ?? 1, 1),
+  );
+  const [parallelStrings] = usePersistentState(`${batteryStoragePrefix}:parallel-strings`, 1);
+
+  const currentBatteryType = selectedBatteryTypeId
+    ? data.entities.battery_types.find((item) => item.battery_type_id === selectedBatteryTypeId) ?? null
+    : null;
+  const batteryArrayConfig = currentBatteryType
+    ? evaluateBatteryArrayConfiguration(
+      currentBatteryType,
+      Math.max(configuredBatteryCount, 1),
+      Math.max(batteriesPerString, 1),
+      Math.max(parallelStrings, 1),
+    )
+    : null;
+  const converterBankCompatibility = selectedConverter && batteryArrayConfig
+    ? evaluateConverterBankCompatibility(batteryArrayConfig, [selectedConverter])
+    : null;
+  const selectedCircuitVoltageV = selectedConverter?.output_voltage_v ?? null;
+  const selectedCircuitLoads = selectedLoadCircuit
+    ? data.entities.loads.filter((load) => load.load_circuit_id === selectedLoadCircuit.load_circuit_id)
+    : [];
+  const converterLoadCircuitIdsKey = converterLoadCircuits.map((circuit) => circuit.load_circuit_id).join('|');
+  const selectedCircuitLoadIdsKey = selectedCircuitLoads.map((load) => load.load_id).join('|');
+  const selectedCircuitUsageKw = selectedCircuitLoads.reduce((sum, load) => sum + load.usage_kw, 0);
+  const selectedCircuitSpikeKw = selectedCircuitLoads.reduce((sum, load) => sum + load.spike_kw, 0);
+
+  const [isWorking, setIsWorking] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [selectedLoadPresetId, setSelectedLoadPresetId] = useState(LOAD_PRESETS[0]?.load_preset_id ?? '');
+  const [loadCircuitDrafts, setLoadCircuitDrafts] = useState<Record<string, LoadCircuitDraft>>(() => (
+    Object.fromEntries(
+      converterLoadCircuits.map((circuit) => [
+        circuit.load_circuit_id,
+        loadCircuitDraftFromEntity(circuit, route.converterId),
+      ]),
+    )
+  ));
+  const [loadDrafts, setLoadDrafts] = useState<Record<string, LoadDraft>>(() => (
+    Object.fromEntries(
+      selectedCircuitLoads.map((load) => [
+        load.load_id,
+        loadDraftFromEntity(load),
+      ]),
+    )
+  ));
+
+  useEffect(() => {
+    if (!route.loadCircuitId || selectedLoadCircuit) {
+      return;
+    }
+
+    navigateTo({ kind: 'converter', converterId: route.converterId }, { replace: true });
+  }, [route.converterId, route.loadCircuitId, selectedLoadCircuit]);
+
+  function openCircuitDetails(loadCircuitId?: string) {
+    navigateTo(
+      loadCircuitId
+        ? { kind: 'converter', converterId: route.converterId, loadCircuitId }
+        : { kind: 'converter', converterId: route.converterId },
+    );
+  }
+
+  useEffect(() => {
+    setLoadCircuitDrafts((current) => {
+      const next: Record<string, LoadCircuitDraft> = {};
+
+      for (const circuit of converterLoadCircuits) {
+        next[circuit.load_circuit_id] = current[circuit.load_circuit_id] ?? loadCircuitDraftFromEntity(circuit, route.converterId);
+      }
+
+      return next;
+    });
+  }, [converterLoadCircuitIdsKey, route.converterId]);
+
+  useEffect(() => {
+    setLoadDrafts((current) => {
+      const next: Record<string, LoadDraft> = {};
+
+      for (const load of selectedCircuitLoads) {
+        next[load.load_id] = current[load.load_id] ?? loadDraftFromEntity(load);
+      }
+
+      return next;
+    });
+  }, [selectedCircuitLoadIdsKey]);
+
+  async function handleCreateCircuit() {
+    const title = 'Unnamed circuit';
+    const loadCircuitId = generateUniqueCatalogId(title, data.entities.load_circuits.map((circuit) => circuit.load_circuit_id));
+
+    try {
+      setIsWorking(true);
+      setActionError(null);
+
+      const response = await fetch('/api/load-circuits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          load_circuit_id: loadCircuitId,
+          conversion_device_id: route.converterId,
+          title,
+          description: null,
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? `Failed to create load circuit (${response.status})`);
+      }
+
+      await refreshProjectData();
+      navigateTo({ kind: 'converter', converterId: route.converterId, loadCircuitId });
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Failed to create load circuit.');
+    } finally {
+      setIsWorking(false);
+    }
+  }
+
+  async function deleteLoadCircuit(loadCircuitId: string) {
+    const loadCircuit = converterLoadCircuits.find((circuit) => circuit.load_circuit_id === loadCircuitId) ?? null;
+    if (!loadCircuit) return;
+
+    if (!window.confirm(`Delete load circuit "${loadCircuit.load_circuit_id}"?`)) return;
+
+    try {
+      setIsWorking(true);
+      setActionError(null);
+
+      const response = await fetch(`/api/load-circuits/${encodeURIComponent(loadCircuit.load_circuit_id)}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? `Failed to delete load circuit (${response.status})`);
+      }
+
+      const remainingCircuits = converterLoadCircuits.filter((circuit) => circuit.load_circuit_id !== loadCircuit.load_circuit_id);
+      await refreshProjectData();
+      openCircuitDetails(remainingCircuits[0]?.load_circuit_id);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Failed to delete load circuit.');
+    } finally {
+      setIsWorking(false);
+    }
+  }
+
+  async function saveLoadCircuitDetails(loadCircuitId: string) {
+    const circuit = converterLoadCircuits.find((item) => item.load_circuit_id === loadCircuitId) ?? null;
+    if (!circuit) return;
+
+    const draft = loadCircuitDrafts[loadCircuitId] ?? loadCircuitDraftFromEntity(circuit, route.converterId);
+    const title = draft.title.trim();
+    const description = draft.description.trim() === '' ? null : draft.description.trim();
+
+    if (!title) {
+      setActionError('Fill in the circuit title.');
+      return;
+    }
+
+    try {
+      setIsWorking(true);
+      setActionError(null);
+
+      const response = await fetch(`/api/load-circuits/${encodeURIComponent(loadCircuitId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          load_circuit_id: loadCircuitId,
+          conversion_device_id: route.converterId,
+          title,
+          description,
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? `Failed to save load circuit (${response.status})`);
+      }
+
+      await refreshProjectData();
+      setLoadCircuitDrafts((current) => ({
+        ...current,
+        [loadCircuitId]: {
+          load_circuit_id: loadCircuitId,
+          conversion_device_id: route.converterId,
+          title,
+          description: description ?? '',
+        },
+      }));
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Failed to save load circuit.');
+    } finally {
+      setIsWorking(false);
+    }
+  }
+
+  async function saveLoadDetails(loadId: string) {
+    const load = selectedCircuitLoads.find((item) => item.load_id === loadId) ?? null;
+    if (!load) return;
+
+    const draft = loadDrafts[loadId] ?? loadDraftFromEntity(load);
+    const title = draft.title.trim();
+    const description = draft.description.trim() === '' ? null : draft.description.trim();
+    const usageKw = Number(draft.usage_kw);
+    const spikeKw = Number(draft.spike_kw);
+    const expectedUsageHoursPerDay = Number(draft.expected_usage_hours_per_day);
+    const sleepingKw = Number(draft.sleeping_kw);
+
+    if (!title || !Number.isFinite(usageKw) || usageKw < 0 || !Number.isFinite(spikeKw) || spikeKw < 0 || !Number.isFinite(expectedUsageHoursPerDay) || expectedUsageHoursPerDay < 0 || !Number.isFinite(sleepingKw) || sleepingKw < 0) {
+      setActionError('Fill in the load title and numeric fields.');
+      return;
+    }
+
+    try {
+      setIsWorking(true);
+      setActionError(null);
+
+      const response = await fetch(`/api/loads/${encodeURIComponent(loadId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          load_id: loadId,
+          load_circuit_id: selectedLoadCircuit?.load_circuit_id ?? load.load_circuit_id,
+          title,
+          description,
+          usage_kw: usageKw,
+          spike_kw: spikeKw,
+          expected_usage_hours_per_day: expectedUsageHoursPerDay,
+          sleeping_kw: sleepingKw,
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? `Failed to save load (${response.status})`);
+      }
+
+      await refreshProjectData();
+      setLoadDrafts((current) => ({
+        ...current,
+        [loadId]: {
+          load_id: loadId,
+          load_circuit_id: selectedLoadCircuit?.load_circuit_id ?? load.load_circuit_id,
+          title,
+          description: description ?? '',
+          usage_kw: String(usageKw),
+          spike_kw: String(spikeKw),
+          expected_usage_hours_per_day: String(expectedUsageHoursPerDay),
+          sleeping_kw: String(sleepingKw),
+        },
+      }));
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Failed to save load.');
+    } finally {
+      setIsWorking(false);
+    }
+  }
+  const selectedLoadPreset = LOAD_PRESETS.find((preset) => preset.load_preset_id === selectedLoadPresetId) ?? LOAD_PRESETS[0] ?? null;
+
+  async function handleCreateLoad(preset: LoadPreset | null = null) {
+    if (!selectedLoadCircuit) return;
+
+    const title = preset?.title ?? 'Unnamed load';
+    const loadId = generateUniqueCatalogId(title, data.entities.loads.map((load) => load.load_id));
+
+    try {
+      setIsWorking(true);
+      setActionError(null);
+
+      const response = await fetch('/api/loads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          load_id: loadId,
+          load_circuit_id: selectedLoadCircuit.load_circuit_id,
+          title,
+          description: preset?.description ?? null,
+          usage_kw: preset?.usage_kw ?? 0,
+          spike_kw: preset?.spike_kw ?? 0,
+          expected_usage_hours_per_day: preset?.expected_usage_hours_per_day ?? 0,
+          sleeping_kw: preset?.sleeping_kw ?? 0,
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? `Failed to create load (${response.status})`);
+      }
+
+      await refreshProjectData();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Failed to create load.');
+    } finally {
+      setIsWorking(false);
+    }
+  }
+
+  async function deleteLoad(loadId: string) {
+    const load = selectedCircuitLoads.find((item) => item.load_id === loadId) ?? null;
+    if (!load) return;
+
+    if (!window.confirm(`Delete load "${load.load_id}"?`)) return;
+
+    try {
+      setIsWorking(true);
+      setActionError(null);
+
+      const response = await fetch(`/api/loads/${encodeURIComponent(load.load_id)}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? `Failed to delete load (${response.status})`);
+      }
+
+      await refreshProjectData();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Failed to delete load.');
+    } finally {
+      setIsWorking(false);
+    }
+  }
+
+  return (
+    <>
+      <section className="detail-shell">
+        <section className="panel panel-with-actions">
+          <div className="section-head">
+            <h2>{selectedLoadCircuit?.title ?? selectedConverter?.title ?? route.converterId}</h2>
+            <p>
+              {selectedLoadCircuit
+                ? (selectedConverter ? selectedConverter.title : route.converterId)
+                : (selectedConverter ? getConversionDeviceTypeLabel(selectedConverter.device_type, t) : t('status.not_evaluated'))}
+            </p>
           </div>
           <div className="fit-card">
-            {converterBankCompatibility ? (
-              <div className="outcome-panel">
-                <div className="outcome-summary">
-                  <div className="outcome-status-line">
-                    <p className="result-label">Converter bank fit</p>
-                    <StatusBadge status={converterBankCompatibility.status} />
-                  </div>
-                  <p className="fit-note">
-                    {converterBankCompatibility.status === 'unknown'
-                      ? 'The selected battery bank does not publish discharge limits, so this fit is unknown.'
-                      : converterBankCompatibility.status === 'outside_limits'
-                      ? (converterBankCompatibility.reasons.includes('battery_discharge_current_unknown') || converterBankCompatibility.reasons.includes('battery_discharge_power_unknown')
-                        ? 'The selected battery bank does not expose discharge limits, so the selected converters cannot be confirmed.'
-                        : 'The selected battery bank cannot support the combined converters.')
-                      : 'The selected battery bank can support the combined converters.'}
-                  </p>
-                  <ul className="reason-list">
-                    {converterBankCompatibility.reasons.map((reason) => (
-                      <li key={reason}>{formatReasonFallback(reason)}</li>
-                    ))}
-                  </ul>
-                </div>
-                <dl className="detail-stats outcome-checks">
+            {selectedLoadCircuit ? (
+              <>
+                <dl className="detail-stats panel-spec-grid">
                   <div>
-                    <dt>Selected converters</dt>
-                    <dd>{selectedConverters.length}</dd>
+                    <dt>{t('catalog.field.conversion_device_id')}</dt>
+                    <dd>{selectedConverter?.title ?? route.converterId}</dd>
                   </div>
                   <div>
-                    <dt>Combined output</dt>
-                    <dd>{formatKw(converterBankCompatibility.totalContinuousPowerW)}</dd>
+                    <dt>Loads</dt>
+                    <dd>{selectedCircuitLoads.length}</dd>
                   </div>
                   <div>
-                    <dt>Combined peak</dt>
-                    <dd>{`${converterBankCompatibility.totalPeakPowerVA.toLocaleString('en-US')} VA`}</dd>
+                    <dt>Usage</dt>
+                    <dd>{formatLoadKw(selectedCircuitUsageKw)}</dd>
                   </div>
                   <div>
-                    <dt>Battery discharge limit</dt>
-                    <dd>{batteryArrayConfig?.maxDischargePowerW != null ? formatKw(batteryArrayConfig.maxDischargePowerW) : 'n/a'}</dd>
+                    <dt>Spike</dt>
+                    <dd>{formatLoadKw(selectedCircuitSpikeKw)}</dd>
                   </div>
                   <div>
-                    <dt>Estimated battery current</dt>
-                    <dd>{converterBankCompatibility.estimatedCurrentA != null ? formatAmps(converterBankCompatibility.estimatedCurrentA) : 'n/a'}</dd>
+                    <dt>Inherited voltage</dt>
+                    <dd>{formatVoltage(selectedCircuitVoltageV)}</dd>
                   </div>
                 </dl>
-              </div>
+
+                <div className="outcome-panel" style={{ marginTop: 16 }}>
+                  <div className="outcome-summary">
+                    <div className="outcome-status-line">
+                      <p className="result-label">Load circuit</p>
+                      <span>{selectedConverter ? getConversionDeviceTypeLabel(selectedConverter.device_type, t) : t('status.not_evaluated')}</span>
+                    </div>
+                    <p className="fit-note">Each load in this circuit is shown as a block below.</p>
+                  </div>
+                  <dl className="detail-stats outcome-checks">
+                    <div>
+                      <dt>Converter</dt>
+                      <dd>{selectedConverter?.title ?? route.converterId}</dd>
+                    </div>
+                    <div>
+                      <dt>Loads</dt>
+                      <dd>{selectedCircuitLoads.length}</dd>
+                    </div>
+                    <div>
+                      <dt>Usage</dt>
+                      <dd>{formatLoadKw(selectedCircuitUsageKw)}</dd>
+                    </div>
+                    <div>
+                      <dt>Spike</dt>
+                      <dd>{formatLoadKw(selectedCircuitSpikeKw)}</dd>
+                    </div>
+                    <div>
+                      <dt>Voltage</dt>
+                      <dd>{formatVoltage(selectedCircuitVoltageV)}</dd>
+                    </div>
+                  </dl>
+                </div>
+              </>
             ) : (
-              <p className="fit-note">
-                {selectedConversionDeviceIds.length === 0
-                  ? 'Add one or more converters to evaluate the battery bank.'
-                  : selectedConverters.length === 0
-                    ? 'Choose a converter inside the unnamed block to evaluate the battery bank.'
-                    : 'Select a battery bank in Storage first.'}
-              </p>
+              <>
+                <dl className="detail-stats panel-spec-grid">
+                  <div>
+                    <dt>{t('catalog.stat.input_voltage')}</dt>
+                    <dd>{selectedConverter?.input_voltage_v != null ? `${selectedConverter.input_voltage_v} V` : 'n/a'}</dd>
+                  </div>
+                  <div>
+                    <dt>{t('catalog.stat.output_voltage')}</dt>
+                    <dd>{selectedConverter?.output_voltage_v != null ? `${selectedConverter.output_voltage_v} V` : 'n/a'}</dd>
+                  </div>
+                  <div>
+                    <dt>{t('catalog.stat.continuous_power')}</dt>
+                    <dd>{selectedConverter?.continuous_power_w != null ? `${selectedConverter.continuous_power_w} W` : 'n/a'}</dd>
+                  </div>
+                  <div>
+                    <dt>{t('catalog.stat.peak_power')}</dt>
+                    <dd>{selectedConverter?.peak_power_va != null ? `${selectedConverter.peak_power_va} VA` : 'n/a'}</dd>
+                  </div>
+                </dl>
+
+                <div className="outcome-panel" style={{ marginTop: 16 }}>
+                  <div className="outcome-summary">
+                    <div className="outcome-status-line">
+                      <p className="result-label">Converter bank fit</p>
+                      {converterBankCompatibility ? <StatusBadge status={converterBankCompatibility.status} /> : <span>{t('status.not_evaluated')}</span>}
+                    </div>
+                    <p className="fit-note">
+                      {converterBankCompatibility
+                        ? (converterBankCompatibility.status === 'outside_limits'
+                          ? 'The selected battery bank cannot support this converter.'
+                          : 'The selected battery bank can support this converter.')
+                        : 'Select a battery bank to evaluate the fit.'}
+                    </p>
+                    {converterBankCompatibility ? (
+                      <ul className="reason-list">
+                        {converterBankCompatibility.reasons.map((reason) => (
+                          <li key={reason}>{formatReasonFallback(reason)}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                  {converterBankCompatibility ? (
+                    <dl className="detail-stats outcome-checks">
+                      <div>
+                        <dt>Continuous output</dt>
+                        <dd>{formatKw(converterBankCompatibility.totalContinuousPowerW)}</dd>
+                      </div>
+                      <div>
+                        <dt>Peak output</dt>
+                        <dd>{formatKw(converterBankCompatibility.totalPeakPowerVA)}</dd>
+                      </div>
+                      <div>
+                        <dt>Battery discharge limit</dt>
+                        <dd>{formatKw(converterBankCompatibility.batteryDischargeLimitW)}</dd>
+                      </div>
+                      <div>
+                        <dt>Estimated battery current</dt>
+                        <dd>{formatAmps(converterBankCompatibility.estimatedCurrentA)}</dd>
+                      </div>
+                    </dl>
+                  ) : null}
+                </div>
+              </>
             )}
           </div>
+        </section>
+
+        <section className="panel">
+          <div className="stack" style={{ gap: 12 }}>
+            <div className="button-row button-row-between">
+              <div className="stack" style={{ gap: 4, minWidth: 260 }}>
+                <h2 style={{ margin: 0 }}>{selectedLoadCircuit ? 'Loads' : 'Load circuits'}</h2>
+                <p>{selectedLoadCircuit ? 'Each load is shown as a block.' : 'Load circuits sit behind one converter.'}</p>
+              </div>
+              <div className="button-row">
+                {selectedLoadCircuit ? (
+                  <>
+                    <button type="button" className="button button-secondary" onClick={() => void handleCreateLoad()} disabled={isWorking}>
+                      {isWorking ? t('common.creating') : 'Add load'}
+                    </button>
+                    <select
+                      value={selectedLoadPresetId}
+                      onChange={(event) => setSelectedLoadPresetId(event.target.value)}
+                      aria-label={t('catalog.ui.load_template')}
+                    >
+                      {LOAD_PRESETS.map((preset) => (
+                        <option key={preset.load_preset_id} value={preset.load_preset_id}>
+                          {preset.title}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="button button-secondary"
+                      onClick={() => void handleCreateLoad(selectedLoadPreset)}
+                      disabled={isWorking || !selectedLoadPreset}
+                    >
+                      {t('catalog.ui.add_from_catalog')}
+                    </button>
+                    <button
+                      type="button"
+                      className="button button-danger"
+                      onClick={() => void deleteLoadCircuit(selectedLoadCircuit.load_circuit_id)}
+                      disabled={isWorking}
+                    >
+                      {t('common.delete')}
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" className="button button-secondary" onClick={() => void handleCreateCircuit()} disabled={isWorking}>
+                    {isWorking ? t('common.creating') : 'Add circuit'}
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="surface-grid">
+              {selectedLoadCircuit ? (
+                selectedCircuitLoads.length === 0 ? (
+                  <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
+                    <p style={{ marginTop: 0, marginBottom: 0 }}>No loads in this circuit yet.</p>
+                  </div>
+                ) : (
+                  selectedCircuitLoads.map((load) => {
+                    const loadDraft = loadDrafts[load.load_id] ?? loadDraftFromEntity(load);
+                    return (
+                      <div key={load.load_id} className="surface-card-stack">
+                        <div className="surface-card">
+                          <div className="surface-card-top">
+                            <div>
+                              <h3>{loadDraft.title.trim() || load.title}</h3>
+                              <p>{loadDraft.description.trim() || t('catalog.entry.load')}</p>
+                            </div>
+                          </div>
+                          <label className="config-field" style={{ marginTop: 8 }}>
+                            <span>{t('catalog.field.title')}</span>
+                            <input
+                              value={loadDraft.title}
+                              onChange={(event) => setLoadDrafts((current) => ({
+                                ...current,
+                                [load.load_id]: {
+                                  ...loadDraft,
+                                  title: event.target.value,
+                                },
+                              }))}
+                              placeholder="Fridge"
+                            />
+                          </label>
+                          <label className="config-field">
+                            <span>{t('catalog.field.description')}</span>
+                            <textarea
+                              value={loadDraft.description}
+                              onChange={(event) => setLoadDrafts((current) => ({
+                                ...current,
+                                [load.load_id]: {
+                                  ...loadDraft,
+                                  description: event.target.value,
+                                },
+                              }))}
+                              rows={2}
+                              placeholder="Cold storage appliance"
+                            />
+                          </label>
+                          <dl className="detail-stats compact-stats" style={{ marginTop: 8, marginBottom: 0 }}>
+                            <div>
+                              <dt>Usage</dt>
+                              <dd>{formatLoadKw(load.usage_kw)}</dd>
+                            </div>
+                            <div>
+                              <dt>Spike</dt>
+                              <dd>{formatLoadKw(load.spike_kw)}</dd>
+                            </div>
+                            <div>
+                              <dt>Hours</dt>
+                              <dd>{load.expected_usage_hours_per_day.toLocaleString('en-US', { maximumFractionDigits: 1 })} h/day</dd>
+                            </div>
+                            <div>
+                              <dt>Sleep</dt>
+                              <dd>{formatLoadKw(load.sleeping_kw)}</dd>
+                            </div>
+                            <div>
+                              <dt>{t('catalog.stat.voltage')}</dt>
+                              <dd>{formatVoltage(selectedCircuitVoltageV)}</dd>
+                            </div>
+                          </dl>
+                          <div className="button-row">
+                            <button
+                              type="button"
+                              className="button button-secondary button-sm"
+                              onClick={() => void saveLoadDetails(load.load_id)}
+                              disabled={isWorking || !loadDraft.title.trim()}
+                            >
+                              {t('common.save')}
+                            </button>
+                            <button
+                              type="button"
+                              className="button button-danger button-sm"
+                              onClick={() => void deleteLoad(load.load_id)}
+                              disabled={isWorking}
+                            >
+                              {t('common.delete')}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )
+              ) : (
+                converterLoadCircuits.length === 0 ? (
+                  <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
+                    <p style={{ marginTop: 0, marginBottom: 0 }}>No load circuits found.</p>
+                  </div>
+                ) : (
+                  converterLoadCircuits.map((circuit) => {
+                    const circuitLoads = data.entities.loads.filter((load) => load.load_circuit_id === circuit.load_circuit_id);
+                    const circuitUsage = circuitLoads.reduce((sum, load) => sum + load.usage_kw, 0);
+                    const circuitSpike = circuitLoads.reduce((sum, load) => sum + load.spike_kw, 0);
+                    const isActive = selectedLoadCircuit?.load_circuit_id === circuit.load_circuit_id;
+                    return (
+                      <div
+                        key={circuit.load_circuit_id}
+                        id={`load-circuit-card-${circuit.load_circuit_id}`}
+                        className={`surface-card-stack ${isActive ? 'surface-card-highlight' : ''}`}
+                      >
+                        <div className="surface-card">
+                          <div className="surface-card-top">
+                            <div>
+                              <h3>{loadCircuitDrafts[circuit.load_circuit_id]?.title.trim() || circuit.title}</h3>
+                              <p>{loadCircuitDrafts[circuit.load_circuit_id]?.description.trim() || `${circuitLoads.length} loads`}</p>
+                            </div>
+                          </div>
+                          <label className="config-field" style={{ marginTop: 8 }}>
+                            <span>{t('catalog.field.title')}</span>
+                            <input
+                              value={loadCircuitDrafts[circuit.load_circuit_id]?.title ?? circuit.title}
+                              onChange={(event) => setLoadCircuitDrafts((current) => ({
+                                ...current,
+                                [circuit.load_circuit_id]: {
+                                  ...(current[circuit.load_circuit_id] ?? loadCircuitDraftFromEntity(circuit, route.converterId)),
+                                  title: event.target.value,
+                                },
+                              }))}
+                              placeholder="Living room sockets"
+                            />
+                          </label>
+                          <label className="config-field">
+                            <span>{t('catalog.field.description')}</span>
+                            <textarea
+                              value={loadCircuitDrafts[circuit.load_circuit_id]?.description ?? circuit.description ?? ''}
+                              onChange={(event) => setLoadCircuitDrafts((current) => ({
+                                ...current,
+                                [circuit.load_circuit_id]: {
+                                  ...(current[circuit.load_circuit_id] ?? loadCircuitDraftFromEntity(circuit, route.converterId)),
+                                  description: event.target.value,
+                                },
+                              }))}
+                              rows={2}
+                              placeholder="Grouped socket demand"
+                            />
+                          </label>
+                          <dl className="detail-stats compact-stats" style={{ marginTop: 8, marginBottom: 0 }}>
+                            <div>
+                              <dt>Loads</dt>
+                              <dd>{circuitLoads.length}</dd>
+                            </div>
+                            <div>
+                              <dt>Usage</dt>
+                              <dd>{formatLoadKw(circuitUsage)}</dd>
+                            </div>
+                            <div>
+                              <dt>Spike</dt>
+                              <dd>{formatLoadKw(circuitSpike)}</dd>
+                            </div>
+                          </dl>
+                          <div className="button-row">
+                            <button
+                              type="button"
+                              className="button button-secondary button-sm"
+                              onClick={() => void saveLoadCircuitDetails(circuit.load_circuit_id)}
+                              disabled={isWorking || !(loadCircuitDrafts[circuit.load_circuit_id]?.title.trim() ?? circuit.title.trim())}
+                            >
+                              {t('common.save')}
+                            </button>
+                            <button
+                              type="button"
+                              className="button button-secondary button-sm"
+                              onClick={() => {
+                                openCircuitDetails(circuit.load_circuit_id);
+                                setActionError(null);
+                              }}
+                            >
+                              {t('common.detail')}
+                            </button>
+                            <button
+                              type="button"
+                              className="button button-danger button-sm"
+                              onClick={() => void deleteLoadCircuit(circuit.load_circuit_id)}
+                            >
+                              {t('common.delete')}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )
+              )}
+            </div>
+          </div>
+
+          {actionError ? <p className="save-error" style={{ marginTop: 16 }}>{actionError}</p> : null}
         </section>
       </section>
     </>
@@ -8280,8 +9111,25 @@ function loadDraftFromEntity(load: Load | null): LoadDraft {
   } : emptyLoadDraft();
 }
 
+function loadDraftFromPreset(preset: LoadPreset, loadCircuitId: string = ''): LoadDraft {
+  return {
+    load_id: '',
+    load_circuit_id: loadCircuitId,
+    title: preset.title,
+    description: preset.description,
+    usage_kw: String(preset.usage_kw),
+    spike_kw: String(preset.spike_kw),
+    expected_usage_hours_per_day: String(preset.expected_usage_hours_per_day),
+    sleeping_kw: String(preset.sleeping_kw),
+  };
+}
+
 function formatLoadKw(value: number): string {
   return `${value.toLocaleString('en-US', { maximumFractionDigits: 2 })} kW`;
+}
+
+function formatVoltage(value: number | null | undefined): string {
+  return value != null ? `${value} V` : 'n/a';
 }
 
 function LoadCircuitsPage({
@@ -8324,11 +9172,33 @@ function LoadCircuitsPage({
   const selectedConversionDevice = draft.conversion_device_id
     ? data.entities.conversion_devices.find((item) => item.conversion_device_id === draft.conversion_device_id) ?? null
     : null;
+  const selectedCircuitVoltageV = selectedConversionDevice?.output_voltage_v ?? null;
   const selectedCircuitLoads = selectedLoadCircuit
     ? data.entities.loads.filter((load) => load.load_circuit_id === selectedLoadCircuit.load_circuit_id)
     : [];
+  const selectedCircuitLoadIdsKey = selectedCircuitLoads.map((load) => load.load_id).join('|');
   const totalUsageKw = selectedCircuitLoads.reduce((sum, load) => sum + load.usage_kw, 0);
   const totalSpikeKw = selectedCircuitLoads.reduce((sum, load) => sum + load.spike_kw, 0);
+  const [loadDrafts, setLoadDrafts] = useState<Record<string, LoadDraft>>(() => (
+    Object.fromEntries(
+      selectedCircuitLoads.map((load) => [
+        load.load_id,
+        loadDraftFromEntity(load),
+      ]),
+    )
+  ));
+
+  useEffect(() => {
+    setLoadDrafts((current) => {
+      const next: Record<string, LoadDraft> = {};
+
+      for (const load of selectedCircuitLoads) {
+        next[load.load_id] = current[load.load_id] ?? loadDraftFromEntity(load);
+      }
+
+      return next;
+    });
+  }, [selectedCircuitLoadIdsKey]);
 
   function startAddNew() {
     setSelectedLoadCircuitId('');
@@ -8386,29 +9256,120 @@ function LoadCircuitsPage({
     }
   }
 
-  async function handleDelete() {
-    if (!selectedLoadCircuit) return;
+  async function handleDelete(loadCircuitId?: string) {
+    const targetLoadCircuit = loadCircuitId
+      ? data.entities.load_circuits.find((circuit) => circuit.load_circuit_id === loadCircuitId) ?? null
+      : selectedLoadCircuit;
+    if (!targetLoadCircuit) return;
 
-    if (!window.confirm(`Delete load circuit "${selectedLoadCircuit.load_circuit_id}"?`)) return;
+    if (!window.confirm(`Delete load circuit "${targetLoadCircuit.load_circuit_id}"?`)) return;
 
     try {
       setIsSaving(true);
       setSaveError(null);
       setSaveMessage(null);
 
-      const response = await fetch(`/api/load-circuits/${encodeURIComponent(selectedLoadCircuit.load_circuit_id)}`, { method: 'DELETE' });
+      const response = await fetch(`/api/load-circuits/${encodeURIComponent(targetLoadCircuit.load_circuit_id)}`, { method: 'DELETE' });
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: string } | null;
         throw new Error(payload?.error ?? `Failed to delete load circuit (${response.status})`);
       }
 
       await refreshProjectData();
-      const nextCircuit = data.entities.load_circuits.find((item) => item.load_circuit_id !== selectedLoadCircuit.load_circuit_id) ?? null;
+      const nextCircuit = data.entities.load_circuits.find((item) => item.load_circuit_id !== targetLoadCircuit.load_circuit_id) ?? null;
       setSelectedLoadCircuitId(nextCircuit?.load_circuit_id ?? '');
       setDraft(loadCircuitDraftFromEntity(nextCircuit, data.entities.conversion_devices[0]?.conversion_device_id ?? ''));
-      setSaveMessage(`Load circuit "${selectedLoadCircuit.load_circuit_id}" deleted.`);
+      setSaveMessage(`Load circuit "${targetLoadCircuit.load_circuit_id}" deleted.`);
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Failed to delete load circuit.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function saveLoadDetails(loadId: string) {
+    const load = selectedCircuitLoads.find((item) => item.load_id === loadId) ?? null;
+    if (!load) return;
+
+    const draft = loadDrafts[loadId] ?? loadDraftFromEntity(load);
+    const title = draft.title.trim();
+    const description = draft.description.trim() === '' ? null : draft.description.trim();
+    const usageKw = Number(draft.usage_kw);
+    const spikeKw = Number(draft.spike_kw);
+    const expectedUsageHoursPerDay = Number(draft.expected_usage_hours_per_day);
+    const sleepingKw = Number(draft.sleeping_kw);
+
+    if (!title || !Number.isFinite(usageKw) || usageKw < 0 || !Number.isFinite(spikeKw) || spikeKw < 0 || !Number.isFinite(expectedUsageHoursPerDay) || expectedUsageHoursPerDay < 0 || !Number.isFinite(sleepingKw) || sleepingKw < 0) {
+      setSaveError('Fill in the load title and numeric fields.');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+      setSaveMessage(null);
+
+      const response = await fetch(`/api/loads/${encodeURIComponent(loadId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          load_id: loadId,
+          load_circuit_id: selectedLoadCircuit?.load_circuit_id ?? load.load_circuit_id,
+          title,
+          description,
+          usage_kw: usageKw,
+          spike_kw: spikeKw,
+          expected_usage_hours_per_day: expectedUsageHoursPerDay,
+          sleeping_kw: sleepingKw,
+        }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? `Failed to save load (${response.status})`);
+      }
+
+      await refreshProjectData();
+      setLoadDrafts((current) => ({
+        ...current,
+        [loadId]: {
+          load_id: loadId,
+          load_circuit_id: selectedLoadCircuit?.load_circuit_id ?? load.load_circuit_id,
+          title,
+          description: description ?? '',
+          usage_kw: String(usageKw),
+          spike_kw: String(spikeKw),
+          expected_usage_hours_per_day: String(expectedUsageHoursPerDay),
+          sleeping_kw: String(sleepingKw),
+        },
+      }));
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Failed to save load.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function deleteLoad(loadId: string) {
+    const load = selectedCircuitLoads.find((item) => item.load_id === loadId) ?? null;
+    if (!load) return;
+
+    if (!window.confirm(`Delete load "${load.load_id}"?`)) return;
+
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+      setSaveMessage(null);
+
+      const response = await fetch(`/api/loads/${encodeURIComponent(load.load_id)}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? `Failed to delete load (${response.status})`);
+      }
+
+      await refreshProjectData();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Failed to delete load.');
     } finally {
       setIsSaving(false);
     }
@@ -8418,6 +9379,10 @@ function LoadCircuitsPage({
     <>
       <section className="detail-shell">
         <section className="panel">
+          <div className="section-head">
+            <h2>Load circuits</h2>
+            <p>Pick a circuit to edit its loads below.</p>
+          </div>
           <div className="stack" style={{ gap: 12 }}>
             <div className="button-row button-row-between">
               <label className="field" style={{ minWidth: 260 }}>
@@ -8435,72 +9400,71 @@ function LoadCircuitsPage({
                 Add load circuit
               </button>
             </div>
-            <div className="yield-table-wrap">
-              <table className="yield-table catalog-table">
-                <thead>
-                  <tr>
-                    <th>{t('catalog.field.title')}</th>
-                    <th>{t('catalog.field.conversion_device_id')}</th>
-                    <th>Loads</th>
-                    <th>Usage</th>
-                    <th>Spike</th>
-                    <th>{t('common.edit')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredLoadCircuits.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="catalog-table-empty">No load circuits found.</td>
-                    </tr>
-                  ) : filteredLoadCircuits.map((circuit) => {
-                    const circuitLoads = data.entities.loads.filter((load) => load.load_circuit_id === circuit.load_circuit_id);
-                    const circuitUsage = circuitLoads.reduce((sum, load) => sum + load.usage_kw, 0);
-                    const circuitSpike = circuitLoads.reduce((sum, load) => sum + load.spike_kw, 0);
-                    const converter = data.entities.conversion_devices.find((item) => item.conversion_device_id === circuit.conversion_device_id);
-                    return (
-                      <tr
-                        key={circuit.load_circuit_id}
-                        className={`catalog-table-row ${selectedLoadCircuitId === circuit.load_circuit_id ? 'catalog-table-row-active' : ''}`}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => {
-                          setSelectedLoadCircuitId(circuit.load_circuit_id);
-                          setSaveError(null);
-                          setSaveMessage(null);
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter' || event.key === ' ') {
-                            event.preventDefault();
+            <div className="surface-grid">
+              {filteredLoadCircuits.length === 0 ? (
+                <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
+                  <p style={{ marginTop: 0, marginBottom: 0 }}>No load circuits found.</p>
+                </div>
+              ) : filteredLoadCircuits.map((circuit) => {
+                const circuitLoads = data.entities.loads.filter((load) => load.load_circuit_id === circuit.load_circuit_id);
+                const circuitUsage = circuitLoads.reduce((sum, load) => sum + load.usage_kw, 0);
+                const circuitSpike = circuitLoads.reduce((sum, load) => sum + load.spike_kw, 0);
+                const converter = data.entities.conversion_devices.find((item) => item.conversion_device_id === circuit.conversion_device_id);
+                return (
+                  <div
+                    key={circuit.load_circuit_id}
+                    className="surface-card-stack"
+                  >
+                    <div className="surface-card">
+                      <div className="surface-card-top">
+                        <div>
+                          <h3>{circuit.title}</h3>
+                          <p>{circuit.description?.trim() || converter?.title || circuit.conversion_device_id}</p>
+                        </div>
+                      </div>
+                      <dl className="detail-stats compact-stats" style={{ marginTop: 8, marginBottom: 0 }}>
+                        <div>
+                          <dt>{t('catalog.field.conversion_device_id')}</dt>
+                          <dd>{converter?.title ?? circuit.conversion_device_id}</dd>
+                        </div>
+                        <div>
+                          <dt>Loads</dt>
+                          <dd>{circuitLoads.length}</dd>
+                        </div>
+                        <div>
+                          <dt>Usage</dt>
+                          <dd>{formatLoadKw(circuitUsage)}</dd>
+                        </div>
+                        <div>
+                          <dt>Spike</dt>
+                          <dd>{formatLoadKw(circuitSpike)}</dd>
+                        </div>
+                      </dl>
+                      <div className="button-row">
+                        <button
+                          type="button"
+                          className="button button-secondary button-sm"
+                          onClick={() => {
                             setSelectedLoadCircuitId(circuit.load_circuit_id);
                             setSaveError(null);
                             setSaveMessage(null);
-                          }
-                        }}
-                      >
-                        <td>{circuit.title}</td>
-                        <td>{converter?.title ?? circuit.conversion_device_id}</td>
-                        <td>{circuitLoads.length}</td>
-                        <td>{formatLoadKw(circuitUsage)}</td>
-                        <td>{formatLoadKw(circuitSpike)}</td>
-                        <td>
-                          <button
-                            type="button"
-                            className="button button-secondary button-sm"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setSelectedLoadCircuitId(circuit.load_circuit_id);
-                              setSaveError(null);
-                              setSaveMessage(null);
-                            }}
-                          >
-                            {t('common.edit')}
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                          }}
+                        >
+                          {t('common.detail')}
+                        </button>
+                        <button
+                          type="button"
+                          className="button button-danger button-sm"
+                          onClick={() => void handleDelete(circuit.load_circuit_id)}
+                          disabled={isSaving}
+                        >
+                          {t('common.delete')}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </section>
@@ -8508,7 +9472,7 @@ function LoadCircuitsPage({
         <section className="panel">
           <div className="section-head">
             <h2>{selectedLoadCircuit ? 'Edit load circuit' : 'Add load circuit'}</h2>
-            <p>Load circuits sit behind one converter.</p>
+            <p>Choose the converter that owns this circuit.</p>
           </div>
           <div className="stack" style={{ gap: 16 }}>
             <div className="field">
@@ -8557,32 +9521,60 @@ function LoadCircuitsPage({
                 <div><dt>Usage</dt><dd>{formatLoadKw(totalUsageKw)}</dd></div>
                 <div><dt>Spike</dt><dd>{formatLoadKw(totalSpikeKw)}</dd></div>
               </dl>
-              <div className="yield-table-wrap" style={{ marginTop: 16 }}>
-                <table className="yield-table catalog-table">
-                  <thead>
-                    <tr>
-                      <th>{t('catalog.field.title')}</th>
-                      <th>Usage</th>
-                      <th>Spike</th>
-                      <th>Hours</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedCircuitLoads.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="catalog-table-empty">No loads in this circuit yet.</td>
-                      </tr>
-                    ) : selectedCircuitLoads.map((load) => (
-                      <tr key={load.load_id}>
-                        <td>{load.title}</td>
-                        <td>{formatLoadKw(load.usage_kw)}</td>
-                        <td>{formatLoadKw(load.spike_kw)}</td>
-                        <td>{load.expected_usage_hours_per_day.toLocaleString('en-US', { maximumFractionDigits: 1 })}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            <div className="surface-grid" style={{ marginTop: 16 }}>
+              {selectedCircuitLoads.length === 0 ? (
+                <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
+                  <p style={{ marginTop: 0, marginBottom: 0 }}>No loads in this circuit yet.</p>
+                </div>
+              ) : selectedCircuitLoads.map((load) => (
+                <div key={load.load_id} className="surface-card-stack">
+                  <div className="surface-card">
+                    <div className="surface-card-top">
+                      <div>
+                        <h3>{load.title}</h3>
+                        <p>{load.description?.trim() || t('catalog.entry.load')}</p>
+                      </div>
+                    </div>
+                    <dl className="detail-stats compact-stats" style={{ marginTop: 8, marginBottom: 0 }}>
+                      <div>
+                        <dt>Usage</dt>
+                        <dd>{formatLoadKw(load.usage_kw)}</dd>
+                      </div>
+                      <div>
+                        <dt>Spike</dt>
+                        <dd>{formatLoadKw(load.spike_kw)}</dd>
+                      </div>
+                      <div>
+                        <dt>Hours</dt>
+                        <dd>{load.expected_usage_hours_per_day.toLocaleString('en-US', { maximumFractionDigits: 1 })} h/day</dd>
+                      </div>
+                      <div>
+                        <dt>{t('catalog.stat.voltage')}</dt>
+                        <dd>{formatVoltage(selectedCircuitVoltageV)}</dd>
+                      </div>
+                    </dl>
+                    <div className="button-row">
+                      <button
+                        type="button"
+                        className="button button-secondary button-sm"
+                        onClick={() => void saveLoadDetails(load.load_id)}
+                        disabled={isSaving || !((loadDrafts[load.load_id]?.title ?? load.title).trim())}
+                      >
+                        {t('common.save')}
+                      </button>
+                      <button
+                        type="button"
+                        className="button button-danger button-sm"
+                        onClick={() => void deleteLoad(load.load_id)}
+                        disabled={isSaving}
+                      >
+                        {t('common.delete')}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
             </>
           ) : null}
         </section>
@@ -8606,6 +9598,8 @@ function LoadsPage({
   const [selectedLoadId, setSelectedLoadId] = useState(() => filteredLoads[0]?.load_id ?? data.entities.loads[0]?.load_id ?? '');
   const selectedLoad = selectedLoadId ? data.entities.loads.find((item) => item.load_id === selectedLoadId) ?? null : null;
   const [draft, setDraft] = useState<LoadDraft>(() => loadDraftFromEntity(selectedLoad));
+  const [loadEntryMode, setLoadEntryMode] = useState<'manual' | 'catalog'>('manual');
+  const [selectedLoadPresetId, setSelectedLoadPresetId] = useState(LOAD_PRESETS[0]?.load_preset_id ?? '');
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -8614,8 +9608,10 @@ function LoadsPage({
     if (selectedLoadId) {
       const current = data.entities.loads.find((item) => item.load_id === selectedLoadId) ?? null;
       setDraft(loadDraftFromEntity(current));
+      setLoadEntryMode('manual');
     } else {
       setDraft(emptyLoadDraft(data.entities.load_circuits[0]?.load_circuit_id ?? ''));
+      setLoadEntryMode('manual');
     }
   }, [data, selectedLoadId]);
 
@@ -8632,12 +9628,25 @@ function LoadsPage({
   const selectedConverter = selectedLoadCircuit
     ? data.entities.conversion_devices.find((item) => item.conversion_device_id === selectedLoadCircuit.conversion_device_id) ?? null
     : null;
+  const selectedLoadCircuitVoltageV = selectedConverter?.output_voltage_v ?? null;
+  const selectedLoadPreset = LOAD_PRESETS.find((preset) => preset.load_preset_id === selectedLoadPresetId) ?? LOAD_PRESETS[0] ?? null;
 
   function startAddNew() {
     setSelectedLoadId('');
     setSaveError(null);
     setSaveMessage(null);
     setDraft(emptyLoadDraft(data.entities.load_circuits[0]?.load_circuit_id ?? ''));
+    setLoadEntryMode('manual');
+  }
+
+  function applySelectedLoadPreset() {
+    if (!selectedLoadPreset) return;
+    const fallbackLoadCircuitId = draft.load_circuit_id || data.entities.load_circuits[0]?.load_circuit_id || '';
+    setSelectedLoadId('');
+    setSaveError(null);
+    setSaveMessage(null);
+    setLoadEntryMode('catalog');
+    setDraft(loadDraftFromPreset(selectedLoadPreset, fallbackLoadCircuitId));
   }
 
   async function handleSave() {
@@ -8701,27 +9710,30 @@ function LoadsPage({
     }
   }
 
-  async function handleDelete() {
-    if (!selectedLoad) return;
+  async function handleDelete(loadId?: string) {
+    const targetLoad = loadId
+      ? data.entities.loads.find((item) => item.load_id === loadId) ?? null
+      : selectedLoad;
+    if (!targetLoad) return;
 
-    if (!window.confirm(`Delete load "${selectedLoad.load_id}"?`)) return;
+    if (!window.confirm(`Delete load "${targetLoad.load_id}"?`)) return;
 
     try {
       setIsSaving(true);
       setSaveError(null);
       setSaveMessage(null);
 
-      const response = await fetch(`/api/loads/${encodeURIComponent(selectedLoad.load_id)}`, { method: 'DELETE' });
+      const response = await fetch(`/api/loads/${encodeURIComponent(targetLoad.load_id)}`, { method: 'DELETE' });
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: string } | null;
         throw new Error(payload?.error ?? `Failed to delete load (${response.status})`);
       }
 
       await refreshProjectData();
-      const nextLoad = data.entities.loads.find((item) => item.load_id !== selectedLoad.load_id) ?? null;
+      const nextLoad = data.entities.loads.find((item) => item.load_id !== targetLoad.load_id) ?? null;
       setSelectedLoadId(nextLoad?.load_id ?? '');
       setDraft(loadDraftFromEntity(nextLoad));
-      setSaveMessage(`Load "${selectedLoad.load_id}" deleted.`);
+      setSaveMessage(`Load "${targetLoad.load_id}" deleted.`);
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Failed to delete load.');
     } finally {
@@ -8731,7 +9743,7 @@ function LoadsPage({
 
   return (
     <>
-      <section className="detail-shell">
+    <section className="detail-shell">
         <section className="panel">
           <div className="stack" style={{ gap: 12 }}>
             <div className="button-row button-row-between">
@@ -8750,70 +9762,71 @@ function LoadsPage({
                 Add load
               </button>
             </div>
-            <div className="yield-table-wrap">
-              <table className="yield-table catalog-table">
-                <thead>
-                  <tr>
-                    <th>{t('catalog.field.title')}</th>
-                    <th>Load circuit</th>
-                    <th>Converter</th>
-                    <th>Usage</th>
-                    <th>Spike</th>
-                    <th>{t('common.edit')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredLoads.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="catalog-table-empty">No loads found.</td>
-                    </tr>
-                  ) : filteredLoads.map((load) => {
-                    const circuit = data.entities.load_circuits.find((item) => item.load_circuit_id === load.load_circuit_id);
-                    const converter = circuit ? data.entities.conversion_devices.find((item) => item.conversion_device_id === circuit.conversion_device_id) : null;
-                    return (
-                      <tr
-                        key={load.load_id}
-                        className={`catalog-table-row ${selectedLoadId === load.load_id ? 'catalog-table-row-active' : ''}`}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => {
-                          setSelectedLoadId(load.load_id);
-                          setSaveError(null);
-                          setSaveMessage(null);
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter' || event.key === ' ') {
-                            event.preventDefault();
+            <div className="surface-grid">
+              {filteredLoads.length === 0 ? (
+                <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
+                  <p style={{ marginTop: 0, marginBottom: 0 }}>No loads found.</p>
+                </div>
+              ) : filteredLoads.map((load) => {
+                const circuit = data.entities.load_circuits.find((item) => item.load_circuit_id === load.load_circuit_id);
+                const converter = circuit ? data.entities.conversion_devices.find((item) => item.conversion_device_id === circuit.conversion_device_id) : null;
+                const isActive = selectedLoadId === load.load_id;
+                return (
+                  <div key={load.load_id} className="surface-card-stack">
+                    <div className="surface-card">
+                      <div className="surface-card-top">
+                        <div>
+                          <h3>{load.title}</h3>
+                          <p>{load.description?.trim() || circuit?.title || t('catalog.entry.load')}</p>
+                        </div>
+                      </div>
+                      <dl className="detail-stats compact-stats" style={{ marginTop: 8, marginBottom: 0 }}>
+                        <div>
+                          <dt>Load circuit</dt>
+                          <dd>{circuit?.title ?? load.load_circuit_id}</dd>
+                        </div>
+                        <div>
+                          <dt>Converter</dt>
+                          <dd>{converter?.title ?? '—'}</dd>
+                        </div>
+                        <div>
+                          <dt>{t('catalog.stat.voltage')}</dt>
+                          <dd>{formatVoltage(converter?.output_voltage_v ?? null)}</dd>
+                        </div>
+                        <div>
+                          <dt>Usage</dt>
+                          <dd>{formatLoadKw(load.usage_kw)}</dd>
+                        </div>
+                        <div>
+                          <dt>Spike</dt>
+                          <dd>{formatLoadKw(load.spike_kw)}</dd>
+                        </div>
+                      </dl>
+                      <div className="button-row">
+                        <button
+                          type="button"
+                          className="button button-secondary button-sm"
+                          onClick={() => {
                             setSelectedLoadId(load.load_id);
                             setSaveError(null);
                             setSaveMessage(null);
-                          }
-                        }}
-                      >
-                        <td>{load.title}</td>
-                        <td>{circuit?.title ?? load.load_circuit_id}</td>
-                        <td>{converter?.title ?? '—'}</td>
-                        <td>{formatLoadKw(load.usage_kw)}</td>
-                        <td>{formatLoadKw(load.spike_kw)}</td>
-                        <td>
-                          <button
-                            type="button"
-                            className="button button-secondary button-sm"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setSelectedLoadId(load.load_id);
-                              setSaveError(null);
-                              setSaveMessage(null);
-                            }}
-                          >
-                            {t('common.edit')}
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                          }}
+                        >
+                          {t('common.detail')}
+                        </button>
+                        <button
+                          type="button"
+                          className="button button-danger button-sm"
+                          onClick={() => void handleDelete(load.load_id)}
+                          disabled={isSaving}
+                        >
+                          {t('common.delete')}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </section>
@@ -8821,9 +9834,37 @@ function LoadsPage({
         <section className="panel">
           <div className="section-head">
             <h2>{selectedLoad ? 'Edit load' : 'Add load'}</h2>
-            <p>Use loads for appliances, endpoints, or grouped demand.</p>
+            <p>Use loads for appliances, endpoints, or grouped demand. Each load inherits voltage from its circuit and converter.</p>
           </div>
           <div className="stack" style={{ gap: 16 }}>
+            {!selectedLoad ? (
+              <div className="stack" style={{ gap: 12 }}>
+                <label className="field">
+                  <span>{t('catalog.ui.load_source')}</span>
+                  <select value={loadEntryMode} onChange={(event) => setLoadEntryMode(event.target.value as 'manual' | 'catalog')}>
+                    <option value="manual">{t('catalog.ui.manual_entry')}</option>
+                    <option value="catalog">{t('catalog.ui.from_catalog')}</option>
+                  </select>
+                </label>
+                {loadEntryMode === 'catalog' ? (
+                  <div className="button-row button-row-between row-synced-wrap">
+                    <label className="field" style={{ minWidth: 260 }}>
+                      <span>{t('catalog.ui.load_template')}</span>
+                      <select value={selectedLoadPresetId} onChange={(event) => setSelectedLoadPresetId(event.target.value)}>
+                        {LOAD_PRESETS.map((preset) => (
+                          <option key={preset.load_preset_id} value={preset.load_preset_id}>
+                            {preset.title}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <button type="button" className="button button-secondary" onClick={applySelectedLoadPreset} disabled={!selectedLoadPreset}>
+                      {t('catalog.ui.add_from_catalog')}
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
             <div className="field">
               <span>Load ID</span>
               <p className="muted">
@@ -8875,6 +9916,7 @@ function LoadsPage({
               <dl className="detail-stats panel-spec-grid" style={{ marginTop: 16 }}>
                 <div><dt>Load circuit</dt><dd>{selectedLoadCircuit?.title ?? selectedLoad.load_circuit_id}</dd></div>
                 <div><dt>Converter</dt><dd>{selectedConverter?.title ?? '—'}</dd></div>
+                <div><dt>{t('catalog.stat.inherited_voltage')}</dt><dd>{formatVoltage(selectedLoadCircuitVoltageV)}</dd></div>
                 <div><dt>Usage</dt><dd>{formatLoadKw(selectedLoad.usage_kw)}</dd></div>
                 <div><dt>Spike</dt><dd>{formatLoadKw(selectedLoad.spike_kw)}</dd></div>
               </dl>
@@ -9060,6 +10102,12 @@ function AppContent() {
   const batteryToInverter = projectInverter
     ? data.relationships.battery_bank_to_inverter.find((item) => item.to_inverter_configuration_id === projectInverter.inverter_configuration_id) ?? null
     : null;
+  const activeConverter = route.kind === 'converter'
+    ? data.entities.conversion_devices.find((device) => device.conversion_device_id === route.converterId) ?? null
+    : null;
+  const activeLoadCircuit = route.kind === 'converter' && route.loadCircuitId && data
+    ? data.entities.load_circuits.find((circuit) => circuit.load_circuit_id === route.loadCircuitId) ?? null
+    : null;
 
   const context: PageContext = {
     data,
@@ -9121,6 +10169,12 @@ function AppContent() {
         route={route}
         data={data}
         locationSlug={locationSlug}
+        title={route.kind === 'converter'
+          ? (activeLoadCircuit?.title ?? activeConverter?.title ?? route.converterId)
+          : undefined}
+        context={route.kind === 'converter'
+          ? (activeLoadCircuit ? t('page.load_circuit.context') : t('page.converters.context'))
+          : undefined}
         isMobileSidebarOpen={isMobileSidebarOpen}
         isSidebarCollapsed={isSidebarCollapsed}
         openMobileSidebar={() => setIsMobileSidebarOpen(true)}
@@ -9157,6 +10211,8 @@ function AppContent() {
             <BatteryArrayPage {...context} />
           ) : route.kind === 'inverter-array' ? (
             <ConsumptionPage {...context} />
+          ) : route.kind === 'converter' ? (
+            <ConverterDetailPage {...context} />
           ) : route.kind === 'load-circuits' ? (
             <LoadCircuitsPage data={data} refreshProjectData={refreshProjectData} />
           ) : route.kind === 'loads' ? (
