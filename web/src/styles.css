@@ -1012,12 +1012,6 @@ h1, h2, h3, p, dl, dd, dt {
   min-width: 0;
 }
 
-.surface-card-highlight .surface-card {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(91, 112, 255, 0.14);
-}
-
 .empty-state {
   padding: 16px;
   border: 1px dashed var(--border);
@@ -1378,6 +1372,20 @@ h1, h2, h3, p, dl, dd, dt {
 
 .consumption-selection-card {
   gap: 10px;
+}
+
+.consumption-converter-grid {
+  margin-top: 17px;
+}
+
+.consumption-selection-editor .config-field input,
+.consumption-selection-editor .config-field select {
+  background: var(--surface);
+}
+
+.consumption-selection-editor .config-field input:focus,
+.consumption-selection-editor .config-field select:focus {
+  background: #ffffff;
 }
 
 .consumption-selection-head {

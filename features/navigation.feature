@@ -62,12 +62,14 @@ Feature: Navigation
     Given OffGridOS is rendered on the loads page
     Then I should see the Loads page
 
-  Scenario: Open a circuit detail page from Consumption and add a load
+  Scenario: Open filtered load circuits from Consumption
     Given OffGridOS is rendered with project data
     When I open Consumption from the menu
     And I add a converter on the Consumption page
     And I choose the last converter on the Consumption page
+    And I title the last converter "Galley inverter" on the Consumption page
+    And I save the converter on the Consumption page
     And I open the first converter detail from the page
-    Then I should see the Circuit detail page
-    When I add a load on the circuit page
-    Then I should see the Circuit detail page
+    Then I should see the Load circuits page
+    And the load circuits page should be filtered to the selected converter
+    And the load circuits page should show the selected converter title

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useEffect, useState, type ChangeEvent, type MouseEvent } from 'react';
+import { useEffect, useMemo, useState, type ChangeEvent, type MouseEvent } from 'react';
 import { LANGUAGE_OPTIONS, LanguageProvider, readLanguageFromPath, useTranslation, type LanguageCode, type TranslationKey } from './i18n';
 
 declare const __BUILD_INFO__: string;
@@ -423,8 +423,16 @@ interface ConversionDevice {
   notes?: string | null;
 }
 
+interface ProjectConverter {
+  project_converter_id: string;
+  title: string;
+  description?: string | null;
+  conversion_device_id: string;
+}
+
 interface LoadCircuit {
   load_circuit_id: string;
+  project_converter_id?: string | null;
   conversion_device_id: string;
   title: string;
   description?: string | null;
@@ -443,9 +451,17 @@ interface Load {
 
 interface LoadCircuitDraft {
   load_circuit_id: string;
+  project_converter_id: string;
   conversion_device_id: string;
   title: string;
   description: string;
+}
+
+interface ProjectConverterDraft {
+  project_converter_id: string;
+  title: string;
+  description: string;
+  conversion_device_id: string;
 }
 
 interface LoadDraft {
@@ -681,6 +697,7 @@ interface DigitalTwinExport {
     inverter_outputs: InverterOutput[];
     solar_monthly_profiles: SolarMonthlyProfile[];
     conversion_devices: ConversionDevice[];
+    project_converters: ProjectConverter[];
     load_circuits: LoadCircuit[];
     loads: Load[];
     load_monthly_profiles: [];
@@ -827,10 +844,6 @@ type LocalSurfaceSummary = {
 
 function getProjectStorageKey(data: DigitalTwinExport): string {
   return data.project.project_id ?? 'offgridos-project';
-}
-
-function getConsumptionSelectionStorageKey(data: DigitalTwinExport): string {
-  return `${getProjectStorageKey(data)}:consumption:selected-converters`;
 }
 
 function getConversionDeviceCatalogSelectionStorageKey(data: DigitalTwinExport): string {
@@ -2342,28 +2355,30 @@ function parseAppUrl(pathname: string, hash: string): ParsedAppUrl {
   return { language, locationSlug, route: { kind: 'location' } };
 }
 
-function buildRoutePath(route: Route, language: LanguageCode, locationSlug: string): string {
+function buildRoutePath(route: Route, language: LanguageCode, locationSlug: string, search = ''): string {
   const base = `/${language}/${locationSlug}`;
+  const query = search.trim();
+  const suffix = query === '' ? '' : (query.startsWith('?') ? query : `?${query}`);
 
-  if (route.kind === 'location') return base;
-  if (route.kind === 'production') return `${base}/production`;
-  if (route.kind === 'about') return `${base}/about`;
-  if (route.kind === 'catalogs') return `${base}/catalogs`;
-  if (route.kind === 'reports') return `${base}/reports`;
-  if (route.kind === 'catalog') return `${base}/catalogs/${route.catalog}`;
-  if (route.kind === 'verdict-summary') return `${base}/reports/verdict-summary`;
-  if (route.kind === 'cost-summary') return `${base}/reports/cost-summary`;
-  if (route.kind === 'battery-array') return `${base}/battery-array`;
-  if (route.kind === 'inverter-array') return `${base}/consumption`;
+  if (route.kind === 'location') return `${base}${suffix}`;
+  if (route.kind === 'production') return `${base}/production${suffix}`;
+  if (route.kind === 'about') return `${base}/about${suffix}`;
+  if (route.kind === 'catalogs') return `${base}/catalogs${suffix}`;
+  if (route.kind === 'reports') return `${base}/reports${suffix}`;
+  if (route.kind === 'catalog') return `${base}/catalogs/${route.catalog}${suffix}`;
+  if (route.kind === 'verdict-summary') return `${base}/reports/verdict-summary${suffix}`;
+  if (route.kind === 'cost-summary') return `${base}/reports/cost-summary${suffix}`;
+  if (route.kind === 'battery-array') return `${base}/battery-array${suffix}`;
+  if (route.kind === 'inverter-array') return `${base}/consumption${suffix}`;
   if (route.kind === 'converter') {
     const converterPath = `${base}/consumption/converters/${encodeURIComponent(route.converterId)}`;
     return route.loadCircuitId
-      ? `${converterPath}/load-circuits/${encodeURIComponent(route.loadCircuitId)}`
-      : converterPath;
+      ? `${converterPath}/load-circuits/${encodeURIComponent(route.loadCircuitId)}${suffix}`
+      : `${converterPath}${suffix}`;
   }
-  if (route.kind === 'load-circuits') return `${base}/load-circuits`;
-  if (route.kind === 'loads') return `${base}/loads`;
-  return `${base}/${encodeURIComponent(route.surfaceId)}`;
+  if (route.kind === 'load-circuits') return `${base}/load-circuits${suffix}`;
+  if (route.kind === 'loads') return `${base}/loads${suffix}`;
+  return `${base}/${encodeURIComponent(route.surfaceId)}${suffix}`;
 }
 
 function getCurrentPathContext(): { language: LanguageCode; locationSlug: string } {
@@ -2374,11 +2389,11 @@ function getCurrentPathContext(): { language: LanguageCode; locationSlug: string
   };
 }
 
-function navigateTo(route: Route, options?: { language?: LanguageCode; locationSlug?: string; replace?: boolean }): void {
+function navigateTo(route: Route, options?: { language?: LanguageCode; locationSlug?: string; replace?: boolean; search?: string }): void {
   const current = getCurrentPathContext();
   const nextLanguage = options?.language ?? current.language;
   const nextLocationSlug = options?.locationSlug ?? current.locationSlug;
-  const nextPath = buildRoutePath(route, nextLanguage, nextLocationSlug);
+  const nextPath = buildRoutePath(route, nextLanguage, nextLocationSlug, options?.search ?? '');
 
   if (options?.replace) {
     window.history.replaceState(null, '', nextPath);
@@ -2389,12 +2404,13 @@ function navigateTo(route: Route, options?: { language?: LanguageCode; locationS
   window.dispatchEvent(new PopStateEvent('popstate'));
 }
 
-function routeHref(route: Route, options?: { language?: LanguageCode; locationSlug?: string }): string {
+function routeHref(route: Route, options?: { language?: LanguageCode; locationSlug?: string; search?: string }): string {
   const current = getCurrentPathContext();
   return buildRoutePath(
     route,
     options?.language ?? current.language,
     options?.locationSlug ?? current.locationSlug,
+    options?.search ?? '',
   );
 }
 
@@ -5593,154 +5609,356 @@ function ConsumptionPage({
     )
     : null;
 
-  const consumptionSelectionStorageKey = getConsumptionSelectionStorageKey(data);
-  const [selectedConversionDeviceIds, setSelectedConversionDeviceIds] = usePersistentState<string[]>(
-    consumptionSelectionStorageKey,
-    [],
-  );
-
-  useEffect(() => {
-    const availableIds = new Set(data.entities.conversion_devices.map((device) => device.conversion_device_id));
-    const nextSelection = selectedConversionDeviceIds.map((deviceId) => (deviceId && !availableIds.has(deviceId) ? '' : deviceId));
-    if (nextSelection.some((deviceId, index) => deviceId !== selectedConversionDeviceIds[index])) {
-      setSelectedConversionDeviceIds(nextSelection);
-    }
-  }, [data.entities.conversion_devices, selectedConversionDeviceIds, setSelectedConversionDeviceIds]);
-
-  const selectedConverters = selectedConversionDeviceIds
-    .map((conversionDeviceId) => (conversionDeviceId
-      ? data.entities.conversion_devices.find((device) => device.conversion_device_id === conversionDeviceId)
-      : null))
+  const projectConverters = data.entities.project_converters ?? [];
+  const selectedConverters = projectConverters
+    .map((converter) => data.entities.conversion_devices.find((device) => device.conversion_device_id === converter.conversion_device_id) ?? null)
     .filter((device): device is ConversionDevice => Boolean(device));
   const converterBankCompatibility = selectedConverters.length > 0 && batteryArrayConfig
     ? evaluateConverterBankCompatibility(batteryArrayConfig, selectedConverters)
     : null;
+  const [editorMode, setEditorMode] = useState<'closed' | 'add' | 'edit'>('closed');
+  const [draft, setDraft] = useState<ProjectConverterDraft>({
+    project_converter_id: '',
+    title: '',
+    description: '',
+    conversion_device_id: '',
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [isRemoveConfirmOpen, setIsRemoveConfirmOpen] = useState(false);
+  const [pendingLoadCircuitsProjectConverter, setPendingLoadCircuitsProjectConverter] = useState<ProjectConverter | null>(null);
 
-  function addSelectedConverter() {
-    setSelectedConversionDeviceIds((current) => [...current, '']);
+  function startAddConverter() {
+    setEditorMode('add');
+    setSaveError(null);
+    setIsRemoveConfirmOpen(false);
+    setPendingLoadCircuitsProjectConverter(null);
+    setDraft({
+      project_converter_id: '',
+      title: '',
+      description: '',
+      conversion_device_id: '',
+    });
   }
 
-  function updateSelectedConverter(index: number, converterId: string) {
-    setSelectedConversionDeviceIds((current) => current.map((item, itemIndex) => (itemIndex === index ? converterId : item)));
+  function startEditConverter(converter: ProjectConverter) {
+    setIsRemoveConfirmOpen(false);
+    setPendingLoadCircuitsProjectConverter(null);
+    setEditorMode('edit');
+    setSaveError(null);
+    setDraft({
+      project_converter_id: converter.project_converter_id,
+      title: converter.title,
+      description: converter.description ?? '',
+      conversion_device_id: converter.conversion_device_id,
+    });
+    window.requestAnimationFrame(() => {
+      document.getElementById(`project-converter-${converter.project_converter_id}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    });
   }
 
-  function removeSelectedConverter(index: number) {
-    setSelectedConversionDeviceIds((current) => current.filter((_, itemIndex) => itemIndex !== index));
+  function closeEditor() {
+    setEditorMode('closed');
+    setSaveError(null);
+    setIsRemoveConfirmOpen(false);
+    setPendingLoadCircuitsProjectConverter(null);
+    setDraft({
+      project_converter_id: '',
+      title: '',
+      description: '',
+      conversion_device_id: '',
+    });
   }
 
-  async function openConverterDetails(converterId: string) {
-    const existingCircuits = data.entities.load_circuits.filter((circuit) => circuit.conversion_device_id === converterId);
-    if (existingCircuits[0]) {
-      navigateTo({ kind: 'converter', converterId, loadCircuitId: existingCircuits[0].load_circuit_id });
+  async function saveProjectConverter() {
+    const title = draft.title.trim();
+    const description = draft.description.trim() === '' ? null : draft.description.trim();
+    const conversionDeviceId = draft.conversion_device_id.trim();
+
+    if (!title || !conversionDeviceId) {
+      setSaveError('Fill in title and choose a converter from the catalogue.');
       return;
     }
 
-    const title = 'Unnamed circuit';
-    const loadCircuitId = generateUniqueCatalogId(title, data.entities.load_circuits.map((circuit) => circuit.load_circuit_id));
+    const projectConverterId = editorMode === 'edit'
+      ? draft.project_converter_id
+      : generateUniqueCatalogId(title, projectConverters.map((converter) => converter.project_converter_id));
 
     try {
-      const response = await fetch('/api/load-circuits', {
-        method: 'POST',
+      setIsSaving(true);
+      setSaveError(null);
+      const response = await fetch(editorMode === 'edit' ? `/api/project-converters/${encodeURIComponent(projectConverterId)}` : '/api/project-converters', {
+        method: editorMode === 'edit' ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          load_circuit_id: loadCircuitId,
-          conversion_device_id: converterId,
+          project_converter_id: projectConverterId,
           title,
-          description: null,
+          description,
+          conversion_device_id: conversionDeviceId,
         }),
       });
 
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: string } | null;
-        throw new Error(payload?.error ?? `Failed to create load circuit (${response.status})`);
+        throw new Error(payload?.error ?? `Failed to save converter (${response.status})`);
       }
 
       await refreshProjectData();
-      navigateTo({ kind: 'converter', converterId, loadCircuitId });
+      closeEditor();
     } catch (error) {
-      console.error(error);
-      navigateTo({ kind: 'converter', converterId });
+      setSaveError(error instanceof Error ? error.message : 'Failed to save converter.');
+    } finally {
+      setIsSaving(false);
     }
   }
+
+  async function removeProjectConverter() {
+    if (editorMode !== 'edit' || !draft.project_converter_id) return;
+
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+      const response = await fetch(`/api/project-converters/${encodeURIComponent(draft.project_converter_id)}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? `Failed to remove converter (${response.status})`);
+      }
+
+      await refreshProjectData();
+      closeEditor();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Failed to remove converter.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  function requestRemoveProjectConverter() {
+    if (editorMode !== 'edit' || !draft.project_converter_id) return;
+    setSaveError(null);
+    setIsRemoveConfirmOpen(true);
+  }
+
+  function requestOpenLoadCircuits(projectConverter: ProjectConverter) {
+    setSaveError(null);
+    setPendingLoadCircuitsProjectConverter(projectConverter);
+  }
+
+  async function openLoadCircuits(projectConverter: ProjectConverter) {
+    const hasCircuit = data.entities.load_circuits.some((circuit) => circuit.project_converter_id === projectConverter.project_converter_id);
+    if (!hasCircuit) {
+      const title = 'Unnamed circuit';
+      const loadCircuitId = generateUniqueCatalogId(title, data.entities.load_circuits.map((circuit) => circuit.load_circuit_id));
+      const response = await fetch('/api/load-circuits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          load_circuit_id: loadCircuitId,
+          project_converter_id: projectConverter.project_converter_id,
+          title,
+          description: null,
+        }),
+      });
+      if (response.ok) {
+        await refreshProjectData();
+      }
+    }
+
+    navigateTo({ kind: 'load-circuits' }, { search: `?converter=${encodeURIComponent(projectConverter.project_converter_id)}` });
+  }
+
+  const draftDevice = draft.conversion_device_id
+    ? data.entities.conversion_devices.find((item) => item.conversion_device_id === draft.conversion_device_id) ?? null
+    : null;
 
   return (
     <>
       <section className="detail-shell">
         <section className="panel">
-          <div className="section-head">
-            <h2>Selected converters</h2>
-            <p>Add one or more converters to evaluate the battery bank.</p>
-          </div>
           <div className="fit-card">
-            <div className="button-row button-row-end">
-              <button type="button" className="button button-secondary" onClick={addSelectedConverter}>
+            <div className="button-row button-row-start">
+              <button type="button" className="button button-secondary button-sm" onClick={startAddConverter}>
                 Add converter
               </button>
             </div>
 
-            {selectedConversionDeviceIds.length === 0 ? (
-              <p className="fit-note">No converters selected yet.</p>
+            {projectConverters.length === 0 && editorMode === 'closed' ? (
+              <p className="fit-note">No converters added yet.</p>
             ) : (
               <div className="consumption-converter-grid surface-grid">
-                {selectedConversionDeviceIds.map((conversionDeviceId, index) => {
-                  const device = conversionDeviceId
-                    ? data.entities.conversion_devices.find((item) => item.conversion_device_id === conversionDeviceId) ?? null
-                    : null;
-                  const nextTitle = device ? device.title : 'Unnamed converter';
-                  const nextSubtitle = device ? getConversionDeviceTypeLabel(device.device_type, t) : 'Not evaluated';
+                {editorMode === 'add' ? (
+                  <div key="new-converter" className="surface-card-stack">
+                    <div className="surface-card consumption-selection-card consumption-selection-editor">
+                      <label className="config-field" style={{ marginTop: 8 }}>
+                        <span>Title</span>
+                        <input value={draft.title} onInput={(event) => {
+                          const value = event.currentTarget.value;
+                          setDraft((current) => ({ ...current, title: value }));
+                        }} onChange={(event) => {
+                          const value = event.target.value;
+                          setDraft((current) => ({ ...current, title: value }));
+                        }} placeholder="Kitchen inverter" />
+                      </label>
+                      <label className="config-field">
+                        <span>{t('catalog.field.description')}</span>
+                        <input value={draft.description} onInput={(event) => {
+                          const value = event.currentTarget.value;
+                          setDraft((current) => ({ ...current, description: value }));
+                        }} onChange={(event) => {
+                          const value = event.target.value;
+                          setDraft((current) => ({ ...current, description: value }));
+                        }} placeholder="Short description" />
+                      </label>
+                      <label className="config-field">
+                        <span>Device</span>
+                        <select value={draft.conversion_device_id} onChange={(event) => setDraft((current) => ({ ...current, conversion_device_id: event.target.value }))}>
+                          <option value="">{data.entities.conversion_devices.length === 0 ? 'No converters available' : 'Choose converter'}</option>
+                          {data.entities.conversion_devices.map((option) => (
+                            <option key={option.conversion_device_id} value={option.conversion_device_id}>
+                              {option.title}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <div className="button-row">
+                        <button type="button" className="button button-success button-sm" onClick={() => void saveProjectConverter()} disabled={isSaving || !draft.title.trim() || !draft.conversion_device_id.trim()}>
+                          {isSaving ? t('common.saving') : t('common.save')}
+                        </button>
+                        <button type="button" className="button button-secondary button-sm" onClick={closeEditor} disabled={isSaving}>
+                          Cancel
+                        </button>
+                      </div>
+                      {saveError ? <p className="save-error">{saveError}</p> : null}
+                    </div>
+                  </div>
+                ) : null}
+                {projectConverters.map((projectConverter) => {
+                  const device = data.entities.conversion_devices.find((item) => item.conversion_device_id === projectConverter.conversion_device_id) ?? null;
+                  const nextTitle = projectConverter.title;
+                  const nextSubtitle = projectConverter.description?.trim() || device?.title || 'Not evaluated';
                   const nextSize = device?.continuous_power_w != null ? `${device.continuous_power_w} W` : '0 W';
                   const nextPeak = device?.peak_power_va != null ? `${device.peak_power_va} VA` : '0 VA';
+                  const isEditing = editorMode === 'edit' && draft.project_converter_id === projectConverter.project_converter_id;
 
                   return (
-                    <div key={`converter-slot-${index}`} className="surface-card-stack">
-                      <div className="surface-card consumption-selection-card">
-                        <div className="surface-card-top">
-                          <div>
-                            <h3>{nextTitle}</h3>
-                            <p>{nextSubtitle}</p>
-                          </div>
-                        </div>
-                        <label className="config-field" style={{ marginTop: 8 }}>
-                          <span>Converter</span>
-                          <select value={conversionDeviceId} onChange={(event) => updateSelectedConverter(index, event.target.value)}>
-                            <option value="">{data.entities.conversion_devices.length === 0 ? 'No converters available' : 'Choose converter'}</option>
-                            {data.entities.conversion_devices.map((option) => (
-                              <option key={option.conversion_device_id} value={option.conversion_device_id}>
-                                {option.title}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <dl className="mini-stats">
-                          <div>
-                            <dt>{t('catalog.field.device_type')}</dt>
-                            <dd>{device ? getConversionDeviceTypeLabel(device.device_type, t) : '—'}</dd>
-                          </div>
-                          <div>
-                            <dt>{t('catalog.stat.input_voltage')}</dt>
-                            <dd>{device?.input_voltage_v != null ? `${device.input_voltage_v} V` : '0 V'}</dd>
-                          </div>
-                          <div>
-                            <dt>{t('catalog.stat.output_voltage')}</dt>
-                            <dd>{device?.output_voltage_v != null ? `${device.output_voltage_v} V` : '0 V'}</dd>
-                          </div>
-                          <div>
-                            <dt>{t('catalog.stat.continuous_power')}</dt>
-                            <dd>{nextSize}</dd>
-                          </div>
-                          <div>
-                            <dt>{t('catalog.stat.peak_power')}</dt>
-                            <dd>{nextPeak}</dd>
-                          </div>
-                        </dl>
-                        <div className="button-row">
-                          <button type="button" className="button button-secondary button-sm" onClick={() => device ? void openConverterDetails(device.conversion_device_id) : undefined} disabled={!device}>
-                            Detail
-                          </button>
-                          <button type="button" className="button button-danger button-sm" onClick={() => removeSelectedConverter(index)}>
-                            {t('common.delete')}
-                          </button>
-                        </div>
+                    <div id={`project-converter-${projectConverter.project_converter_id}`} key={projectConverter.project_converter_id} className="surface-card-stack">
+                      <div className={`surface-card consumption-selection-card ${isEditing ? 'consumption-selection-editor' : ''}`}>
+                        {isEditing ? (
+                          <>
+                            <label className="config-field" style={{ marginTop: 8 }}>
+                              <span>Title</span>
+                              <input value={draft.title} onInput={(event) => {
+                                const value = event.currentTarget.value;
+                                setDraft((current) => ({ ...current, title: value }));
+                              }} onChange={(event) => {
+                                const value = event.target.value;
+                                setDraft((current) => ({ ...current, title: value }));
+                              }} placeholder="Kitchen inverter" />
+                            </label>
+                            <label className="config-field">
+                              <span>{t('catalog.field.description')}</span>
+                              <input value={draft.description} onInput={(event) => {
+                                const value = event.currentTarget.value;
+                                setDraft((current) => ({ ...current, description: value }));
+                              }} onChange={(event) => {
+                                const value = event.target.value;
+                                setDraft((current) => ({ ...current, description: value }));
+                              }} placeholder="Short description" />
+                            </label>
+                            <label className="config-field">
+                              <span>Device</span>
+                              <select value={draft.conversion_device_id} onChange={(event) => setDraft((current) => ({ ...current, conversion_device_id: event.target.value }))}>
+                                <option value="">{data.entities.conversion_devices.length === 0 ? 'No converters available' : 'Choose converter'}</option>
+                                {data.entities.conversion_devices.map((option) => (
+                                  <option key={option.conversion_device_id} value={option.conversion_device_id}>
+                                    {option.title}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <dl className="mini-stats">
+                              <div>
+                                <dt>Device</dt>
+                                <dd>{draftDevice?.title ?? draft.conversion_device_id}</dd>
+                              </div>
+                              <div>
+                                <dt>{t('catalog.field.device_type')}</dt>
+                                <dd>{draftDevice ? getConversionDeviceTypeLabel(draftDevice.device_type, t) : '—'}</dd>
+                              </div>
+                              <div>
+                                <dt>{t('catalog.stat.input_voltage')}</dt>
+                                <dd>{draftDevice?.input_voltage_v != null ? `${draftDevice.input_voltage_v} V` : '0 V'}</dd>
+                              </div>
+                              <div>
+                                <dt>{t('catalog.stat.output_voltage')}</dt>
+                                <dd>{draftDevice?.output_voltage_v != null ? `${draftDevice.output_voltage_v} V` : '0 V'}</dd>
+                              </div>
+                              <div>
+                                <dt>{t('catalog.stat.continuous_power')}</dt>
+                                <dd>{draftDevice?.continuous_power_w != null ? `${draftDevice.continuous_power_w} W` : '0 W'}</dd>
+                              </div>
+                              <div>
+                                <dt>{t('catalog.stat.peak_power')}</dt>
+                                <dd>{draftDevice?.peak_power_va != null ? `${draftDevice.peak_power_va} VA` : '0 VA'}</dd>
+                              </div>
+                            </dl>
+                            <div className="button-row">
+                              <button type="button" className="button button-success button-sm" onClick={() => void saveProjectConverter()} disabled={isSaving || !draft.title.trim() || !draft.conversion_device_id.trim()}>
+                                {isSaving ? t('common.saving') : t('common.save')}
+                              </button>
+                              <button type="button" className="button button-secondary button-sm" onClick={closeEditor} disabled={isSaving}>
+                                Cancel
+                              </button>
+                              <button type="button" className="button button-danger button-sm" onClick={requestRemoveProjectConverter} disabled={isSaving}>
+                                Remove
+                              </button>
+                            </div>
+                            {saveError ? <p className="save-error">{saveError}</p> : null}
+                          </>
+                        ) : (
+                          <>
+                            <div className="surface-card-top">
+                              <div>
+                                <h3>{nextTitle}</h3>
+                                <p>{nextSubtitle}</p>
+                              </div>
+                            </div>
+                            <dl className="mini-stats">
+                              <div>
+                                <dt>Device</dt>
+                                <dd>{device?.title ?? projectConverter.conversion_device_id}</dd>
+                              </div>
+                              <div>
+                                <dt>{t('catalog.field.device_type')}</dt>
+                                <dd>{device ? getConversionDeviceTypeLabel(device.device_type, t) : '—'}</dd>
+                              </div>
+                              <div>
+                                <dt>{t('catalog.stat.input_voltage')}</dt>
+                                <dd>{device?.input_voltage_v != null ? `${device.input_voltage_v} V` : '0 V'}</dd>
+                              </div>
+                              <div>
+                                <dt>{t('catalog.stat.output_voltage')}</dt>
+                                <dd>{device?.output_voltage_v != null ? `${device.output_voltage_v} V` : '0 V'}</dd>
+                              </div>
+                              <div>
+                                <dt>{t('catalog.stat.continuous_power')}</dt>
+                                <dd>{nextSize}</dd>
+                              </div>
+                              <div>
+                                <dt>{t('catalog.stat.peak_power')}</dt>
+                                <dd>{nextPeak}</dd>
+                              </div>
+                            </dl>
+                            <div className="button-row">
+                              <button type="button" className="button button-secondary button-sm" onClick={() => startEditConverter(projectConverter)}>
+                                Edit
+                              </button>
+                              <button type="button" className="button button-secondary button-sm" onClick={() => requestOpenLoadCircuits(projectConverter)} disabled={!device}>
+                                Show attached load circuits
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   );
@@ -5751,15 +5969,10 @@ function ConsumptionPage({
         </section>
 
         <section className="panel">
-          <div className="section-head">
-            <h2>Converter bank fit</h2>
-            <p>Combined converter output compared with the battery bank.</p>
-          </div>
           {converterBankCompatibility ? (
             <div className="outcome-panel">
               <div className="outcome-summary">
                 <div className="outcome-status-line">
-                  <p className="result-label">Converter bank fit</p>
                   <StatusBadge status={converterBankCompatibility.status} />
                 </div>
                 <p className="fit-note">
@@ -5779,7 +5992,7 @@ function ConsumptionPage({
               </div>
               <dl className="detail-stats outcome-checks">
                 <div>
-                  <dt>Selected converters</dt>
+                  <dt>Converters</dt>
                   <dd>{selectedConverters.length}</dd>
                 </div>
                 <div>
@@ -5802,15 +6015,44 @@ function ConsumptionPage({
             </div>
           ) : (
             <p className="fit-note">
-              {selectedConversionDeviceIds.length === 0
-                ? 'No converters selected yet.'
+              {projectConverters.length === 0
+                ? 'No converters added yet.'
                 : selectedConverters.length === 0
-                  ? 'Choose a converter inside the unnamed block to evaluate the battery bank.'
+                  ? 'Choose a catalogue converter for each project converter to evaluate the battery bank.'
                   : 'Select a battery bank in Storage first.'}
             </p>
           )}
         </section>
       </section>
+      {isRemoveConfirmOpen ? (
+        <ConfirmDialog
+          title="Remove converter?"
+          message={`Are you sure you want to remove "${draft.title || 'this converter'}"? This will delete the project converter and close the editor.`}
+          confirmLabel={t('catalog.confirm.delete_action')}
+          cancelLabel={t('common.cancel')}
+          confirmTone="danger"
+          onConfirm={() => {
+            setIsRemoveConfirmOpen(false);
+            void removeProjectConverter();
+          }}
+          onCancel={() => setIsRemoveConfirmOpen(false)}
+        />
+      ) : null}
+      {pendingLoadCircuitsProjectConverter ? (
+        <ConfirmDialog
+          title="Open load circuits?"
+          message={`You are about to leave the Consumption page and open the Load circuits workbench for "${pendingLoadCircuitsProjectConverter.title}". Continue?`}
+          confirmLabel="Open page"
+          cancelLabel={t('common.cancel')}
+          confirmTone="secondary"
+          onConfirm={() => {
+            const nextConverter = pendingLoadCircuitsProjectConverter;
+            setPendingLoadCircuitsProjectConverter(null);
+            void openLoadCircuits(nextConverter);
+          }}
+          onCancel={() => setPendingLoadCircuitsProjectConverter(null)}
+        />
+      ) : null}
     </>
   );
 }
@@ -9357,22 +9599,24 @@ function ConversionDeviceCatalogPage({
   );
 }
 
-function emptyLoadCircuitDraft(conversionDeviceId: string = ''): LoadCircuitDraft {
+function emptyLoadCircuitDraft(conversionDeviceId: string = '', projectConverterId: string = ''): LoadCircuitDraft {
   return {
     load_circuit_id: '',
+    project_converter_id: projectConverterId,
     conversion_device_id: conversionDeviceId,
     title: '',
     description: '',
   };
 }
 
-function loadCircuitDraftFromEntity(loadCircuit: LoadCircuit | null, fallbackConversionDeviceId: string = ''): LoadCircuitDraft {
+function loadCircuitDraftFromEntity(loadCircuit: LoadCircuit | null, fallbackConversionDeviceId: string = '', fallbackProjectConverterId: string = ''): LoadCircuitDraft {
   return loadCircuit ? {
     load_circuit_id: loadCircuit.load_circuit_id,
+    project_converter_id: loadCircuit.project_converter_id ?? fallbackProjectConverterId,
     conversion_device_id: loadCircuit.conversion_device_id,
     title: loadCircuit.title,
     description: loadCircuit.description ?? '',
-  } : emptyLoadCircuitDraft(fallbackConversionDeviceId);
+  } : emptyLoadCircuitDraft(fallbackConversionDeviceId, fallbackProjectConverterId);
 }
 
 function emptyLoadDraft(loadCircuitId: string = ''): LoadDraft {
@@ -9458,38 +9702,80 @@ function LoadCircuitsPage({
   refreshProjectData: () => Promise<void>;
 }) {
   const { t } = useTranslation();
-  const [filterConversionDeviceId, setFilterConversionDeviceId] = useState('');
+  const readFilterFromUrl = () => {
+    if (typeof window === 'undefined') return '';
+    return new URLSearchParams(window.location.search).get('converter') ?? '';
+  };
+  const readConverterTitleFromUrl = () => {
+    if (typeof window === 'undefined') return '';
+    return new URLSearchParams(window.location.search).get('converterTitle') ?? '';
+  };
+  const [filterProjectConverterId, setFilterProjectConverterId] = useState(() => readFilterFromUrl());
+  const [filterConverterTitle, setFilterConverterTitle] = useState(() => readConverterTitleFromUrl());
   const filteredLoadCircuits = data.entities.load_circuits.filter((circuit) => (
-    filterConversionDeviceId === '' || circuit.conversion_device_id === filterConversionDeviceId
+    filterProjectConverterId === '' || circuit.project_converter_id === filterProjectConverterId
   ));
-  const [selectedLoadCircuitId, setSelectedLoadCircuitId] = useState(() => filteredLoadCircuits[0]?.load_circuit_id ?? data.entities.load_circuits[0]?.load_circuit_id ?? '');
+  const [selectedLoadCircuitId, setSelectedLoadCircuitId] = useState(() => (
+    filteredLoadCircuits[0]?.load_circuit_id ?? (filterProjectConverterId ? '' : data.entities.load_circuits[0]?.load_circuit_id ?? '')
+  ));
   const selectedLoadCircuit = selectedLoadCircuitId
     ? data.entities.load_circuits.find((item) => item.load_circuit_id === selectedLoadCircuitId) ?? null
     : null;
-  const [draft, setDraft] = useState<LoadCircuitDraft>(() => loadCircuitDraftFromEntity(selectedLoadCircuit, data.entities.conversion_devices[0]?.conversion_device_id ?? ''));
+  const preferredProjectConverter = filterProjectConverterId
+    ? data.entities.project_converters.find((converter) => converter.project_converter_id === filterProjectConverterId) ?? null
+    : data.entities.project_converters[0] ?? null;
+  const preferredConverterId = preferredProjectConverter?.conversion_device_id ?? data.entities.conversion_devices[0]?.conversion_device_id ?? '';
+  const preferredProjectConverterId = preferredProjectConverter?.project_converter_id ?? '';
+  const [draft, setDraft] = useState<LoadCircuitDraft>(() => loadCircuitDraftFromEntity(selectedLoadCircuit, preferredConverterId, preferredProjectConverterId));
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const currentSearch = typeof window === 'undefined' ? '' : window.location.search;
+
+  useEffect(() => {
+    const nextFilter = readFilterFromUrl();
+    const nextTitle = readConverterTitleFromUrl();
+    setFilterProjectConverterId((current) => (current === nextFilter ? current : nextFilter));
+    setFilterConverterTitle((current) => (current === nextTitle ? current : nextTitle));
+  }, [currentSearch]);
 
   useEffect(() => {
     if (selectedLoadCircuitId) {
       const current = data.entities.load_circuits.find((item) => item.load_circuit_id === selectedLoadCircuitId) ?? null;
-      setDraft(loadCircuitDraftFromEntity(current, data.entities.conversion_devices[0]?.conversion_device_id ?? ''));
+      setDraft(loadCircuitDraftFromEntity(current, preferredConverterId, preferredProjectConverterId));
     } else {
-      setDraft(emptyLoadCircuitDraft(data.entities.conversion_devices[0]?.conversion_device_id ?? ''));
+      setDraft(emptyLoadCircuitDraft(preferredConverterId, preferredProjectConverterId));
     }
-  }, [data, selectedLoadCircuitId]);
+  }, [data, preferredConverterId, preferredProjectConverterId, selectedLoadCircuitId]);
 
   useEffect(() => {
     if (selectedLoadCircuitId && filteredLoadCircuits.some((circuit) => circuit.load_circuit_id === selectedLoadCircuitId)) {
       return;
     }
-    setSelectedLoadCircuitId(filteredLoadCircuits[0]?.load_circuit_id ?? data.entities.load_circuits[0]?.load_circuit_id ?? '');
-  }, [data.entities.load_circuits, filteredLoadCircuits, selectedLoadCircuitId]);
+    setSelectedLoadCircuitId(
+      filteredLoadCircuits[0]?.load_circuit_id ?? (filterProjectConverterId ? '' : data.entities.load_circuits[0]?.load_circuit_id ?? ''),
+    );
+  }, [data.entities.load_circuits, filterProjectConverterId, filteredLoadCircuits, selectedLoadCircuitId]);
+
+  function updateConverterFilter(nextProjectConverterId: string) {
+    setFilterProjectConverterId(nextProjectConverterId);
+    setFilterConverterTitle('');
+    navigateTo(
+      { kind: 'load-circuits' },
+      {
+        search: nextProjectConverterId ? `?converter=${encodeURIComponent(nextProjectConverterId)}` : '',
+        replace: true,
+      },
+    );
+  }
 
   const selectedConversionDevice = draft.conversion_device_id
     ? data.entities.conversion_devices.find((item) => item.conversion_device_id === draft.conversion_device_id) ?? null
     : null;
+  const filteredProjectConverter = filterProjectConverterId
+    ? data.entities.project_converters.find((item) => item.project_converter_id === filterProjectConverterId) ?? null
+    : null;
+  const visibleFilterConverterTitle = filterConverterTitle.trim() || filteredProjectConverter?.title || '';
   const selectedCircuitVoltageV = selectedConversionDevice?.output_voltage_v ?? null;
   const selectedCircuitLoads = selectedLoadCircuit
     ? data.entities.loads.filter((load) => load.load_circuit_id === selectedLoadCircuit.load_circuit_id)
@@ -9522,17 +9808,18 @@ function LoadCircuitsPage({
     setSelectedLoadCircuitId('');
     setSaveError(null);
     setSaveMessage(null);
-    setDraft(emptyLoadCircuitDraft(data.entities.conversion_devices[0]?.conversion_device_id ?? ''));
+    setDraft(emptyLoadCircuitDraft(preferredConverterId, preferredProjectConverterId));
   }
 
   async function handleSave() {
     const loadCircuitId = selectedLoadCircuit ? selectedLoadCircuitId : generateUniqueCatalogId(draft.title.trim(), data.entities.load_circuits.map((circuit) => circuit.load_circuit_id));
     const title = draft.title.trim();
     const description = draft.description.trim() === '' ? null : draft.description.trim();
+    const projectConverterId = draft.project_converter_id.trim();
     const conversionDeviceId = draft.conversion_device_id.trim();
 
-    if (!title || !conversionDeviceId) {
-      setSaveError('Choose a conversion device and fill in the title.');
+    if (!title || !projectConverterId) {
+      setSaveError('Choose a project converter and fill in the title.');
       return;
     }
 
@@ -9547,6 +9834,7 @@ function LoadCircuitsPage({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           load_circuit_id: loadCircuitId,
+          project_converter_id: projectConverterId,
           conversion_device_id: conversionDeviceId,
           title,
           description,
@@ -9562,6 +9850,7 @@ function LoadCircuitsPage({
       setSelectedLoadCircuitId(loadCircuitId);
       setDraft({
         load_circuit_id: loadCircuitId,
+        project_converter_id: projectConverterId,
         conversion_device_id: conversionDeviceId,
         title,
         description: description ?? '',
@@ -9596,7 +9885,7 @@ function LoadCircuitsPage({
       await refreshProjectData();
       const nextCircuit = data.entities.load_circuits.find((item) => item.load_circuit_id !== targetLoadCircuit.load_circuit_id) ?? null;
       setSelectedLoadCircuitId(nextCircuit?.load_circuit_id ?? '');
-      setDraft(loadCircuitDraftFromEntity(nextCircuit, data.entities.conversion_devices[0]?.conversion_device_id ?? ''));
+      setDraft(loadCircuitDraftFromEntity(nextCircuit, data.entities.conversion_devices[0]?.conversion_device_id ?? '', data.entities.project_converters[0]?.project_converter_id ?? ''));
       setSaveMessage(`Load circuit "${targetLoadCircuit.load_circuit_id}" deleted.`);
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Failed to delete load circuit.');
@@ -9704,16 +9993,21 @@ function LoadCircuitsPage({
           <div className="stack" style={{ gap: 12 }}>
             <div className="button-row button-row-between">
               <label className="field" style={{ minWidth: 260 }}>
-                <span>{t('catalog.field.conversion_device_id')}</span>
-                <select value={filterConversionDeviceId} onChange={(event) => setFilterConversionDeviceId(event.target.value)}>
+                <span>Converter</span>
+                <select value={filterProjectConverterId} onChange={(event) => updateConverterFilter(event.target.value)}>
                   <option value="">All converters</option>
-                  {data.entities.conversion_devices.map((device) => (
-                    <option key={device.conversion_device_id} value={device.conversion_device_id}>
-                      {device.title}
+                  {data.entities.project_converters.map((converter) => (
+                    <option key={converter.project_converter_id} value={converter.project_converter_id}>
+                      {converter.title}
                     </option>
                   ))}
                 </select>
               </label>
+              {filterProjectConverterId ? (
+                <p className="fit-note" data-testid="load-circuits-active-converter-filter">
+                  Converter: {visibleFilterConverterTitle}
+                </p>
+              ) : null}
               <button type="button" className="button button-secondary" onClick={startAddNew}>
                 Add load circuit
               </button>
@@ -9728,6 +10022,9 @@ function LoadCircuitsPage({
                 const circuitUsage = circuitLoads.reduce((sum, load) => sum + load.usage_kw, 0);
                 const circuitSpike = circuitLoads.reduce((sum, load) => sum + load.spike_kw, 0);
                 const converter = data.entities.conversion_devices.find((item) => item.conversion_device_id === circuit.conversion_device_id);
+                const projectConverter = circuit.project_converter_id
+                  ? data.entities.project_converters.find((item) => item.project_converter_id === circuit.project_converter_id) ?? null
+                  : null;
                 return (
                   <div
                     key={circuit.load_circuit_id}
@@ -9737,13 +10034,13 @@ function LoadCircuitsPage({
                       <div className="surface-card-top">
                         <div>
                           <h3>{circuit.title}</h3>
-                          <p>{circuit.description?.trim() || converter?.title || circuit.conversion_device_id}</p>
+                          <p>{circuit.description?.trim() || projectConverter?.title || converter?.title || circuit.conversion_device_id}</p>
                         </div>
                       </div>
                       <dl className="detail-stats compact-stats" style={{ marginTop: 8, marginBottom: 0 }}>
                         <div>
-                          <dt>{t('catalog.field.conversion_device_id')}</dt>
-                          <dd>{converter?.title ?? circuit.conversion_device_id}</dd>
+                          <dt>Converter</dt>
+                          <dd>{projectConverter?.title ?? converter?.title ?? circuit.conversion_device_id}</dd>
                         </div>
                         <div>
                           <dt>Loads</dt>
@@ -9762,11 +10059,7 @@ function LoadCircuitsPage({
                         <button
                           type="button"
                           className="button button-secondary button-sm"
-                          onClick={() => {
-                            setSelectedLoadCircuitId(circuit.load_circuit_id);
-                            setSaveError(null);
-                            setSaveMessage(null);
-                          }}
+                          onClick={() => navigateTo({ kind: 'loads' }, { search: `?converter=${encodeURIComponent(circuit.project_converter_id ?? '')}&circuit=${encodeURIComponent(circuit.load_circuit_id)}` })}
                         >
                           {t('common.detail')}
                         </button>
@@ -9790,7 +10083,7 @@ function LoadCircuitsPage({
         <section className="panel">
           <div className="section-head">
             <h2>{selectedLoadCircuit ? 'Edit load circuit' : 'Add load circuit'}</h2>
-            <p>Choose the converter that owns this circuit.</p>
+            <p>Choose the project converter that owns this circuit.</p>
           </div>
           <div className="stack" style={{ gap: 16 }}>
             <div className="field">
@@ -9804,12 +10097,22 @@ function LoadCircuitsPage({
               <input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} placeholder="Living room sockets" />
             </label>
             <label className="field">
-              <span>{t('catalog.field.conversion_device_id')}</span>
-              <select value={draft.conversion_device_id} onChange={(event) => setDraft((current) => ({ ...current, conversion_device_id: event.target.value }))}>
+              <span>Converter</span>
+              <select
+                value={draft.project_converter_id}
+                onChange={(event) => {
+                  const projectConverter = data.entities.project_converters.find((item) => item.project_converter_id === event.target.value) ?? null;
+                  setDraft((current) => ({
+                    ...current,
+                    project_converter_id: event.target.value,
+                    conversion_device_id: projectConverter?.conversion_device_id ?? '',
+                  }));
+                }}
+              >
                 <option value="">Choose converter</option>
-                {data.entities.conversion_devices.map((device) => (
-                  <option key={device.conversion_device_id} value={device.conversion_device_id}>
-                    {device.title}
+                {data.entities.project_converters.map((converter) => (
+                  <option key={converter.project_converter_id} value={converter.project_converter_id}>
+                    {converter.title}
                   </option>
                 ))}
               </select>
@@ -9819,7 +10122,7 @@ function LoadCircuitsPage({
               <textarea value={draft.description} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} rows={3} />
             </label>
             <div className="stack" style={{ gap: 8 }}>
-              <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.title.trim() || !draft.conversion_device_id.trim()}>
+              <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.title.trim() || !draft.project_converter_id.trim()}>
                 {isSaving ? t('common.saving') : t('common.save')}
               </button>
               {selectedLoadCircuit ? (
@@ -9909,11 +10212,27 @@ function LoadsPage({
   refreshProjectData: () => Promise<void>;
 }) {
   const { t } = useTranslation();
-  const [filterLoadCircuitId, setFilterLoadCircuitId] = useState('');
-  const filteredLoads = data.entities.loads.filter((load) => (
-    filterLoadCircuitId === '' || load.load_circuit_id === filterLoadCircuitId
-  ));
-  const [selectedLoadId, setSelectedLoadId] = useState(() => filteredLoads[0]?.load_id ?? data.entities.loads[0]?.load_id ?? '');
+  const readLoadsFiltersFromUrl = () => {
+    if (typeof window === 'undefined') return { converter: '', circuit: '' };
+    const params = new URLSearchParams(window.location.search);
+    return {
+      converter: params.get('converter') ?? '',
+      circuit: params.get('circuit') ?? '',
+    };
+  };
+  const initialLoadsFilters = readLoadsFiltersFromUrl();
+  const [filterProjectConverterId, setFilterProjectConverterId] = useState(initialLoadsFilters.converter);
+  const [filterLoadCircuitId, setFilterLoadCircuitId] = useState(initialLoadsFilters.circuit);
+  const filteredLoadCircuitOptions = useMemo(() => data.entities.load_circuits.filter((circuit) => (
+    filterProjectConverterId === '' || circuit.project_converter_id === filterProjectConverterId
+  )), [data.entities.load_circuits, filterProjectConverterId]);
+  const filteredLoads = useMemo(() => data.entities.loads.filter((load) => (
+    (filterLoadCircuitId === '' || load.load_circuit_id === filterLoadCircuitId)
+    && (filterProjectConverterId === '' || data.entities.load_circuits.some((circuit) => (
+      circuit.load_circuit_id === load.load_circuit_id && circuit.project_converter_id === filterProjectConverterId
+    )))
+  )), [data.entities.load_circuits, data.entities.loads, filterProjectConverterId, filterLoadCircuitId]);
+  const [selectedLoadId, setSelectedLoadId] = useState(() => filteredLoads[0]?.load_id ?? (filterProjectConverterId || filterLoadCircuitId ? '' : data.entities.loads[0]?.load_id ?? ''));
   const selectedLoad = selectedLoadId ? data.entities.loads.find((item) => item.load_id === selectedLoadId) ?? null : null;
   const [draft, setDraft] = useState<LoadDraft>(() => loadDraftFromEntity(selectedLoad));
   const [loadEntryMode, setLoadEntryMode] = useState<'manual' | 'catalog'>('manual');
@@ -9921,6 +10240,13 @@ function LoadsPage({
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const currentSearch = typeof window === 'undefined' ? '' : window.location.search;
+
+  useEffect(() => {
+    const nextFilters = readLoadsFiltersFromUrl();
+    setFilterProjectConverterId((current) => (current === nextFilters.converter ? current : nextFilters.converter));
+    setFilterLoadCircuitId((current) => (current === nextFilters.circuit ? current : nextFilters.circuit));
+  }, [currentSearch]);
 
   useEffect(() => {
     if (selectedLoadId) {
@@ -9928,17 +10254,25 @@ function LoadsPage({
       setDraft(loadDraftFromEntity(current));
       setLoadEntryMode('manual');
     } else {
-      setDraft(emptyLoadDraft(data.entities.load_circuits[0]?.load_circuit_id ?? ''));
+      setDraft(emptyLoadDraft(filteredLoadCircuitOptions[0]?.load_circuit_id ?? data.entities.load_circuits[0]?.load_circuit_id ?? ''));
       setLoadEntryMode('manual');
     }
-  }, [data, selectedLoadId]);
+  }, [data, filteredLoadCircuitOptions, selectedLoadId]);
 
   useEffect(() => {
     if (selectedLoadId && filteredLoads.some((load) => load.load_id === selectedLoadId)) {
       return;
     }
-    setSelectedLoadId(filteredLoads[0]?.load_id ?? data.entities.loads[0]?.load_id ?? '');
-  }, [data.entities.loads, filteredLoads, selectedLoadId]);
+    setSelectedLoadId(filteredLoads[0]?.load_id ?? (filterProjectConverterId || filterLoadCircuitId ? '' : data.entities.loads[0]?.load_id ?? ''));
+  }, [data.entities.loads, filterProjectConverterId, filterLoadCircuitId, filteredLoads, selectedLoadId]);
+
+  useEffect(() => {
+    if (!filterLoadCircuitId) return;
+    const selectedCircuit = data.entities.load_circuits.find((circuit) => circuit.load_circuit_id === filterLoadCircuitId) ?? null;
+    if (!selectedCircuit || (filterProjectConverterId && selectedCircuit.project_converter_id !== filterProjectConverterId)) {
+      setFilterLoadCircuitId('');
+    }
+  }, [data.entities.load_circuits, filterProjectConverterId, filterLoadCircuitId]);
 
   const selectedLoadCircuit = draft.load_circuit_id
     ? data.entities.load_circuits.find((item) => item.load_circuit_id === draft.load_circuit_id) ?? null
@@ -9949,11 +10283,43 @@ function LoadsPage({
   const selectedLoadCircuitVoltageV = selectedConverter?.output_voltage_v ?? null;
   const selectedLoadPreset = LOAD_PRESETS.find((preset) => preset.load_preset_id === selectedLoadPresetId) ?? LOAD_PRESETS[0] ?? null;
 
+  function syncLoadsFilters(nextProjectConverterId: string, nextLoadCircuitId: string) {
+    const params = new URLSearchParams();
+    if (nextProjectConverterId) params.set('converter', nextProjectConverterId);
+    if (nextLoadCircuitId) params.set('circuit', nextLoadCircuitId);
+    navigateTo(
+      { kind: 'loads' },
+      {
+        search: params.toString() ? `?${params.toString()}` : '',
+        replace: true,
+      },
+    );
+  }
+
+  function updateLoadsConverterFilter(nextProjectConverterId: string) {
+    const nextCircuitId = filterLoadCircuitId && data.entities.load_circuits.some((circuit) => (
+      circuit.load_circuit_id === filterLoadCircuitId && (!nextProjectConverterId || circuit.project_converter_id === nextProjectConverterId)
+    ))
+      ? filterLoadCircuitId
+      : '';
+    setFilterProjectConverterId(nextProjectConverterId);
+    setFilterLoadCircuitId(nextCircuitId);
+    syncLoadsFilters(nextProjectConverterId, nextCircuitId);
+  }
+
+  function updateLoadsCircuitFilter(nextLoadCircuitId: string) {
+    const selectedCircuit = data.entities.load_circuits.find((circuit) => circuit.load_circuit_id === nextLoadCircuitId) ?? null;
+    const nextProjectConverterId = selectedCircuit?.project_converter_id ?? filterProjectConverterId;
+    setFilterProjectConverterId(nextProjectConverterId);
+    setFilterLoadCircuitId(nextLoadCircuitId);
+    syncLoadsFilters(nextProjectConverterId, nextLoadCircuitId);
+  }
+
   function startAddNew() {
     setSelectedLoadId('');
     setSaveError(null);
     setSaveMessage(null);
-    setDraft(emptyLoadDraft(data.entities.load_circuits[0]?.load_circuit_id ?? ''));
+    setDraft(emptyLoadDraft(filterLoadCircuitId || filteredLoadCircuitOptions[0]?.load_circuit_id || data.entities.load_circuits[0]?.load_circuit_id || ''));
     setLoadEntryMode('manual');
   }
 
@@ -10066,10 +10432,21 @@ function LoadsPage({
           <div className="stack" style={{ gap: 12 }}>
             <div className="button-row button-row-between">
               <label className="field" style={{ minWidth: 260 }}>
+                <span>Converter</span>
+                <select value={filterProjectConverterId} onChange={(event) => updateLoadsConverterFilter(event.target.value)}>
+                  <option value="">All converters</option>
+                  {data.entities.project_converters.map((converter) => (
+                    <option key={converter.project_converter_id} value={converter.project_converter_id}>
+                      {converter.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field" style={{ minWidth: 260 }}>
                 <span>Load circuit</span>
-                <select value={filterLoadCircuitId} onChange={(event) => setFilterLoadCircuitId(event.target.value)}>
+                <select value={filterLoadCircuitId} onChange={(event) => updateLoadsCircuitFilter(event.target.value)}>
                   <option value="">All circuits</option>
-                  {data.entities.load_circuits.map((circuit) => (
+                  {filteredLoadCircuitOptions.map((circuit) => (
                     <option key={circuit.load_circuit_id} value={circuit.load_circuit_id}>
                       {circuit.title}
                     </option>
@@ -10088,6 +10465,9 @@ function LoadsPage({
               ) : filteredLoads.map((load) => {
                 const circuit = data.entities.load_circuits.find((item) => item.load_circuit_id === load.load_circuit_id);
                 const converter = circuit ? data.entities.conversion_devices.find((item) => item.conversion_device_id === circuit.conversion_device_id) : null;
+                const projectConverter = circuit?.project_converter_id
+                  ? data.entities.project_converters.find((item) => item.project_converter_id === circuit.project_converter_id) ?? null
+                  : null;
                 const isActive = selectedLoadId === load.load_id;
                 return (
                   <div key={load.load_id} className="surface-card-stack">
@@ -10105,7 +10485,7 @@ function LoadsPage({
                         </div>
                         <div>
                           <dt>Converter</dt>
-                          <dd>{converter?.title ?? '—'}</dd>
+                          <dd>{projectConverter?.title ?? converter?.title ?? '—'}</dd>
                         </div>
                         <div>
                           <dt>{t('catalog.stat.voltage')}</dt>
@@ -10197,7 +10577,7 @@ function LoadsPage({
               <span>Load circuit</span>
               <select value={draft.load_circuit_id} onChange={(event) => setDraft((current) => ({ ...current, load_circuit_id: event.target.value }))}>
                 <option value="">Choose load circuit</option>
-                {data.entities.load_circuits.map((circuit) => (
+                {filteredLoadCircuitOptions.map((circuit) => (
                   <option key={circuit.load_circuit_id} value={circuit.load_circuit_id}>
                     {circuit.title}
                   </option>

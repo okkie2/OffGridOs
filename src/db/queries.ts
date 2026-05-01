@@ -14,6 +14,7 @@ import type {
   BatteryBankConfiguration,
   DcBusbar,
   ConversionDevice,
+  ProjectConverter,
   InverterType,
   InverterConfiguration,
   Load,
@@ -992,7 +993,50 @@ export function deleteConversionDevice(db: Database.Database, conversion_device_
   for (const circuit of circuits) {
     deleteLoadCircuit(db, circuit.load_circuit_id);
   }
+  db.prepare('DELETE FROM project_converters WHERE conversion_device_id = ?').run(conversion_device_id);
   db.prepare('DELETE FROM conversion_devices WHERE conversion_device_id = ?').run(conversion_device_id);
+}
+
+// ── Project converters ──────────────────────────────────────────────────────
+
+export function listProjectConverters(db: Database.Database): ProjectConverter[] {
+  return db.prepare('SELECT * FROM project_converters ORDER BY title, project_converter_id').all() as ProjectConverter[];
+}
+
+export function getProjectConverter(db: Database.Database, project_converter_id: string): ProjectConverter | null {
+  return (db.prepare('SELECT * FROM project_converters WHERE project_converter_id = ?').get(project_converter_id) as ProjectConverter) ?? null;
+}
+
+export function upsertProjectConverter(db: Database.Database, data: Omit<ProjectConverter, 'id'>): void {
+  db.prepare(`
+    INSERT INTO project_converters (
+      project_converter_id,
+      title,
+      description,
+      conversion_device_id
+    )
+    VALUES (
+      @project_converter_id,
+      @title,
+      @description,
+      @conversion_device_id
+    )
+    ON CONFLICT(project_converter_id) DO UPDATE SET
+      title = excluded.title,
+      description = excluded.description,
+      conversion_device_id = excluded.conversion_device_id
+  `).run({
+    ...data,
+    description: data.description ?? null,
+  });
+}
+
+export function deleteProjectConverter(db: Database.Database, project_converter_id: string): void {
+  const circuits = db.prepare('SELECT load_circuit_id FROM load_circuits WHERE project_converter_id = ?').all(project_converter_id) as Array<{ load_circuit_id: string }>;
+  for (const circuit of circuits) {
+    deleteLoadCircuit(db, circuit.load_circuit_id);
+  }
+  db.prepare('DELETE FROM project_converters WHERE project_converter_id = ?').run(project_converter_id);
 }
 
 // ── Load circuits ────────────────────────────────────────────────────────────
@@ -1009,22 +1053,26 @@ export function upsertLoadCircuit(db: Database.Database, data: Omit<LoadCircuit,
   db.prepare(`
     INSERT INTO load_circuits (
       load_circuit_id,
+      project_converter_id,
       conversion_device_id,
       title,
       description
     )
     VALUES (
       @load_circuit_id,
+      @project_converter_id,
       @conversion_device_id,
       @title,
       @description
     )
     ON CONFLICT(load_circuit_id) DO UPDATE SET
+      project_converter_id = excluded.project_converter_id,
       conversion_device_id = excluded.conversion_device_id,
       title = excluded.title,
       description = excluded.description
   `).run({
     ...data,
+    project_converter_id: data.project_converter_id ?? null,
     description: data.description ?? null,
   });
 }

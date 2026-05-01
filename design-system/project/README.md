@@ -186,6 +186,11 @@ Very minimal. Only used on:
 - Sidebar nav items: `rgba(255,255,255,0.04)` background, muted → sidebar text color
 - Active sidebar item: `#00ffc2` text on `#171f33` background
 
+### Buttons
+- Compact action toolbars use `button-sm` secondary buttons by default.
+- Keep paired actions left-aligned in the toolbar unless a layout explicitly needs a right edge action.
+- Reserve primary and danger styles for commit and destructive actions.
+
 ### Catalog Table Editing
 Catalog tables are dense browsing surfaces for reusable product data. Editing happens in an inline row attached to the selected table item, not in a separate bottom editor.
 

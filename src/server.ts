@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import http, { type IncomingMessage, type ServerResponse } from 'http';
-import { createSurface, deleteCabinetType, deleteConversionDevice, deleteLoad, deleteLoadCircuit, deleteSurface, deleteSurfacePanelAssignmentsForSurface, getBatteryBankConfiguration, getBatteryType, getCabinetType, getConversionDevice, getInverterType, getLoad, getLoadCircuit, getMpptType, getPreferences, getPanelType, getSurface, getSurfaceConfiguration, insertBatteryType, insertCabinetType, insertInverterType, insertMpptType, insertPanelType, listArrayToMpptMappings, listBatteryBankConfigurations, listBatteryTypes, listCabinetTypes, listConversionDevices, listInverterConfigurations, listInverterTypes, listLoadCircuits, listLoads, listMpptTypes, listPanelTypes, listPvArrays, listSurfaceConfigurations, listSurfacePanelAssignments, setPref, updateBatteryType, updateCabinetType, updateInverterType, updateMpptType, updatePanelType, updateSurface, upsertBatteryBankConfiguration, upsertConversionDevice, upsertInverterConfiguration, upsertLoad, upsertLoadCircuit, upsertLocation, upsertSurfaceConfiguration, upsertSurfacePanelAssignment, syncPvTopologyForSurface } from './db/queries.js';
+import { createSurface, deleteCabinetType, deleteConversionDevice, deleteLoad, deleteLoadCircuit, deleteProjectConverter, deleteSurface, deleteSurfacePanelAssignmentsForSurface, getBatteryBankConfiguration, getBatteryType, getCabinetType, getConversionDevice, getInverterType, getLoad, getLoadCircuit, getMpptType, getPreferences, getPanelType, getProjectConverter, getSurface, getSurfaceConfiguration, insertBatteryType, insertCabinetType, insertInverterType, insertMpptType, insertPanelType, listArrayToMpptMappings, listBatteryBankConfigurations, listBatteryTypes, listCabinetTypes, listConversionDevices, listInverterConfigurations, listInverterTypes, listLoadCircuits, listLoads, listMpptTypes, listPanelTypes, listProjectConverters, listPvArrays, listSurfaceConfigurations, listSurfacePanelAssignments, setPref, updateBatteryType, updateCabinetType, updateInverterType, updateMpptType, updatePanelType, updateSurface, upsertBatteryBankConfiguration, upsertConversionDevice, upsertInverterConfiguration, upsertLoad, upsertLoadCircuit, upsertLocation, upsertProjectConverter, upsertSurfaceConfiguration, upsertSurfacePanelAssignment, syncPvTopologyForSurface } from './db/queries.js';
 import { buildDigitalTwinExport } from './output/exportDigitalTwin.js';
 import { generateUniqueCatalogId } from './domain/panel-type-id.js';
 import { resolveDatabasePath, resolveServerHost, resolveServerPort, resolveWebDistPath } from './config/runtime.js';
@@ -1644,6 +1644,157 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
     return true;
   }
 
+  if (method === 'GET' && url.pathname === '/api/project-converters') {
+    try {
+      const payload = withDb(databasePath, (db) => listProjectConverters(db));
+      sendJson(response, 200, payload);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown server error';
+      sendJson(response, 500, { error: message });
+    }
+    return true;
+  }
+
+  if (method === 'POST' && url.pathname === '/api/project-converters') {
+    void (async () => {
+      try {
+        const payload = await readJsonBody<{
+          project_converter_id?: unknown;
+          title?: unknown;
+          description?: unknown;
+          conversion_device_id?: unknown;
+        }>(request);
+
+        const requestedId = typeof payload.project_converter_id === 'string' ? payload.project_converter_id.trim() : '';
+        const title = typeof payload.title === 'string' ? payload.title.trim() : '';
+        const description = isValidNonEmptyText(payload.description) ? payload.description.trim() : null;
+        const conversionDeviceId = typeof payload.conversion_device_id === 'string' ? payload.conversion_device_id.trim() : '';
+
+        if (!title || !conversionDeviceId) {
+          sendJson(response, 400, { error: 'Invalid project converter payload. Provide title and conversion_device_id.' });
+          return;
+        }
+
+        const updated = withDb(databasePath, (db) => {
+          const conversionDevice = getConversionDevice(db, conversionDeviceId);
+          if (!conversionDevice) {
+            return { status: 400 as const, body: { error: `Conversion device "${conversionDeviceId}" not found.` } };
+          }
+
+          const projectConverterId = requestedId || generateUniqueCatalogId(title, listProjectConverters(db).map((converter) => converter.project_converter_id));
+          if (getProjectConverter(db, projectConverterId)) {
+            return { status: 409 as const, body: { error: `Project converter "${projectConverterId}" already exists.` } };
+          }
+
+          upsertProjectConverter(db, {
+            project_converter_id: projectConverterId,
+            title,
+            description,
+            conversion_device_id: conversionDeviceId,
+          });
+
+          return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath) };
+        });
+
+        sendJson(response, updated.status, updated.body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 500, { error: message });
+      }
+    })();
+    return true;
+  }
+
+  if (method === 'PUT' && url.pathname.startsWith('/api/project-converters/')) {
+    void (async () => {
+      try {
+        const projectConverterId = decodeURIComponent(url.pathname.slice('/api/project-converters/'.length));
+        if (!projectConverterId) {
+          sendJson(response, 400, { error: 'Project converter id is required.' });
+          return;
+        }
+
+        const payload = await readJsonBody<{
+          project_converter_id?: unknown;
+          title?: unknown;
+          description?: unknown;
+          conversion_device_id?: unknown;
+        }>(request);
+
+        const bodyProjectConverterId = typeof payload.project_converter_id === 'string' ? payload.project_converter_id.trim() : projectConverterId;
+        const title = typeof payload.title === 'string' ? payload.title.trim() : '';
+        const description = isValidNonEmptyText(payload.description) ? payload.description.trim() : null;
+        const conversionDeviceId = typeof payload.conversion_device_id === 'string' ? payload.conversion_device_id.trim() : '';
+
+        if (bodyProjectConverterId !== projectConverterId) {
+          sendJson(response, 400, { error: 'Project converter id in the URL must match the project_converter_id in the payload.' });
+          return;
+        }
+
+        if (!title || !conversionDeviceId) {
+          sendJson(response, 400, { error: 'Invalid project converter payload. Provide title and conversion_device_id.' });
+          return;
+        }
+
+        const updated = withDb(databasePath, (db) => {
+          const existing = getProjectConverter(db, projectConverterId);
+          if (!existing) {
+            return { status: 404 as const, body: { error: `Project converter "${projectConverterId}" not found.` } };
+          }
+
+          const conversionDevice = getConversionDevice(db, conversionDeviceId);
+          if (!conversionDevice) {
+            return { status: 400 as const, body: { error: `Conversion device "${conversionDeviceId}" not found.` } };
+          }
+
+          upsertProjectConverter(db, {
+            project_converter_id: projectConverterId,
+            title,
+            description,
+            conversion_device_id: conversionDeviceId,
+          });
+
+          db.prepare('UPDATE load_circuits SET conversion_device_id = ? WHERE project_converter_id = ?').run(conversionDeviceId, projectConverterId);
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+        });
+
+        sendJson(response, updated.status, updated.body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 500, { error: message });
+      }
+    })();
+    return true;
+  }
+
+  if (method === 'DELETE' && url.pathname.startsWith('/api/project-converters/')) {
+    void (async () => {
+      try {
+        const projectConverterId = decodeURIComponent(url.pathname.slice('/api/project-converters/'.length));
+        if (!projectConverterId) {
+          sendJson(response, 400, { error: 'Project converter id is required.' });
+          return;
+        }
+
+        const updated = withDb(databasePath, (db) => {
+          const existing = getProjectConverter(db, projectConverterId);
+          if (!existing) {
+            return { status: 404 as const, body: { error: `Project converter "${projectConverterId}" not found.` } };
+          }
+
+          deleteProjectConverter(db, projectConverterId);
+          return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath) };
+        });
+
+        sendJson(response, updated.status, updated.body);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 500, { error: message });
+      }
+    })();
+    return true;
+  }
+
   if (method === 'GET' && url.pathname === '/api/load-circuits') {
     try {
       const payload = withDb(databasePath, (db) => listLoadCircuits(db));
@@ -1660,18 +1811,20 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
       try {
         const payload = await readJsonBody<{
           load_circuit_id?: unknown;
+          project_converter_id?: unknown;
           conversion_device_id?: unknown;
           title?: unknown;
           description?: unknown;
         }>(request);
 
         const loadCircuitId = typeof payload.load_circuit_id === 'string' ? payload.load_circuit_id.trim() : '';
+        const projectConverterId = typeof payload.project_converter_id === 'string' ? payload.project_converter_id.trim() : '';
         const conversionDeviceId = typeof payload.conversion_device_id === 'string' ? payload.conversion_device_id.trim() : '';
         const title = typeof payload.title === 'string' ? payload.title.trim() : '';
         const description = typeof payload.description === 'string' ? payload.description.trim() : null;
 
-        if (!title || !conversionDeviceId) {
-          sendJson(response, 400, { error: 'Invalid load circuit payload. Provide title and conversion_device_id.' });
+        if (!title || (!projectConverterId && !conversionDeviceId)) {
+          sendJson(response, 400, { error: 'Invalid load circuit payload. Provide title and project_converter_id or conversion_device_id.' });
           return;
         }
 
@@ -1681,14 +1834,21 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             return { status: 409 as const, body: { error: `Load circuit "${resolvedLoadCircuitId}" already exists.` } };
           }
 
-          const conversionDevice = getConversionDevice(db, conversionDeviceId);
+          const projectConverter = projectConverterId ? getProjectConverter(db, projectConverterId) : null;
+          if (projectConverterId && !projectConverter) {
+            return { status: 400 as const, body: { error: `Project converter "${projectConverterId}" not found.` } };
+          }
+
+          const resolvedConversionDeviceId = projectConverter?.conversion_device_id ?? conversionDeviceId;
+          const conversionDevice = getConversionDevice(db, resolvedConversionDeviceId);
           if (!conversionDevice) {
-            return { status: 400 as const, body: { error: `Conversion device "${conversionDeviceId}" not found.` } };
+            return { status: 400 as const, body: { error: `Conversion device "${resolvedConversionDeviceId}" not found.` } };
           }
 
           upsertLoadCircuit(db, {
             load_circuit_id: resolvedLoadCircuitId,
-            conversion_device_id: conversionDeviceId,
+            project_converter_id: projectConverterId || null,
+            conversion_device_id: resolvedConversionDeviceId,
             title,
             description,
           });
@@ -1716,12 +1876,14 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
         const payload = await readJsonBody<{
           load_circuit_id?: unknown;
+          project_converter_id?: unknown;
           conversion_device_id?: unknown;
           title?: unknown;
           description?: unknown;
         }>(request);
 
         const bodyLoadCircuitId = typeof payload.load_circuit_id === 'string' ? payload.load_circuit_id.trim() : loadCircuitId;
+        const projectConverterId = typeof payload.project_converter_id === 'string' ? payload.project_converter_id.trim() : '';
         const conversionDeviceId = typeof payload.conversion_device_id === 'string' ? payload.conversion_device_id.trim() : '';
         const title = typeof payload.title === 'string' ? payload.title.trim() : '';
         const description = typeof payload.description === 'string' ? payload.description.trim() : null;
@@ -1731,8 +1893,8 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           return;
         }
 
-        if (!title || !conversionDeviceId) {
-          sendJson(response, 400, { error: 'Invalid load circuit payload. Provide title and conversion_device_id.' });
+        if (!title || (!projectConverterId && !conversionDeviceId)) {
+          sendJson(response, 400, { error: 'Invalid load circuit payload. Provide title and project_converter_id or conversion_device_id.' });
           return;
         }
 
@@ -1742,14 +1904,21 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             return { status: 404 as const, body: { error: `Load circuit "${loadCircuitId}" not found.` } };
           }
 
-          const conversionDevice = getConversionDevice(db, conversionDeviceId);
+          const projectConverter = projectConverterId ? getProjectConverter(db, projectConverterId) : null;
+          if (projectConverterId && !projectConverter) {
+            return { status: 400 as const, body: { error: `Project converter "${projectConverterId}" not found.` } };
+          }
+
+          const resolvedConversionDeviceId = projectConverter?.conversion_device_id ?? conversionDeviceId;
+          const conversionDevice = getConversionDevice(db, resolvedConversionDeviceId);
           if (!conversionDevice) {
-            return { status: 400 as const, body: { error: `Conversion device "${conversionDeviceId}" not found.` } };
+            return { status: 400 as const, body: { error: `Conversion device "${resolvedConversionDeviceId}" not found.` } };
           }
 
           upsertLoadCircuit(db, {
             load_circuit_id: loadCircuitId,
-            conversion_device_id: conversionDeviceId,
+            project_converter_id: projectConverterId || null,
+            conversion_device_id: resolvedConversionDeviceId,
             title,
             description,
           });

@@ -2,6 +2,13 @@
 
 ## 2026-05-01
 
+- Turned the Consumption converter info block into the editor itself so Add/Edit now happen in-block with inline Save, Cancel, and Remove controls.
+- Added project-level converters with their own title and description, so Consumption now saves converter instances before showing attached load circuits.
+- Updated load-circuit and load workbench filters to use project converter IDs instead of catalog conversion-device IDs.
+- Compacted the Consumption converter toolbar with small left-aligned Add/Edit buttons and removed the old `Converter bank fit` page copy.
+- Replaced the earlier browser-local Consumption converter title/description state with persisted project converter rows.
+- Made `/loads` match the workbench model with URL-backed converter and load-circuit filters, and made load-circuit Detail open the filtered Loads page.
+- Made `/load-circuits` a URL-filtered workbench so converter Detail now lands on `/load-circuits?converter=...` while the direct menu entry still opens the full overview.
 - Removed user-facing `type` wording from catalog add/edit labels, editor titles, ID labels, and catalog copy while keeping the underlying `*_types` schema terminology unchanged.
 - Made `Non-table fields` remember its open or closed state for each catalog during the current browser session.
 - Applied the catalog inline row editor pattern to panel, MPPT, inverter, conversion-device, and cabinet catalogs so catalog CRUD now uses row selection plus toolbar editing consistently.

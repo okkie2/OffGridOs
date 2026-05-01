@@ -223,9 +223,18 @@ export interface ConversionDevice {
   notes?: string | null;
 }
 
+export interface ProjectConverter {
+  id: number;
+  project_converter_id: string;
+  title: string;
+  description?: string | null;
+  conversion_device_id: string;
+}
+
 export interface LoadCircuit {
   id: number;
   load_circuit_id: string;
+  project_converter_id?: string | null;
   conversion_device_id: string;
   title: string;
   description?: string | null;

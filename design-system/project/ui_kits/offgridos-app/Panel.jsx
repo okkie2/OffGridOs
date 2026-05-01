@@ -83,7 +83,7 @@ function EmptyState({ message }) {
   );
 }
 
-function Btn({ children, variant, size, block, onClick, disabled }) {
+function Btn({ children, variant = 'secondary', size = 'sm', block, onClick, disabled }) {
   const base = {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
     minHeight: size === 'sm' ? '32px' : '38px',
@@ -112,6 +112,21 @@ function Btn({ children, variant, size, block, onClick, disabled }) {
     >
       {children}
     </button>
+  );
+}
+
+function ButtonToolbar({ children, align = 'start' }) {
+  return (
+    <div style={{
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: '8px',
+      alignItems: 'center',
+      justifyContent: align === 'end' ? 'flex-end' : 'flex-start',
+      marginTop: '4px',
+    }}>
+      {children}
+    </div>
   );
 }
 
@@ -181,4 +196,4 @@ function LanguageSwitcher() {
   );
 }
 
-Object.assign(window, { Panel, SectionHead, SummaryCard, HeroStrip, EmptyState, Btn, MiniStats, PageHeader, LanguageSwitcher });
+Object.assign(window, { Panel, SectionHead, SummaryCard, HeroStrip, EmptyState, Btn, ButtonToolbar, MiniStats, PageHeader, LanguageSwitcher });

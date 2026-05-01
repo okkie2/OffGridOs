@@ -29,6 +29,7 @@ import {
   listLoads,
   listMpptTypes,
   listPanelTypes,
+  listProjectConverters,
   listBatteryBankConfigurations,
   listPvArrays,
   listPvStrings,
@@ -137,6 +138,7 @@ interface ExportConversionDevice {
 
 interface ExportLoadCircuit {
   load_circuit_id: string;
+  project_converter_id: string | null;
   conversion_device_id: string;
   title: string;
   description: string | null;
@@ -197,6 +199,13 @@ interface ExportBatteryBankConfiguration {
   parallel_strings: number;
 }
 
+interface ExportProjectConverter {
+  project_converter_id: string;
+  title: string;
+  description: string | null;
+  conversion_device_id: string;
+}
+
 interface DigitalTwinExport {
   project: ExportProject;
   entities: {
@@ -216,6 +225,7 @@ interface DigitalTwinExport {
     inverter_types: InverterType[];
     inverter_configurations: ExportInverterConfiguration[];
     conversion_devices: ExportConversionDevice[];
+    project_converters: ExportProjectConverter[];
     load_circuits: ExportLoadCircuit[];
     loads: ExportLoad[];
     solar_monthly_profiles: ExportSolarMonthlyProfile[];
@@ -934,6 +944,7 @@ export function buildDigitalTwinExport(db: Database.Database, dbPath: string): D
   const mpptTypes = listMpptTypes(db);
   const batteryTypes = listBatteryTypes(db);
   const conversionDevices = listConversionDevices(db);
+  const projectConverters = listProjectConverters(db);
   const inverterTypes = conversionDevices
     .map((device) => conversionDeviceToInverterType(device))
     .filter((device): device is InverterType => device != null);
@@ -1027,8 +1038,15 @@ export function buildDigitalTwinExport(db: Database.Database, dbPath: string): D
         price_source_url: device.price_source_url ?? null,
         notes: device.notes ?? null,
       })),
+      project_converters: projectConverters.map((converter) => ({
+        project_converter_id: converter.project_converter_id,
+        title: converter.title,
+        description: converter.description ?? null,
+        conversion_device_id: converter.conversion_device_id,
+      })),
       load_circuits: loadCircuits.map((circuit) => ({
         load_circuit_id: circuit.load_circuit_id,
+        project_converter_id: circuit.project_converter_id ?? null,
         conversion_device_id: circuit.conversion_device_id,
         title: circuit.title,
         description: circuit.description ?? null,

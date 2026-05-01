@@ -7,6 +7,7 @@
   body { margin: 0; padding: 20px; background: var(--bg); font-family: var(--font-sans); display: flex; flex-direction: column; gap: 10px; }
   .section-label { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--muted); padding-bottom: 4px; border-bottom: 1px solid var(--border); }
   .btn-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .btn-row-start { justify-content: flex-start; }
   .btn {
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
     min-height: 38px; padding: 10px 14px;
@@ -34,16 +35,20 @@
 </head>
 <body>
   <div class="section-label">Buttons</div>
-  <div class="btn-row">
-    <button class="btn">Default</button>
-    <button class="btn btn-primary">Save</button>
-    <button class="btn btn-danger">Delete</button>
-    <button class="btn" disabled>Disabled</button>
+  <div class="btn-row btn-row-start">
+    <button class="btn btn-sm">Add converter</button>
+    <button class="btn btn-sm">Edit converter</button>
   </div>
   <div class="btn-row">
     <button class="btn btn-sm">Small</button>
     <button class="btn btn-sm btn-primary">Save changes</button>
     <button class="btn btn-sm btn-danger">Remove</button>
+  </div>
+  <div class="btn-row">
+    <button class="btn">Default</button>
+    <button class="btn btn-primary">Save</button>
+    <button class="btn btn-danger">Delete</button>
+    <button class="btn" disabled>Disabled</button>
   </div>
   <button class="btn btn-block">Block button (full width)</button>
 </body>

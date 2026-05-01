@@ -59,6 +59,10 @@ The app does not need one page per node at first, but this should remain the con
 
 URLs should reflect the conceptual drill-down path and avoid skipping levels.
 
+Support workbenches are the exception: `Load circuits` and `Loads` remain directly
+reachable from the menu, and their parent scope is expressed as URL filters rather
+than hidden nested child routes.
+
 Preferred patterns:
 
 - `/location`
@@ -68,13 +72,19 @@ Preferred patterns:
 - `/consumption`
 - `/consumption/converters/:converterId`
 - `/consumption/converters/:converterId/load-circuits/:loadCircuitId`
+- `/load-circuits?converter=:converterId`
+- `/loads?converter=:converterId&circuit=:loadCircuitId`
 
 Routing rules:
 
 - a nested page should keep its parent visible in breadcrumbs
 - breadcrumb labels should use configured entity titles where available
 - the root breadcrumb should use the configured location or project title, not a vague `Project` label
-- if `/load-circuits` or `/loads` stay as direct pages, they should be treated as support routes rather than primary navigation destinations
+- `/load-circuits` stays in primary navigation as a filtered workbench with URL state
+- `/loads` stays in primary navigation as a filtered workbench with URL state
+- `converter` query parameters on workbench routes refer to `project_converters.project_converter_id`
+- converter `Show attached load circuits` on `/consumption` opens `/load-circuits?converter=:projectConverterId`, not a hidden nested child page
+- load circuit Detail opens `/loads?converter=:converterId&circuit=:loadCircuitId`
 - catalog routes should stay under `Catalogs`
 - report routes should stay under `Reports`
 

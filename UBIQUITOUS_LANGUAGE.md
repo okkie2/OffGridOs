@@ -20,6 +20,7 @@ Every concept must be referred to by its canonical name across the database sche
 | Cabinet type | `cabinet_types` | `CabinetType` | Cabinet |
 | DC busbar | `dc_busbars` | `DcBusbar` | DC busbar |
 | Conversion device | `conversion_devices` | `ConversionDevice` | Conversion device |
+| Project converter | `project_converters` | `ProjectConverter` | Converter |
 | Project preference | `project_preferences` | `ProjectPreferences` | Preference |
 | Victron CAN | `battery_types.victron_can` | `BatteryType.victron_can` | Victron CAN |
 
@@ -42,6 +43,8 @@ Use `configuration` for project-selected or project-configured records when you 
 | Battery bank configuration | `battery_bank_configurations` | `BatteryBankConfiguration` | Battery bank configuration |
 | MPPT configuration | `mppt_configurations` | `MpptConfiguration` | MPPT configuration |
 | Inverter configuration | `inverter_configurations` | `InverterConfiguration` | Inverter configuration |
+
+`Project converter` means a converter instance selected for the current project. It owns the user-facing title and description on `Consumption` and references one catalogue `Conversion device`.
 
 ## Legacy terminology
 

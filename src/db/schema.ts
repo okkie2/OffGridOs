@@ -7,6 +7,74 @@ function hasTable(db: Database.Database, tableName: string): boolean {
   return Boolean(row);
 }
 
+function ensureProjectsTable(db: Database.Database): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS projects (
+      project_id  TEXT PRIMARY KEY,
+      title       TEXT NOT NULL,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+  db.prepare(`
+    INSERT OR IGNORE INTO projects (project_id, title, created_at)
+    VALUES ('default-project', '18Mad Boerderij', datetime('now'))
+  `).run();
+}
+
+function ensureProjectId(db: Database.Database, tableName: string): void {
+  const cols = new Set(
+    (db.prepare(`PRAGMA table_info('${tableName}')`).all() as { name: string }[]).map((r) => r.name),
+  );
+  if (cols.has('project_id')) return;
+  // SQLite does not allow a non-NULL default on a REFERENCES column, so we add
+  // the column as nullable, backfill, then rely on application-layer enforcement.
+  db.exec(`ALTER TABLE ${tableName} ADD COLUMN project_id TEXT REFERENCES projects(project_id);`);
+  db.prepare(`UPDATE ${tableName} SET project_id = 'default-project' WHERE project_id IS NULL`).run();
+}
+
+function ensureProjectPreferencesProjectId(db: Database.Database): void {
+  const cols = new Set(
+    (db.prepare("PRAGMA table_info('project_preferences')").all() as { name: string }[]).map((r) => r.name),
+  );
+  if (cols.has('project_id')) return;
+  db.exec("ALTER TABLE project_preferences ADD COLUMN project_id TEXT NOT NULL DEFAULT 'default-project';");
+}
+
+function ensureLoadCircuitsProjectConverterId(db: Database.Database): void {
+  const cols = new Set(
+    (db.prepare("PRAGMA table_info('load_circuits')").all() as { name: string }[]).map((r) => r.name),
+  );
+  if (!cols.has('project_converter_id')) {
+    db.exec('ALTER TABLE load_circuits ADD COLUMN project_converter_id TEXT REFERENCES project_converters(project_converter_id);');
+  }
+
+  db.exec(`
+    INSERT OR IGNORE INTO project_converters (
+      project_converter_id,
+      title,
+      description,
+      conversion_device_id
+    )
+    SELECT
+      lc.conversion_device_id,
+      cd.title,
+      cd.description,
+      lc.conversion_device_id
+    FROM load_circuits lc
+    JOIN conversion_devices cd ON cd.conversion_device_id = lc.conversion_device_id
+    WHERE lc.project_converter_id IS NULL
+    GROUP BY lc.conversion_device_id;
+  `);
+  db.exec(`
+    UPDATE load_circuits
+    SET project_converter_id = conversion_device_id
+    WHERE project_converter_id IS NULL
+      AND conversion_device_id IN (
+        SELECT project_converter_id FROM project_converters
+      );
+  `);
+}
+
 function ensureBatteryTypesColumns(db: Database.Database): void {
   const cols = new Set((db.prepare("PRAGMA table_info('battery_types')").all() as { name: string }[]).map((row) => row.name));
   const additions = [
@@ -545,9 +613,18 @@ export function initSchema(db: Database.Database): void {
       max_output_current_a   REAL
     );
 
+    CREATE TABLE IF NOT EXISTS project_converters (
+      id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_converter_id   TEXT UNIQUE NOT NULL,
+      title                  TEXT NOT NULL,
+      description            TEXT,
+      conversion_device_id   TEXT NOT NULL REFERENCES conversion_devices(conversion_device_id)
+    );
+
     CREATE TABLE IF NOT EXISTS load_circuits (
       id                     INTEGER PRIMARY KEY AUTOINCREMENT,
       load_circuit_id        TEXT UNIQUE NOT NULL,
+      project_converter_id   TEXT REFERENCES project_converters(project_converter_id),
       conversion_device_id   TEXT NOT NULL REFERENCES conversion_devices(conversion_device_id),
       title                  TEXT NOT NULL,
       description            TEXT
@@ -579,6 +656,25 @@ export function initSchema(db: Database.Database): void {
   ensurePanelTypesColumns(db);
   ensureMpptTypesColumns(db);
   ensureInverterTypesColumns(db);
+
+  // Phase 1 multi-project: add projects table and project_id to all project-scoped
+  // tables. Catalog tables (panel_types, mppt_types, battery_types, inverter_types,
+  // cabinet_types, conversion_devices, dc_busbars) stay global and are not scoped.
+  ensureProjectsTable(db);
+  ensureProjectId(db, 'locations');
+  ensureProjectId(db, 'surfaces');
+  ensureProjectId(db, 'surface_panel_assignments');
+  ensureProjectId(db, 'pv_arrays');
+  ensureProjectId(db, 'pv_strings');
+  ensureProjectId(db, 'array_to_mppt_mappings');
+  ensureProjectId(db, 'surface_configurations');
+  ensureProjectId(db, 'battery_bank_configurations');
+  ensureProjectId(db, 'inverter_configurations');
+  ensureProjectId(db, 'project_converters');
+  ensureProjectId(db, 'load_circuits');
+  ensureProjectId(db, 'loads');
+  ensureProjectPreferencesProjectId(db);
+  ensureLoadCircuitsProjectConverterId(db);
   seedLocation(db);
   seedSurfaces(db);
   seedPanelTypes(db);

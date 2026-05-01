@@ -10,6 +10,7 @@ High-fidelity recreation of the OffGridOS web app — a single-page React applic
 - All caps + letter-spacing for nav labels, section heads, stat labels
 - Square (0px radius) status badges
 - Minimal transitions: 120–180ms ease, press = `translateY(1px)`
+- Compact action toolbars default to small secondary buttons aligned left; use primary and danger only for commit/destructive actions.
 
 ## Structure
 
