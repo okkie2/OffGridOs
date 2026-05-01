@@ -132,6 +132,8 @@ h1, h2, h3, p, dl, dd, dt {
 .sidebar-nav {
   flex: 1;
   padding: 14px 0;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .sidebar-nav-item {
@@ -1463,6 +1465,8 @@ h1, h2, h3, p, dl, dd, dt {
 .field {
   display: grid;
   gap: 6px;
+  justify-items: start;
+  text-align: left;
 }
 
 .field span {
@@ -1541,11 +1545,107 @@ h1, h2, h3, p, dl, dd, dt {
 }
 
 .catalog-inline-editor {
-  padding: 16px;
-  margin: 8px 0;
+  padding: 10px 12px;
+  margin: 6px 0;
   border: 1px solid var(--border);
   background: var(--surface-low);
   border-radius: 12px;
+}
+
+.catalog-inline-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.catalog-inline-grid-6 {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.catalog-inline-grid-9 {
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+}
+
+.catalog-inline-span-3 {
+  grid-column: span 3;
+}
+
+.catalog-inline-span-2 {
+  grid-column: span 2;
+}
+
+.catalog-inline-span-1 {
+  grid-column: span 1;
+}
+
+.catalog-inline-span-6 {
+  grid-column: span 6;
+}
+
+.catalog-inline-span-7 {
+  grid-column: span 7;
+}
+
+.catalog-inline-span-9 {
+  grid-column: 1 / -1;
+}
+
+.catalog-inline-summary .field,
+.catalog-inline-basic .field,
+.catalog-inline-advanced .field {
+  gap: 3px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  border-radius: 0;
+}
+
+.catalog-inline-checkbox-field {
+  justify-content: start;
+}
+
+.catalog-inline-checkbox-field input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  margin: 2px 0 0;
+  accent-color: #111;
+}
+
+.catalog-inline-summary span,
+.catalog-inline-basic span,
+.catalog-inline-advanced span {
+  font-size: 0.64rem;
+  letter-spacing: 0.06em;
+}
+
+.catalog-inline-basic,
+.catalog-inline-advanced-grid {
+  gap: 12px;
+}
+
+.catalog-inline-basic .field input,
+.catalog-inline-basic .field select,
+.catalog-inline-advanced .field input,
+.catalog-inline-advanced .field select,
+.catalog-inline-advanced .field textarea {
+  height: 32px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.catalog-inline-basic .field textarea,
+.catalog-inline-advanced .field textarea {
+  min-height: 56px;
+  resize: vertical;
+}
+
+.catalog-inline-advanced summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .fit-head {
