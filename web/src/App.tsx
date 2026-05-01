@@ -3987,7 +3987,7 @@ type PageContext = {
   openMediaPreview?: (media: LightboxMedia) => void;
 };
 
-function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refreshProjectData, openMediaPreview }: PageContext) {
+function LocationPage({ data, route, localSurfaceSummaries, localTotalInstalledWp, refreshProjectData, openMediaPreview }: PageContext) {
   const { t } = useTranslation();
   const storagePrefix = getLocationStorageKey(data);
   const activeLocationId = data.project.active_location_id ?? data.project.location?.location_id ?? '';
@@ -4136,6 +4136,13 @@ function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refr
       if (createdLocationId) {
         _currentLocationId = createdLocationId;
         localStorage.setItem('offgridos:active-location-id', createdLocationId);
+        const createdLocation = payload?.project?.locations?.find((location) => location.location_id === createdLocationId) ?? null;
+        if (createdLocation) {
+          navigateTo(route, {
+            locationSlug: getLocationSlugForLocation(createdLocation),
+            replace: true,
+          });
+        }
       }
 
       await refreshProjectData();
@@ -11190,6 +11197,13 @@ function AppContent() {
   function switchLocation(locationId: string): void {
     _currentLocationId = locationId;
     localStorage.setItem('offgridos:active-location-id', locationId);
+    const nextLocation = data?.project.locations?.find((location) => location.location_id === locationId) ?? null;
+    if (nextLocation) {
+      navigateTo(route, {
+        locationSlug: getLocationSlugForLocation(nextLocation),
+        replace: true,
+      });
+    }
     setData(null);
     void refreshProjectData();
   }
