@@ -961,6 +961,21 @@ function getLocationDisplayName(
     || (t ? t('location.not_set') : 'Location not set');
 }
 
+function getLocationSlugForLocation(location: {
+  title?: string | null;
+  place_name?: string | null;
+}): string {
+  return slugifyPathSegment(location.title?.trim() || location.place_name?.trim() || 'project');
+}
+
+function findLocationBySlug(data: DigitalTwinExport, locationSlug: string | null): { location_id: string } | null {
+  if (!locationSlug) {
+    return null;
+  }
+
+  return data.project.locations?.find((location) => getLocationSlugForLocation(location) === locationSlug) ?? null;
+}
+
 function getSurfaceDisplayName(data: DigitalTwinExport, surfaceId: string): string {
   return data.entities.surfaces.find((surface) => surface.surface_id === surfaceId)?.name ?? surfaceId;
 }
@@ -11141,6 +11156,7 @@ function AppContent() {
   const [data, setData] = useState<DigitalTwinExport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [route, setRoute] = useState<Route>(() => parseAppUrl(window.location.pathname, window.location.hash).route);
+  const currentPath = parseAppUrl(window.location.pathname, window.location.hash);
   const { language, setLanguage, t } = useTranslation();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = usePersistentState('offgridos:sidebar-collapsed', false);
@@ -11204,6 +11220,22 @@ function AppContent() {
       localStorage.setItem('offgridos:active-location-id', nextLocationId);
     }
   }, [data]);
+
+  useEffect(() => {
+    if (!data) {
+      return;
+    }
+
+    const requestedLocation = findLocationBySlug(data, currentPath.locationSlug);
+    if (!requestedLocation || requestedLocation.location_id === data.project.active_location_id) {
+      return;
+    }
+
+    _currentLocationId = requestedLocation.location_id;
+    localStorage.setItem('offgridos:active-location-id', requestedLocation.location_id);
+    setData(null);
+    void refreshProjectData();
+  }, [currentPath.locationSlug, data]);
 
   useEffect(() => {
     const onPopState = () => {
