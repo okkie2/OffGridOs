@@ -123,6 +123,54 @@ function ImageLightbox({
   );
 }
 
+function ConfirmDialog({
+  title,
+  message,
+  confirmLabel,
+  cancelLabel,
+  confirmTone = 'secondary',
+  onConfirm,
+  onCancel,
+}: {
+  title: string;
+  message: string;
+  confirmLabel: string;
+  cancelLabel: string;
+  confirmTone?: 'secondary' | 'danger' | 'success';
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="confirm-dialog" role="dialog" aria-modal="true" aria-label={title} onClick={onCancel}>
+      <div className="confirm-dialog-backdrop" />
+      <div className="confirm-dialog-panel" onClick={(event) => event.stopPropagation()}>
+        <div className="section-head">
+          <h2>{title}</h2>
+          <p>{message}</p>
+        </div>
+        <div className="button-row button-row-end confirm-dialog-actions">
+          <button type="button" className="button button-secondary" onClick={onCancel}>
+            {cancelLabel}
+          </button>
+          <button
+            type="button"
+            className={
+              confirmTone === 'danger'
+                ? 'button button-danger'
+                : confirmTone === 'success'
+                  ? 'button button-success'
+                  : 'button button-secondary'
+            }
+            onClick={onConfirm}
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface Surface {
   surface_id: string;
   name: string;
@@ -6821,13 +6869,34 @@ function BatteryCatalogPage({
   const { t } = useTranslation();
   const [selectedBatteryTypeId, setSelectedBatteryTypeId] = useState(() => data.entities.battery_types[0]?.battery_type_id ?? '');
   const [draft, setDraft] = useState<BatteryTypeDraft>(() => batteryDraftFromType(data.entities.battery_types[0] ?? null));
+  const [isAddingNew, setIsAddingNew] = useState(false);
+  const [addBatteryReturnId, setAddBatteryReturnId] = useState<string | null>(data.entities.battery_types[0]?.battery_type_id ?? null);
+  const [openBatteryEditorId, setOpenBatteryEditorId] = useState<string | null>(data.entities.battery_types[0]?.battery_type_id ?? null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [advancedOpenByBatteryTypeId, setAdvancedOpenByBatteryTypeId] = useState<Record<string, boolean>>({});
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   const selectedBattery = selectedBatteryTypeId
     ? data.entities.battery_types.find((item) => item.battery_type_id === selectedBatteryTypeId) ?? null
     : null;
+  const batteryEditorStateKey = isAddingNew ? '__new__' : (selectedBatteryTypeId || '__new__');
+  const isBatteryAdvancedOpen = advancedOpenByBatteryTypeId[batteryEditorStateKey] ?? false;
+  const batteryEditorIdentifier = selectedBattery
+    ? selectedBattery.battery_type_id
+    : (draft.model.trim() ? generateUniqueCatalogId(draft.model.trim(), data.entities.battery_types.map((battery) => battery.battery_type_id)) : t('catalog.ui.generated_after_save'));
+  const isBatteryDraftSaveReady = Boolean(
+    draft.brand.trim()
+    && draft.model.trim()
+    && draft.chemistry.trim()
+    && Number.isFinite(Number(draft.nominal_voltage))
+    && Number(draft.nominal_voltage) > 0
+    && Number.isFinite(Number(draft.capacity_ah))
+    && Number(draft.capacity_ah) > 0
+    && Number.isFinite(Number(draft.capacity_kwh))
+    && Number(draft.capacity_kwh) > 0
+  );
 
   useEffect(() => {
     if (selectedBatteryTypeId) {
@@ -6839,16 +6908,42 @@ function BatteryCatalogPage({
   }, [data, selectedBatteryTypeId]);
 
   function startAddNew() {
+    setAddBatteryReturnId(selectedBatteryTypeId || null);
     setSelectedBatteryTypeId('');
+    setIsAddingNew(true);
+    setOpenBatteryEditorId(null);
     setSaveError(null);
     setSaveMessage(null);
+    setDeleteConfirmOpen(false);
     setDraft(emptyBatteryDraft());
   }
 
-  async function handleSave() {
+  function openExistingBatteryEditor(batteryTypeId: string) {
+    setSelectedBatteryTypeId(batteryTypeId);
+    setOpenBatteryEditorId(batteryTypeId);
+    setIsAddingNew(false);
+    setSaveError(null);
+    setSaveMessage(null);
+    setDeleteConfirmOpen(false);
+  }
+
+  function closeBatteryEditor() {
+    if (isAddingNew) {
+      setSelectedBatteryTypeId(addBatteryReturnId ?? '');
+    }
+    setIsAddingNew(false);
+    setAddBatteryReturnId(null);
+    setOpenBatteryEditorId(null);
+    setSaveError(null);
+    setSaveMessage(null);
+    setDeleteConfirmOpen(false);
+  }
+
+  async function handleSave(): Promise<boolean> {
     const brand = draft.brand.trim();
     const model = draft.model.trim();
-    const batteryTypeId = selectedBattery ? selectedBatteryTypeId : generateUniqueCatalogId(model, data.entities.battery_types.map((battery) => battery.battery_type_id));
+    const isEdit = Boolean(selectedBattery) && !isAddingNew;
+    const batteryTypeId = isEdit ? selectedBatteryTypeId : generateUniqueCatalogId(model, data.entities.battery_types.map((battery) => battery.battery_type_id));
     const chemistry = draft.chemistry.trim();
     const nominalVoltage = Number(draft.nominal_voltage);
     const capacityAh = Number(draft.capacity_ah);
@@ -6861,12 +6956,12 @@ function BatteryCatalogPage({
 
     if (!brand || !model || !chemistry || !Number.isFinite(nominalVoltage) || nominalVoltage <= 0 || !Number.isFinite(capacityAh) || capacityAh <= 0 || !Number.isFinite(capacityKwh) || capacityKwh <= 0) {
       setSaveError(t('catalog.validation.battery_required'));
-      return;
+      return false;
     }
 
     if ((maxChargeRate != null && !Number.isFinite(maxChargeRate)) || (maxDischargeRate != null && !Number.isFinite(maxDischargeRate)) || (price != null && !Number.isFinite(price))) {
       setSaveError(t('catalog.validation.optional_numeric_fields'));
-      return;
+      return false;
     }
 
     try {
@@ -6874,7 +6969,6 @@ function BatteryCatalogPage({
       setSaveError(null);
       setSaveMessage(null);
 
-      const isEdit = Boolean(selectedBattery);
       const response = await fetch(isEdit ? `/api/battery-types/${encodeURIComponent(selectedBatteryTypeId)}` : '/api/battery-types', {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -6903,6 +6997,10 @@ function BatteryCatalogPage({
 
       await refreshProjectData();
       setSelectedBatteryTypeId(batteryTypeId);
+      setIsAddingNew(false);
+      setAddBatteryReturnId(null);
+      setOpenBatteryEditorId(null);
+      setDeleteConfirmOpen(false);
       setDraft(batteryDraftFromType({
         battery_type_id: batteryTypeId,
         brand,
@@ -6923,18 +7021,17 @@ function BatteryCatalogPage({
         notes,
       }));
       setSaveMessage(t('catalog.message.saved', { item: t('catalog.entry.battery_type'), id: batteryTypeId }));
+      return true;
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : t('catalog.validation.optional_numeric_fields'));
+      return false;
     } finally {
       setIsSaving(false);
     }
   }
 
-  async function handleDelete() {
-    if (!selectedBattery) return;
-
-    const confirmed = window.confirm(t('catalog.confirm.delete', { item: t('catalog.entry.battery_type'), id: selectedBattery.battery_type_id }));
-    if (!confirmed) return;
+  async function handleDelete(): Promise<boolean> {
+    if (!selectedBattery || isAddingNew) return false;
 
     try {
       setIsSaving(true);
@@ -6950,84 +7047,116 @@ function BatteryCatalogPage({
       await refreshProjectData();
       const nextBattery = data.entities.battery_types.find((item) => item.battery_type_id !== selectedBattery.battery_type_id) ?? null;
       setSelectedBatteryTypeId(nextBattery?.battery_type_id ?? '');
+      setIsAddingNew(false);
+      setAddBatteryReturnId(null);
+      setOpenBatteryEditorId(null);
+      setDeleteConfirmOpen(false);
       setDraft(batteryDraftFromType(nextBattery));
       setSaveMessage(t('catalog.message.deleted', { item: t('catalog.entry.battery_type'), id: selectedBattery.battery_type_id }));
+      return true;
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Failed to delete battery type.');
+      return false;
     } finally {
       setIsSaving(false);
     }
   }
 
+  const updateBatteryDraftField = (field: keyof BatteryTypeDraft, value: string) => {
+    setDraft((current) => ({ ...current, [field]: value }));
+  };
+
   const batteryEditor = (
-    <>
-      <div className="detail-grid two-col catalog-inline-summary">
-        <div className="field">
-          <span>{t('catalog.field.battery_type_id')}</span>
-          <p className="muted">
-            {selectedBattery ? selectedBattery.battery_type_id : (draft.model.trim() ? generateUniqueCatalogId(draft.model.trim(), data.entities.battery_types.map((battery) => battery.battery_type_id)) : t('catalog.ui.generated_after_save'))}
-          </p>
-        </div>
-        <div className="field">
-          <span>{t('catalog.stat.voltage')}</span>
-          <p className="muted">{draft.nominal_voltage ? `${draft.nominal_voltage} V` : 'n/a'}</p>
-        </div>
-      </div>
-      <div className="detail-grid two-col catalog-inline-basic">
-        <label className="field">
+    <div className="stack" style={{ gap: 16 }} data-battery-model={draft.model}>
+      <div className="catalog-inline-grid catalog-inline-grid-6 catalog-inline-basic">
+        <label className="field catalog-inline-span-1">
           <span>{t('catalog.field.brand')}</span>
           <input
             value={draft.brand}
             onChange={(event) => setDraft((current) => ({ ...current, brand: event.target.value }))}
+            onInput={(event) => updateBatteryDraftField('brand', event.currentTarget.value)}
             placeholder="Pylontech"
           />
         </label>
-        <label className="field">
+        <label className="field catalog-inline-span-1">
           <span>{t('catalog.field.model')}</span>
           <input
             value={draft.model}
             onChange={(event) => setDraft((current) => ({ ...current, model: event.target.value }))}
+            onInput={(event) => updateBatteryDraftField('model', event.currentTarget.value)}
             placeholder="US5000-1C"
           />
         </label>
-        <label className="field">
+        <label className="field catalog-inline-span-1">
           <span>{t('catalog.field.capacity_kwh')}</span>
           <input
             type="number"
             value={draft.capacity_kwh}
             onChange={(event) => setDraft((current) => ({ ...current, capacity_kwh: event.target.value }))}
+            onInput={(event) => updateBatteryDraftField('capacity_kwh', event.currentTarget.value)}
           />
         </label>
-        <label className="field">
-          <span>{t('catalog.field.capacity_ah')}</span>
-          <input
-            type="number"
-            value={draft.capacity_ah}
-            onChange={(event) => setDraft((current) => ({ ...current, capacity_ah: event.target.value }))}
-          />
-        </label>
-        <label className="field">
+        <label className="field catalog-inline-span-1">
           <span>{t('catalog.field.nominal_voltage')}</span>
           <input
             type="number"
             value={draft.nominal_voltage}
             onChange={(event) => setDraft((current) => ({ ...current, nominal_voltage: event.target.value }))}
+            onInput={(event) => updateBatteryDraftField('nominal_voltage', event.currentTarget.value)}
           />
         </label>
-        <label className="field">
-          <span>{t('catalog.field.chemistry')}</span>
+        <label className="field catalog-inline-span-1">
+          <span>{t('catalog.stat.price')}</span>
           <input
-            value={draft.chemistry}
-            onChange={(event) => setDraft((current) => ({ ...current, chemistry: event.target.value }))}
-            placeholder="LiFePO4"
+            type="number"
+            value={draft.price}
+            onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))}
+            onInput={(event) => updateBatteryDraftField('price', event.currentTarget.value)}
+          />
+        </label>
+        <label className="field catalog-inline-span-1">
+          <span>{t('catalog.ui.price_source_url')}</span>
+          <input
+            value={draft.price_source_url}
+            onChange={(event) => setDraft((current) => ({ ...current, price_source_url: event.target.value }))}
+            onInput={(event) => updateBatteryDraftField('price_source_url', event.currentTarget.value)}
+            placeholder="https://..."
           />
         </label>
       </div>
-      <details className="catalog-inline-advanced">
-        <summary>Advanced</summary>
+      <details
+        className="catalog-inline-advanced"
+        open={isBatteryAdvancedOpen}
+        onToggle={(event) => {
+          const nextOpen = event.currentTarget.open;
+          setAdvancedOpenByBatteryTypeId((current) => ({
+            ...current,
+            [batteryEditorStateKey]: nextOpen,
+          }));
+        }}
+      >
+        <summary>Non-table fields</summary>
         <div className="stack" style={{ gap: 12 }}>
-          <div className="detail-grid two-col catalog-inline-advanced-grid">
-            <label className="field">
+          <div className="catalog-inline-grid catalog-inline-grid-6 catalog-inline-advanced-grid">
+            <label className="field catalog-inline-span-1">
+              <span>{t('catalog.field.capacity_ah')}</span>
+              <input
+                type="number"
+                value={draft.capacity_ah}
+                onChange={(event) => setDraft((current) => ({ ...current, capacity_ah: event.target.value }))}
+                onInput={(event) => updateBatteryDraftField('capacity_ah', event.currentTarget.value)}
+              />
+            </label>
+            <label className="field catalog-inline-span-1">
+              <span>{t('catalog.field.chemistry')}</span>
+              <input
+                value={draft.chemistry}
+                onChange={(event) => setDraft((current) => ({ ...current, chemistry: event.target.value }))}
+                onInput={(event) => updateBatteryDraftField('chemistry', event.currentTarget.value)}
+                placeholder="LiFePO4"
+              />
+            </label>
+            <label className="field catalog-inline-span-1">
               <span>{t('catalog.field.cooling')}</span>
               <select
                 value={draft.cooling}
@@ -7037,7 +7166,7 @@ function BatteryCatalogPage({
                 <option value="active">active</option>
               </select>
             </label>
-            <label className="field">
+            <label className="field catalog-inline-span-1 catalog-inline-checkbox-field">
               <span>{t('catalog.field.victron_can')}</span>
               <input
                 type="checkbox"
@@ -7045,64 +7174,68 @@ function BatteryCatalogPage({
                 onChange={(event) => setDraft((current) => ({ ...current, victron_can: event.target.checked }))}
               />
             </label>
-            <label className="field">
+            <label className="field catalog-inline-span-1">
               <span>{t('catalog.field.max_charge_rate')}</span>
               <input
                 type="number"
                 value={draft.max_charge_rate}
                 onChange={(event) => setDraft((current) => ({ ...current, max_charge_rate: event.target.value }))}
+                onInput={(event) => updateBatteryDraftField('max_charge_rate', event.currentTarget.value)}
               />
             </label>
-            <label className="field">
+            <label className="field catalog-inline-span-1">
               <span>{t('catalog.field.max_discharge_rate')}</span>
               <input
                 type="number"
                 value={draft.max_discharge_rate}
                 onChange={(event) => setDraft((current) => ({ ...current, max_discharge_rate: event.target.value }))}
+                onInput={(event) => updateBatteryDraftField('max_discharge_rate', event.currentTarget.value)}
               />
             </label>
           </div>
-          <div className="detail-grid two-col catalog-inline-advanced-grid">
-            <label className="field">
-              <span>{t('catalog.ui.price_per_unit')}</span>
-              <input
-                type="number"
-                value={draft.price}
-                onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))}
-              />
-            </label>
-            <label className="field">
-              <span>{t('catalog.ui.price_source_url')}</span>
-              <input
-                value={draft.price_source_url}
-                onChange={(event) => setDraft((current) => ({ ...current, price_source_url: event.target.value }))}
-                placeholder="https://..."
-              />
-            </label>
-          </div>
-          <label className="field">
+          <label className="field catalog-inline-span-3">
             <span>{t('catalog.ui.notes')}</span>
             <textarea
               value={draft.notes}
               onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))}
-              rows={3}
+              onInput={(event) => updateBatteryDraftField('notes', event.currentTarget.value)}
+              rows={1}
             />
           </label>
         </div>
       </details>
       <div className="button-row">
-        <button type="button" className="button button-secondary button-sm" onClick={() => void handleSave()} disabled={isSaving || !draft.model.trim()}>
+        <button type="button" className="button button-secondary" onClickCapture={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          closeBatteryEditor();
+        }} disabled={isSaving}>
+          {t('common.cancel')}
+        </button>
+        <button type="button" className="button button-success" onClickCapture={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          void (async () => {
+            if (await handleSave()) {
+              closeBatteryEditor();
+            }
+          })();
+        }} disabled={isSaving || !isBatteryDraftSaveReady}>
           {isSaving ? t('common.saving') : t('common.save')}
         </button>
-        {selectedBattery ? (
-          <button type="button" className="button button-danger button-sm" onClick={() => void handleDelete()} disabled={isSaving}>
+        {!isAddingNew && selectedBattery ? (
+          <button type="button" className="button button-danger" onClickCapture={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setDeleteConfirmOpen(true);
+          }} disabled={isSaving}>
             {t('common.delete')}
           </button>
         ) : null}
         {saveError ? <p className="save-error">{saveError}</p> : null}
         {saveMessage ? <p className="save-message">{saveMessage}</p> : null}
       </div>
-    </>
+    </div>
   );
 
   return (
@@ -7112,7 +7245,7 @@ function BatteryCatalogPage({
           <div className="stack" style={{ gap: 12 }}>
             <div className="button-row button-row-between">
               <button type="button" className="button button-secondary" onClick={startAddNew}>
-                {t('catalog.ui.add_item', { item: t('catalog.entry.battery_type') })}
+                {t('catalog.ui.add_item', { item: t('catalog.entry.battery') })}
               </button>
             </div>
             <div className="yield-table-wrap">
@@ -7130,10 +7263,10 @@ function BatteryCatalogPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {!selectedBattery ? (
+                  {isAddingNew ? (
                     <CatalogInlineEditorRow
                       colSpan={8}
-                      title={t('catalog.ui.add_item', { item: t('catalog.entry.battery_type') })}
+                      title={t('catalog.ui.add_item', { item: t('catalog.entry.battery') })}
                       subtitle={t('catalog.ui.changes_saved')}
                     >
                       {batteryEditor}
@@ -7145,23 +7278,22 @@ function BatteryCatalogPage({
                         {t('catalog.ui.no_entries')}
                       </td>
                     </tr>
-                  ) : data.entities.battery_types.map((battery) => (
+                  ) : [...data.entities.battery_types].sort((a, b) => {
+                    const brandCmp = a.brand.localeCompare(b.brand);
+                    return brandCmp !== 0 ? brandCmp : a.model.localeCompare(b.model);
+                  }).map((battery) => (
                     <React.Fragment key={battery.battery_type_id}>
                       <tr
                         className={`catalog-table-row ${selectedBatteryTypeId === battery.battery_type_id ? 'catalog-table-row-active' : ''}`}
                         role="button"
                         tabIndex={0}
                         onClick={() => {
-                          setSelectedBatteryTypeId(battery.battery_type_id);
-                          setSaveError(null);
-                          setSaveMessage(null);
+                          openExistingBatteryEditor(battery.battery_type_id);
                         }}
                         onKeyDown={(event) => {
                           if (event.key === 'Enter' || event.key === ' ') {
                             event.preventDefault();
-                            setSelectedBatteryTypeId(battery.battery_type_id);
-                            setSaveError(null);
-                            setSaveMessage(null);
+                            openExistingBatteryEditor(battery.battery_type_id);
                           }
                         }}
                       >
@@ -7178,19 +7310,17 @@ function BatteryCatalogPage({
                             className="button button-secondary button-sm"
                             onClick={(event) => {
                               event.stopPropagation();
-                              setSelectedBatteryTypeId(battery.battery_type_id);
-                              setSaveError(null);
-                              setSaveMessage(null);
+                              openExistingBatteryEditor(battery.battery_type_id);
                             }}
                           >
                             {t('common.edit')}
                           </button>
                         </td>
                       </tr>
-                      {selectedBatteryTypeId === battery.battery_type_id ? (
+                      {openBatteryEditorId === battery.battery_type_id ? (
                         <CatalogInlineEditorRow
                           colSpan={8}
-                          title={t('catalog.ui.edit_item', { item: t('catalog.entry.battery_type') })}
+                          title={t('catalog.ui.edit_item', { item: t('catalog.entry.battery') })}
                           subtitle={t('catalog.ui.changes_saved')}
                         >
                           {batteryEditor}
@@ -7204,181 +7334,24 @@ function BatteryCatalogPage({
           </div>
         </section>
 
-        <section className="panel" style={{ display: 'none' }}>
-          <div className="section-head">
-            <h2>{selectedBattery ? t('catalog.ui.edit_item', { item: t('catalog.entry.battery_type') }) : t('catalog.ui.add_item', { item: t('catalog.entry.battery_type') })}</h2>
-            <p>{t('catalog.ui.changes_saved')}</p>
-          </div>
-          <div className="stack" style={{ gap: 16 }}>
-            <div className="field">
-              <span>{t('catalog.field.battery_type_id')}</span>
-              <p className="muted">
-                {selectedBattery ? selectedBattery.battery_type_id : (draft.model.trim() ? generateUniqueCatalogId(draft.model.trim(), data.entities.battery_types.map((battery) => battery.battery_type_id)) : t('catalog.ui.generated_after_save'))}
-              </p>
-            </div>
-            <label className="field">
-              <span>{t('catalog.field.brand')}</span>
-              <input
-                value={draft.brand}
-                onChange={(event) => setDraft((current) => ({ ...current, brand: event.target.value }))}
-                placeholder="Pylontech"
-              />
-            </label>
-            <label className="field">
-              <span>{t('catalog.field.model')}</span>
-              <input
-                value={draft.model}
-                onChange={(event) => setDraft((current) => ({ ...current, model: event.target.value }))}
-                placeholder="US5000-1C"
-              />
-            </label>
-            <div className="detail-grid two-col">
-              <label className="field">
-                <span>{t('catalog.field.chemistry')}</span>
-                <input
-                  value={draft.chemistry}
-                  onChange={(event) => setDraft((current) => ({ ...current, chemistry: event.target.value }))}
-                  placeholder="LiFePO4"
-                />
-              </label>
-              <label className="field">
-                <span>{t('catalog.field.cooling')}</span>
-                <select
-                  value={draft.cooling}
-                  onChange={(event) => setDraft((current) => ({ ...current, cooling: event.target.value as 'active' | 'passive' }))}
-                >
-                  <option value="passive">passive</option>
-                  <option value="active">active</option>
-                </select>
-              </label>
-            </div>
-            <div className="detail-grid two-col">
-              <label className="field">
-                <span>{t('catalog.field.nominal_voltage')}</span>
-                <input
-                  type="number"
-                  value={draft.nominal_voltage}
-                  onChange={(event) => setDraft((current) => ({ ...current, nominal_voltage: event.target.value }))}
-                />
-              </label>
-              <label className="field">
-                <span>{t('catalog.field.capacity_kwh')}</span>
-                <input
-                  type="number"
-                  value={draft.capacity_kwh}
-                  onChange={(event) => setDraft((current) => ({ ...current, capacity_kwh: event.target.value }))}
-                />
-              </label>
-            </div>
-            <div className="detail-grid two-col">
-              <label className="field">
-                <span>{t('catalog.field.capacity_ah')}</span>
-                <input
-                  type="number"
-                  value={draft.capacity_ah}
-                  onChange={(event) => setDraft((current) => ({ ...current, capacity_ah: event.target.value }))}
-                />
-              </label>
-              <label className="field">
-                <span>{t('catalog.field.victron_can')}</span>
-                <input
-                  type="checkbox"
-                  checked={draft.victron_can}
-                  onChange={(event) => setDraft((current) => ({ ...current, victron_can: event.target.checked }))}
-                />
-              </label>
-            </div>
-            <div className="detail-grid two-col">
-              <label className="field">
-                <span>{t('catalog.field.max_charge_rate')}</span>
-                <input
-                  type="number"
-                  value={draft.max_charge_rate}
-                  onChange={(event) => setDraft((current) => ({ ...current, max_charge_rate: event.target.value }))}
-                />
-              </label>
-              <label className="field">
-                <span>{t('catalog.field.max_discharge_rate')}</span>
-                <input
-                  type="number"
-                  value={draft.max_discharge_rate}
-                  onChange={(event) => setDraft((current) => ({ ...current, max_discharge_rate: event.target.value }))}
-                />
-              </label>
-            </div>
-            <div className="detail-grid two-col">
-              <label className="field">
-                <span>{t('catalog.ui.price_per_unit')}</span>
-                <input
-                  type="number"
-                  value={draft.price}
-                  onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))}
-                />
-              </label>
-              <label className="field">
-                <span>{t('catalog.ui.price_source_url')}</span>
-                <input
-                  value={draft.price_source_url}
-                  onChange={(event) => setDraft((current) => ({ ...current, price_source_url: event.target.value }))}
-                  placeholder="https://..."
-                />
-              </label>
-            </div>
-            <label className="field">
-              <span>{t('catalog.ui.notes')}</span>
-              <textarea
-                value={draft.notes}
-                onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))}
-                rows={4}
-              />
-            </label>
-            <div className="stack" style={{ gap: 8 }}>
-              <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.model.trim()}>
-                {isSaving ? t('common.saving') : selectedBattery ? t('common.save') : t('common.save')}
-              </button>
-              {selectedBattery ? (
-                <button type="button" className="button button-danger" onClick={() => void handleDelete()} disabled={isSaving}>
-                  {t('common.delete')}
-                </button>
-              ) : null}
-              {saveError ? <p className="save-error">{saveError}</p> : null}
-              {saveMessage ? <p className="save-message">{saveMessage}</p> : null}
-            </div>
-          </div>
-          {selectedBattery ? (
-            <dl className="detail-stats panel-spec-grid" style={{ marginTop: 16 }}>
-              <div>
-                <dt>{t('catalog.field.brand')}</dt>
-                <dd>{selectedBattery.brand}</dd>
-              </div>
-              <div>
-                <dt>{t('catalog.stat.capacity')}</dt>
-                <dd>{selectedBattery.capacity_kwh} kWh</dd>
-              </div>
-              <div>
-                <dt>{t('catalog.stat.voltage')}</dt>
-                <dd>{selectedBattery.nominal_voltage} V</dd>
-              </div>
-              <div>
-                <dt>{t('catalog.stat.charge_rate')}</dt>
-                <dd>{selectedBattery.max_charge_rate != null ? `${selectedBattery.max_charge_rate} A` : 'n/a'}</dd>
-              </div>
-              <div>
-                <dt>{t('catalog.stat.discharge_rate')}</dt>
-                <dd>{selectedBattery.max_discharge_rate != null ? `${selectedBattery.max_discharge_rate} A` : 'n/a'}</dd>
-              </div>
-              <div>
-                <dt>{t('catalog.stat.price')}</dt>
-                <dd>{renderPrice(selectedBattery.price, selectedBattery.price_source_url)}</dd>
-              </div>
-              <div>
-                <dt>{t('catalog.stat.price_per_kwh')}</dt>
-                <dd>{selectedBattery.price_per_kwh != null ? renderPrice(selectedBattery.price_per_kwh, selectedBattery.price_source_url) : 'n/a'}</dd>
-              </div>
-            </dl>
-          ) : null}
-        </section>
       </section>
+      {deleteConfirmOpen && selectedBattery ? (
+        <ConfirmDialog
+          title={t('catalog.confirm.delete', { item: t('catalog.entry.battery_type'), id: batteryEditorIdentifier })}
+          message={t('catalog.confirm.delete_body')}
+          confirmLabel={t('catalog.confirm.delete_action')}
+          cancelLabel={t('common.cancel')}
+          confirmTone="danger"
+          onCancel={() => setDeleteConfirmOpen(false)}
+          onConfirm={() => {
+            void (async () => {
+              if (await handleDelete()) {
+                closeBatteryEditor();
+              }
+            })();
+          }}
+        />
+      ) : null}
     </>
   );
 }

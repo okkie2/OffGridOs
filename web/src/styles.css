@@ -712,6 +712,16 @@ h1, h2, h3, p, dl, dd, dt {
   background: #f9ddd8;
 }
 
+.button-success {
+  background: var(--good-bg);
+  border-color: rgba(0, 114, 85, 0.22);
+  color: var(--good);
+}
+
+.button-success:hover:not(:disabled) {
+  background: #dff0e8;
+}
+
 .button-sm {
   min-height: 32px;
   padding: 7px 12px;
@@ -1149,6 +1159,7 @@ h1, h2, h3, p, dl, dd, dt {
   text-transform: uppercase;
   white-space: normal;
   line-height: 1.2;
+  padding: 16px 7px;
 }
 
 .yield-table tbody th {
