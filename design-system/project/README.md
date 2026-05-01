@@ -41,7 +41,7 @@ Location → Surface → Array → MPPT → Battery Bank → Converter → Load 
 | **Storage** | Battery bank sizing and fit evaluation |
 | **Consumption** | Converters, load circuits, loads |
 | **Reports** | Monthly balance, verdict summary, cost summary |
-| **Catalogs** | Panel types, MPPTs, batteries, inverters, converters, cabinets |
+| **Catalogs** | Panels, MPPTs, batteries, inverters, converters, cabinets |
 
 ---
 
@@ -57,7 +57,7 @@ Location → Surface → Array → MPPT → Battery Bank → Converter → Load 
 - **No filler copy.** Every string earns its place.
 
 ### Casing
-- **Nav labels:** Title Case for top-level sections (`Location`, `Production`, `Storage`), Title Case for sub-items (`Panel types`, `Battery bank`)
+- **Nav labels:** Title Case for top-level sections (`Location`, `Production`, `Storage`), Title Case for sub-items (`Panels`, `Battery bank`)
 - **Page headers:** Title Case for titles, sentence case for context descriptions
 - **Badges/status labels:** lowercase (`optimal`, `fully utilized`, `clipping expected`, `outside limits`)
 - **Form field labels:** Sentence case, abbreviated where standard (`Voc`, `Wp`, `kWh`, `Isc`)
@@ -186,6 +186,31 @@ Very minimal. Only used on:
 - Sidebar nav items: `rgba(255,255,255,0.04)` background, muted → sidebar text color
 - Active sidebar item: `#00ffc2` text on `#171f33` background
 
+### Catalog Table Editing
+Catalog tables are dense browsing surfaces for reusable product data. Editing happens in an inline row attached to the selected table item, not in a separate bottom editor.
+
+Interaction rules:
+- `Add <item>` and `Edit <item>` live together above the table in compact button sizing.
+- `Add <item>` opens a new draft editor row at the top of the table.
+- Single-clicking a table row selects it.
+- `Edit <item>` opens the selected row inline and is disabled when no row is selected.
+- Double-click may open the selected row as a shortcut, but the toolbar action remains the visible path.
+- Clicking another row closes any open editor and selects the new row.
+- `Cancel` closes the editor without saving.
+- `Save` persists the row and closes the editor.
+- `Delete` opens a compact app-owned confirmation dialog; confirming deletes the row and closes the editor.
+
+Layout rules:
+- Do not use a per-row `Edit` action column for catalog tables.
+- Removing an action column must not reduce the table width; give the remaining columns explicit widths.
+- The inline editor row spans the full table column count and its editor container fills the available width.
+- Form fields follow the visible table column order first.
+- Fields not shown in the table are grouped below the table-facing fields.
+- `Non-table fields` keeps its open or closed state per catalog for the current browser session.
+- Use a compact 6-column field grid on wide catalog pages.
+- Use plain, modest checkboxes for binary catalog fields.
+- `Save` uses the success button style, `Delete` uses the danger button style, and `Cancel` uses the neutral secondary style.
+
 ### Press/Active States
 - `transform: translateY(1px)` on buttons and language controls — micro press
 - No color changes on press, only position
@@ -299,6 +324,7 @@ preview/                        Design System card HTML files (shown in Design S
   type-scale.html               Full type scale specimen
   spacing-tokens.html           Spacing scale, border radii, shadows
   components-buttons.html       Button variants (default/primary/danger/sm/block)
+  components-catalog.html       Catalog table with inline row editing
   components-badges.html        Status badges + verdict explanation pattern
   components-panels.html        Panel, summary cards, empty state
   components-inputs.html        Form fields, selects, textarea, language switcher

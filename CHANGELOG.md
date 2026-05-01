@@ -2,6 +2,10 @@
 
 ## 2026-05-01
 
+- Removed user-facing `type` wording from catalog add/edit labels, editor titles, ID labels, and catalog copy while keeping the underlying `*_types` schema terminology unchanged.
+- Made `Non-table fields` remember its open or closed state for each catalog during the current browser session.
+- Applied the catalog inline row editor pattern to panel, MPPT, inverter, conversion-device, and cabinet catalogs so catalog CRUD now uses row selection plus toolbar editing consistently.
+- Documented the approved catalog table editor pattern in the design system and updated the catalog component preview to show toolbar selection plus inline row editing.
 - Compacted the battery catalog toolbar so `Add battery` and `Edit battery` use the smaller control sizing instead of the heavier default button height.
 - Fixed the battery inline editor row so it spans the table cleanly after the edit column was removed, instead of making the edit state feel narrower than the browse state.
 - Reworked the battery catalog so clicking a row only selects it, `Edit battery` opens the selected row from the toolbar, and the source column keeps its width after the table lost the old edit column.

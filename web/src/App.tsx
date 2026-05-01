@@ -749,6 +749,34 @@ function usePersistentState<T>(key: string, fallback: T) {
   return [value, setValue] as const;
 }
 
+function readSessionState<T>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') {
+    return fallback;
+  }
+
+  try {
+    const raw = window.sessionStorage.getItem(key);
+    if (raw == null) return fallback;
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function useSessionState<T>(key: string, fallback: T) {
+  const [value, setValue] = useState<T>(() => readSessionState(key, fallback));
+
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      // Ignore storage failures and keep the UI usable.
+    }
+  }, [key, value]);
+
+  return [value, setValue] as const;
+}
+
 function useLocalStorageRevision(): number {
   const [revision, setRevision] = useState(0);
 
@@ -6536,9 +6564,13 @@ function CabinetCatalogPage({
   const { t } = useTranslation();
   const [selectedCabinetTypeId, setSelectedCabinetTypeId] = useState(() => data.entities.cabinet_types[0]?.cabinet_type_id ?? '');
   const [draft, setDraft] = useState<CabinetTypeDraft>(() => cabinetDraftFromType(data.entities.cabinet_types[0] ?? null));
+  const [isAddingNew, setIsAddingNew] = useState(false);
+  const [openCabinetEditorId, setOpenCabinetEditorId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [cabinetNonTableOpen, setCabinetNonTableOpen] = useSessionState('offgridos:catalog:cabinet:non-table-open', false);
 
   const selectedCabinet = selectedCabinetTypeId
     ? data.entities.cabinet_types.find((item) => item.cabinet_type_id === selectedCabinetTypeId) ?? null
@@ -6555,9 +6587,38 @@ function CabinetCatalogPage({
 
   function startAddNew() {
     setSelectedCabinetTypeId('');
+    setIsAddingNew(true);
+    setOpenCabinetEditorId(null);
     setSaveError(null);
     setSaveMessage(null);
+    setDeleteConfirmOpen(false);
     setDraft(emptyCabinetDraft());
+  }
+
+  function selectCabinetType(cabinetTypeId: string) {
+    setSelectedCabinetTypeId(cabinetTypeId);
+    setIsAddingNew(false);
+    setOpenCabinetEditorId(null);
+    setSaveError(null);
+    setSaveMessage(null);
+    setDeleteConfirmOpen(false);
+  }
+
+  function openExistingCabinetEditor(cabinetTypeId: string) {
+    setSelectedCabinetTypeId(cabinetTypeId);
+    setIsAddingNew(false);
+    setOpenCabinetEditorId(cabinetTypeId);
+    setSaveError(null);
+    setSaveMessage(null);
+    setDeleteConfirmOpen(false);
+  }
+
+  function closeCabinetEditor() {
+    setIsAddingNew(false);
+    setOpenCabinetEditorId(null);
+    setSaveError(null);
+    setSaveMessage(null);
+    setDeleteConfirmOpen(false);
   }
 
   async function handleSave() {
@@ -6615,11 +6676,14 @@ function CabinetCatalogPage({
 
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: string } | null;
-        throw new Error(payload?.error ?? `Failed to save cabinet type (${response.status})`);
+        throw new Error(payload?.error ?? `Failed to save cabinet (${response.status})`);
       }
 
       await refreshProjectData();
       setSelectedCabinetTypeId(cabinetTypeId);
+      setIsAddingNew(false);
+      setOpenCabinetEditorId(null);
+      setDeleteConfirmOpen(false);
       setDraft(cabinetDraftFromType({
         cabinet_type_id: cabinetTypeId,
         title,
@@ -6650,9 +6714,6 @@ function CabinetCatalogPage({
   async function handleDelete() {
     if (!selectedCabinet) return;
 
-    const confirmed = window.confirm(t('catalog.confirm.delete', { item: t('catalog.entry.cabinet_type'), id: selectedCabinet.cabinet_type_id }));
-    if (!confirmed) return;
-
     try {
       setIsSaving(true);
       setSaveError(null);
@@ -6661,16 +6722,19 @@ function CabinetCatalogPage({
       const response = await fetch(`/api/cabinet-types/${encodeURIComponent(selectedCabinet.cabinet_type_id)}`, { method: 'DELETE' });
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: string } | null;
-        throw new Error(payload?.error ?? `Failed to delete cabinet type (${response.status})`);
+        throw new Error(payload?.error ?? `Failed to delete cabinet (${response.status})`);
       }
 
       await refreshProjectData();
       const nextCabinet = data.entities.cabinet_types.find((item) => item.cabinet_type_id !== selectedCabinet.cabinet_type_id) ?? null;
       setSelectedCabinetTypeId(nextCabinet?.cabinet_type_id ?? '');
+      setIsAddingNew(false);
+      setOpenCabinetEditorId(null);
+      setDeleteConfirmOpen(false);
       setDraft(cabinetDraftFromType(nextCabinet));
       setSaveMessage(t('catalog.message.deleted', { item: t('catalog.entry.cabinet_type'), id: selectedCabinet.cabinet_type_id }));
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Failed to delete cabinet type.');
+      setSaveError(error instanceof Error ? error.message : 'Failed to delete cabinet.');
     } finally {
       setIsSaving(false);
     }
@@ -6694,10 +6758,6 @@ function CabinetCatalogPage({
           placeholder="19 inch rack cabinet"
         />
       </label>
-      <label className="field">
-        <span>{t('catalog.field.description')}</span>
-        <textarea value={draft.description} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} rows={3} />
-      </label>
       <div className="detail-grid three-col">
         <label className="field"><span>{t('catalog.stat.depth')}</span><input type="number" value={draft.depth_mm} onChange={(event) => setDraft((current) => ({ ...current, depth_mm: event.target.value }))} /></label>
         <label className="field"><span>{t('catalog.stat.width')}</span><input type="number" value={draft.width_mm} onChange={(event) => setDraft((current) => ({ ...current, width_mm: event.target.value }))} /></label>
@@ -6719,24 +6779,40 @@ function CabinetCatalogPage({
         <label className="field"><span>{t('catalog.field.ip_rating')}</span><input value={draft.ip_rating} onChange={(event) => setDraft((current) => ({ ...current, ip_rating: event.target.value }))} placeholder="IP55" /></label>
         <label className="field"><span>{t('catalog.field.insurance_rating')}</span><input value={draft.insurance_rating} onChange={(event) => setDraft((current) => ({ ...current, insurance_rating: event.target.value }))} placeholder="Class 60" /></label>
       </div>
-      <div className="detail-grid two-col">
-        <label className="field"><span>{t('catalog.field.condensation_protection')}</span><input type="checkbox" checked={draft.condensation_protection} onChange={(event) => setDraft((current) => ({ ...current, condensation_protection: event.target.checked }))} /></label>
-        <label className="field"><span>{t('catalog.field.insect_protection')}</span><input type="checkbox" checked={draft.insect_protection} onChange={(event) => setDraft((current) => ({ ...current, insect_protection: event.target.checked }))} /></label>
-      </div>
-      <div className="detail-grid two-col">
-        <label className="field"><span>{t('catalog.field.dust_protection')}</span><input type="checkbox" checked={draft.dust_protection} onChange={(event) => setDraft((current) => ({ ...current, dust_protection: event.target.checked }))} /></label>
-        <label className="field"><span>{t('catalog.field.outside_protection')}</span><input type="checkbox" checked={draft.outside_protection} onChange={(event) => setDraft((current) => ({ ...current, outside_protection: event.target.checked }))} /></label>
-      </div>
-      <div className="detail-grid two-col">
-        <label className="field"><span>{t('catalog.field.frost_protection')}</span><input type="checkbox" checked={draft.frost_protection} onChange={(event) => setDraft((current) => ({ ...current, frost_protection: event.target.checked }))} /></label>
-        <label className="field"><span>{t('catalog.field.fire_protection')}</span><input type="checkbox" checked={draft.fire_protection} onChange={(event) => setDraft((current) => ({ ...current, fire_protection: event.target.checked }))} /></label>
-      </div>
+      <details
+        className="catalog-inline-advanced"
+        open={cabinetNonTableOpen}
+        onToggle={(event) => setCabinetNonTableOpen(event.currentTarget.open)}
+      >
+        <summary>Non-table fields</summary>
+        <div className="stack" style={{ gap: 12 }}>
+          <label className="field">
+            <span>{t('catalog.field.description')}</span>
+            <textarea value={draft.description} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} rows={2} />
+          </label>
+          <div className="detail-grid two-col">
+            <label className="field catalog-inline-checkbox-field"><span>{t('catalog.field.condensation_protection')}</span><input type="checkbox" checked={draft.condensation_protection} onChange={(event) => setDraft((current) => ({ ...current, condensation_protection: event.target.checked }))} /></label>
+            <label className="field catalog-inline-checkbox-field"><span>{t('catalog.field.insect_protection')}</span><input type="checkbox" checked={draft.insect_protection} onChange={(event) => setDraft((current) => ({ ...current, insect_protection: event.target.checked }))} /></label>
+          </div>
+          <div className="detail-grid two-col">
+            <label className="field catalog-inline-checkbox-field"><span>{t('catalog.field.dust_protection')}</span><input type="checkbox" checked={draft.dust_protection} onChange={(event) => setDraft((current) => ({ ...current, dust_protection: event.target.checked }))} /></label>
+            <label className="field catalog-inline-checkbox-field"><span>{t('catalog.field.outside_protection')}</span><input type="checkbox" checked={draft.outside_protection} onChange={(event) => setDraft((current) => ({ ...current, outside_protection: event.target.checked }))} /></label>
+          </div>
+          <div className="detail-grid two-col">
+            <label className="field catalog-inline-checkbox-field"><span>{t('catalog.field.frost_protection')}</span><input type="checkbox" checked={draft.frost_protection} onChange={(event) => setDraft((current) => ({ ...current, frost_protection: event.target.checked }))} /></label>
+            <label className="field catalog-inline-checkbox-field"><span>{t('catalog.field.fire_protection')}</span><input type="checkbox" checked={draft.fire_protection} onChange={(event) => setDraft((current) => ({ ...current, fire_protection: event.target.checked }))} /></label>
+          </div>
+        </div>
+      </details>
       <div className="stack" style={{ gap: 8 }}>
-        <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.title.trim()}>
+        <button type="button" className="button button-secondary" onClick={closeCabinetEditor} disabled={isSaving}>
+          {t('common.cancel')}
+        </button>
+        <button type="button" className="button button-success" onClick={() => void handleSave()} disabled={isSaving || !draft.title.trim()}>
           {isSaving ? t('common.saving') : t('common.save')}
         </button>
-        {selectedCabinet ? (
-          <button type="button" className="button button-danger" onClick={() => void handleDelete()} disabled={isSaving}>
+        {!isAddingNew && selectedCabinet ? (
+          <button type="button" className="button button-danger" onClick={() => setDeleteConfirmOpen(true)} disabled={isSaving}>
             {t('common.delete')}
           </button>
         ) : null}
@@ -6770,9 +6846,14 @@ function CabinetCatalogPage({
         <section className="panel">
           <div className="stack" style={{ gap: 12 }}>
             <div className="button-row button-row-between">
-              <button type="button" className="button button-secondary" onClick={startAddNew}>
-                {t('catalog.ui.add_item', { item: t('catalog.entry.cabinet_type') })}
-              </button>
+              <div className="button-row">
+                <button type="button" className="button button-secondary button-sm" onClick={startAddNew}>
+                  {t('catalog.ui.add_item', { item: t('catalog.entry.cabinet_type') })}
+                </button>
+                <button type="button" className="button button-secondary button-sm" onClick={() => selectedCabinetTypeId ? openExistingCabinetEditor(selectedCabinetTypeId) : undefined} disabled={!selectedCabinet}>
+                  {t('common.edit')} {t('catalog.entry.cabinet_type')}
+                </button>
+              </div>
             </div>
             <div className="yield-table-wrap">
               <table className="yield-table catalog-table">
@@ -6787,13 +6868,12 @@ function CabinetCatalogPage({
                     <th>{t('catalog.ui.source')}</th>
                     <th>{t('catalog.stat.ip_rating')}</th>
                     <th>{t('catalog.stat.insurance_rating')}</th>
-                    <th />
                   </tr>
                 </thead>
                 <tbody>
-                  {!selectedCabinet ? (
+                  {isAddingNew ? (
                     <CatalogInlineEditorRow
-                      colSpan={10}
+                      colSpan={9}
                       title={t('catalog.ui.add_item', { item: t('catalog.entry.cabinet_type') })}
                       subtitle={t('catalog.ui.changes_saved')}
                     >
@@ -6802,16 +6882,21 @@ function CabinetCatalogPage({
                   ) : null}
                   {data.entities.cabinet_types.length === 0 ? (
                     <tr>
-                      <td colSpan={10} className="muted">{t('catalog.ui.no_entries')}</td>
+                      <td colSpan={9} className="muted">{t('catalog.ui.no_entries')}</td>
                     </tr>
                   ) : data.entities.cabinet_types.map((cabinet) => (
                     <React.Fragment key={cabinet.cabinet_type_id}>
                       <tr
-                        className={selectedCabinetTypeId === cabinet.cabinet_type_id ? 'selected' : ''}
-                        onClick={() => {
-                          setSelectedCabinetTypeId(cabinet.cabinet_type_id);
-                          setSaveError(null);
-                          setSaveMessage(null);
+                        className={`catalog-table-row ${selectedCabinetTypeId === cabinet.cabinet_type_id ? 'catalog-table-row-active' : ''}`}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => selectCabinetType(cabinet.cabinet_type_id)}
+                        onDoubleClick={() => openExistingCabinetEditor(cabinet.cabinet_type_id)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            selectCabinetType(cabinet.cabinet_type_id);
+                          }
                         }}
                       >
                         <td className="catalog-table-model-col">{cabinet.title}</td>
@@ -6823,24 +6908,10 @@ function CabinetCatalogPage({
                         <td>{cabinet.price_source_url ? <a className="price-link" href={cabinet.price_source_url} target="_blank" rel="noreferrer">{formatPriceSourceName(cabinet.price_source_url) ?? t('common.open')}</a> : '—'}</td>
                         <td>{cabinet.ip_rating ?? '—'}</td>
                         <td>{cabinet.insurance_rating ?? '—'}</td>
-                        <td>
-                          <button
-                            type="button"
-                            className="button button-secondary button-sm"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setSelectedCabinetTypeId(cabinet.cabinet_type_id);
-                              setSaveError(null);
-                              setSaveMessage(null);
-                            }}
-                          >
-                            {t('common.edit')}
-                          </button>
-                        </td>
                       </tr>
-                      {selectedCabinetTypeId === cabinet.cabinet_type_id ? (
+                      {openCabinetEditorId === cabinet.cabinet_type_id ? (
                         <CatalogInlineEditorRow
-                          colSpan={10}
+                          colSpan={9}
                           title={t('catalog.ui.edit_item', { item: t('catalog.entry.cabinet_type') })}
                           subtitle={t('catalog.ui.changes_saved')}
                         >
@@ -6855,6 +6926,17 @@ function CabinetCatalogPage({
           </div>
         </section>
       </section>
+      {deleteConfirmOpen && selectedCabinet ? (
+        <ConfirmDialog
+          title={t('catalog.confirm.delete', { item: t('catalog.entry.cabinet_type'), id: selectedCabinet.cabinet_type_id })}
+          message={t('catalog.confirm.delete_body')}
+          confirmLabel={t('catalog.confirm.delete_action')}
+          cancelLabel={t('common.cancel')}
+          confirmTone="danger"
+          onCancel={() => setDeleteConfirmOpen(false)}
+          onConfirm={() => void handleDelete()}
+        />
+      ) : null}
     </>
   );
 }
@@ -6875,14 +6957,12 @@ function BatteryCatalogPage({
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [advancedOpenByBatteryTypeId, setAdvancedOpenByBatteryTypeId] = useState<Record<string, boolean>>({});
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [batteryNonTableOpen, setBatteryNonTableOpen] = useSessionState('offgridos:catalog:battery:non-table-open', false);
 
   const selectedBattery = selectedBatteryTypeId
     ? data.entities.battery_types.find((item) => item.battery_type_id === selectedBatteryTypeId) ?? null
     : null;
-  const batteryEditorStateKey = isAddingNew ? '__new__' : (selectedBatteryTypeId || '__new__');
-  const isBatteryAdvancedOpen = advancedOpenByBatteryTypeId[batteryEditorStateKey] ?? false;
   const batteryEditorIdentifier = selectedBattery
     ? selectedBattery.battery_type_id
     : (draft.model.trim() ? generateUniqueCatalogId(draft.model.trim(), data.entities.battery_types.map((battery) => battery.battery_type_id)) : t('catalog.ui.generated_after_save'));
@@ -7136,14 +7216,8 @@ function BatteryCatalogPage({
       </div>
       <details
         className="catalog-inline-advanced"
-        open={isBatteryAdvancedOpen}
-        onToggle={(event) => {
-          const nextOpen = event.currentTarget.open;
-          setAdvancedOpenByBatteryTypeId((current) => ({
-            ...current,
-            [batteryEditorStateKey]: nextOpen,
-          }));
-        }}
+        open={batteryNonTableOpen}
+        onToggle={(event) => setBatteryNonTableOpen(event.currentTarget.open)}
       >
         <summary>Non-table fields</summary>
         <div className="stack" style={{ gap: 12 }}>
@@ -7973,9 +8047,13 @@ function PanelCatalogPage({
   const { t } = useTranslation();
   const [selectedPanelTypeId, setSelectedPanelTypeId] = useState(() => data.entities.panel_types[0]?.panel_type_id ?? '');
   const [draft, setDraft] = useState<PanelTypeDraft>(() => panelDraftFromType(data.entities.panel_types[0] ?? null));
+  const [isAddingNew, setIsAddingNew] = useState(false);
+  const [openPanelEditorId, setOpenPanelEditorId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [panelNonTableOpen, setPanelNonTableOpen] = useSessionState('offgridos:catalog:panel:non-table-open', false);
 
   const selectedPanel = selectedPanelTypeId
     ? data.entities.panel_types.find((item) => item.panel_type_id === selectedPanelTypeId) ?? null
@@ -7992,9 +8070,38 @@ function PanelCatalogPage({
 
   function startAddNew() {
     setSelectedPanelTypeId('');
+    setIsAddingNew(true);
+    setOpenPanelEditorId(null);
     setSaveError(null);
     setSaveMessage(null);
+    setDeleteConfirmOpen(false);
     setDraft(emptyPanelDraft());
+  }
+
+  function selectPanelType(panelTypeId: string) {
+    setSelectedPanelTypeId(panelTypeId);
+    setIsAddingNew(false);
+    setOpenPanelEditorId(null);
+    setSaveError(null);
+    setSaveMessage(null);
+    setDeleteConfirmOpen(false);
+  }
+
+  function openExistingPanelEditor(panelTypeId: string) {
+    setSelectedPanelTypeId(panelTypeId);
+    setIsAddingNew(false);
+    setOpenPanelEditorId(panelTypeId);
+    setSaveError(null);
+    setSaveMessage(null);
+    setDeleteConfirmOpen(false);
+  }
+
+  function closePanelEditor() {
+    setIsAddingNew(false);
+    setOpenPanelEditorId(null);
+    setSaveError(null);
+    setSaveMessage(null);
+    setDeleteConfirmOpen(false);
   }
 
   async function handleSave() {
@@ -8050,11 +8157,14 @@ function PanelCatalogPage({
 
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: string } | null;
-        throw new Error(payload?.error ?? `Failed to save panel type (${response.status})`);
+        throw new Error(payload?.error ?? `Failed to save panel (${response.status})`);
       }
 
       await refreshProjectData();
       setSelectedPanelTypeId(panelTypeId);
+      setIsAddingNew(false);
+      setOpenPanelEditorId(null);
+      setDeleteConfirmOpen(false);
       setDraft(panelDraftFromType({
         panel_type_id: panelTypeId,
         brand,
@@ -8081,9 +8191,6 @@ function PanelCatalogPage({
   async function handleDelete() {
     if (!selectedPanel) return;
 
-    const confirmed = window.confirm(t('catalog.confirm.delete', { item: t('catalog.entry.panel_type'), id: selectedPanel.panel_type_id }));
-    if (!confirmed) return;
-
     try {
       setIsSaving(true);
       setSaveError(null);
@@ -8092,20 +8199,79 @@ function PanelCatalogPage({
       const response = await fetch(`/api/panel-types/${encodeURIComponent(selectedPanel.panel_type_id)}`, { method: 'DELETE' });
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: string } | null;
-        throw new Error(payload?.error ?? `Failed to delete panel type (${response.status})`);
+        throw new Error(payload?.error ?? `Failed to delete panel (${response.status})`);
       }
 
       await refreshProjectData();
       const nextPanel = data.entities.panel_types.find((item) => item.panel_type_id !== selectedPanel.panel_type_id) ?? null;
       setSelectedPanelTypeId(nextPanel?.panel_type_id ?? '');
+      setIsAddingNew(false);
+      setOpenPanelEditorId(null);
+      setDeleteConfirmOpen(false);
       setDraft(panelDraftFromType(nextPanel));
       setSaveMessage(t('catalog.message.deleted', { item: t('catalog.entry.panel_type'), id: selectedPanel.panel_type_id }));
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Failed to delete panel type.');
+      setSaveError(error instanceof Error ? error.message : 'Failed to delete panel.');
     } finally {
       setIsSaving(false);
     }
   }
+
+  const panelEditor = (
+    <div className="stack" style={{ gap: 16 }}>
+      <div className="field">
+        <span>{t('catalog.field.panel_type_id')}</span>
+        <p className="muted">
+          {selectedPanel ? selectedPanel.panel_type_id : (draft.model.trim() ? generateUniqueCatalogId(draft.model.trim(), data.entities.panel_types.map((panel) => panel.panel_type_id)) : t('catalog.ui.generated_after_save'))}
+        </p>
+      </div>
+      <div className="catalog-inline-grid catalog-inline-grid-6 catalog-inline-basic">
+        <label className="field catalog-inline-span-1">
+          <span>{t('catalog.field.brand')}</span>
+          <input value={draft.brand} onChange={(event) => setDraft((current) => ({ ...current, brand: event.target.value }))} placeholder="Aiko" />
+        </label>
+        <label className="field catalog-inline-span-2">
+          <span>{t('catalog.field.model')}</span>
+          <input value={draft.model} onChange={(event) => setDraft((current) => ({ ...current, model: event.target.value }))} placeholder="AIKO 475 Wp All Black" />
+        </label>
+        <label className="field catalog-inline-span-1"><span>{t('catalog.field.wp')}</span><input type="number" value={draft.wp} onChange={(event) => setDraft((current) => ({ ...current, wp: event.target.value }))} /></label>
+        <label className="field catalog-inline-span-1"><span>{t('catalog.ui.price_per_unit')}</span><input type="number" value={draft.price} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} /></label>
+        <label className="field catalog-inline-span-1"><span>{t('catalog.ui.price_source_url')}</span><input value={draft.price_source_url} onChange={(event) => setDraft((current) => ({ ...current, price_source_url: event.target.value }))} placeholder="https://..." /></label>
+      </div>
+      <details
+        className="catalog-inline-advanced"
+        open={panelNonTableOpen}
+        onToggle={(event) => setPanelNonTableOpen(event.currentTarget.open)}
+      >
+        <summary>Non-table fields</summary>
+        <div className="stack" style={{ gap: 12 }}>
+          <div className="catalog-inline-grid catalog-inline-grid-6 catalog-inline-advanced-grid">
+            <label className="field catalog-inline-span-1"><span>{t('catalog.field.voc')}</span><input type="number" value={draft.voc} onChange={(event) => setDraft((current) => ({ ...current, voc: event.target.value }))} /></label>
+            <label className="field catalog-inline-span-1"><span>{t('catalog.field.vmp')}</span><input type="number" value={draft.vmp} onChange={(event) => setDraft((current) => ({ ...current, vmp: event.target.value }))} /></label>
+            <label className="field catalog-inline-span-1"><span>{t('catalog.field.isc')}</span><input type="number" value={draft.isc} onChange={(event) => setDraft((current) => ({ ...current, isc: event.target.value }))} /></label>
+            <label className="field catalog-inline-span-1"><span>{t('catalog.field.imp')}</span><input type="number" value={draft.imp} onChange={(event) => setDraft((current) => ({ ...current, imp: event.target.value }))} /></label>
+            <label className="field catalog-inline-span-1"><span>{t('catalog.field.length_mm')}</span><input type="number" value={draft.length_mm} onChange={(event) => setDraft((current) => ({ ...current, length_mm: event.target.value }))} /></label>
+            <label className="field catalog-inline-span-1"><span>{t('catalog.field.width_mm')}</span><input type="number" value={draft.width_mm} onChange={(event) => setDraft((current) => ({ ...current, width_mm: event.target.value }))} /></label>
+          </div>
+          <label className="field catalog-inline-span-3">
+            <span>{t('catalog.ui.notes')}</span>
+            <textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={1} />
+          </label>
+        </div>
+      </details>
+      <div className="button-row">
+        <button type="button" className="button button-secondary" onClick={closePanelEditor} disabled={isSaving}>{t('common.cancel')}</button>
+        <button type="button" className="button button-success" onClick={() => void handleSave()} disabled={isSaving || !draft.model.trim()}>
+          {isSaving ? t('common.saving') : t('common.save')}
+        </button>
+        {!isAddingNew && selectedPanel ? (
+          <button type="button" className="button button-danger" onClick={() => setDeleteConfirmOpen(true)} disabled={isSaving}>{t('common.delete')}</button>
+        ) : null}
+        {saveError ? <p className="save-error">{saveError}</p> : null}
+        {saveMessage ? <p className="save-message">{saveMessage}</p> : null}
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -8113,9 +8279,14 @@ function PanelCatalogPage({
         <section className="panel">
           <div className="stack" style={{ gap: 12 }}>
             <div className="button-row button-row-between">
-              <button type="button" className="button button-secondary" onClick={startAddNew}>
-                {t('catalog.ui.add_item', { item: t('catalog.entry.panel_type') })}
-              </button>
+              <div className="button-row">
+                <button type="button" className="button button-secondary button-sm" onClick={startAddNew}>
+                  {t('catalog.ui.add_item', { item: t('catalog.entry.panel_type') })}
+                </button>
+                <button type="button" className="button button-secondary button-sm" onClick={() => selectedPanelTypeId ? openExistingPanelEditor(selectedPanelTypeId) : undefined} disabled={!selectedPanel}>
+                  {t('common.edit')} {t('catalog.entry.panel_type')}
+                </button>
+              </div>
             </div>
             <div className="yield-table-wrap">
               <table className="yield-table catalog-table">
@@ -8128,157 +8299,67 @@ function PanelCatalogPage({
                     <th>{t('catalog.stat.price_per_wp')}</th>
                     <th>{t('catalog.ui.source')}</th>
                     <th>{t('catalog.stat.last_upsert_date')}</th>
-                    <th>{t('common.edit')}</th>
                   </tr>
                 </thead>
                 <tbody>
+                  {isAddingNew ? (
+                    <CatalogInlineEditorRow colSpan={7} title={t('catalog.ui.add_item', { item: t('catalog.entry.panel_type') })} subtitle={t('catalog.ui.changes_saved')}>
+                      {panelEditor}
+                    </CatalogInlineEditorRow>
+                  ) : null}
                   {data.entities.panel_types.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="catalog-table-empty">
+                      <td colSpan={7} className="catalog-table-empty">
                         {t('catalog.ui.no_entries')}
                       </td>
                     </tr>
                   ) : data.entities.panel_types.map((panel) => (
-                    <tr
-                      key={panel.panel_type_id}
-                      className={`catalog-table-row ${selectedPanelTypeId === panel.panel_type_id ? 'catalog-table-row-active' : ''}`}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => {
-                        setSelectedPanelTypeId(panel.panel_type_id);
-                        setSaveError(null);
-                        setSaveMessage(null);
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          setSelectedPanelTypeId(panel.panel_type_id);
-                          setSaveError(null);
-                          setSaveMessage(null);
-                        }
-                      }}
-                    >
-                      <td className="catalog-table-brand-col">{panel.brand}</td>
-                      <td className="catalog-table-model-col">{panel.model}</td>
-                      <td>{panel.wp} Wp</td>
-                      <td>{renderPrice(panel.price, panel.price_source_url)}</td>
-                      <td>{panel.price != null ? renderPrice(panel.price / panel.wp, panel.price_source_url) : 'n/a'}</td>
-                      <td>{panel.price_source_url ? <a className="price-link" href={panel.price_source_url} target="_blank" rel="noreferrer">{formatPriceSourceName(panel.price_source_url) ?? t('common.open')}</a> : '—'}</td>
-                      <td>{panel.last_upsert_date ? panel.last_upsert_date.slice(0, 10) : '—'}</td>
-                      <td>
-                        <button
-                          type="button"
-                          className="button button-secondary button-sm"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setSelectedPanelTypeId(panel.panel_type_id);
-                            setSaveError(null);
-                            setSaveMessage(null);
-                          }}
-                        >
-                          {t('common.edit')}
-                        </button>
-                      </td>
-                    </tr>
+                    <React.Fragment key={panel.panel_type_id}>
+                      <tr
+                        className={`catalog-table-row ${selectedPanelTypeId === panel.panel_type_id ? 'catalog-table-row-active' : ''}`}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => selectPanelType(panel.panel_type_id)}
+                        onDoubleClick={() => openExistingPanelEditor(panel.panel_type_id)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            selectPanelType(panel.panel_type_id);
+                          }
+                        }}
+                      >
+                        <td className="catalog-table-brand-col">{panel.brand}</td>
+                        <td className="catalog-table-model-col">{panel.model}</td>
+                        <td>{panel.wp} Wp</td>
+                        <td>{renderPrice(panel.price, panel.price_source_url)}</td>
+                        <td>{panel.price != null ? renderPrice(panel.price / panel.wp, panel.price_source_url) : 'n/a'}</td>
+                        <td>{panel.price_source_url ? <a className="price-link" href={panel.price_source_url} target="_blank" rel="noreferrer">{formatPriceSourceName(panel.price_source_url) ?? t('common.open')}</a> : '—'}</td>
+                        <td>{panel.last_upsert_date ? panel.last_upsert_date.slice(0, 10) : '—'}</td>
+                      </tr>
+                      {openPanelEditorId === panel.panel_type_id ? (
+                        <CatalogInlineEditorRow colSpan={7} title={t('catalog.ui.edit_item', { item: t('catalog.entry.panel_type') })} subtitle={t('catalog.ui.changes_saved')}>
+                          {panelEditor}
+                        </CatalogInlineEditorRow>
+                      ) : null}
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>
             </div>
           </div>
         </section>
-
-        <section className="panel">
-          <div className="section-head">
-            <h2>{selectedPanel ? t('catalog.ui.edit_item', { item: t('catalog.entry.panel_type') }) : t('catalog.ui.add_item', { item: t('catalog.entry.panel_type') })}</h2>
-            <p>{t('catalog.ui.changes_saved')}</p>
-          </div>
-          <div className="stack" style={{ gap: 16 }}>
-            <div className="field">
-              <span>{t('catalog.field.panel_type_id')}</span>
-              <p className="muted">
-                {selectedPanel ? selectedPanel.panel_type_id : (draft.model.trim() ? generateUniqueCatalogId(draft.model.trim(), data.entities.panel_types.map((panel) => panel.panel_type_id)) : t('catalog.ui.generated_after_save'))}
-              </p>
-            </div>
-            <label className="field">
-              <span>{t('catalog.field.brand')}</span>
-              <input
-                value={draft.brand}
-                onChange={(event) => setDraft((current) => ({ ...current, brand: event.target.value }))}
-                placeholder="Aiko"
-              />
-            </label>
-            <label className="field">
-              <span>{t('catalog.field.model')}</span>
-              <input
-                value={draft.model}
-                onChange={(event) => setDraft((current) => ({ ...current, model: event.target.value }))}
-                placeholder="AIKO 475 Wp All Black"
-              />
-            </label>
-            <div className="detail-grid two-col">
-              <label className="field"><span>{t('catalog.field.wp')}</span><input type="number" value={draft.wp} onChange={(event) => setDraft((current) => ({ ...current, wp: event.target.value }))} /></label>
-              <label className="field"><span>{t('catalog.field.voc')}</span><input type="number" value={draft.voc} onChange={(event) => setDraft((current) => ({ ...current, voc: event.target.value }))} /></label>
-            </div>
-            <div className="detail-grid two-col">
-              <label className="field"><span>{t('catalog.field.vmp')}</span><input type="number" value={draft.vmp} onChange={(event) => setDraft((current) => ({ ...current, vmp: event.target.value }))} /></label>
-              <label className="field"><span>{t('catalog.field.isc')}</span><input type="number" value={draft.isc} onChange={(event) => setDraft((current) => ({ ...current, isc: event.target.value }))} /></label>
-            </div>
-            <div className="detail-grid two-col">
-              <label className="field"><span>{t('catalog.field.imp')}</span><input type="number" value={draft.imp} onChange={(event) => setDraft((current) => ({ ...current, imp: event.target.value }))} /></label>
-              <label className="field"><span>{t('catalog.field.length_mm')}</span><input type="number" value={draft.length_mm} onChange={(event) => setDraft((current) => ({ ...current, length_mm: event.target.value }))} /></label>
-            </div>
-            <div className="detail-grid two-col">
-              <label className="field"><span>{t('catalog.field.width_mm')}</span><input type="number" value={draft.width_mm} onChange={(event) => setDraft((current) => ({ ...current, width_mm: event.target.value }))} /></label>
-              <label className="field"><span>{t('catalog.ui.price_per_unit')}</span><input type="number" value={draft.price} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} /></label>
-            </div>
-            <label className="field">
-              <span>{t('catalog.ui.price_source_url')}</span>
-              <input
-                value={draft.price_source_url}
-                onChange={(event) => setDraft((current) => ({ ...current, price_source_url: event.target.value }))}
-                placeholder="https://..."
-              />
-            </label>
-            <label className="field">
-              <span>{t('catalog.ui.notes')}</span>
-              <textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={4} />
-            </label>
-            <div className="stack" style={{ gap: 8 }}>
-              <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.model.trim()}>
-                {isSaving ? t('common.saving') : t('common.save')}
-              </button>
-              {selectedPanel ? (
-                <button type="button" className="button button-danger" onClick={() => void handleDelete()} disabled={isSaving}>
-                  {t('common.delete')}
-                </button>
-              ) : null}
-              {saveError ? <p className="save-error">{saveError}</p> : null}
-              {saveMessage ? <p className="save-message">{saveMessage}</p> : null}
-            </div>
-          </div>
-          {selectedPanel ? (
-            <div className="panel" style={{ marginTop: 16, padding: 16 }}>
-              <div className="section-head">
-                <h2>{t('catalog.ui.generated_after_save')}</h2>
-                <p>{t('catalog.ui.changes_saved')}</p>
-              </div>
-              <dl className="detail-stats panel-spec-grid" style={{ marginTop: 0 }}>
-                <div><dt>{t('catalog.field.brand')}</dt><dd>{selectedPanel.brand}</dd></div>
-                <div><dt>{t('catalog.stat.power')}</dt><dd>{selectedPanel.wp} Wp</dd></div>
-                <div><dt>{t('catalog.field.voc')}</dt><dd>{selectedPanel.voc} V</dd></div>
-                <div><dt>{t('catalog.field.vmp')}</dt><dd>{selectedPanel.vmp} V</dd></div>
-                <div><dt>{t('catalog.field.isc')}</dt><dd>{selectedPanel.isc} A</dd></div>
-                <div><dt>{t('catalog.field.imp')}</dt><dd>{selectedPanel.imp} A</dd></div>
-                <div><dt>{t('catalog.stat.price')}</dt><dd>{renderPrice(selectedPanel.price, selectedPanel.price_source_url)}</dd></div>
-                <div><dt>{t('catalog.stat.price_per_wp')}</dt><dd>{selectedPanel.price != null ? renderPrice(selectedPanel.price / selectedPanel.wp, selectedPanel.price_source_url) : 'n/a'}</dd></div>
-                <div><dt>{t('catalog.stat.last_upsert_date')}</dt><dd>{selectedPanel.last_upsert_date ? selectedPanel.last_upsert_date.slice(0, 10) : 'n/a'}</dd></div>
-                <div><dt>{t('catalog.field.length_mm')}</dt><dd>{selectedPanel.length_mm != null ? `${selectedPanel.length_mm} mm` : 'n/a'}</dd></div>
-                <div><dt>{t('catalog.field.width_mm')}</dt><dd>{selectedPanel.width_mm != null ? `${selectedPanel.width_mm} mm` : 'n/a'}</dd></div>
-              </dl>
-            </div>
-          ) : null}
-        </section>
       </section>
+      {deleteConfirmOpen && selectedPanel ? (
+        <ConfirmDialog
+          title={t('catalog.confirm.delete', { item: t('catalog.entry.panel_type'), id: selectedPanel.panel_type_id })}
+          message={t('catalog.confirm.delete_body')}
+          confirmLabel={t('catalog.confirm.delete_action')}
+          cancelLabel={t('common.cancel')}
+          confirmTone="danger"
+          onCancel={() => setDeleteConfirmOpen(false)}
+          onConfirm={() => void handleDelete()}
+        />
+      ) : null}
     </>
   );
 }
@@ -8293,9 +8374,13 @@ function MpptCatalogPage({
   const { t } = useTranslation();
   const [selectedMpptTypeId, setSelectedMpptTypeId] = useState(() => data.entities.mppt_types[0]?.mppt_type_id ?? '');
   const [draft, setDraft] = useState<MpptTypeDraft>(() => mpptDraftFromType(data.entities.mppt_types[0] ?? null));
+  const [isAddingNew, setIsAddingNew] = useState(false);
+  const [openMpptEditorId, setOpenMpptEditorId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [mpptNonTableOpen, setMpptNonTableOpen] = useSessionState('offgridos:catalog:mppt:non-table-open', false);
 
   const selectedMppt = selectedMpptTypeId
     ? data.entities.mppt_types.find((item) => item.mppt_type_id === selectedMpptTypeId) ?? null
@@ -8312,9 +8397,38 @@ function MpptCatalogPage({
 
   function startAddNew() {
     setSelectedMpptTypeId('');
+    setIsAddingNew(true);
+    setOpenMpptEditorId(null);
     setSaveError(null);
     setSaveMessage(null);
+    setDeleteConfirmOpen(false);
     setDraft(emptyMpptDraft());
+  }
+
+  function selectMpptType(mpptTypeId: string) {
+    setSelectedMpptTypeId(mpptTypeId);
+    setIsAddingNew(false);
+    setOpenMpptEditorId(null);
+    setSaveError(null);
+    setSaveMessage(null);
+    setDeleteConfirmOpen(false);
+  }
+
+  function openExistingMpptEditor(mpptTypeId: string) {
+    setSelectedMpptTypeId(mpptTypeId);
+    setIsAddingNew(false);
+    setOpenMpptEditorId(mpptTypeId);
+    setSaveError(null);
+    setSaveMessage(null);
+    setDeleteConfirmOpen(false);
+  }
+
+  function closeMpptEditor() {
+    setIsAddingNew(false);
+    setOpenMpptEditorId(null);
+    setSaveError(null);
+    setSaveMessage(null);
+    setDeleteConfirmOpen(false);
   }
 
   async function handleSave() {
@@ -8375,11 +8489,14 @@ function MpptCatalogPage({
 
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: string } | null;
-        throw new Error(payload?.error ?? `Failed to save MPPT type (${response.status})`);
+        throw new Error(payload?.error ?? `Failed to save MPPT (${response.status})`);
       }
 
       await refreshProjectData();
       setSelectedMpptTypeId(mpptTypeId);
+      setIsAddingNew(false);
+      setOpenMpptEditorId(null);
+      setDeleteConfirmOpen(false);
       setDraft(mpptDraftFromType({
         mppt_type_id: mpptTypeId,
         brand,
@@ -8406,9 +8523,6 @@ function MpptCatalogPage({
   async function handleDelete() {
     if (!selectedMppt) return;
 
-    const confirmed = window.confirm(t('catalog.confirm.delete', { item: t('catalog.entry.mppt_type'), id: selectedMppt.mppt_type_id }));
-    if (!confirmed) return;
-
     try {
       setIsSaving(true);
       setSaveError(null);
@@ -8417,20 +8531,66 @@ function MpptCatalogPage({
       const response = await fetch(`/api/mppt-types/${encodeURIComponent(selectedMppt.mppt_type_id)}`, { method: 'DELETE' });
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: string } | null;
-        throw new Error(payload?.error ?? `Failed to delete MPPT type (${response.status})`);
+        throw new Error(payload?.error ?? `Failed to delete MPPT (${response.status})`);
       }
 
       await refreshProjectData();
       const nextMppt = data.entities.mppt_types.find((item) => item.mppt_type_id !== selectedMppt.mppt_type_id) ?? null;
       setSelectedMpptTypeId(nextMppt?.mppt_type_id ?? '');
+      setIsAddingNew(false);
+      setOpenMpptEditorId(null);
+      setDeleteConfirmOpen(false);
       setDraft(mpptDraftFromType(nextMppt));
       setSaveMessage(t('catalog.message.deleted', { item: t('catalog.entry.mppt_type'), id: selectedMppt.mppt_type_id }));
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Failed to delete MPPT type.');
+      setSaveError(error instanceof Error ? error.message : 'Failed to delete MPPT.');
     } finally {
       setIsSaving(false);
     }
   }
+
+  const mpptEditor = (
+    <div className="stack" style={{ gap: 16 }}>
+      <div className="field">
+        <span>{t('catalog.field.mppt_type_id')}</span>
+        <p className="muted">
+          {selectedMppt ? selectedMppt.mppt_type_id : (draft.model.trim() ? generateUniqueCatalogId(draft.model.trim(), data.entities.mppt_types.map((mppt) => mppt.mppt_type_id)) : t('catalog.ui.generated_after_save'))}
+        </p>
+      </div>
+      <div className="catalog-inline-grid catalog-inline-grid-6 catalog-inline-basic">
+        <label className="field catalog-inline-span-1"><span>{t('catalog.field.brand')}</span><input value={draft.brand} onChange={(event) => setDraft((current) => ({ ...current, brand: event.target.value }))} placeholder="Victron" /></label>
+        <label className="field catalog-inline-span-2"><span>{t('catalog.field.model')}</span><input value={draft.model} onChange={(event) => setDraft((current) => ({ ...current, model: event.target.value }))} placeholder="SmartSolar 250/100" /></label>
+        <label className="field catalog-inline-span-1"><span>{t('catalog.field.tracker_count')}</span><input type="number" value={draft.tracker_count} onChange={(event) => setDraft((current) => ({ ...current, tracker_count: event.target.value }))} /></label>
+        <label className="field catalog-inline-span-1"><span>{t('catalog.field.max_pv_power')}</span><input type="number" value={draft.max_pv_power} onChange={(event) => setDraft((current) => ({ ...current, max_pv_power: event.target.value }))} /></label>
+        <label className="field catalog-inline-span-1"><span>{t('catalog.ui.price_per_unit')}</span><input type="number" value={draft.price} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} /></label>
+      </div>
+      <details
+        className="catalog-inline-advanced"
+        open={mpptNonTableOpen}
+        onToggle={(event) => setMpptNonTableOpen(event.currentTarget.open)}
+      >
+        <summary>Non-table fields</summary>
+        <div className="stack" style={{ gap: 12 }}>
+          <div className="catalog-inline-grid catalog-inline-grid-6 catalog-inline-advanced-grid">
+            <label className="field catalog-inline-span-1"><span>{t('catalog.field.max_voc')}</span><input type="number" value={draft.max_voc} onChange={(event) => setDraft((current) => ({ ...current, max_voc: event.target.value }))} /></label>
+            <label className="field catalog-inline-span-1"><span>{t('catalog.field.max_charge_current')}</span><input type="number" value={draft.max_charge_current} onChange={(event) => setDraft((current) => ({ ...current, max_charge_current: event.target.value }))} /></label>
+            <label className="field catalog-inline-span-1"><span>{t('catalog.field.max_pv_input_current')}</span><input type="number" value={draft.max_pv_input_current_a} onChange={(event) => setDraft((current) => ({ ...current, max_pv_input_current_a: event.target.value }))} /></label>
+            <label className="field catalog-inline-span-1"><span>{t('catalog.field.max_pv_short_circuit_current')}</span><input type="number" value={draft.max_pv_short_circuit_current_a} onChange={(event) => setDraft((current) => ({ ...current, max_pv_short_circuit_current_a: event.target.value }))} /></label>
+            <label className="field catalog-inline-span-1"><span>{t('catalog.field.nominal_battery_voltage')}</span><input type="number" value={draft.nominal_battery_voltage} onChange={(event) => setDraft((current) => ({ ...current, nominal_battery_voltage: event.target.value }))} /></label>
+            <label className="field catalog-inline-span-1"><span>{t('catalog.ui.price_source_url')}</span><input value={draft.price_source_url} onChange={(event) => setDraft((current) => ({ ...current, price_source_url: event.target.value }))} placeholder="https://..." /></label>
+          </div>
+          <label className="field catalog-inline-span-3"><span>{t('catalog.ui.notes')}</span><textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={1} /></label>
+        </div>
+      </details>
+      <div className="button-row">
+        <button type="button" className="button button-secondary" onClick={closeMpptEditor} disabled={isSaving}>{t('common.cancel')}</button>
+        <button type="button" className="button button-success" onClick={() => void handleSave()} disabled={isSaving || !draft.model.trim()}>{isSaving ? t('common.saving') : t('common.save')}</button>
+        {!isAddingNew && selectedMppt ? <button type="button" className="button button-danger" onClick={() => setDeleteConfirmOpen(true)} disabled={isSaving}>{t('common.delete')}</button> : null}
+        {saveError ? <p className="save-error">{saveError}</p> : null}
+        {saveMessage ? <p className="save-message">{saveMessage}</p> : null}
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -8438,9 +8598,14 @@ function MpptCatalogPage({
         <section className="panel">
           <div className="stack" style={{ gap: 12 }}>
             <div className="button-row button-row-between">
-              <button type="button" className="button button-secondary" onClick={startAddNew}>
-                {t('catalog.ui.add_item', { item: t('catalog.entry.mppt_type') })}
-              </button>
+              <div className="button-row">
+                <button type="button" className="button button-secondary button-sm" onClick={startAddNew}>
+                  {t('catalog.ui.add_item', { item: t('catalog.entry.mppt_type') })}
+                </button>
+                <button type="button" className="button button-secondary button-sm" onClick={() => selectedMpptTypeId ? openExistingMpptEditor(selectedMpptTypeId) : undefined} disabled={!selectedMppt}>
+                  {t('common.edit')} {t('catalog.entry.mppt_type')}
+                </button>
+              </div>
             </div>
             <div className="yield-table-wrap">
               <table className="yield-table catalog-table">
@@ -8452,147 +8617,66 @@ function MpptCatalogPage({
                     <th>{t('catalog.stat.max_pv_power')}</th>
                     <th>{t('catalog.stat.price')}</th>
                     <th>{t('catalog.ui.source')}</th>
-                    <th>{t('common.edit')}</th>
                   </tr>
                 </thead>
                 <tbody>
+                  {isAddingNew ? (
+                    <CatalogInlineEditorRow colSpan={6} title={t('catalog.ui.add_item', { item: t('catalog.entry.mppt_type') })} subtitle={t('catalog.ui.changes_saved')}>
+                      {mpptEditor}
+                    </CatalogInlineEditorRow>
+                  ) : null}
                   {data.entities.mppt_types.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="catalog-table-empty">
+                      <td colSpan={6} className="catalog-table-empty">
                         {t('catalog.ui.no_entries')}
                       </td>
                     </tr>
                   ) : data.entities.mppt_types.map((mppt) => (
-                    <tr
-                      key={mppt.mppt_type_id}
-                      className={`catalog-table-row ${selectedMpptTypeId === mppt.mppt_type_id ? 'catalog-table-row-active' : ''}`}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => {
-                        setSelectedMpptTypeId(mppt.mppt_type_id);
-                        setSaveError(null);
-                        setSaveMessage(null);
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          setSelectedMpptTypeId(mppt.mppt_type_id);
-                          setSaveError(null);
-                          setSaveMessage(null);
-                        }
-                      }}
-                    >
-                      <td className="catalog-table-brand-col">{mppt.brand}</td>
-                      <td className="catalog-table-model-col">{mppt.model}</td>
-                      <td>{mppt.tracker_count}</td>
-                      <td>{mppt.max_pv_power} W</td>
-                      <td>{renderPrice(mppt.price, mppt.price_source_url)}</td>
-                      <td>{mppt.price_source_url ? <a className="price-link" href={mppt.price_source_url} target="_blank" rel="noreferrer">{formatPriceSourceName(mppt.price_source_url) ?? t('common.open')}</a> : '—'}</td>
-                      <td>
-                        <button
-                          type="button"
-                          className="button button-secondary button-sm"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setSelectedMpptTypeId(mppt.mppt_type_id);
-                            setSaveError(null);
-                            setSaveMessage(null);
-                          }}
-                        >
-                          {t('common.edit')}
-                        </button>
-                      </td>
-                    </tr>
+                    <React.Fragment key={mppt.mppt_type_id}>
+                      <tr
+                        className={`catalog-table-row ${selectedMpptTypeId === mppt.mppt_type_id ? 'catalog-table-row-active' : ''}`}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => selectMpptType(mppt.mppt_type_id)}
+                        onDoubleClick={() => openExistingMpptEditor(mppt.mppt_type_id)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            selectMpptType(mppt.mppt_type_id);
+                          }
+                        }}
+                      >
+                        <td className="catalog-table-brand-col">{mppt.brand}</td>
+                        <td className="catalog-table-model-col">{mppt.model}</td>
+                        <td>{mppt.tracker_count}</td>
+                        <td>{mppt.max_pv_power} W</td>
+                        <td>{renderPrice(mppt.price, mppt.price_source_url)}</td>
+                        <td>{mppt.price_source_url ? <a className="price-link" href={mppt.price_source_url} target="_blank" rel="noreferrer">{formatPriceSourceName(mppt.price_source_url) ?? t('common.open')}</a> : '—'}</td>
+                      </tr>
+                      {openMpptEditorId === mppt.mppt_type_id ? (
+                        <CatalogInlineEditorRow colSpan={6} title={t('catalog.ui.edit_item', { item: t('catalog.entry.mppt_type') })} subtitle={t('catalog.ui.changes_saved')}>
+                          {mpptEditor}
+                        </CatalogInlineEditorRow>
+                      ) : null}
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>
             </div>
           </div>
         </section>
-
-        <section className="panel">
-          <div className="section-head">
-            <h2>{selectedMppt ? t('catalog.ui.edit_item', { item: t('catalog.entry.mppt_type') }) : t('catalog.ui.add_item', { item: t('catalog.entry.mppt_type') })}</h2>
-            <p>{t('catalog.ui.changes_saved')}</p>
-          </div>
-          <div className="stack" style={{ gap: 16 }}>
-            <div className="field">
-              <span>{t('catalog.field.mppt_type_id')}</span>
-              <p className="muted">
-                {selectedMppt ? selectedMppt.mppt_type_id : (draft.model.trim() ? generateUniqueCatalogId(draft.model.trim(), data.entities.mppt_types.map((mppt) => mppt.mppt_type_id)) : t('catalog.ui.generated_after_save'))}
-              </p>
-            </div>
-            <label className="field">
-              <span>{t('catalog.field.brand')}</span>
-              <input
-                value={draft.brand}
-                onChange={(event) => setDraft((current) => ({ ...current, brand: event.target.value }))}
-                placeholder="Victron"
-              />
-            </label>
-            <label className="field">
-              <span>{t('catalog.field.model')}</span>
-              <input
-                value={draft.model}
-                onChange={(event) => setDraft((current) => ({ ...current, model: event.target.value }))}
-                placeholder="SmartSolar 250/100"
-              />
-            </label>
-            <div className="detail-grid two-col">
-              <label className="field"><span>{t('catalog.field.tracker_count')}</span><input type="number" value={draft.tracker_count} onChange={(event) => setDraft((current) => ({ ...current, tracker_count: event.target.value }))} /></label>
-              <label className="field"><span>{t('catalog.field.max_voc')}</span><input type="number" value={draft.max_voc} onChange={(event) => setDraft((current) => ({ ...current, max_voc: event.target.value }))} /></label>
-            </div>
-            <div className="detail-grid two-col">
-              <label className="field"><span>{t('catalog.field.max_pv_power')}</span><input type="number" value={draft.max_pv_power} onChange={(event) => setDraft((current) => ({ ...current, max_pv_power: event.target.value }))} /></label>
-              <label className="field"><span>{t('catalog.field.max_charge_current')}</span><input type="number" value={draft.max_charge_current} onChange={(event) => setDraft((current) => ({ ...current, max_charge_current: event.target.value }))} /></label>
-            </div>
-            <div className="detail-grid two-col">
-              <label className="field"><span>{t('catalog.field.max_pv_input_current')}</span><input type="number" value={draft.max_pv_input_current_a} onChange={(event) => setDraft((current) => ({ ...current, max_pv_input_current_a: event.target.value }))} /></label>
-              <label className="field"><span>{t('catalog.field.max_pv_short_circuit_current')}</span><input type="number" value={draft.max_pv_short_circuit_current_a} onChange={(event) => setDraft((current) => ({ ...current, max_pv_short_circuit_current_a: event.target.value }))} /></label>
-            </div>
-            <div className="detail-grid two-col">
-              <label className="field"><span>{t('catalog.field.nominal_battery_voltage')}</span><input type="number" value={draft.nominal_battery_voltage} onChange={(event) => setDraft((current) => ({ ...current, nominal_battery_voltage: event.target.value }))} /></label>
-              <label className="field"><span>{t('catalog.ui.price_per_unit')}</span><input type="number" value={draft.price} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} /></label>
-            </div>
-            <label className="field">
-              <span>{t('catalog.ui.price_source_url')}</span>
-              <input
-                value={draft.price_source_url}
-                onChange={(event) => setDraft((current) => ({ ...current, price_source_url: event.target.value }))}
-                placeholder="https://..."
-              />
-            </label>
-            <label className="field">
-              <span>{t('catalog.ui.notes')}</span>
-              <textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={4} />
-            </label>
-            <div className="stack" style={{ gap: 8 }}>
-              <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.model.trim()}>
-                {isSaving ? t('common.saving') : t('common.save')}
-              </button>
-              {selectedMppt ? (
-                <button type="button" className="button button-danger" onClick={() => void handleDelete()} disabled={isSaving}>
-                  {t('common.delete')}
-                </button>
-              ) : null}
-              {saveError ? <p className="save-error">{saveError}</p> : null}
-              {saveMessage ? <p className="save-message">{saveMessage}</p> : null}
-            </div>
-          </div>
-          {selectedMppt ? (
-            <dl className="detail-stats panel-spec-grid" style={{ marginTop: 16 }}>
-              <div><dt>{t('catalog.field.brand')}</dt><dd>{selectedMppt.brand}</dd></div>
-              <div><dt>{t('catalog.stat.tracker_count')}</dt><dd>{selectedMppt.tracker_count}</dd></div>
-              <div><dt>{t('catalog.stat.max_voc')}</dt><dd>{selectedMppt.max_voc} V</dd></div>
-              <div><dt>{t('catalog.stat.max_pv_power')}</dt><dd>{selectedMppt.max_pv_power} W</dd></div>
-              <div><dt>{t('catalog.stat.max_charge_current')}</dt><dd>{selectedMppt.max_charge_current} A</dd></div>
-              <div><dt>{t('catalog.stat.nominal_battery_voltage')}</dt><dd>{selectedMppt.nominal_battery_voltage} V</dd></div>
-              <div><dt>{t('catalog.stat.price')}</dt><dd>{renderPrice(selectedMppt.price, selectedMppt.price_source_url)}</dd></div>
-              <div><dt>{t('catalog.stat.pv_input_current')}</dt><dd>{selectedMppt.max_pv_input_current_a != null ? `${selectedMppt.max_pv_input_current_a} A` : 'n/a'}</dd></div>
-            </dl>
-          ) : null}
-        </section>
       </section>
+      {deleteConfirmOpen && selectedMppt ? (
+        <ConfirmDialog
+          title={t('catalog.confirm.delete', { item: t('catalog.entry.mppt_type'), id: selectedMppt.mppt_type_id })}
+          message={t('catalog.confirm.delete_body')}
+          confirmLabel={t('catalog.confirm.delete_action')}
+          cancelLabel={t('common.cancel')}
+          confirmTone="danger"
+          onCancel={() => setDeleteConfirmOpen(false)}
+          onConfirm={() => void handleDelete()}
+        />
+      ) : null}
     </>
   );
 }
@@ -8607,9 +8691,13 @@ function InverterCatalogPage({
   const { t } = useTranslation();
   const [selectedInverterTypeId, setSelectedInverterTypeId] = useState(() => data.entities.inverter_types[0]?.inverter_id ?? '');
   const [draft, setDraft] = useState<InverterTypeDraft>(() => inverterDraftFromType(data.entities.inverter_types[0] ?? null));
+  const [isAddingNew, setIsAddingNew] = useState(false);
+  const [openInverterEditorId, setOpenInverterEditorId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [inverterNonTableOpen, setInverterNonTableOpen] = useSessionState('offgridos:catalog:inverter:non-table-open', false);
 
   const selectedInverter = selectedInverterTypeId
     ? data.entities.inverter_types.find((item) => item.inverter_id === selectedInverterTypeId) ?? null
@@ -8626,9 +8714,38 @@ function InverterCatalogPage({
 
   function startAddNew() {
     setSelectedInverterTypeId('');
+    setIsAddingNew(true);
+    setOpenInverterEditorId(null);
     setSaveError(null);
     setSaveMessage(null);
+    setDeleteConfirmOpen(false);
     setDraft(emptyInverterDraft());
+  }
+
+  function selectInverterType(inverterTypeId: string) {
+    setSelectedInverterTypeId(inverterTypeId);
+    setIsAddingNew(false);
+    setOpenInverterEditorId(null);
+    setSaveError(null);
+    setSaveMessage(null);
+    setDeleteConfirmOpen(false);
+  }
+
+  function openExistingInverterEditor(inverterTypeId: string) {
+    setSelectedInverterTypeId(inverterTypeId);
+    setIsAddingNew(false);
+    setOpenInverterEditorId(inverterTypeId);
+    setSaveError(null);
+    setSaveMessage(null);
+    setDeleteConfirmOpen(false);
+  }
+
+  function closeInverterEditor() {
+    setIsAddingNew(false);
+    setOpenInverterEditorId(null);
+    setSaveError(null);
+    setSaveMessage(null);
+    setDeleteConfirmOpen(false);
   }
 
   async function handleSave() {
@@ -8682,11 +8799,14 @@ function InverterCatalogPage({
 
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: string } | null;
-        throw new Error(payload?.error ?? `Failed to save inverter type (${response.status})`);
+        throw new Error(payload?.error ?? `Failed to save inverter (${response.status})`);
       }
 
       await refreshProjectData();
       setSelectedInverterTypeId(inverterId);
+      setIsAddingNew(false);
+      setOpenInverterEditorId(null);
+      setDeleteConfirmOpen(false);
       setDraft(inverterDraftFromType({
         inverter_id: inverterId,
         brand,
@@ -8712,9 +8832,6 @@ function InverterCatalogPage({
   async function handleDelete() {
     if (!selectedInverter) return;
 
-    const confirmed = window.confirm(t('catalog.confirm.delete', { item: t('catalog.entry.inverter_type'), id: selectedInverter.inverter_id }));
-    if (!confirmed) return;
-
     try {
       setIsSaving(true);
       setSaveError(null);
@@ -8723,20 +8840,65 @@ function InverterCatalogPage({
       const response = await fetch(`/api/inverter-types/${encodeURIComponent(selectedInverter.inverter_id)}`, { method: 'DELETE' });
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: string } | null;
-        throw new Error(payload?.error ?? `Failed to delete inverter type (${response.status})`);
+        throw new Error(payload?.error ?? `Failed to delete inverter (${response.status})`);
       }
 
       await refreshProjectData();
       const nextInverter = data.entities.inverter_types.find((item) => item.inverter_id !== selectedInverter.inverter_id) ?? null;
       setSelectedInverterTypeId(nextInverter?.inverter_id ?? '');
+      setIsAddingNew(false);
+      setOpenInverterEditorId(null);
+      setDeleteConfirmOpen(false);
       setDraft(inverterDraftFromType(nextInverter));
       setSaveMessage(t('catalog.message.deleted', { item: t('catalog.entry.inverter_type'), id: selectedInverter.inverter_id }));
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Failed to delete inverter type.');
+      setSaveError(error instanceof Error ? error.message : 'Failed to delete inverter.');
     } finally {
       setIsSaving(false);
     }
   }
+
+  const inverterEditor = (
+    <div className="stack" style={{ gap: 16 }}>
+      <div className="field">
+        <span>{t('catalog.field.inverter_id')}</span>
+        <p className="muted">
+          {selectedInverter ? selectedInverter.inverter_id : (draft.model.trim() ? generateUniqueCatalogId(draft.model.trim(), data.entities.inverter_types.map((inverter) => inverter.inverter_id)) : t('catalog.ui.generated_after_save'))}
+        </p>
+      </div>
+      <div className="catalog-inline-grid catalog-inline-grid-6 catalog-inline-basic">
+        <label className="field catalog-inline-span-1"><span>{t('catalog.field.brand')}</span><input value={draft.brand} onChange={(event) => setDraft((current) => ({ ...current, brand: event.target.value }))} placeholder="Victron" /></label>
+        <label className="field catalog-inline-span-2"><span>{t('catalog.field.model')}</span><input value={draft.model} onChange={(event) => setDraft((current) => ({ ...current, model: event.target.value }))} placeholder="MultiPlus-II 48/10000/140-100" /></label>
+        <label className="field catalog-inline-span-1"><span>{t('catalog.field.input_voltage')}</span><input type="number" value={draft.input_voltage_v} onChange={(event) => setDraft((current) => ({ ...current, input_voltage_v: event.target.value }))} /></label>
+        <label className="field catalog-inline-span-1"><span>{t('catalog.field.continuous_power')}</span><input type="number" value={draft.continuous_power_w} onChange={(event) => setDraft((current) => ({ ...current, continuous_power_w: event.target.value }))} /></label>
+        <label className="field catalog-inline-span-1"><span>{t('catalog.ui.price_per_unit')}</span><input type="number" value={draft.price} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} /></label>
+      </div>
+      <details
+        className="catalog-inline-advanced"
+        open={inverterNonTableOpen}
+        onToggle={(event) => setInverterNonTableOpen(event.currentTarget.open)}
+      >
+        <summary>Non-table fields</summary>
+        <div className="stack" style={{ gap: 12 }}>
+          <div className="catalog-inline-grid catalog-inline-grid-6 catalog-inline-advanced-grid">
+            <label className="field catalog-inline-span-1"><span>{t('catalog.field.output_voltage')}</span><input type="number" value={draft.output_voltage_v} onChange={(event) => setDraft((current) => ({ ...current, output_voltage_v: event.target.value }))} /></label>
+            <label className="field catalog-inline-span-1"><span>{t('catalog.field.peak_power')}</span><input type="number" value={draft.peak_power_va} onChange={(event) => setDraft((current) => ({ ...current, peak_power_va: event.target.value }))} /></label>
+            <label className="field catalog-inline-span-1"><span>{t('catalog.field.max_charge_current')}</span><input type="number" value={draft.max_charge_current_a} onChange={(event) => setDraft((current) => ({ ...current, max_charge_current_a: event.target.value }))} /></label>
+            <label className="field catalog-inline-span-1"><span>{t('catalog.field.efficiency_pct')}</span><input type="number" value={draft.efficiency_pct} onChange={(event) => setDraft((current) => ({ ...current, efficiency_pct: event.target.value }))} /></label>
+            <label className="field catalog-inline-span-2"><span>{t('catalog.ui.price_source_url')}</span><input value={draft.price_source_url} onChange={(event) => setDraft((current) => ({ ...current, price_source_url: event.target.value }))} placeholder="https://..." /></label>
+          </div>
+          <label className="field catalog-inline-span-3"><span>{t('catalog.ui.notes')}</span><textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={1} /></label>
+        </div>
+      </details>
+      <div className="button-row">
+        <button type="button" className="button button-secondary" onClick={closeInverterEditor} disabled={isSaving}>{t('common.cancel')}</button>
+        <button type="button" className="button button-success" onClick={() => void handleSave()} disabled={isSaving || !draft.model.trim()}>{isSaving ? t('common.saving') : t('common.save')}</button>
+        {!isAddingNew && selectedInverter ? <button type="button" className="button button-danger" onClick={() => setDeleteConfirmOpen(true)} disabled={isSaving}>{t('common.delete')}</button> : null}
+        {saveError ? <p className="save-error">{saveError}</p> : null}
+        {saveMessage ? <p className="save-message">{saveMessage}</p> : null}
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -8744,9 +8906,14 @@ function InverterCatalogPage({
         <section className="panel">
           <div className="stack" style={{ gap: 12 }}>
             <div className="button-row button-row-between">
-              <button type="button" className="button button-secondary" onClick={startAddNew}>
-                {t('catalog.ui.add_item', { item: t('catalog.entry.inverter_type') })}
-              </button>
+              <div className="button-row">
+                <button type="button" className="button button-secondary button-sm" onClick={startAddNew}>
+                  {t('catalog.ui.add_item', { item: t('catalog.entry.inverter_type') })}
+                </button>
+                <button type="button" className="button button-secondary button-sm" onClick={() => selectedInverterTypeId ? openExistingInverterEditor(selectedInverterTypeId) : undefined} disabled={!selectedInverter}>
+                  {t('common.edit')} {t('catalog.entry.inverter_type')}
+                </button>
+              </div>
             </div>
             <div className="yield-table-wrap">
               <table className="yield-table catalog-table">
@@ -8758,138 +8925,66 @@ function InverterCatalogPage({
                     <th>{t('catalog.stat.continuous_power')}</th>
                     <th>{t('catalog.stat.price')}</th>
                     <th>{t('catalog.ui.source')}</th>
-                    <th>{t('common.edit')}</th>
                   </tr>
                 </thead>
                 <tbody>
+                  {isAddingNew ? (
+                    <CatalogInlineEditorRow colSpan={6} title={t('catalog.ui.add_item', { item: t('catalog.entry.inverter_type') })} subtitle={t('catalog.ui.changes_saved')}>
+                      {inverterEditor}
+                    </CatalogInlineEditorRow>
+                  ) : null}
                   {data.entities.inverter_types.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="catalog-table-empty">
+                      <td colSpan={6} className="catalog-table-empty">
                         {t('catalog.ui.no_entries')}
                       </td>
                     </tr>
                   ) : data.entities.inverter_types.map((inverter) => (
-                    <tr
-                      key={inverter.inverter_id}
-                      className={`catalog-table-row ${selectedInverterTypeId === inverter.inverter_id ? 'catalog-table-row-active' : ''}`}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => {
-                        setSelectedInverterTypeId(inverter.inverter_id);
-                        setSaveError(null);
-                        setSaveMessage(null);
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          setSelectedInverterTypeId(inverter.inverter_id);
-                          setSaveError(null);
-                          setSaveMessage(null);
-                        }
-                      }}
-                    >
-                      <td className="catalog-table-brand-col">{inverter.brand}</td>
-                      <td className="catalog-table-model-col">{inverter.model}</td>
-                      <td>{inverter.input_voltage_v} V</td>
-                      <td>{inverter.continuous_power_w} W</td>
-                      <td>{renderPrice(inverter.price, inverter.price_source_url)}</td>
-                      <td>{inverter.price_source_url ? <a className="price-link" href={inverter.price_source_url} target="_blank" rel="noreferrer">{formatPriceSourceName(inverter.price_source_url) ?? t('common.open')}</a> : '—'}</td>
-                      <td>
-                        <button
-                          type="button"
-                          className="button button-secondary button-sm"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setSelectedInverterTypeId(inverter.inverter_id);
-                            setSaveError(null);
-                            setSaveMessage(null);
-                          }}
-                        >
-                          {t('common.edit')}
-                        </button>
-                      </td>
-                    </tr>
+                    <React.Fragment key={inverter.inverter_id}>
+                      <tr
+                        className={`catalog-table-row ${selectedInverterTypeId === inverter.inverter_id ? 'catalog-table-row-active' : ''}`}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => selectInverterType(inverter.inverter_id)}
+                        onDoubleClick={() => openExistingInverterEditor(inverter.inverter_id)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            selectInverterType(inverter.inverter_id);
+                          }
+                        }}
+                      >
+                        <td className="catalog-table-brand-col">{inverter.brand}</td>
+                        <td className="catalog-table-model-col">{inverter.model}</td>
+                        <td>{inverter.input_voltage_v} V</td>
+                        <td>{inverter.continuous_power_w} W</td>
+                        <td>{renderPrice(inverter.price, inverter.price_source_url)}</td>
+                        <td>{inverter.price_source_url ? <a className="price-link" href={inverter.price_source_url} target="_blank" rel="noreferrer">{formatPriceSourceName(inverter.price_source_url) ?? t('common.open')}</a> : '—'}</td>
+                      </tr>
+                      {openInverterEditorId === inverter.inverter_id ? (
+                        <CatalogInlineEditorRow colSpan={6} title={t('catalog.ui.edit_item', { item: t('catalog.entry.inverter_type') })} subtitle={t('catalog.ui.changes_saved')}>
+                          {inverterEditor}
+                        </CatalogInlineEditorRow>
+                      ) : null}
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>
             </div>
           </div>
         </section>
-
-        <section className="panel">
-          <div className="section-head">
-            <h2>{selectedInverter ? t('catalog.ui.edit_item', { item: t('catalog.entry.inverter_type') }) : t('catalog.ui.add_item', { item: t('catalog.entry.inverter_type') })}</h2>
-            <p>{t('catalog.ui.changes_saved')}</p>
-          </div>
-          <div className="stack" style={{ gap: 16 }}>
-            <div className="field">
-              <span>{t('catalog.field.inverter_id')}</span>
-              <p className="muted">
-                {selectedInverter ? selectedInverter.inverter_id : (draft.model.trim() ? generateUniqueCatalogId(draft.model.trim(), data.entities.inverter_types.map((inverter) => inverter.inverter_id)) : t('catalog.ui.generated_after_save'))}
-              </p>
-            </div>
-            <label className="field">
-              <span>{t('catalog.field.brand')}</span>
-              <input
-                value={draft.brand}
-                onChange={(event) => setDraft((current) => ({ ...current, brand: event.target.value }))}
-                placeholder="Victron"
-              />
-            </label>
-            <label className="field">
-              <span>{t('catalog.field.model')}</span>
-              <input
-                value={draft.model}
-                onChange={(event) => setDraft((current) => ({ ...current, model: event.target.value }))}
-                placeholder="MultiPlus-II 48/10000/140-100"
-              />
-            </label>
-            <div className="detail-grid two-col">
-              <label className="field"><span>{t('catalog.field.input_voltage')}</span><input type="number" value={draft.input_voltage_v} onChange={(event) => setDraft((current) => ({ ...current, input_voltage_v: event.target.value }))} /></label>
-              <label className="field"><span>{t('catalog.field.output_voltage')}</span><input type="number" value={draft.output_voltage_v} onChange={(event) => setDraft((current) => ({ ...current, output_voltage_v: event.target.value }))} /></label>
-            </div>
-            <div className="detail-grid two-col">
-              <label className="field"><span>{t('catalog.field.continuous_power')}</span><input type="number" value={draft.continuous_power_w} onChange={(event) => setDraft((current) => ({ ...current, continuous_power_w: event.target.value }))} /></label>
-              <label className="field"><span>{t('catalog.field.peak_power')}</span><input type="number" value={draft.peak_power_va} onChange={(event) => setDraft((current) => ({ ...current, peak_power_va: event.target.value }))} /></label>
-            </div>
-            <div className="detail-grid two-col">
-              <label className="field"><span>{t('catalog.field.max_charge_current')}</span><input type="number" value={draft.max_charge_current_a} onChange={(event) => setDraft((current) => ({ ...current, max_charge_current_a: event.target.value }))} /></label>
-              <label className="field"><span>{t('catalog.field.efficiency_pct')}</span><input type="number" value={draft.efficiency_pct} onChange={(event) => setDraft((current) => ({ ...current, efficiency_pct: event.target.value }))} /></label>
-            </div>
-            <div className="detail-grid two-col">
-              <label className="field"><span>{t('catalog.ui.price_per_unit')}</span><input type="number" value={draft.price} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} /></label>
-              <label className="field"><span>{t('catalog.ui.price_source_url')}</span><input value={draft.price_source_url} onChange={(event) => setDraft((current) => ({ ...current, price_source_url: event.target.value }))} placeholder="https://..." /></label>
-            </div>
-            <label className="field">
-              <span>{t('catalog.ui.notes')}</span>
-              <textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={4} />
-            </label>
-            <div className="stack" style={{ gap: 8 }}>
-              <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.model.trim()}>
-                {isSaving ? t('common.saving') : t('common.save')}
-              </button>
-              {selectedInverter ? (
-                <button type="button" className="button button-danger" onClick={() => void handleDelete()} disabled={isSaving}>
-                  {t('common.delete')}
-                </button>
-              ) : null}
-              {saveError ? <p className="save-error">{saveError}</p> : null}
-              {saveMessage ? <p className="save-message">{saveMessage}</p> : null}
-            </div>
-          </div>
-          {selectedInverter ? (
-            <dl className="detail-stats panel-spec-grid" style={{ marginTop: 16 }}>
-              <div><dt>{t('catalog.field.brand')}</dt><dd>{selectedInverter.brand}</dd></div>
-              <div><dt>{t('catalog.stat.input_voltage')}</dt><dd>{selectedInverter.input_voltage_v} V</dd></div>
-              <div><dt>{t('catalog.stat.output_voltage')}</dt><dd>{selectedInverter.output_voltage_v} V</dd></div>
-              <div><dt>{t('catalog.stat.continuous_power')}</dt><dd>{selectedInverter.continuous_power_w} W</dd></div>
-              <div><dt>{t('catalog.stat.peak_power')}</dt><dd>{selectedInverter.peak_power_va} VA</dd></div>
-              <div><dt>{t('catalog.stat.max_current')}</dt><dd>{selectedInverter.max_charge_current_a} A</dd></div>
-              <div><dt>{t('catalog.stat.efficiency')}</dt><dd>{selectedInverter.efficiency_pct != null ? `${selectedInverter.efficiency_pct}%` : 'n/a'}</dd></div>
-            </dl>
-          ) : null}
-        </section>
       </section>
+      {deleteConfirmOpen && selectedInverter ? (
+        <ConfirmDialog
+          title={t('catalog.confirm.delete', { item: t('catalog.entry.inverter_type'), id: selectedInverter.inverter_id })}
+          message={t('catalog.confirm.delete_body')}
+          confirmLabel={t('catalog.confirm.delete_action')}
+          cancelLabel={t('common.cancel')}
+          confirmTone="danger"
+          onCancel={() => setDeleteConfirmOpen(false)}
+          onConfirm={() => void handleDelete()}
+        />
+      ) : null}
     </>
   );
 }
@@ -8908,9 +9003,13 @@ function ConversionDeviceCatalogPage({
     data.entities.conversion_devices[0]?.conversion_device_id ?? '',
   );
   const [draft, setDraft] = useState<ConversionDeviceDraft>(() => conversionDeviceDraftFromType(data.entities.conversion_devices[0] ?? null));
+  const [isAddingNew, setIsAddingNew] = useState(false);
+  const [openConversionDeviceEditorId, setOpenConversionDeviceEditorId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [conversionDeviceNonTableOpen, setConversionDeviceNonTableOpen] = useSessionState('offgridos:catalog:conversion-device:non-table-open', false);
 
   const selectedConversionDevice = selectedConversionDeviceId
     ? data.entities.conversion_devices.find((item) => item.conversion_device_id === selectedConversionDeviceId) ?? null
@@ -8936,9 +9035,38 @@ function ConversionDeviceCatalogPage({
 
   function startAddNew() {
     setSelectedConversionDeviceId('');
+    setIsAddingNew(true);
+    setOpenConversionDeviceEditorId(null);
     setSaveError(null);
     setSaveMessage(null);
+    setDeleteConfirmOpen(false);
     setDraft(emptyConversionDeviceDraft());
+  }
+
+  function selectConversionDevice(conversionDeviceId: string) {
+    setSelectedConversionDeviceId(conversionDeviceId);
+    setIsAddingNew(false);
+    setOpenConversionDeviceEditorId(null);
+    setSaveError(null);
+    setSaveMessage(null);
+    setDeleteConfirmOpen(false);
+  }
+
+  function openExistingConversionDeviceEditor(conversionDeviceId: string) {
+    setSelectedConversionDeviceId(conversionDeviceId);
+    setIsAddingNew(false);
+    setOpenConversionDeviceEditorId(conversionDeviceId);
+    setSaveError(null);
+    setSaveMessage(null);
+    setDeleteConfirmOpen(false);
+  }
+
+  function closeConversionDeviceEditor() {
+    setIsAddingNew(false);
+    setOpenConversionDeviceEditorId(null);
+    setSaveError(null);
+    setSaveMessage(null);
+    setDeleteConfirmOpen(false);
   }
 
   async function handleSave() {
@@ -9019,6 +9147,9 @@ function ConversionDeviceCatalogPage({
 
       await refreshProjectData();
       setSelectedConversionDeviceId(conversionDeviceId);
+      setIsAddingNew(false);
+      setOpenConversionDeviceEditorId(null);
+      setDeleteConfirmOpen(false);
       setDraft(conversionDeviceDraftFromType({
         conversion_device_id: conversionDeviceId,
         title,
@@ -9050,9 +9181,6 @@ function ConversionDeviceCatalogPage({
   async function handleDelete() {
     if (!selectedConversionDevice) return;
 
-    const confirmed = window.confirm(t('catalog.confirm.delete', { item: t('catalog.entry.conversion_device'), id: selectedConversionDevice.conversion_device_id }));
-    if (!confirmed) return;
-
     try {
       setIsSaving(true);
       setSaveError(null);
@@ -9067,6 +9195,9 @@ function ConversionDeviceCatalogPage({
       await refreshProjectData();
       const nextDevice = data.entities.conversion_devices.find((item) => item.conversion_device_id !== selectedConversionDevice.conversion_device_id) ?? null;
       setSelectedConversionDeviceId(nextDevice?.conversion_device_id ?? '');
+      setIsAddingNew(false);
+      setOpenConversionDeviceEditorId(null);
+      setDeleteConfirmOpen(false);
       setDraft(conversionDeviceDraftFromType(nextDevice));
       setSaveMessage(t('catalog.message.deleted', { item: t('catalog.entry.conversion_device'), id: selectedConversionDevice.conversion_device_id }));
     } catch (error) {
@@ -9087,14 +9218,68 @@ function ConversionDeviceCatalogPage({
     }
   };
 
+  const conversionDeviceEditor = (
+    <div className="stack" style={{ gap: 16 }}>
+      <div className="field">
+        <span>{t('catalog.field.conversion_device_id')}</span>
+        <p className="muted">
+          {selectedConversionDevice ? selectedConversionDevice.conversion_device_id : (draft.title.trim() ? generateUniqueCatalogId(draft.title.trim(), data.entities.conversion_devices.map((device) => device.conversion_device_id)) : t('catalog.ui.generated_after_save'))}
+        </p>
+      </div>
+      <div className="catalog-inline-grid catalog-inline-grid-6 catalog-inline-basic">
+        <label className="field catalog-inline-span-2"><span>{t('catalog.field.title')}</span><input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} placeholder="Multi RS Solar 48/6000/100-450/100" /></label>
+        <label className="field catalog-inline-span-1"><span>{t('catalog.field.device_type')}</span><select value={draft.device_type} onChange={(event) => setDraft((current) => ({ ...current, device_type: event.target.value }))}><option value="inverter">{t('catalog.device_type.inverter')}</option><option value="dc_dc_converter">{t('catalog.device_type.dc_dc_converter')}</option><option value="ac_dc_charger">{t('catalog.device_type.ac_dc_charger')}</option></select></label>
+        <label className="field catalog-inline-span-1"><span>{t('catalog.field.input_voltage')}</span><input type="number" value={draft.input_voltage_v} onChange={(event) => setDraft((current) => ({ ...current, input_voltage_v: event.target.value }))} /></label>
+        <label className="field catalog-inline-span-1"><span>{t('catalog.field.output_voltage')}</span><input type="number" value={draft.output_voltage_v} onChange={(event) => setDraft((current) => ({ ...current, output_voltage_v: event.target.value }))} /></label>
+        <label className="field catalog-inline-span-1"><span>{t('catalog.field.continuous_power')}</span><input type="number" value={draft.continuous_power_w} onChange={(event) => setDraft((current) => ({ ...current, continuous_power_w: event.target.value }))} /></label>
+        <label className="field catalog-inline-span-1"><span>{t('catalog.field.peak_power')}</span><input type="number" value={draft.peak_power_va} onChange={(event) => setDraft((current) => ({ ...current, peak_power_va: event.target.value }))} /></label>
+        <label className="field catalog-inline-span-1"><span>{t('catalog.field.max_charge_current')}</span><input type="number" value={draft.max_charge_current_a} onChange={(event) => setDraft((current) => ({ ...current, max_charge_current_a: event.target.value }))} /></label>
+        <label className="field catalog-inline-span-1"><span>{t('catalog.stat.price')}</span><input type="number" value={draft.price} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} /></label>
+      </div>
+      <details
+        className="catalog-inline-advanced"
+        open={conversionDeviceNonTableOpen}
+        onToggle={(event) => setConversionDeviceNonTableOpen(event.currentTarget.open)}
+      >
+        <summary>Non-table fields</summary>
+        <div className="stack" style={{ gap: 12 }}>
+          <div className="catalog-inline-grid catalog-inline-grid-6 catalog-inline-advanced-grid">
+            <label className="field catalog-inline-span-2"><span>{t('catalog.field.description')}</span><input value={draft.description} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} /></label>
+            <label className="field catalog-inline-span-1"><span>{t('catalog.field.efficiency_pct')}</span><input type="number" value={draft.efficiency_pct} onChange={(event) => setDraft((current) => ({ ...current, efficiency_pct: event.target.value }))} /></label>
+            <label className="field catalog-inline-span-1"><span>{t('catalog.stat.output_voltage')}</span><input type="number" value={draft.output_ac_voltage_v} onChange={(event) => setDraft((current) => ({ ...current, output_ac_voltage_v: event.target.value }))} placeholder="230" /></label>
+            <label className="field catalog-inline-span-1"><span>{t('catalog.field.frequency')}</span><input type="number" value={draft.frequency_hz} onChange={(event) => setDraft((current) => ({ ...current, frequency_hz: event.target.value }))} placeholder="50" /></label>
+            <label className="field catalog-inline-span-1"><span>{t('catalog.field.surge_power')}</span><input type="number" value={draft.surge_power_w} onChange={(event) => setDraft((current) => ({ ...current, surge_power_w: event.target.value }))} /></label>
+            <label className="field catalog-inline-span-1"><span>{t('catalog.field.output_dc_voltage')}</span><input type="number" value={draft.output_dc_voltage_v} onChange={(event) => setDraft((current) => ({ ...current, output_dc_voltage_v: event.target.value }))} /></label>
+            <label className="field catalog-inline-span-1"><span>{t('catalog.field.max_output_current')}</span><input type="number" value={draft.max_output_current_a} onChange={(event) => setDraft((current) => ({ ...current, max_output_current_a: event.target.value }))} /></label>
+            <label className="field catalog-inline-span-2"><span>{t('catalog.ui.price_source_url')}</span><input type="text" value={draft.price_source_url} onChange={(event) => setDraft((current) => ({ ...current, price_source_url: event.target.value }))} /></label>
+          </div>
+          <label className="field catalog-inline-span-3"><span>{t('catalog.ui.notes')}</span><textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={1} /></label>
+        </div>
+      </details>
+      <div className="button-row">
+        <button type="button" className="button button-secondary" onClick={closeConversionDeviceEditor} disabled={isSaving}>{t('common.cancel')}</button>
+        <button type="button" className="button button-success" onClick={() => void handleSave()} disabled={isSaving || !draft.title.trim()}>{isSaving ? t('common.saving') : t('common.save')}</button>
+        {!isAddingNew && selectedConversionDevice ? <button type="button" className="button button-danger" onClick={() => setDeleteConfirmOpen(true)} disabled={isSaving}>{t('common.delete')}</button> : null}
+        {saveError ? <p className="save-error">{saveError}</p> : null}
+        {saveMessage ? <p className="save-message">{saveMessage}</p> : null}
+      </div>
+    </div>
+  );
+
   return (
+    <>
       <section className="detail-shell">
         <section className="panel">
           <div className="stack" style={{ gap: 12 }}>
           <div className="button-row button-row-between">
-            <button type="button" className="button button-secondary" onClick={startAddNew}>
-              {t('catalog.ui.add_item', { item: t('catalog.entry.conversion_device') })}
-            </button>
+            <div className="button-row">
+              <button type="button" className="button button-secondary button-sm" onClick={startAddNew}>
+                {t('catalog.ui.add_item', { item: t('catalog.entry.conversion_device') })}
+              </button>
+              <button type="button" className="button button-secondary button-sm" onClick={() => selectedConversionDeviceId ? openExistingConversionDeviceEditor(selectedConversionDeviceId) : undefined} disabled={!selectedConversionDevice}>
+                {t('common.edit')} {t('catalog.entry.conversion_device')}
+              </button>
+            </div>
           </div>
           <div className="yield-table-wrap">
             <table className="yield-table catalog-table">
@@ -9108,153 +9293,67 @@ function ConversionDeviceCatalogPage({
                   <th>{t('catalog.stat.peak_power')}</th>
                   <th>{t('catalog.stat.max_current')}</th>
                   <th>{t('catalog.stat.price')}</th>
-                  <th>{t('common.edit')}</th>
                 </tr>
               </thead>
               <tbody>
+                {isAddingNew ? (
+                  <CatalogInlineEditorRow colSpan={8} title={t('catalog.ui.add_item', { item: t('catalog.entry.conversion_device') })} subtitle={t('catalog.ui.changes_saved')}>
+                    {conversionDeviceEditor}
+                  </CatalogInlineEditorRow>
+                ) : null}
                 {data.entities.conversion_devices.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="catalog-table-empty">{t('catalog.ui.no_entries')}</td>
+                    <td colSpan={8} className="catalog-table-empty">{t('catalog.ui.no_entries')}</td>
                   </tr>
                 ) : data.entities.conversion_devices.map((device) => (
-                  <tr
-                    key={device.conversion_device_id}
-                    className={`catalog-table-row ${selectedConversionDeviceId === device.conversion_device_id ? 'catalog-table-row-active' : ''}`}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => {
-                      setSelectedConversionDeviceId(device.conversion_device_id);
-                      setSaveError(null);
-                      setSaveMessage(null);
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        setSelectedConversionDeviceId(device.conversion_device_id);
-                        setSaveError(null);
-                        setSaveMessage(null);
-                      }
-                    }}
-                  >
-                    <td className="catalog-table-model-col">{device.title}</td>
-                    <td>{conversionDeviceTypeLabel(device.device_type)}</td>
-                    <td>{device.input_voltage_v != null ? `${device.input_voltage_v} V` : '—'}</td>
-                    <td>{device.output_voltage_v != null ? `${device.output_voltage_v} V` : '—'}</td>
-                    <td>{device.continuous_power_w != null ? `${device.continuous_power_w} W` : '—'}</td>
-                    <td>{device.peak_power_va != null ? `${device.peak_power_va} VA` : '—'}</td>
-                    <td>{device.max_charge_current_a != null ? `${device.max_charge_current_a} A` : '—'}</td>
-                    <td>{renderPrice(device.price ?? null, device.price_source_url ?? undefined)}</td>
-                    <td>
-                      <button
-                        type="button"
-                        className="button button-secondary button-sm"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setSelectedConversionDeviceId(device.conversion_device_id);
-                          setSaveError(null);
-                          setSaveMessage(null);
-                        }}
-                      >
-                        {t('common.edit')}
-                      </button>
-                    </td>
-                  </tr>
+                  <React.Fragment key={device.conversion_device_id}>
+                    <tr
+                      className={`catalog-table-row ${selectedConversionDeviceId === device.conversion_device_id ? 'catalog-table-row-active' : ''}`}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => selectConversionDevice(device.conversion_device_id)}
+                      onDoubleClick={() => openExistingConversionDeviceEditor(device.conversion_device_id)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          selectConversionDevice(device.conversion_device_id);
+                        }
+                      }}
+                    >
+                      <td className="catalog-table-model-col">{device.title}</td>
+                      <td>{conversionDeviceTypeLabel(device.device_type)}</td>
+                      <td>{device.input_voltage_v != null ? `${device.input_voltage_v} V` : '—'}</td>
+                      <td>{device.output_voltage_v != null ? `${device.output_voltage_v} V` : '—'}</td>
+                      <td>{device.continuous_power_w != null ? `${device.continuous_power_w} W` : '—'}</td>
+                      <td>{device.peak_power_va != null ? `${device.peak_power_va} VA` : '—'}</td>
+                      <td>{device.max_charge_current_a != null ? `${device.max_charge_current_a} A` : '—'}</td>
+                      <td>{renderPrice(device.price ?? null, device.price_source_url ?? undefined)}</td>
+                    </tr>
+                    {openConversionDeviceEditorId === device.conversion_device_id ? (
+                      <CatalogInlineEditorRow colSpan={8} title={t('catalog.ui.edit_item', { item: t('catalog.entry.conversion_device') })} subtitle={t('catalog.ui.changes_saved')}>
+                        {conversionDeviceEditor}
+                      </CatalogInlineEditorRow>
+                    ) : null}
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>
           </div>
         </div>
       </section>
-
-      <section className="panel">
-        <div className="section-head">
-          <h2>{selectedConversionDevice ? t('catalog.ui.edit_item', { item: t('catalog.entry.conversion_device') }) : t('catalog.ui.add_item', { item: t('catalog.entry.conversion_device') })}</h2>
-          <p>{t('catalog.ui.changes_saved')}</p>
-        </div>
-        <div className="stack" style={{ gap: 16 }}>
-          <div className="field">
-            <span>{t('catalog.field.conversion_device_id')}</span>
-            <p className="muted">
-              {selectedConversionDevice ? selectedConversionDevice.conversion_device_id : (draft.title.trim() ? generateUniqueCatalogId(draft.title.trim(), data.entities.conversion_devices.map((device) => device.conversion_device_id)) : t('catalog.ui.generated_after_save'))}
-            </p>
-          </div>
-          <label className="field">
-            <span>{t('catalog.field.title')}</span>
-            <input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} placeholder="Multi RS Solar 48/6000/100-450/100" />
-          </label>
-          <label className="field">
-            <span>{t('catalog.field.description')}</span>
-            <textarea value={draft.description} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} rows={3} />
-          </label>
-          <label className="field">
-            <span>{t('catalog.field.device_type')}</span>
-            <select value={draft.device_type} onChange={(event) => setDraft((current) => ({ ...current, device_type: event.target.value }))}>
-              <option value="inverter">{t('catalog.device_type.inverter')}</option>
-              <option value="dc_dc_converter">{t('catalog.device_type.dc_dc_converter')}</option>
-              <option value="ac_dc_charger">{t('catalog.device_type.ac_dc_charger')}</option>
-            </select>
-          </label>
-          <div className="detail-grid two-col">
-            <label className="field"><span>{t('catalog.field.input_voltage')}</span><input type="number" value={draft.input_voltage_v} onChange={(event) => setDraft((current) => ({ ...current, input_voltage_v: event.target.value }))} /></label>
-            <label className="field"><span>{t('catalog.field.output_voltage')}</span><input type="number" value={draft.output_voltage_v} onChange={(event) => setDraft((current) => ({ ...current, output_voltage_v: event.target.value }))} /></label>
-          </div>
-          <div className="detail-grid two-col">
-            <label className="field"><span>{t('catalog.field.continuous_power')}</span><input type="number" value={draft.continuous_power_w} onChange={(event) => setDraft((current) => ({ ...current, continuous_power_w: event.target.value }))} /></label>
-            <label className="field"><span>{t('catalog.field.peak_power')}</span><input type="number" value={draft.peak_power_va} onChange={(event) => setDraft((current) => ({ ...current, peak_power_va: event.target.value }))} /></label>
-          </div>
-          <div className="detail-grid two-col">
-            <label className="field"><span>{t('catalog.field.max_charge_current')}</span><input type="number" value={draft.max_charge_current_a} onChange={(event) => setDraft((current) => ({ ...current, max_charge_current_a: event.target.value }))} /></label>
-            <label className="field"><span>{t('catalog.field.efficiency_pct')}</span><input type="number" value={draft.efficiency_pct} onChange={(event) => setDraft((current) => ({ ...current, efficiency_pct: event.target.value }))} /></label>
-          </div>
-          <div className="detail-grid two-col">
-            <label className="field"><span>{t('catalog.stat.output_voltage')}</span><input type="number" value={draft.output_ac_voltage_v} onChange={(event) => setDraft((current) => ({ ...current, output_ac_voltage_v: event.target.value }))} placeholder="230" /></label>
-            <label className="field"><span>{t('catalog.field.frequency')}</span><input type="number" value={draft.frequency_hz} onChange={(event) => setDraft((current) => ({ ...current, frequency_hz: event.target.value }))} placeholder="50" /></label>
-          </div>
-          <div className="detail-grid two-col">
-            <label className="field"><span>{t('catalog.field.surge_power')}</span><input type="number" value={draft.surge_power_w} onChange={(event) => setDraft((current) => ({ ...current, surge_power_w: event.target.value }))} /></label>
-            <label className="field"><span>{t('catalog.field.output_dc_voltage')}</span><input type="number" value={draft.output_dc_voltage_v} onChange={(event) => setDraft((current) => ({ ...current, output_dc_voltage_v: event.target.value }))} /></label>
-          </div>
-          <label className="field">
-            <span>{t('catalog.field.max_output_current')}</span>
-            <input type="number" value={draft.max_output_current_a} onChange={(event) => setDraft((current) => ({ ...current, max_output_current_a: event.target.value }))} />
-          </label>
-          <div className="detail-grid two-col">
-            <label className="field"><span>{t('catalog.stat.price')}</span><input type="number" value={draft.price} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} /></label>
-            <label className="field"><span>{t('catalog.ui.price_source_url')}</span><input type="text" value={draft.price_source_url} onChange={(event) => setDraft((current) => ({ ...current, price_source_url: event.target.value }))} /></label>
-          </div>
-          <label className="field">
-            <span>{t('catalog.ui.notes')}</span>
-            <textarea value={draft.notes} onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))} rows={3} />
-          </label>
-          <div className="stack" style={{ gap: 8 }}>
-            <button type="button" className="button button-secondary" onClick={() => void handleSave()} disabled={isSaving || !draft.title.trim()}>
-              {isSaving ? t('common.saving') : t('common.save')}
-            </button>
-            {selectedConversionDevice ? (
-              <button type="button" className="button button-danger" onClick={() => void handleDelete()} disabled={isSaving}>
-                {t('common.delete')}
-              </button>
-            ) : null}
-            {saveError ? <p className="save-error">{saveError}</p> : null}
-            {saveMessage ? <p className="save-message">{saveMessage}</p> : null}
-          </div>
-        </div>
-        {selectedConversionDevice ? (
-          <dl className="detail-stats panel-spec-grid" style={{ marginTop: 16 }}>
-            <div><dt>{t('catalog.field.title')}</dt><dd>{selectedConversionDevice.title}</dd></div>
-            <div><dt>{t('catalog.field.device_type')}</dt><dd>{conversionDeviceTypeLabel(selectedConversionDevice.device_type)}</dd></div>
-            <div><dt>{t('catalog.stat.input_voltage')}</dt><dd>{selectedConversionDevice.input_voltage_v != null ? `${selectedConversionDevice.input_voltage_v} V` : 'n/a'}</dd></div>
-            <div><dt>{t('catalog.stat.output_voltage')}</dt><dd>{selectedConversionDevice.output_voltage_v != null ? `${selectedConversionDevice.output_voltage_v} V` : 'n/a'}</dd></div>
-            <div><dt>{t('catalog.stat.continuous_power')}</dt><dd>{selectedConversionDevice.continuous_power_w != null ? `${selectedConversionDevice.continuous_power_w} W` : 'n/a'}</dd></div>
-            <div><dt>{t('catalog.stat.peak_power')}</dt><dd>{selectedConversionDevice.peak_power_va != null ? `${selectedConversionDevice.peak_power_va} VA` : 'n/a'}</dd></div>
-            <div><dt>{t('catalog.stat.max_current')}</dt><dd>{selectedConversionDevice.max_charge_current_a != null ? `${selectedConversionDevice.max_charge_current_a} A` : 'n/a'}</dd></div>
-            <div><dt>{t('catalog.field.efficiency_pct')}</dt><dd>{selectedConversionDevice.efficiency_pct != null ? `${selectedConversionDevice.efficiency_pct}%` : 'n/a'}</dd></div>
-            <div><dt>{t('catalog.stat.price')}</dt><dd>{renderPrice(selectedConversionDevice.price ?? null, selectedConversionDevice.price_source_url ?? undefined)}</dd></div>
-            <div><dt>{t('catalog.ui.notes')}</dt><dd>{selectedConversionDevice.notes ?? 'n/a'}</dd></div>
-          </dl>
-        ) : null}
-      </section>
     </section>
+    {deleteConfirmOpen && selectedConversionDevice ? (
+      <ConfirmDialog
+        title={t('catalog.confirm.delete', { item: t('catalog.entry.conversion_device'), id: selectedConversionDevice.conversion_device_id })}
+        message={t('catalog.confirm.delete_body')}
+        confirmLabel={t('catalog.confirm.delete_action')}
+        cancelLabel={t('common.cancel')}
+        confirmTone="danger"
+        onCancel={() => setDeleteConfirmOpen(false)}
+        onConfirm={() => void handleDelete()}
+      />
+    ) : null}
+    </>
   );
 }
 

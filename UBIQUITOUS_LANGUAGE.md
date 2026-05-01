@@ -9,7 +9,7 @@ Every concept must be referred to by its canonical name across the database sche
 |---|---|---|---|
 | Location | `locations` | `Location` | Location |
 | Surface | `surfaces` | `Surface` | Surface |
-| Panel type | `panel_types` | `PanelType` | Panel type |
+| Panel type | `panel_types` | `PanelType` | Panel |
 | Surface panel assignment | `surface_panel_assignments` | `SurfacePanelAssignment` | Panel count |
 | PV array | `pv_arrays` | `PvArray` | Array |
 | PV string | `pv_strings` | `PvString` | String |
@@ -17,7 +17,7 @@ Every concept must be referred to by its canonical name across the database sche
 | MPPT type | `mppt_types` | `MpptType` | MPPT |
 | Battery type | `battery_types` | `BatteryType` | Battery |
 | Inverter type | `inverter_types` | `InverterType` | Inverter |
-| Cabinet type | `cabinet_types` | `CabinetType` | Cabinet type |
+| Cabinet type | `cabinet_types` | `CabinetType` | Cabinet |
 | DC busbar | `dc_busbars` | `DcBusbar` | DC busbar |
 | Conversion device | `conversion_devices` | `ConversionDevice` | Conversion device |
 | Project preference | `project_preferences` | `ProjectPreferences` | Preference |
