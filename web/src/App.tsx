@@ -1071,6 +1071,7 @@ type Route =
   | { kind: 'verdict-summary' }
   | { kind: 'cost-summary' }
   | { kind: 'battery-array' }
+  | { kind: 'consumption' }
   | { kind: 'inverter-array' }
   | { kind: 'converter'; converterId: string; loadCircuitId?: string }
   | { kind: 'load-circuits' }
@@ -2443,8 +2444,9 @@ function parseAppUrl(pathname: string, hash: string): ParsedAppUrl {
         },
       };
     }
+    return { language, locationSlug, route: { kind: 'inverter-array' } };
   }
-  if (rest[0] === 'consumption') return { language, locationSlug, route: { kind: 'inverter-array' } };
+  if (rest[0] === 'consumption') return { language, locationSlug, route: { kind: 'consumption' } };
   if (rest[0] === 'inverter-array') return { language, locationSlug, route: { kind: 'inverter-array' } };
   if (rest[0] === 'load-circuits') return { language, locationSlug, route: { kind: 'load-circuits' } };
   if (rest[0] === 'loads') return { language, locationSlug, route: { kind: 'loads' } };
@@ -2471,7 +2473,8 @@ function buildRoutePath(route: Route, language: LanguageCode, locationSlug: stri
   if (route.kind === 'verdict-summary') return `${base}/reports/verdict-summary${suffix}`;
   if (route.kind === 'cost-summary') return `${base}/reports/cost-summary${suffix}`;
   if (route.kind === 'battery-array') return `${base}/battery-array${suffix}`;
-  if (route.kind === 'inverter-array') return `${base}/consumption${suffix}`;
+  if (route.kind === 'consumption') return `${base}/consumption${suffix}`;
+  if (route.kind === 'inverter-array') return `${base}/consumption/converters${suffix}`;
   if (route.kind === 'converter') {
     const converterPath = `${base}/consumption/converters/${encodeURIComponent(route.converterId)}`;
     return route.loadCircuitId
@@ -2580,7 +2583,7 @@ function Sidebar({
   const { t } = useTranslation();
   const [openSections, setOpenSections] = useState<{ production: boolean; consumption: boolean; catalogs: boolean; reports: boolean }>({
     production: route.kind === 'production' || route.kind === 'surface',
-    consumption: route.kind === 'inverter-array' || route.kind === 'converter' || route.kind === 'load-circuits' || route.kind === 'loads',
+    consumption: route.kind === 'consumption' || route.kind === 'inverter-array' || route.kind === 'converter' || route.kind === 'load-circuits' || route.kind === 'loads',
     catalogs: route.kind === 'catalogs' || route.kind === 'catalog',
     reports: route.kind === 'reports' || route.kind === 'verdict-summary' || route.kind === 'cost-summary',
   });
@@ -2721,11 +2724,11 @@ function Sidebar({
           active={route.kind === 'battery-array'}
         />
         <NavLink
-          href={routeHref({ kind: 'inverter-array' })}
-          onClick={sectionClick('consumption', { kind: 'inverter-array' })}
+          href={routeHref({ kind: 'consumption' })}
+          onClick={sectionClick('consumption', { kind: 'consumption' })}
           label={t('nav.consumption')}
           icon={sidebarIcon('consumption')}
-          active={route.kind === 'inverter-array' || route.kind === 'converter' || route.kind === 'load-circuits' || route.kind === 'loads'}
+          active={route.kind === 'consumption' || route.kind === 'inverter-array' || route.kind === 'converter' || route.kind === 'load-circuits' || route.kind === 'loads'}
           hasChildren
           childOpen={openSections.consumption}
         />
@@ -2859,8 +2862,10 @@ function getRouteTitle(route: Route, data: DigitalTwinExport | null, t: (key: Tr
       return t('page.production');
     case 'battery-array':
       return t('page.battery_array');
-    case 'inverter-array':
+    case 'consumption':
       return t('page.consumption');
+    case 'inverter-array':
+      return t('page.converters');
     case 'converter':
       return t('page.converters');
     case 'load-circuits':
@@ -2896,8 +2901,10 @@ function getRouteContext(route: Route, data: DigitalTwinExport | null, t: (key: 
       return t('page.production.context');
     case 'battery-array':
       return t('page.battery_array.context');
-    case 'inverter-array':
+    case 'consumption':
       return t('page.consumption.context');
+    case 'inverter-array':
+      return '';
     case 'converter':
       return t('page.converters.context');
     case 'load-circuits':
@@ -3078,11 +3085,15 @@ function Breadcrumbs({ route, data, locationSlug }: { route: Route; data: Digita
       crumbs.push({ label: t('page.storage'), route: { kind: 'battery-array' } });
       crumbs.push({ label: t('page.battery_array'), current: true });
       break;
-    case 'inverter-array':
+    case 'consumption':
       crumbs.push({ label: t('page.consumption'), current: true });
       break;
+    case 'inverter-array':
+      crumbs.push({ label: t('page.consumption'), route: { kind: 'consumption' } });
+      crumbs.push({ label: t('nav.converters'), current: true });
+      break;
     case 'converter': {
-      crumbs.push({ label: t('page.consumption'), route: { kind: 'inverter-array' } });
+      crumbs.push({ label: t('page.consumption'), route: { kind: 'consumption' } });
       const converterLabel = data ? getConversionDeviceDisplayName(data, route.converterId) : route.converterId;
       if (route.loadCircuitId) {
         crumbs.push({ label: converterLabel, route: { kind: 'converter', converterId: route.converterId } });
@@ -3094,11 +3105,11 @@ function Breadcrumbs({ route, data, locationSlug }: { route: Route; data: Digita
       break;
     }
     case 'load-circuits':
-      crumbs.push({ label: t('page.consumption'), route: { kind: 'inverter-array' } });
+      crumbs.push({ label: t('page.consumption'), route: { kind: 'consumption' } });
       crumbs.push({ label: t('page.load_circuits'), current: true });
       break;
     case 'loads':
-      crumbs.push({ label: t('page.consumption'), route: { kind: 'inverter-array' } });
+      crumbs.push({ label: t('page.consumption'), route: { kind: 'consumption' } });
       crumbs.push({ label: t('page.loads'), current: true });
       break;
     case 'catalogs':
@@ -4544,7 +4555,7 @@ function ProductionPage({
           </section>
         </div>
 
-        <section className="panel" style={{ display: 'none' }}>
+        <section className="panel">
           <div className="section-head">
             <h2>{t('production.surfaces.title')}</h2>
             <p>{t('location.surfaces.count', { count: localSurfaceSummaries.length })}</p>
@@ -5778,6 +5789,62 @@ function InverterArrayPage({
             )}
           </section>
         </div>
+      </section>
+    </>
+  );
+}
+
+function ConsumptionOverviewPage({ data }: Pick<PageContext, 'data'>) {
+  const { t } = useTranslation();
+  const projectConverters = data.entities.project_converters ?? [];
+  const loadCircuits = data.entities.load_circuits ?? [];
+  const loads = data.entities.loads ?? [];
+
+  return (
+    <>
+      <section className="detail-shell">
+        <div className="detail-grid detail-intro-grid">
+          <section className="panel panel-span-2">
+            <div className="section-head">
+              <h2>{t('nav.consumption')}</h2>
+            </div>
+            <div className="hero-strip">
+              <SummaryCard label={t('nav.converters')} value={String(projectConverters.length)} />
+              <SummaryCard label={t('nav.load_circuits')} value={String(loadCircuits.length)} />
+              <SummaryCard label={t('nav.loads')} value={String(loads.length)} />
+            </div>
+          </section>
+        </div>
+        <section className="panel">
+          <div className="section-head">
+            <h2>{t('nav.converters')}</h2>
+          </div>
+          <div className="button-row">
+            <button type="button" className="button button-secondary" onClick={() => navigateTo({ kind: 'inverter-array' })}>
+              {t('nav.converters')}
+            </button>
+          </div>
+        </section>
+        <section className="panel">
+          <div className="section-head">
+            <h2>{t('nav.load_circuits')}</h2>
+          </div>
+          <div className="button-row">
+            <button type="button" className="button button-secondary" onClick={() => navigateTo({ kind: 'load-circuits' })}>
+              {t('nav.load_circuits')}
+            </button>
+          </div>
+        </section>
+        <section className="panel">
+          <div className="section-head">
+            <h2>{t('nav.loads')}</h2>
+          </div>
+          <div className="button-row">
+            <button type="button" className="button button-secondary" onClick={() => navigateTo({ kind: 'loads' })}>
+              {t('nav.loads')}
+            </button>
+          </div>
+        </section>
       </section>
     </>
   );
@@ -11527,6 +11594,8 @@ function AppContent() {
             <ConversionDeviceCatalogPage data={data} refreshProjectData={refreshProjectData} />
           ) : route.kind === 'battery-array' ? (
             <BatteryArrayPage {...context} />
+          ) : route.kind === 'consumption' ? (
+            <ConsumptionOverviewPage data={context.data} />
           ) : route.kind === 'inverter-array' ? (
             <ConsumptionPage {...context} />
           ) : route.kind === 'converter' ? (
