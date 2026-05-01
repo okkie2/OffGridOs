@@ -1,0 +1,240 @@
+/* OffGridOS Design System — Colors & Typography
+   Generated from OffGridOS/web/src/styles.css
+   -------------------------------------------------- */
+
+/* ── Google Fonts ── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  /* ────────────────────────────────────────────────
+     SIDEBAR COLORS (dark surface)
+  ──────────────────────────────────────────────── */
+  --sidebar-bg:            #0b1326;
+  --sidebar-text:          #dae2fd;
+  --sidebar-muted:         #83958c;
+  --sidebar-active-bg:     #171f33;
+  --sidebar-active-text:   #00ffc2;  /* brand mint — sidebar accent */
+  --sidebar-border:        rgba(255, 255, 255, 0.06);
+
+  /* ────────────────────────────────────────────────
+     MAIN SURFACE COLORS (light surface)
+  ──────────────────────────────────────────────── */
+  --bg:            #f5f7fa;   /* app background */
+  --surface:       #ffffff;   /* card / panel base */
+  --surface-low:   #f0f2f6;   /* inset / secondary surface */
+  --surface-high:  #e8ecf3;   /* hover / emphasized surface */
+  --text:          #0f1623;   /* primary text — near-black with navy tint */
+  --muted:         #5a6a7a;   /* secondary text */
+  --border:        #e2e6ee;   /* card and input borders */
+
+  /* ────────────────────────────────────────────────
+     BRAND / SEMANTIC COLORS
+  ──────────────────────────────────────────────── */
+  --primary:       #00c9a0;   /* teal-green — primary CTA / active accent */
+  --primary-dim:   #00a885;   /* slightly dimmer teal — eyebrows, links */
+  --warn:          #e07b20;   /* amber warning */
+  --danger:        #c0392b;   /* red danger */
+  --info:          #3b7dd8;   /* blue informational */
+  --good:          #007255;   /* dark teal — positive verdict */
+
+  /* ── Semantic status backgrounds ── */
+  /* NOTE: "within limits" and "clipping expected" share --warn-bg.
+     The old --ok-bg (#fef3e6) is retired — both cautionary states use amber. */
+  --good-bg:   #e6f4ef;   /* green tint   — optimal */
+  --ok-bg:     #fdecd8;   /* alias → warn — within limits (same amber as clipping) */
+  --warn-bg:   #fdecd8;   /* amber tint   — within limits / clipping expected */
+  --cool-bg:   #e8f0fb;   /* blue tint    — underutilized */
+  --danger-bg: #fdecea;   /* red tint     — outside limits */
+
+  /* ── Semantic status text ── */
+  --good-text:   #007255;
+  --ok-text:     #8c4e00;   /* same amber text as warn */
+  --warn-text:   #8c4e00;
+  --cool-text:   #1a4a8a;
+  --danger-text: #c0392b;
+
+  /* ────────────────────────────────────────────────
+     TYPOGRAPHY — Base
+  ──────────────────────────────────────────────── */
+  --font-sans:    'Inter', 'Segoe UI', system-ui, sans-serif;
+
+  /* Font sizes */
+  --fs-2xs:  0.68rem;   /* 10.9px — badges, stamps */
+  --fs-xs:   0.72rem;   /* 11.5px — eyebrows, labels, minis */
+  --fs-sm:   0.8rem;    /* 12.8px — subnav, secondary body */
+  --fs-base: 0.88rem;   /* 14px   — primary body, nav */
+  --fs-md:   0.92rem;   /* 14.7px — catalog card names */
+  --fs-lg:   1rem;      /* 16px   — panel titles, menu row titles */
+  --fs-xl:   1.3rem;    /* 20.8px — summary values */
+  --fs-2xl:  clamp(1.2rem, 2.2vw, 1.75rem);  /* page titles */
+  --fs-3xl:  clamp(1.4rem, 3vw, 2.2rem);     /* hero h1 */
+
+  /* Font weights */
+  --fw-regular: 400;
+  --fw-medium:  500;
+  --fw-semi:    600;
+  --fw-bold:    700;
+
+  /* Letter spacing */
+  --ls-tight:  0.02em;
+  --ls-normal: 0.04em;
+  --ls-wide:   0.06em;
+  --ls-wider:  0.08em;
+  --ls-widest: 0.12em;
+
+  /* Line height */
+  --lh-tight:  1.1;
+  --lh-snug:   1.25;
+  --lh-normal: 1.45;
+  --lh-loose:  1.5;
+
+  /* ────────────────────────────────────────────────
+     TYPOGRAPHY — Semantic roles
+  ──────────────────────────────────────────────── */
+
+  /* Page title (h1/h2 at top of each route) */
+  --type-page-title-size:    var(--fs-2xl);
+  --type-page-title-weight:  var(--fw-bold);
+  --type-page-title-spacing: var(--ls-tight);
+
+  /* Hero headline */
+  --type-hero-size:    var(--fs-3xl);
+  --type-hero-weight:  var(--fw-bold);
+  --type-hero-lh:      var(--lh-tight);
+
+  /* Section head (inside panels) */
+  --type-section-size:    var(--fs-base);
+  --type-section-weight:  var(--fw-semi);
+  --type-section-spacing: 0.1em;
+  --type-section-transform: uppercase;
+
+  /* Sidebar logo */
+  --type-logo-size:    0.9rem;
+  --type-logo-weight:  var(--fw-bold);
+  --type-logo-spacing: var(--ls-widest);
+  --type-logo-transform: uppercase;
+  --type-logo-color:   var(--sidebar-active-text);
+
+  /* Nav item (top-level) */
+  --type-nav-size:    var(--fs-base);
+  --type-nav-weight:  var(--fw-medium);
+  --type-nav-spacing: var(--ls-wide);
+  --type-nav-transform: uppercase;
+
+  /* Subnav item */
+  --type-subnav-size:    0.73rem;
+  --type-subnav-weight:  var(--fw-medium);
+  --type-subnav-spacing: var(--ls-normal);
+  --type-subnav-transform: uppercase;
+
+  /* Eyebrow label (above hero h1) */
+  --type-eyebrow-size:    var(--fs-xs);
+  --type-eyebrow-spacing: var(--ls-widest);
+  --type-eyebrow-transform: uppercase;
+  --type-eyebrow-color:   var(--primary-dim);
+
+  /* Mini stat label (dl/dt above numbers) */
+  --type-stat-label-size:    var(--fs-xs);
+  --type-stat-label-spacing: var(--ls-wider);
+  --type-stat-label-transform: uppercase;
+  --type-stat-label-color:   var(--muted);
+
+  /* Status badge */
+  --type-badge-size:    var(--fs-2xs);
+  --type-badge-weight:  var(--fw-bold);
+  --type-badge-spacing: var(--ls-wider);
+  --type-badge-transform: uppercase;
+
+  /* Button */
+  --type-button-size:   var(--fs-base);
+  --type-button-weight: var(--fw-semi);
+
+  /* Body / paragraphs */
+  --type-body-size:   var(--fs-base);
+  --type-body-weight: var(--fw-regular);
+  --type-body-lh:     var(--lh-loose);
+
+  /* Muted / secondary body */
+  --type-muted-size:  var(--fs-sm);
+  --type-muted-color: var(--muted);
+
+  /* Code / technical values */
+  --type-mono-family: 'JetBrains Mono', 'Fira Mono', 'Consolas', monospace;
+
+  /* ────────────────────────────────────────────────
+     SPACING SCALE
+  ──────────────────────────────────────────────── */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-7:  28px;
+  --space-8:  32px;
+
+  /* Semantic spacing */
+  --panel-padding:     24px;        /* standard panel/card padding */
+  --panel-padding-sm:  20px 16px;   /* mobile panel padding */
+  --shell-padding:     32px;        /* app shell padding */
+  --grid-gap:          12px;        /* standard card grid gap */
+  --grid-gap-lg:       16px;        /* main layout grid gap */
+  --grid-gap-sm:       8px;         /* tight config grids */
+  --section-gap:       12px;        /* panel + panel margin */
+
+  /* ────────────────────────────────────────────────
+     BORDER RADIUS SCALE
+  ──────────────────────────────────────────────── */
+  --radius-none:   0px;
+  --radius-sm:     8px;   /* buttons, inputs, chain nodes, summary cards */
+  --radius-md:     10px;  /* panels, cards, surface cards */
+  --radius-lg:     12px;  /* sidebar buttons, language switcher */
+  --radius-xl:     14px;  /* lightbox images */
+
+  /* Semantic radius */
+  --radius-panel:   var(--radius-md);
+  --radius-button:  var(--radius-sm);
+  --radius-input:   var(--radius-sm);
+  --radius-badge:   var(--radius-none);  /* square badges */
+  --radius-lightbox: var(--radius-xl);
+
+  /* ────────────────────────────────────────────────
+     TRANSITIONS
+  ──────────────────────────────────────────────── */
+  --transition-fast:    120ms ease;
+  --transition-normal:  160ms ease;
+  --transition-slow:    180ms ease;
+
+  /* ────────────────────────────────────────────────
+     SHADOWS
+  ──────────────────────────────────────────────── */
+  --shadow-button-inset:  inset 0 1px 0 rgba(255, 255, 255, 0.70);
+  --shadow-sidebar-btn:   inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --shadow-sidebar-mobile: 12px 0 32px rgba(0, 0, 0, 0.24);
+  --shadow-lightbox:      0 20px 60px rgba(0, 0, 0, 0.45);
+  --shadow-badge-active:  0 1px 2px rgba(15, 22, 35, 0.18);
+
+  /* ────────────────────────────────────────────────
+     SIDEBAR DIMENSIONS
+  ──────────────────────────────────────────────── */
+  --sidebar-width:           max-content;
+  --sidebar-width-min:       220px;
+  --sidebar-width-max:       320px;
+  --sidebar-width-collapsed: 72px;
+}
+
+/* ── Utility: tabular numbers (always active globally) ── */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
+}
+
+/* ── Icon filter: recolor white SVGs to sidebar-muted color ── */
+.icon-sidebar {
+  filter: invert(90%) sepia(8%) saturate(450%) hue-rotate(185deg) brightness(92%) contrast(92%);
+}
+
+/* ── Icon filter: recolor to primary teal ── */
+.icon-primary {
+  filter: invert(60%) sepia(60%) saturate(600%) hue-rotate(130deg) brightness(95%) contrast(90%);
+}

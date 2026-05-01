@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OffGridOS — UI Kit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    font-variant-numeric: tabular-nums;
+    background: #f5f7fa;
+    color: #0f1623;
+  }
+  #root { display: flex; min-height: 100vh; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="Sidebar.jsx"></script>
+<script type="text/babel" src="StatusBadge.jsx"></script>
+<script type="text/babel" src="Panel.jsx"></script>
+<script type="text/babel" src="LocationPage.jsx"></script>
+<script type="text/babel" src="ProductionPage.jsx"></script>
+<script type="text/babel" src="StoragePage.jsx"></script>
+
+<script type="text/babel">
+// ── App shell ──────────────────────────────────────────────
+
+function App() {
+  const [route, setRoute] = React.useState('location');
+
+  const navigate = (next) => setRoute(next);
+
+  function renderPage() {
+    if (route === 'location')   return <LocationPage onNavigate={navigate} />;
+    if (route === 'production') return <ProductionPage onNavigate={navigate} />;
+    if (route === 'storage')    return <StoragePage onNavigate={navigate} />;
+    if (route === 'reports' || route === 'monthly-balance' || route === 'verdict-summary' || route === 'cost-summary')
+                                return <ReportsPage onNavigate={navigate} />;
+    if (route && route.startsWith('surface:')) {
+      return <SurfaceDetailPage surfaceId={route.slice(8)} onNavigate={navigate} />;
+    }
+    // Placeholder for unimplemented screens
+    return <PlaceholderPage route={route} onNavigate={navigate} />;
+  }
+
+  return (
+    <div style={{ display: 'flex', minHeight: '100vh' }}>
+      <Sidebar route={route} onNavigate={navigate} />
+      <main style={{ flex: 1, minWidth: 0, maxWidth: '1440px', padding: '32px' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+          {/* intentionally empty — language switcher is per-page */}
+        </div>
+        {renderPage()}
+      </main>
+    </div>
+  );
+}
+
+function PlaceholderPage({ route, onNavigate }) {
+  const labels = {
+    consumption: 'Consumption',
+    'battery-bank': 'Battery bank',
+    converters: 'Converters',
+    'load-circuits': 'Load circuits',
+    loads: 'Loads',
+    catalogs: 'Catalogs',
+    about: 'About',
+  };
+  const label = labels[route] || route;
+
+  return (
+    <div style={{ fontFamily: 'Inter, Segoe UI, sans-serif' }}>
+      <PageHeader
+        title={label}
+        breadcrumbs={[{ label: '18Mad Boerderij', onClick: () => onNavigate('location') }, { label }]}
+        action={<LanguageSwitcher />}
+      />
+      <Panel style={{ marginTop: '8px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 24px', gap: '14px', color: '#5a6a7a', textAlign: 'center' }}>
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#e2e6ee" strokeWidth="1.5">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <path d="M9 9h6M9 12h6M9 15h4"/>
+          </svg>
+          <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{label}</div>
+          <div style={{ fontSize: '0.82rem', maxWidth: '280px', lineHeight: 1.5 }}>
+            This screen is not yet included in the prototype. Navigate to Location, Production, Storage, or Reports.
+          </div>
+          <button
+            onClick={() => onNavigate('location')}
+            style={{ marginTop: '8px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: '36px', padding: '8px 16px', border: '1px solid #e2e6ee', background: '#f0f2f6', color: '#0f1623', fontFamily: 'inherit', fontSize: '0.82rem', fontWeight: 600, borderRadius: '8px', cursor: 'pointer' }}
+          >
+            Go to Location
+          </button>
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>

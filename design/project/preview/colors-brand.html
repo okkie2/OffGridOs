@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 20px; background: var(--bg); font-family: var(--font-sans); display: flex; flex-direction: column; gap: 16px; }
+
+  .group { display: flex; flex-direction: column; gap: 6px; }
+  .group-label { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--muted); }
+
+  .strip { display: flex; border-radius: 8px; overflow: hidden; border: 1px solid rgba(0,0,0,0.07); }
+  .swatch { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; padding: 8px; min-height: 56px; }
+  .swatch-name { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.03em; line-height: 1.3; }
+  .swatch-hex  { font-size: 0.56rem; opacity: 0.75; letter-spacing: 0.02em; }
+  .light-text  { color: rgba(255,255,255,0.9); }
+  .dark-text   { color: rgba(15,22,35,0.65); }
+</style>
+</head>
+<body>
+
+  <!-- Brand teal ramp -->
+  <div class="group">
+    <div class="group-label">Brand — Teal</div>
+    <div class="strip">
+      <div class="swatch light-text" style="background:#00ffc2; flex:1.2;">
+        <div class="swatch-name" style="color:rgba(0,60,40,0.8);">Mint</div>
+        <div class="swatch-hex" style="color:rgba(0,60,40,0.6);">#00ffc2</div>
+      </div>
+      <div class="swatch light-text" style="background:#00c9a0;">
+        <div class="swatch-name" style="color:rgba(0,50,35,0.85);">Primary</div>
+        <div class="swatch-hex" style="color:rgba(0,50,35,0.65);">#00c9a0</div>
+      </div>
+      <div class="swatch light-text" style="background:#00a885;">
+        <div class="swatch-name">Dim</div>
+        <div class="swatch-hex">#00a885</div>
+      </div>
+      <div class="swatch light-text" style="background:#007255;">
+        <div class="swatch-name">Good</div>
+        <div class="swatch-hex">#007255</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar navy ramp -->
+  <div class="group">
+    <div class="group-label">Sidebar — Navy</div>
+    <div class="strip">
+      <div class="swatch light-text" style="background:#0b1326; flex:1.5;">
+        <div class="swatch-name">BG</div>
+        <div class="swatch-hex">#0b1326</div>
+      </div>
+      <div class="swatch light-text" style="background:#171f33;">
+        <div class="swatch-name">Active</div>
+        <div class="swatch-hex">#171f33</div>
+      </div>
+      <div class="swatch light-text" style="background:#83958c;">
+        <div class="swatch-name">Muted</div>
+        <div class="swatch-hex">#83958c</div>
+      </div>
+      <div class="swatch dark-text" style="background:#dae2fd;">
+        <div class="swatch-name">Text</div>
+        <div class="swatch-hex">#dae2fd</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main surface ramp -->
+  <div class="group">
+    <div class="group-label">Main Surface</div>
+    <div class="strip">
+      <div class="swatch dark-text" style="background:#0f1623;">
+        <div class="swatch-name" style="color:rgba(255,255,255,0.8);">Text</div>
+        <div class="swatch-hex" style="color:rgba(255,255,255,0.55);">#0f1623</div>
+      </div>
+      <div class="swatch dark-text" style="background:#5a6a7a;">
+        <div class="swatch-name" style="color:rgba(255,255,255,0.85);">Muted</div>
+        <div class="swatch-hex" style="color:rgba(255,255,255,0.6);">#5a6a7a</div>
+      </div>
+      <div class="swatch dark-text" style="background:#e2e6ee;">
+        <div class="swatch-name">Border</div>
+        <div class="swatch-hex">#e2e6ee</div>
+      </div>
+      <div class="swatch dark-text" style="background:#f0f2f6;">
+        <div class="swatch-name">Surface Low</div>
+        <div class="swatch-hex">#f0f2f6</div>
+      </div>
+      <div class="swatch dark-text" style="background:#ffffff; border-right:none;">
+        <div class="swatch-name">Surface</div>
+        <div class="swatch-hex">#ffffff</div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

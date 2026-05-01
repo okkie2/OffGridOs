@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 20px; background: var(--bg); font-family: var(--font-sans); }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .card-name { font-size: 0.92rem; font-weight: 600; color: var(--text); }
+  .card-sub { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+  .badge {
+    font-size: 0.65rem; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; padding: 3px 7px; border-radius: 0;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .badge-good  { background: var(--good-bg);   color: var(--good-text); }
+  .badge-warn  { background: var(--warn-bg);   color: var(--warn-text); }
+  .badge-cool  { background: var(--cool-bg);   color: var(--cool-text); }
+  .btn {
+    display: flex; align-items: center; justify-content: center;
+    height: 32px; padding: 0 12px; border: 1px solid var(--border);
+    background: var(--surface-low); color: var(--text); font-family: var(--font-sans);
+    font-size: 0.78rem; font-weight: 600; border-radius: 8px; cursor: pointer;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+  }
+</style>
+</head>
+<body>
+<div class="grid">
+
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-name">NW face</div>
+          <div class="card-sub">7 panels · 3,325 Wp</div>
+        </div>
+        <span class="badge badge-good">optimal</span>
+      </div>
+      <button class="btn">Open</button>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-name">SE face</div>
+          <div class="card-sub">4 panels · 1,900 Wp</div>
+        </div>
+        <span class="badge badge-cool">underutilized</span>
+      </div>
+      <button class="btn">Open</button>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-name">Flat NE</div>
+          <div class="card-sub">4 panels · 1,900 Wp</div>
+        </div>
+        <span class="badge badge-warn">clipping</span>
+      </div>
+      <button class="btn">Open</button>
+    </div>
+
+</div>
+</body>
+</html>

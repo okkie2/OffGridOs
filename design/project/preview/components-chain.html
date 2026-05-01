@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 20px; background: var(--bg); font-family: var(--font-sans); display: flex; flex-direction: column; gap: 12px; }
+  .panel { background: var(--surface); border: 1px solid var(--border); padding: 20px; border-radius: 10px; }
+  .section-head { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
+
+  /* Chain */
+  .chain { display: flex; align-items: center; flex-wrap: wrap; row-gap: 14px; column-gap: 4px; }
+  .chain-node {
+    background: var(--surface-low); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 12px; flex-shrink: 0;
+  }
+  .chain-node-label { font-size: 0.65rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .chain-node-metric { font-size: 0.88rem; font-weight: 700; color: var(--text); margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .chain-arrow { padding: 0 8px; color: var(--muted); font-size: 0.85rem; flex-shrink: 0; }
+
+  /* Status strip */
+  .status-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .status-card { background: var(--surface-low); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .status-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px; }
+  .status-title { font-size: 0.82rem; font-weight: 600; color: var(--text); }
+  .badge {
+    font-size: 0.65rem; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; padding: 3px 7px; border-radius: 0; white-space: nowrap; flex-shrink: 0;
+  }
+  .badge-good { background: var(--good-bg); color: var(--good-text); }
+  .badge-cool { background: var(--cool-bg); color: var(--cool-text); }
+  .status-detail { font-size: 0.78rem; color: var(--muted); line-height: 1.4; }
+</style>
+</head>
+<body>
+
+  <div class="panel">
+    <div class="section-head">System Chain</div>
+    <div class="chain">
+      <div class="chain-node">
+        <div class="chain-node-label">Surfaces</div>
+        <div class="chain-node-metric">5 faces</div>
+      </div>
+      <div class="chain-arrow">→</div>
+      <div class="chain-node">
+        <div class="chain-node-label">Arrays</div>
+        <div class="chain-node-metric">9,025 Wp</div>
+      </div>
+      <div class="chain-arrow">→</div>
+      <div class="chain-node">
+        <div class="chain-node-label">MPPTs</div>
+        <div class="chain-node-metric">5 units</div>
+      </div>
+      <div class="chain-arrow">→</div>
+      <div class="chain-node">
+        <div class="chain-node-label">Battery bank</div>
+        <div class="chain-node-metric">20.5 kWh</div>
+      </div>
+      <div class="chain-arrow">→</div>
+      <div class="chain-node">
+        <div class="chain-node-label">Inverter</div>
+        <div class="chain-node-metric">5,000 W</div>
+      </div>
+      <div class="chain-arrow">→</div>
+      <div class="chain-node">
+        <div class="chain-node-label">Loads</div>
+        <div class="chain-node-metric">3 circuits</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="section-head">Relationship Status</div>
+    <div class="status-grid">
+      <div class="status-card">
+        <div class="status-card-top">
+          <div class="status-title">Array → MPPT</div>
+          <span class="badge badge-good">optimal</span>
+        </div>
+        <div class="status-detail">4 of 5 arrays within limits · 1 underutilized</div>
+      </div>
+      <div class="status-card">
+        <div class="status-card-top">
+          <div class="status-title">MPPT → Battery bank</div>
+          <span class="badge badge-good">optimal</span>
+        </div>
+        <div class="status-detail">Charge current and voltage matched</div>
+      </div>
+      <div class="status-card">
+        <div class="status-card-top">
+          <div class="status-title">Battery → Inverter</div>
+          <span class="badge badge-cool">underutilized</span>
+        </div>
+        <div class="status-detail">Inverter has headroom relative to battery bank</div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

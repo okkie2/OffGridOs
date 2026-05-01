@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 20px; background: var(--bg); font-family: var(--font-sans); display: flex; flex-direction: column; gap: 10px; }
+  .section-label { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--muted); padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+  .btn-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    min-height: 38px; padding: 10px 14px;
+    border: 1px solid var(--border); background: var(--surface-low); color: var(--text);
+    font-family: var(--font-sans); font-size: 0.88rem; font-weight: 600;
+    border-radius: 8px; cursor: pointer;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+  }
+  .btn:hover { background: var(--surface-high); }
+  .btn-sm {
+    min-height: 32px; padding: 7px 12px; font-size: 0.78rem;
+  }
+  .btn-primary {
+    background: var(--primary); border-color: var(--primary-dim); color: #fff;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);
+  }
+  .btn-danger {
+    background: var(--danger-bg); border-color: rgba(192,57,43,0.25); color: var(--danger);
+    box-shadow: none;
+  }
+  .btn-block { width: 100%; margin-top: 4px; }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+</style>
+</head>
+<body>
+  <div class="section-label">Buttons</div>
+  <div class="btn-row">
+    <button class="btn">Default</button>
+    <button class="btn btn-primary">Save</button>
+    <button class="btn btn-danger">Delete</button>
+    <button class="btn" disabled>Disabled</button>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-sm">Small</button>
+    <button class="btn btn-sm btn-primary">Save changes</button>
+    <button class="btn btn-sm btn-danger">Remove</button>
+  </div>
+  <button class="btn btn-block">Block button (full width)</button>
+</body>
+</html>

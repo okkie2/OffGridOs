@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 20px; background: var(--bg); font-family: var(--font-sans); display: flex; flex-direction: column; gap: 12px; }
+  .panel { background: var(--surface); border: 1px solid var(--border); padding: 20px; border-radius: 10px; }
+  .summary-card { background: var(--surface-low); padding: 14px 16px; border-radius: 8px; }
+  .summary-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 6px; }
+  .summary-value { font-size: 1.3rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); }
+  .summary-detail { margin-top: 4px; color: var(--muted); font-size: 0.82rem; }
+  .hero-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 14px; }
+  .section-head h2 { font-size: 0.82rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+  .empty-state { padding: 16px; border: 1px dashed var(--border); background: var(--surface-low); color: var(--muted); border-radius: 10px; font-size: 0.84rem; }
+</style>
+</head>
+<body>
+
+  <!-- Panel containing section head + body copy -->
+  <div class="panel">
+    <div class="section-head"><h2>Surface Overview</h2></div>
+    <p style="color: var(--muted); font-size: 0.84rem; margin: 0; line-height: 1.5;">All configured surfaces for this project. Click a surface to open its detail view.</p>
+  </div>
+
+  <!-- White panel wrapping the hero strip so cards contrast clearly -->
+  <div class="panel">
+    <div class="section-head"><h2>Project Summary</h2></div>
+    <div class="hero-strip" style="margin-top: 0;">
+      <div class="summary-card">
+        <div class="summary-label">Installed</div>
+        <div class="summary-value">9,025 Wp</div>
+        <div class="summary-detail">5 surfaces</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Battery</div>
+        <div class="summary-value">20.5 kWh</div>
+        <div class="summary-detail">4 × 5.12 kWh</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Best month</div>
+        <div class="summary-value">Jun</div>
+        <div class="summary-detail">~28 kWh/day</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Weakest</div>
+        <div class="summary-value">Dec</div>
+        <div class="summary-detail">~3.1 kWh/day</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div class="panel">
+    <div class="empty-state">No surfaces configured yet. Add a surface to get started.</div>
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 0; background: var(--sidebar-bg); font-family: var(--font-sans); }
+  .sidebar {
+    width: 240px; background: var(--sidebar-bg);
+    display: flex; flex-direction: column; min-height: 420px;
+  }
+  .logo-area { padding: 18px 16px 14px; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+  .logo-text { font-size: 0.9rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #00ffc2; }
+  .logo-sub { font-size: 0.68rem; color: #83958c; margin-top: 2px; letter-spacing: 0.04em; }
+  .nav { flex: 1; padding: 12px 0; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 18px;
+    font-size: 0.82rem; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase;
+    color: #83958c; text-decoration: none; cursor: pointer; border: none; background: none; width: 100%; text-align: left;
+  }
+  .nav-item.active { background: #171f33; color: #00ffc2; }
+  .nav-item:hover:not(.active) { color: #dae2fd; background: rgba(255,255,255,0.04); }
+  .nav-icon { width: 15px; height: 15px; flex-shrink: 0; }
+  .nav-icon img { width: 100%; height: 100%; display: block; filter: invert(90%) sepia(8%) saturate(450%) hue-rotate(185deg) brightness(92%) contrast(92%); }
+  .nav-item.active .nav-icon img { filter: invert(85%) sepia(30%) saturate(600%) hue-rotate(120deg) brightness(105%) contrast(105%); }
+  .subnav { padding: 0 0 8px 12px; margin: 0 0 4px 18px; border-left: 1px solid rgba(255,255,255,0.08); }
+  .subnav-item {
+    display: flex; align-items: center; gap: 8px; padding: 9px 16px;
+    font-size: 0.73rem; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase;
+    color: #83958c; text-decoration: none;
+  }
+  .subnav-item.active { color: #00ffc2; background: rgba(0,255,194,0.12); }
+  .subnav-item:hover { color: #dae2fd; background: rgba(255,255,255,0.04); }
+  .footer { padding: 14px 16px; border-top: 1px solid rgba(255,255,255,0.06); }
+  .footer-stamp { font-size: 0.65rem; color: #83958c; letter-spacing: 0.04em; margin-top: 6px; }
+  .chevron { margin-left: auto; font-size: 0.8rem; color: inherit; opacity: 0.7; }
+  .collapse-btn {
+    border: 1px solid rgba(255,255,255,0.12);
+    background: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.04));
+    color: #dae2fd; border-radius: 12px; width: 28px; height: 28px;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; font: inherit; font-size: 0.85rem;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+</style>
+</head>
+<body>
+<div class="sidebar">
+  <div class="logo-area">
+    <div>
+      <div class="logo-text">OffGridOS</div>
+      <div class="logo-sub">Digital Twin</div>
+    </div>
+    <button class="collapse-btn">◂</button>
+  </div>
+  <nav class="nav">
+    <a class="nav-item" href="#">
+      <span class="nav-icon"><img src="../assets/icons/house.svg" alt="" /></span>
+      Location
+    </a>
+    <a class="nav-item active" href="#">
+      <span class="nav-icon"><img src="../assets/icons/bolt-lightning.svg" alt="" /></span>
+      Production
+      <span class="chevron">▾</span>
+    </a>
+    <div class="subnav">
+      <a class="subnav-item active" href="#">
+        <span class="nav-icon" style="width:13px;height:13px;"><img src="../assets/icons/solar-panel.svg" alt="" /></span>
+        NW face
+      </a>
+      <a class="subnav-item" href="#">
+        <span class="nav-icon" style="width:13px;height:13px;"><img src="../assets/icons/solar-panel.svg" alt="" /></span>
+        SE face
+      </a>
+    </div>
+    <a class="nav-item" href="#">
+      <span class="nav-icon"><img src="../assets/icons/server.svg" alt="" /></span>
+      Storage
+    </a>
+    <a class="nav-item" href="#">
+      <span class="nav-icon"><img src="../assets/icons/plug.svg" alt="" /></span>
+      Consumption
+      <span class="chevron">▸</span>
+    </a>
+    <a class="nav-item" href="#">
+      <span class="nav-icon"><img src="../assets/icons/book-open.svg" alt="" /></span>
+      Reports
+      <span class="chevron">▸</span>
+    </a>
+    <a class="nav-item" href="#">
+      <span class="nav-icon"><img src="../assets/icons/table-list.svg" alt="" /></span>
+      Catalogs
+      <span class="chevron">▸</span>
+    </a>
+  </nav>
+  <div class="footer">
+    <a class="nav-item" href="#" style="padding: 8px 0; opacity: 0.35; font-size: 0.75rem;">
+      <span class="nav-icon"><img src="../assets/icons/square-plus.svg" alt="" /></span>
+      New project
+    </a>
+    <a class="nav-item" href="#" style="padding: 8px 0;">
+      <span class="nav-icon"><img src="../assets/icons/circle-info.svg" alt="" /></span>
+      About
+    </a>
+    <div class="footer-stamp">v1.0.0 · build 2026</div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 20px; background: var(--bg); font-family: var(--font-sans); display: flex; flex-direction: column; gap: 12px; }
+  .section-label { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--muted); padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+  .badge-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .badge {
+    display: inline-flex; align-items: center;
+    padding: 4px 8px;
+    font-family: var(--font-sans); font-size: 0.68rem; font-weight: 700;
+    letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap;
+    border-radius: 0;
+  }
+  .badge-good    { background: var(--good-bg);   color: var(--good); }
+  .badge-ok      { background: var(--ok-bg);     color: var(--ok-text); }
+  .badge-warn    { background: var(--warn-bg);   color: var(--warn-text); }
+  .badge-cool    { background: var(--cool-bg);   color: var(--cool-text); }
+  .badge-danger  { background: var(--danger-bg); color: var(--danger); }
+  .warn-pill {
+    padding: 4px 8px; font-family: var(--font-sans); font-size: 0.68rem;
+    font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+  <div class="section-label">Status Badges — Fit / Electrical</div>
+  <div class="badge-row">
+    <span class="badge badge-good">optimal</span>
+    <span class="badge badge-warn">fully utilized</span>
+    <span class="badge badge-warn">clipping expected</span>
+    <span class="badge badge-cool">underutilized</span>
+    <span class="badge badge-danger">outside limits</span>
+    <span class="badge badge-danger">unknown</span>
+  </div>
+  <div class="section-label">Warning Pills</div>
+  <div class="badge-row">
+    <span class="warn-pill" style="background: var(--cool-bg); color: #1a4a8a;">Info</span>
+    <span class="warn-pill" style="background: var(--warn-bg); color: #8c4e00;">Warning</span>
+  </div>
+  <div class="section-label">Verdict Explanation Example</div>
+  <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;">
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <span class="badge badge-good">optimal</span>
+      <span style="font-size: 0.72rem; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase;">Array → MPPT</span>
+    </div>
+    <div style="font-size: 0.84rem; color: var(--muted);">This array is closely matched to the selected MPPT.</div>
+  </div>
+  <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;">
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <span class="badge badge-danger">outside limits</span>
+      <span style="font-size: 0.72rem; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase;">Array → MPPT</span>
+    </div>
+    <div style="font-size: 0.84rem; color: var(--muted);">This array is not electrically compatible with the selected MPPT.</div>
+    <ul style="margin: 0; padding-left: 18px; color: var(--muted); font-size: 0.82rem; display: grid; gap: 2px;">
+      <li>String voltage exceeds the MPPT voltage limit.</li>
+    </ul>
+  </div>
+</body>
+</html>

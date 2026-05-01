@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 20px; background: var(--bg); font-family: var(--font-sans); display: flex; flex-direction: column; gap: 0; }
+
+  .row {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .row:last-child { border-bottom: none; }
+
+  .meta { display: flex; flex-direction: column; gap: 2px; }
+  .meta-role { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+  .meta-spec { font-size: 0.56rem; color: var(--muted); opacity: 0.65; letter-spacing: 0.01em; margin-top: 1px; }
+</style>
+</head>
+<body>
+
+  <div class="row">
+    <div class="meta">
+      <div class="meta-role">Logo</div>
+      <div class="meta-spec">0.9 · 700 · UPPER · ls .12</div>
+    </div>
+    <div style="font-size:0.9rem; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:#00ffc2; background:var(--sidebar-bg); padding:5px 10px; border-radius:4px; display:inline-block;">OffGridOS</div>
+  </div>
+
+  <div class="row">
+    <div class="meta">
+      <div class="meta-role">Page title</div>
+      <div class="meta-spec">clamp(1.2–1.75rem) · 700</div>
+    </div>
+    <div style="font-size:clamp(1.2rem,2.2vw,1.75rem); font-weight:700; letter-spacing:0.02em; color:var(--text); line-height:1.1;">Production</div>
+  </div>
+
+  <div class="row">
+    <div class="meta">
+      <div class="meta-role">Nav item</div>
+      <div class="meta-spec">0.82 · 500 · UPPER · ls .06</div>
+    </div>
+    <div style="font-size:0.82rem; font-weight:500; letter-spacing:0.06em; text-transform:uppercase; color:var(--text);">Storage</div>
+  </div>
+
+  <div class="row">
+    <div class="meta">
+      <div class="meta-role">Section head</div>
+      <div class="meta-spec">0.82 · 600 · UPPER · ls .10 · muted</div>
+    </div>
+    <div style="font-size:0.82rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted);">Array Configuration</div>
+  </div>
+
+  <div class="row">
+    <div class="meta">
+      <div class="meta-role">Eyebrow</div>
+      <div class="meta-spec">0.72 · 400 · UPPER · ls .12 · primary</div>
+    </div>
+    <div style="font-size:0.72rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--primary-dim);">Surface Overview</div>
+  </div>
+
+  <div class="row">
+    <div class="meta">
+      <div class="meta-role">Body</div>
+      <div class="meta-spec">0.88 · 400 · lh 1.5</div>
+    </div>
+    <div style="font-size:0.88rem; line-height:1.5; color:var(--text);">Location details and surfaces for the 18Mad Boerderij project.</div>
+  </div>
+
+  <div class="row">
+    <div class="meta">
+      <div class="meta-role">Muted body</div>
+      <div class="meta-spec">0.84 · 400 · muted</div>
+    </div>
+    <div style="font-size:0.84rem; color:var(--muted); line-height:1.45;">The selected MPPT has significant unused PV capacity relative to this array.</div>
+  </div>
+
+  <div class="row">
+    <div class="meta">
+      <div class="meta-role">Stat label</div>
+      <div class="meta-spec">0.72 · 400 · UPPER · ls .08 · muted</div>
+    </div>
+    <div style="font-size:0.72rem; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted);">Installed Wp</div>
+  </div>
+
+  <div class="row">
+    <div class="meta">
+      <div class="meta-role">Stat value</div>
+      <div class="meta-spec">1.3 · 700 · tabular-nums</div>
+    </div>
+    <div style="font-size:1.3rem; font-weight:700; color:var(--text); font-variant-numeric:tabular-nums;">9,025 Wp</div>
+  </div>
+
+  <div class="row">
+    <div class="meta">
+      <div class="meta-role">Badge</div>
+      <div class="meta-spec">0.68 · 700 · UPPER · ls .08 · r 0</div>
+    </div>
+    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+      <span style="font-size:0.68rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; padding:4px 8px; background:var(--good-bg); color:var(--good);">optimal</span>
+      <span style="font-size:0.68rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; padding:4px 8px; background:var(--warn-bg); color:var(--warn-text);">clipping</span>
+      <span style="font-size:0.68rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; padding:4px 8px; background:var(--danger-bg); color:var(--danger);">outside limits</span>
+    </div>
+  </div>
+
+</body>
+</html>

@@ -2580,8 +2580,8 @@ function Sidebar({
                 title={t(report.labelKey)}
                 aria-current={route.kind === report.kind ? 'page' : undefined}
               >
-                <span className="sidebar-nav-icon" aria-hidden="true">{sidebarIcon('report-verdict')}</span>
-              <span className="sidebar-nav-label">{t(report.labelKey)}</span>
+                <span className="sidebar-nav-icon" aria-hidden="true">{report.kind === 'cost-summary' ? sidebarIcon('report-cost') : sidebarIcon('report-verdict')}</span>
+                <span className="sidebar-nav-label">{t(report.labelKey)}</span>
               </a>
             ))}
           </div>

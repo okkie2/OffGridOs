@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 20px; background: var(--bg); font-family: var(--font-sans); display: flex; flex-direction: column; gap: 14px; }
+  .section-label { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--muted); padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+  .icon-grid { display: flex; flex-wrap: wrap; gap: 12px; }
+  .icon-card {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: 10px 12px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; min-width: 68px;
+  }
+  .icon-card img { width: 20px; height: 20px; display: block; filter: invert(40%) sepia(10%) saturate(300%) hue-rotate(185deg) brightness(80%) contrast(90%); }
+  .icon-name { font-size: 0.58rem; color: var(--muted); text-align: center; letter-spacing: 0.02em; }
+  /* Dark version */
+  .icon-card-dark { background: var(--sidebar-bg); border-color: rgba(255,255,255,0.08); }
+  .icon-card-dark img { filter: invert(90%) sepia(8%) saturate(450%) hue-rotate(185deg) brightness(92%) contrast(92%); }
+  .icon-card-dark .icon-name { color: #83958c; }
+  .icon-card-active img { filter: invert(85%) sepia(30%) saturate(600%) hue-rotate(120deg) brightness(105%) contrast(105%); }
+  .icon-card-active { background: #171f33; border-color: rgba(255,255,255,0.08); }
+  .icon-card-active .icon-name { color: #00ffc2; }
+</style>
+</head>
+<body>
+  <div class="section-label">fa-energy Icon Set — Light context</div>
+  <div class="icon-grid">
+    <div class="icon-card"><img src="../assets/icons/house.svg" alt="house" /><div class="icon-name">house</div></div>
+    <div class="icon-card"><img src="../assets/icons/bolt-lightning.svg" alt="bolt" /><div class="icon-name">bolt-lightning</div></div>
+    <div class="icon-card"><img src="../assets/icons/solar-panel.svg" alt="solar" /><div class="icon-name">solar-panel</div></div>
+    <div class="icon-card"><img src="../assets/icons/server.svg" alt="server" /><div class="icon-name">server</div></div>
+    <div class="icon-card"><img src="../assets/icons/plug.svg" alt="plug" /><div class="icon-name">plug</div></div>
+    <div class="icon-card"><img src="../assets/icons/wave-square.svg" alt="wave" /><div class="icon-name">wave-square</div></div>
+    <div class="icon-card"><img src="../assets/icons/sitemap.svg" alt="sitemap" /><div class="icon-name">sitemap</div></div>
+    <div class="icon-card"><img src="../assets/icons/plug-circle-bolt.svg" alt="plug-bolt" /><div class="icon-name">plug-circle-bolt</div></div>
+    <div class="icon-card"><img src="../assets/icons/table-list.svg" alt="table" /><div class="icon-name">table-list</div></div>
+    <div class="icon-card"><img src="../assets/icons/book-open.svg" alt="book" /><div class="icon-name">book-open</div></div>
+    <div class="icon-card"><img src="../assets/icons/balance-scale.svg" alt="scale" /><div class="icon-name">balance-scale</div></div>
+    <div class="icon-card"><img src="../assets/icons/eur.svg" alt="eur" /><div class="icon-name">eur</div></div>
+    <div class="icon-card"><img src="../assets/icons/circle-info.svg" alt="info" /><div class="icon-name">circle-info</div></div>
+    <div class="icon-card"><img src="../assets/icons/square-plus.svg" alt="plus" /><div class="icon-name">square-plus</div></div>
+    <div class="icon-card"><img src="../assets/icons/clipboard-list.svg" alt="clipboard" /><div class="icon-name">clipboard-list</div></div>
+    <div class="icon-card"><img src="../assets/icons/list-ol.svg" alt="list" /><div class="icon-name">list-ol</div></div>
+  </div>
+  <div class="section-label">Dark sidebar context · muted → active</div>
+  <div class="icon-grid">
+    <div class="icon-card icon-card-dark"><img src="../assets/icons/bolt-lightning.svg" alt="bolt" /><div class="icon-name">muted</div></div>
+    <div class="icon-card icon-card-active"><img src="../assets/icons/bolt-lightning.svg" alt="bolt" /><div class="icon-name">active</div></div>
+  </div>
+</body>
+</html>
