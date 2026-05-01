@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import http, { type IncomingMessage, type ServerResponse } from 'http';
-import { createProject, createSurface, deleteProject, deleteCabinetType, deleteConversionDevice, deleteLoad, deleteLoadCircuit, deleteProjectConverter, deleteSurface, deleteSurfacePanelAssignmentsForSurface, getBatteryBankConfiguration, getBatteryType, getCabinetType, getConversionDevice, getInverterType, getLoad, getLoadCircuit, getMpptType, getProject, getPreferences, getPanelType, getProjectConverter, getSurface, getSurfaceConfiguration, insertBatteryType, insertCabinetType, insertInverterType, insertMpptType, insertPanelType, listArrayToMpptMappings, listBatteryBankConfigurations, listBatteryTypes, listCabinetTypes, listConversionDevices, listInverterConfigurations, listInverterTypes, listLoadCircuits, listLoads, listMpptTypes, listPanelTypes, listProjectConverters, listProjects, listPvArrays, listSurfaceConfigurations, listSurfacePanelAssignments, setPref, updateBatteryType, updateCabinetType, updateInverterType, updateMpptType, updatePanelType, updateProject, updateSurface, upsertBatteryBankConfiguration, upsertConversionDevice, upsertInverterConfiguration, upsertLoad, upsertLoadCircuit, upsertLocation, upsertProjectConverter, upsertSurfaceConfiguration, upsertSurfacePanelAssignment, syncPvTopologyForSurface } from './db/queries.js';
+import { createLocation, createProject, createSurface, deleteProject, deleteCabinetType, deleteConversionDevice, deleteLoad, deleteLoadCircuit, deleteProjectConverter, deleteSurface, deleteSurfacePanelAssignmentsForSurface, getBatteryBankConfiguration, getBatteryType, getCabinetType, getConversionDevice, getInverterType, getLoad, getLoadCircuit, getMpptType, getProject, getPreferences, getPanelType, getProjectConverter, getSurface, getSurfaceConfiguration, insertBatteryType, insertCabinetType, insertInverterType, insertMpptType, insertPanelType, listArrayToMpptMappings, listBatteryBankConfigurations, listBatteryTypes, listCabinetTypes, listConversionDevices, listInverterConfigurations, listInverterTypes, listLoadCircuits, listLoads, listLocations, listMpptTypes, listPanelTypes, listProjectConverters, listProjects, listPvArrays, listSurfaceConfigurations, listSurfacePanelAssignments, setPref, updateBatteryType, updateCabinetType, updateInverterType, updateMpptType, updatePanelType, updateProject, updateSurface, upsertBatteryBankConfiguration, upsertConversionDevice, upsertInverterConfiguration, upsertLoad, upsertLoadCircuit, upsertLocation, upsertProjectConverter, upsertSurfaceConfiguration, upsertSurfacePanelAssignment, syncPvTopologyForSurface } from './db/queries.js';
 import { buildDigitalTwinExport } from './output/exportDigitalTwin.js';
 import { generateUniqueCatalogId } from './domain/panel-type-id.js';
 import { resolveDatabasePath, resolveServerHost, resolveServerPort, resolveWebDistPath } from './config/runtime.js';
@@ -216,6 +216,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
   }
 
   const projectId = (request.headers['x-project-id'] as string | undefined)?.trim() || DEFAULT_PROJECT_ID;
+  const locationId = (request.headers['x-location-id'] as string | undefined)?.trim() || null;
 
   if (method === 'GET' && url.pathname === '/api/health') {
     sendJson(response, 200, { ok: true });
@@ -338,7 +339,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
   if (method === 'GET' && url.pathname === '/api/digital-twin') {
     try {
-      const payload = withDb(databasePath, (db) => buildDigitalTwinExport(db, databasePath, projectId));
+      const payload = withDb(databasePath, (db) => buildDigitalTwinExport(db, databasePath, projectId, locationId));
       sendJson(response, 200, payload);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown server error';
@@ -2393,11 +2394,99 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             northing,
             easting,
             site_photo_data_url: sitePhotoDataUrl,
-          }, projectId);
+          }, projectId, locationId);
         });
 
-        const refreshedPayload = withDb(databasePath, (db) => buildDigitalTwinExport(db, databasePath, projectId));
+        const refreshedPayload = withDb(databasePath, (db) => buildDigitalTwinExport(db, databasePath, projectId, locationId));
         sendJson(response, 200, refreshedPayload);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 500, { error: message });
+      }
+    })();
+    return true;
+  }
+
+  if (method === 'GET' && url.pathname === '/api/locations') {
+    try {
+      const payload = withDb(databasePath, (db) => listLocations(db, projectId));
+      sendJson(response, 200, payload);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown server error';
+      sendJson(response, 500, { error: message });
+    }
+    return true;
+  }
+
+  if (method === 'POST' && url.pathname === '/api/locations') {
+    void (async () => {
+      try {
+        const payload = await readJsonBody<{
+          title?: unknown;
+          place_name?: unknown;
+          country?: unknown;
+          description?: unknown;
+          notes?: unknown;
+          latitude?: unknown;
+          longitude?: unknown;
+          northing?: unknown;
+          easting?: unknown;
+          site_photo_data_url?: unknown;
+        }>(request);
+
+        const title = payload.title == null
+          ? null
+          : (isValidNonEmptyText(payload.title) ? payload.title.trim() : '');
+        const placeName = typeof payload.place_name === 'string' ? payload.place_name.trim() : 'New location';
+        const country = typeof payload.country === 'string' ? payload.country.trim() : 'NL';
+        const description = isValidNonEmptyText(payload.description) ? payload.description.trim() : null;
+        const notes = isValidNonEmptyText(payload.notes) ? payload.notes.trim() : null;
+        const latitude = typeof payload.latitude === 'number' ? payload.latitude : Number(payload.latitude);
+        const longitude = typeof payload.longitude === 'number' ? payload.longitude : Number(payload.longitude);
+        const northing = payload.northing == null || payload.northing === ''
+          ? null
+          : (typeof payload.northing === 'number' ? payload.northing : Number(payload.northing));
+        const easting = payload.easting == null || payload.easting === ''
+          ? null
+          : (typeof payload.easting === 'number' ? payload.easting : Number(payload.easting));
+        const sitePhotoDataUrl = payload.site_photo_data_url === undefined
+          ? undefined
+          : (payload.site_photo_data_url == null || payload.site_photo_data_url === ''
+              ? null
+              : (typeof payload.site_photo_data_url === 'string' ? payload.site_photo_data_url : String(payload.site_photo_data_url)));
+
+        if (!isValidLatitude(latitude) || !isValidLongitude(longitude)) {
+          sendJson(response, 400, {
+            error: 'Invalid location payload. Expected valid latitude/longitude values.',
+          });
+          return;
+        }
+
+        if ((northing != null && !Number.isFinite(northing)) || (easting != null && !Number.isFinite(easting))) {
+          sendJson(response, 400, {
+            error: 'Invalid location payload. Northing and easting must be valid numbers when provided.',
+          });
+          return;
+        }
+
+        const createdLocation = withDb(databasePath, (db) => {
+          createLocation(db, {
+            title: title === '' ? null : title,
+            place_name: placeName,
+            country,
+            description,
+            notes,
+            latitude,
+            longitude,
+            northing,
+            easting,
+            site_photo_data_url: sitePhotoDataUrl,
+          }, projectId);
+          return listLocations(db, projectId).at(-1) ?? null;
+        });
+
+        const refreshedPayload = withDb(databasePath, (db) => buildDigitalTwinExport(db, databasePath, projectId, createdLocation?.location_id ?? null));
+        sendJson(response, 201, refreshedPayload);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown server error';
         sendJson(response, 500, { error: message });

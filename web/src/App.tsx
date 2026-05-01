@@ -698,6 +698,22 @@ interface DigitalTwinExport {
   project: {
     project_id?: string;
     name: string;
+    active_location_id?: string | null;
+    locations?: Array<{
+      id: number;
+      project_id: string;
+      location_id: string;
+      title?: string | null;
+      country: string;
+      place_name: string;
+      description?: string | null;
+      notes?: string | null;
+      latitude: number;
+      longitude: number;
+      northing?: number | null;
+      easting?: number | null;
+      site_photo_data_url?: string | null;
+    }>;
     location: {
       title?: string | null;
       country: string;
@@ -846,10 +862,14 @@ function useLocalStorageRevision(): number {
 }
 
 let _currentProjectId: string = localStorage.getItem('offgridos:active-project-id') ?? '1';
+let _currentLocationId: string = localStorage.getItem('offgridos:active-location-id') ?? '';
 
 function projectFetch(url: string, options?: RequestInit): Promise<Response> {
   const headers = new Headers(options?.headers);
   headers.set('X-Project-Id', _currentProjectId);
+  if (_currentLocationId) {
+    headers.set('X-Location-Id', _currentLocationId);
+  }
   return fetch(url, { ...options, headers });
 }
 
@@ -912,7 +932,10 @@ function getLocationDisplayName(
   data: DigitalTwinExport,
   t?: (key: TranslationKey, variables?: Record<string, string | number>) => string,
 ): string {
-  return data.project.location?.title?.trim()
+  const activeLocation = data.project.locations?.find((location) => location.location_id === data.project.active_location_id) ?? data.project.locations?.[0] ?? null;
+  return activeLocation?.title?.trim()
+    || activeLocation?.place_name
+    || data.project.location?.title?.trim()
     || data.project.location?.place_name
     || (t ? t('location.not_set') : 'Location not set');
 }
@@ -2909,6 +2932,9 @@ function AppFrame({
   projects,
   activeProjectId,
   onSwitchProject,
+  locations,
+  activeLocationId,
+  onSwitchLocation,
   children,
 }: {
   route: Route;
@@ -2924,6 +2950,9 @@ function AppFrame({
   projects?: Array<{ project_id: string; title: string }>;
   activeProjectId?: string;
   onSwitchProject?: (projectId: string) => void;
+  locations?: Array<{ location_id: string; title?: string | null; place_name: string }>;
+  activeLocationId?: string;
+  onSwitchLocation?: (locationId: string) => void;
   children: React.ReactNode;
 }) {
   const { t } = useTranslation();
@@ -2966,6 +2995,20 @@ function AppFrame({
             >
               {projects.map((p) => (
                 <option key={p.project_id} value={p.project_id}>{p.title}</option>
+              ))}
+            </select>
+          ) : null}
+          {locations && locations.length > 1 && onSwitchLocation ? (
+            <select
+              className="project-switcher"
+              value={activeLocationId}
+              onChange={(e) => onSwitchLocation(e.target.value)}
+              aria-label="Switch location"
+            >
+              {locations.map((location) => (
+                <option key={location.location_id} value={location.location_id}>
+                  {location.title?.trim() || location.place_name || location.location_id}
+                </option>
               ))}
             </select>
           ) : null}
@@ -3932,6 +3975,7 @@ function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refr
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [isCreatingLocation, setIsCreatingLocation] = useState(false);
   const numericLatitude = Number(latitude);
   const numericLongitude = Number(longitude);
   const hasMapCoordinates = Number.isFinite(numericLatitude) && Number.isFinite(numericLongitude);
@@ -4018,6 +4062,43 @@ function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refr
       setSaveMessage(null);
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function handleCreateLocation() {
+    try {
+      setIsCreatingLocation(true);
+      setSaveError(null);
+      setSaveMessage(null);
+
+      const response = await projectFetch('/api/locations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: null,
+          place_name: `Location ${data.project.locations?.length ? data.project.locations.length + 1 : 2}`,
+          country: data.project.location?.country ?? 'NL',
+          description: null,
+          notes: null,
+          latitude: defaultLatitude,
+          longitude: defaultLongitude,
+          site_photo_data_url: null,
+        }),
+      });
+
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error ?? `Failed to create location (${response.status})`);
+      }
+
+      await refreshProjectData();
+      setSaveMessage(t('location.save.success'));
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : t('location.save.error.failed'));
+    } finally {
+      setIsCreatingLocation(false);
     }
   }
 
@@ -4114,9 +4195,14 @@ function LocationPage({ data, localSurfaceSummaries, localTotalInstalledWp, refr
             />
           </label>
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-            <button type="button" className="button button-secondary" onClick={() => void handleSaveLocation()} disabled={isSaving}>
-              {isSaving ? t('common.saving') : t('common.save')}
-            </button>
+            <div className="button-row button-row-end">
+              <button type="button" className="button button-secondary" onClick={() => void handleCreateLocation()} disabled={isCreatingLocation}>
+                {isCreatingLocation ? t('common.saving') : 'New location'}
+              </button>
+              <button type="button" className="button button-secondary" onClick={() => void handleSaveLocation()} disabled={isSaving}>
+                {isSaving ? t('common.saving') : t('common.save')}
+              </button>
+            </div>
           </div>
         </section>
 
@@ -11040,6 +11126,15 @@ function AppContent() {
     _currentProjectId = projectId;
     localStorage.setItem('offgridos:active-project-id', projectId);
     setActiveProjectId(projectId);
+    _currentLocationId = '';
+    localStorage.removeItem('offgridos:active-location-id');
+    setData(null);
+    void refreshProjectData();
+  }
+
+  function switchLocation(locationId: string): void {
+    _currentLocationId = locationId;
+    localStorage.setItem('offgridos:active-location-id', locationId);
     setData(null);
     void refreshProjectData();
   }
@@ -11058,6 +11153,18 @@ function AppContent() {
     void loadProjects();
     void refreshProjectData();
   }, []);
+
+  useEffect(() => {
+    if (!data) {
+      return;
+    }
+
+    const nextLocationId = data.project.active_location_id ?? data.project.locations?.[0]?.location_id ?? '';
+    _currentLocationId = nextLocationId;
+    if (nextLocationId) {
+      localStorage.setItem('offgridos:active-location-id', nextLocationId);
+    }
+  }, [data]);
 
   useEffect(() => {
     const onPopState = () => {
@@ -11155,6 +11262,11 @@ function AppContent() {
     activeProjectId,
     onSwitchProject: switchProject,
   };
+  const locationSwitcherProps = {
+    locations: data?.project.locations ?? [],
+    activeLocationId: data?.project.active_location_id ?? data?.project.locations?.[0]?.location_id ?? '',
+    onSwitchLocation: switchLocation,
+  };
 
   if (error) {
     return (
@@ -11168,6 +11280,7 @@ function AppContent() {
         closeMobileSidebar={() => setIsMobileSidebarOpen(false)}
         toggleSidebarCollapsed={toggleSidebarCollapsed}
         {...projectSwitcherProps}
+        {...locationSwitcherProps}
       >
           <section className="panel error-panel">
             <p>{error}</p>
@@ -11189,6 +11302,7 @@ function AppContent() {
         closeMobileSidebar={() => setIsMobileSidebarOpen(false)}
         toggleSidebarCollapsed={toggleSidebarCollapsed}
         {...projectSwitcherProps}
+        {...locationSwitcherProps}
       >
           <section className="panel error-panel">
             <p>{t('app.loading')}</p>
@@ -11266,6 +11380,7 @@ function AppContent() {
           closeMobileSidebar={() => setIsMobileSidebarOpen(false)}
           toggleSidebarCollapsed={toggleSidebarCollapsed}
           {...projectSwitcherProps}
+          {...locationSwitcherProps}
         >
             <SurfaceDetail
               key={`surface:${route.surfaceId}`}
@@ -11297,6 +11412,7 @@ function AppContent() {
         closeMobileSidebar={() => setIsMobileSidebarOpen(false)}
         toggleSidebarCollapsed={toggleSidebarCollapsed}
         {...projectSwitcherProps}
+        {...locationSwitcherProps}
       >
           {route.kind === 'location' ? (
             <LocationPage {...context} />

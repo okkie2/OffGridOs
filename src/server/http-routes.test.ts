@@ -154,6 +154,41 @@ describe('PUT /api/battery-bank-configuration', () => {
   });
 });
 
+describe('GET and POST /api/locations', () => {
+  it('lists the seeded location and creates a second one', async () => {
+    const listRes = await fetch(`${BASE_URL}/api/locations`);
+    expect(listRes.status).toBe(200);
+    const initialLocations = await listRes.json() as Array<{ location_id: string }>;
+    expect(initialLocations.length).toBeGreaterThan(0);
+
+    const createRes = await fetch(`${BASE_URL}/api/locations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        place_name: 'Second site',
+        country: 'NL',
+        latitude: 52.5,
+        longitude: 5.0,
+      }),
+    });
+    expect(createRes.status).toBe(201);
+
+    const createBody = await createRes.json() as {
+      project: {
+        active_location_id?: string | null;
+        locations?: Array<{ location_id: string }>;
+      };
+    };
+    expect(createBody.project.locations?.length).toBeGreaterThan(initialLocations.length);
+
+    const followUpRes = await fetch(`${BASE_URL}/api/locations`);
+    expect(followUpRes.status).toBe(200);
+    const followUpLocations = await followUpRes.json() as Array<{ location_id: string; place_name: string }>;
+    expect(followUpLocations.length).toBe(initialLocations.length + 1);
+    expect(followUpLocations.some((location) => location.place_name === 'Second site')).toBe(true);
+  });
+});
+
 describe('PUT /api/surface-configurations/:surfaceId', () => {
   it('rejects non-zero panels_per_string when the surface has no panels', async () => {
     const twin = await getDigitalTwin();

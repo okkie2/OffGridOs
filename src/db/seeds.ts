@@ -938,11 +938,17 @@ export function seedSurfaces(db: Database.Database): void {
   const existing = db.prepare('SELECT COUNT(*) as count FROM surfaces').get() as { count: number } | undefined;
   if (!existing || existing.count === 0) {
     const insert = db.prepare(`
-      INSERT INTO surfaces (surface_id, name, sort_order, orientation_deg, tilt_deg, usable_area_m2, notes)
-      VALUES (@surface_id, @name, @sort_order, @orientation_deg, @tilt_deg, @usable_area_m2, @notes)
+      INSERT INTO surfaces (project_id, location_id, surface_id, name, sort_order, orientation_deg, tilt_deg, usable_area_m2, notes)
+      VALUES (@project_id, @location_id, @surface_id, @name, @sort_order, @orientation_deg, @tilt_deg, @usable_area_m2, @notes)
     `);
     const insertAll = db.transaction((rows: typeof BASELINE_SURFACES) => {
-      for (const row of rows) insert.run(row);
+      for (const row of rows) {
+        insert.run({
+          ...row,
+          project_id: '1',
+          location_id: 'location-main',
+        });
+      }
     });
     insertAll(BASELINE_SURFACES);
   }

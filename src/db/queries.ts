@@ -79,12 +79,16 @@ export function listLocations(db: Database.Database, projectId: string): Locatio
   return db.prepare('SELECT * FROM locations WHERE project_id = ? ORDER BY id').all(projectId) as Location[];
 }
 
-export function getLocation(db: Database.Database, projectId: string): Location | null {
+export function getLocation(db: Database.Database, projectId: string, locationId?: string | null): Location | null {
+  if (locationId) {
+    return (db.prepare('SELECT * FROM locations WHERE project_id = ? AND location_id = ? LIMIT 1').get(projectId, locationId) as Location) ?? null;
+  }
+
   return (db.prepare('SELECT * FROM locations WHERE project_id = ? ORDER BY id LIMIT 1').get(projectId) as Location) ?? null;
 }
 
-export function upsertLocation(db: Database.Database, data: Omit<Location, 'id' | 'project_id' | 'location_id'>, projectId: string): void {
-  const existing = getLocation(db, projectId);
+export function upsertLocation(db: Database.Database, data: Omit<Location, 'id' | 'project_id' | 'location_id'>, projectId: string, locationId?: string | null): void {
+  const existing = getLocation(db, projectId, locationId);
   if (existing) {
     const title = data.title === undefined ? (existing.title ?? null) : data.title;
     const sitePhotoDataUrl = data.site_photo_data_url === undefined
@@ -116,10 +120,26 @@ export function upsertLocation(db: Database.Database, data: Omit<Location, 'id' 
   }
 }
 
+export function createLocation(db: Database.Database, data: Omit<Location, 'id' | 'project_id' | 'location_id'>, projectId: string): void {
+  const existingLocationIds = listLocations(db, projectId).map((location) => location.location_id);
+  const locationId = generateUniqueLocationId(data.place_name || data.title || projectId, existingLocationIds);
+
+  db.prepare('INSERT INTO locations (project_id, location_id, title, country, place_name, description, notes, latitude, longitude, northing, easting, site_photo_data_url) VALUES (@project_id, @location_id, @title, @country, @place_name, @description, @notes, @latitude, @longitude, @northing, @easting, @site_photo_data_url)')
+    .run({
+      ...data,
+      project_id: projectId,
+      location_id: locationId,
+      title: data.title ?? null,
+      description: data.description ?? null,
+      notes: data.notes ?? null,
+      site_photo_data_url: data.site_photo_data_url ?? null,
+    });
+}
+
 // ── Surfaces ──────────────────────────────────────────────────────────────────
 
-export function listSurfaces(db: Database.Database, projectId: string): Surface[] {
-  const location = getLocation(db, projectId);
+export function listSurfaces(db: Database.Database, projectId: string, locationId?: string | null): Surface[] {
+  const location = getLocation(db, projectId, locationId);
   if (!location) {
     return [];
   }
@@ -131,8 +151,8 @@ export function getSurface(db: Database.Database, surface_id: string): Surface |
   return (db.prepare('SELECT * FROM surfaces WHERE surface_id = ?').get(surface_id) as Surface) ?? null;
 }
 
-export function insertSurface(db: Database.Database, data: Omit<Surface, 'id' | 'project_id' | 'location_id'>, projectId: string): void {
-  const location = getLocation(db, projectId);
+export function insertSurface(db: Database.Database, data: Omit<Surface, 'id' | 'project_id' | 'location_id'>, projectId: string, locationId?: string | null): void {
+  const location = getLocation(db, projectId, locationId);
   if (!location) {
     throw new Error(`No location found for project "${projectId}".`);
   }
@@ -151,12 +171,12 @@ export function insertSurface(db: Database.Database, data: Omit<Surface, 'id' | 
   });
 }
 
-export function createSurface(db: Database.Database, data: Omit<Surface, 'id' | 'project_id' | 'location_id'>, projectId: string): void {
+export function createSurface(db: Database.Database, data: Omit<Surface, 'id' | 'project_id' | 'location_id'>, projectId: string, locationId?: string | null): void {
   const nextSortOrderRow = db.prepare('SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_sort_order FROM surfaces WHERE project_id = ?').get(projectId) as { next_sort_order: number } | undefined;
   insertSurface(db, {
     ...data,
     sort_order: data.sort_order ?? (nextSortOrderRow?.next_sort_order ?? 1),
-  }, projectId);
+  }, projectId, locationId);
   syncPvTopologyForSurface(db, data.surface_id);
 }
 
@@ -1143,8 +1163,8 @@ export function deleteProjectConverter(db: Database.Database, project_converter_
 
 // ── Load circuits ────────────────────────────────────────────────────────────
 
-export function listLoadCircuits(db: Database.Database, projectId: string): LoadCircuit[] {
-  const location = getLocation(db, projectId);
+export function listLoadCircuits(db: Database.Database, projectId: string, locationId?: string | null): LoadCircuit[] {
+  const location = getLocation(db, projectId, locationId);
   if (!location) return [];
   return db.prepare('SELECT * FROM load_circuits WHERE project_id = ? AND location_id = ? ORDER BY title, load_circuit_id').all(projectId, location.location_id) as LoadCircuit[];
 }
@@ -1153,9 +1173,9 @@ export function getLoadCircuit(db: Database.Database, load_circuit_id: string): 
   return (db.prepare('SELECT * FROM load_circuits WHERE load_circuit_id = ?').get(load_circuit_id) as LoadCircuit) ?? null;
 }
 
-export function upsertLoadCircuit(db: Database.Database, data: Omit<LoadCircuit, 'id' | 'project_id' | 'location_id'>, projectId: string): void {
-  const location = getLocation(db, projectId);
-  const locationId = location?.location_id ?? 'location-main';
+export function upsertLoadCircuit(db: Database.Database, data: Omit<LoadCircuit, 'id' | 'project_id' | 'location_id'>, projectId: string, locationId?: string | null): void {
+  const location = getLocation(db, projectId, locationId);
+  const resolvedLocationId = location?.location_id ?? 'location-main';
   db.prepare(`
     INSERT INTO load_circuits (
       project_id,
@@ -1184,7 +1204,7 @@ export function upsertLoadCircuit(db: Database.Database, data: Omit<LoadCircuit,
   `).run({
     ...data,
     project_id: projectId,
-    location_id: locationId,
+    location_id: resolvedLocationId,
     project_converter_id: data.project_converter_id ?? null,
     description: data.description ?? null,
   });
@@ -1197,8 +1217,8 @@ export function deleteLoadCircuit(db: Database.Database, load_circuit_id: string
 
 // ── Loads ────────────────────────────────────────────────────────────────────
 
-export function listLoads(db: Database.Database, projectId: string): Load[] {
-  const location = getLocation(db, projectId);
+export function listLoads(db: Database.Database, projectId: string, locationId?: string | null): Load[] {
+  const location = getLocation(db, projectId, locationId);
   if (!location) return [];
   return db.prepare('SELECT * FROM loads WHERE project_id = ? AND location_id = ? ORDER BY load_circuit_id, title, load_id').all(projectId, location.location_id) as Load[];
 }
@@ -1207,7 +1227,7 @@ export function getLoad(db: Database.Database, load_id: string): Load | null {
   return (db.prepare('SELECT * FROM loads WHERE load_id = ?').get(load_id) as Load) ?? null;
 }
 
-export function upsertLoad(db: Database.Database, data: Omit<Load, 'id' | 'project_id' | 'location_id'>, projectId: string): void {
+export function upsertLoad(db: Database.Database, data: Omit<Load, 'id' | 'project_id' | 'location_id'>, projectId: string, locationId?: string | null): void {
   const nominalPowerW = data.nominal_power_w
     ?? ((data.usage_kw ?? 0) * 1000);
   const surgePowerW = data.surge_power_w
@@ -1219,7 +1239,7 @@ export function upsertLoad(db: Database.Database, data: Omit<Load, 'id' | 'proje
       : null
   );
   const loadCircuit = getLoadCircuit(db, data.load_circuit_id);
-  const locationId = loadCircuit?.location_id ?? getLocation(db, projectId)?.location_id ?? 'location-main';
+  const resolvedLocationId = loadCircuit?.location_id ?? getLocation(db, projectId, locationId)?.location_id ?? 'location-main';
 
   db.prepare(`
     INSERT INTO loads (
@@ -1282,7 +1302,7 @@ export function upsertLoad(db: Database.Database, data: Omit<Load, 'id' | 'proje
   `).run({
     ...data,
     project_id: projectId,
-    location_id: locationId,
+    location_id: resolvedLocationId,
     description: data.description ?? null,
     nominal_current_a: data.nominal_current_a ?? null,
     nominal_power_w: nominalPowerW,

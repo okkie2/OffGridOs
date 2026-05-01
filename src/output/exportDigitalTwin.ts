@@ -32,6 +32,7 @@ import {
   listPanelTypes,
   listProjectConverters,
   listBatteryBankConfigurations,
+  listLocations,
   listPvArrays,
   listPvStrings,
   listSurfaceConfigurations,
@@ -168,6 +169,22 @@ interface ExportLoad {
 interface ExportProject {
   project_id: string;
   name: string;
+  locations: Array<{
+    id: number;
+    project_id: string;
+    location_id: string;
+    title?: string | null;
+    country: string;
+    place_name: string;
+    description: string | null;
+    notes: string | null;
+    latitude: number;
+    longitude: number;
+    northing: number | null;
+    easting: number | null;
+    site_photo_data_url: string | null;
+  }>;
+  active_location_id: string | null;
   location: {
     title?: string | null;
     country: string;
@@ -500,11 +517,14 @@ function buildSolarMonthlyProfiles(
   return { solarMonthlyProfiles, projectMonthlySolarOutput };
 }
 
-function toProject(projectId: string, projectTitle: string, location: Location | null, projectPreferences: ProjectPreferences): ExportProject {
+function toProject(projectId: string, projectTitle: string, locations: Location[], activeLocation: Location | null, projectPreferences: ProjectPreferences): ExportProject {
   return {
     project_id: projectId,
     name: projectTitle,
-    location: location ? {
+    locations: locations.map((location) => ({
+      id: location.id,
+      project_id: location.project_id,
+      location_id: location.location_id,
       title: location.title ?? null,
       country: location.country,
       place_name: location.place_name,
@@ -515,6 +535,19 @@ function toProject(projectId: string, projectTitle: string, location: Location |
       northing: location.northing ?? null,
       easting: location.easting ?? null,
       site_photo_data_url: location.site_photo_data_url ?? null,
+    })),
+    active_location_id: activeLocation?.location_id ?? null,
+    location: activeLocation ? {
+      title: activeLocation.title ?? null,
+      country: activeLocation.country,
+      place_name: activeLocation.place_name,
+      description: activeLocation.description ?? null,
+      notes: activeLocation.notes ?? null,
+      latitude: activeLocation.latitude,
+      longitude: activeLocation.longitude,
+      northing: activeLocation.northing ?? null,
+      easting: activeLocation.easting ?? null,
+      site_photo_data_url: activeLocation.site_photo_data_url ?? null,
     } : null,
     current_assumptions: {
       surface_to_array_default: '1:1',
@@ -943,9 +976,10 @@ function buildMonthlyBalance(): DigitalTwinExport['derived']['monthly_balance'] 
   }));
 }
 
-export function buildDigitalTwinExport(db: Database.Database, dbPath: string, projectId: string): DigitalTwinExport {
+export function buildDigitalTwinExport(db: Database.Database, dbPath: string, projectId: string, locationId?: string | null): DigitalTwinExport {
   const project = getProject(db, projectId);
-  const location = getLocation(db, projectId);
+  const locations = listLocations(db, projectId);
+  const location = getLocation(db, projectId, locationId) ?? locations[0] ?? null;
   const projectPreferences = getProjectPreferences(db, projectId);
   const surfaces = listSurfaces(db, projectId);
   const surfaceConfigurations = listSurfaceConfigurations(db, projectId);
@@ -982,7 +1016,7 @@ export function buildDigitalTwinExport(db: Database.Database, dbPath: string, pr
   ].some((status) => status === 'outside_limits');
 
   return {
-    project: toProject(projectId, project?.title ?? projectId, location, projectPreferences),
+    project: toProject(projectId, project?.title ?? projectId, locations, location, projectPreferences),
     entities: {
       surfaces,
       surface_configurations: surfaceConfigurations.map((design) => ({
