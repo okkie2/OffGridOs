@@ -6,13 +6,29 @@ This document maps the path from the current single-tenant local app to the mult
 
 ## Baseline: Today
 
-- Single project, single user, single SQLite file on Railway
-- Full digital twin: surfaces, yield, battery sizing, MPPT compatibility, cost summary, consumption
+- Single canonical local app instance on Railway
+- Full digital twin: surfaces, yield, battery sizing, MPPT compatibility, cost summary, consumption, and consumer-side monthly demand summaries
 - Component catalog with real entries (panels, MPPTs, batteries, inverters, cabinets)
 - Deployed at `offgridos.eu`, local-first publish workflow
 - No auth, no accounts, no sharing
 
-The deployment docs explicitly call this out as a single-instance, single-user shape. That is the correct foundation — the hard product problem (accurate real-time system modeling) is solved. What follows is the platform layer on top of it.
+The deployment docs still describe a single-instance, single-user foundation at the platform layer. The product modeling core is in place, and the remaining work is the platform layer on top of it: project/location routing, auth, sharing, and SaaS packaging.
+
+## Workbench Coherence
+
+**Goal:** make `Production` and `Consumption` read as clear aggregate workbenches instead of mixed summary/editor screens.
+
+**Why now:** the core data model is stable enough that the next visible value comes from making the main workbenches easier to understand and use.
+
+### Directional work
+
+- `Production` should summarize monthly output per surface and show a verdict per surface.
+- `Consumption` should summarize aggregated peak load, expected daily load, monthly fit against production, and fit against battery capacity.
+- Keep each workbench focused on its own aggregate story, not on duplicated lower-level details.
+
+### Exit condition
+
+The two main workbenches each tell a single clear story at a glance: `Production` explains supply, and `Consumption` explains demand and fit.
 
 ---
 

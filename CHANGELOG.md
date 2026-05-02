@@ -2,6 +2,9 @@
 
 ## 2026-05-02
 
+- Reworked the Production workbench into a visible monthly output-by-surface table with per-surface verdicts, then moved the Consumption workbench refactor back to `NOW` in `TODO.md`.
+- Added a `Workbench Coherence` roadmap theme and moved the Production/Consumption UX work into `TODO.md` as concrete workbench refactors.
+- Refreshed the roadmap baseline wording to reflect the current canonical local app state, and seeded `TODO.md` with concrete stabilization, smoke-test, and Phase 1 follow-up items.
 - Cleared the stale consumer-side monthly demand queue item from `TODO.md` now that the derived load and load-circuit demand slice is in place.
 - Added the first consumer-side monthly-demand implementation slice, deriving month-by-month demand for loads and load circuits, surfacing it in the workbenches, and feeding the monthly balance screen from the consumer side.
 - Deferred producer-side generator monthly supply modeling by removing it from the active queue, leaving consumer-side monthly demand as the remaining `LATER` slice.

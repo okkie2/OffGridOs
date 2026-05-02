@@ -4303,7 +4303,8 @@ Then('I should see the Battery array page', async function () {
 
 Then('I should see the Production page', async function () {
   assert.ok(this.dom?.window.document.body.textContent?.includes('Surfaces'));
-  assert.ok(this.dom?.window.document.body.textContent?.includes('Average daily production by month'));
+  assert.ok(this.dom?.window.document.body.textContent?.includes('Monthly output by surface'));
+  assert.ok(this.dom?.window.document.body.textContent?.includes('Verdict'));
 });
 
 Then('I should see the Consumption page', async function () {

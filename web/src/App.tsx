@@ -4553,12 +4553,18 @@ function ProductionPage({
     });
     const annualKwh = Number(yieldRows.reduce((sum, row) => sum + row.monthlyKwh, 0).toFixed(1));
     const bestMonthDailyKwh = yieldRows.reduce((max, row) => Math.max(max, row.averageDailyKwh), 0);
+    const verdictSummary = getRelationshipVerdictSummary('array_to_mppt', surface.status, surface.fit ?? undefined, t, surface.reasons);
+    const verdictText = getRelationshipVerdictLabel('array_to_mppt', surface.status, surface.fit ?? undefined, t);
 
     return {
       surface,
       yieldRows,
       annualKwh,
       bestMonthDailyKwh,
+      verdictSummary,
+      verdictText,
+      verdictStatus: surface.status,
+      verdictFit: surface.fit,
     };
   });
 
@@ -4631,126 +4637,130 @@ function ProductionPage({
 
         <section className="panel">
           <div className="section-head">
-            <h2>{t('production.surfaces.title')}</h2>
-            <p>{t('location.surfaces.count', { count: localSurfaceSummaries.length })}</p>
+            <h2>{t('production.monthly.title')}</h2>
+            <p>{t('production.monthly.description')}</p>
           </div>
           {surfaceError ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--danger)' }}>{surfaceError}</p> : null}
           {surfaceMessage ? <p style={{ marginTop: 0, marginBottom: 16, color: 'var(--accent-strong)' }}>{surfaceMessage}</p> : null}
+          {localSurfaceSummaries.length === 0 ? (
+            <div className="empty-state">
+              <p style={{ marginTop: 0, marginBottom: 0 }}>{t('location.surfaces.empty')}</p>
+            </div>
+          ) : (
+            <div className="yield-table-wrap">
+              <table className="yield-table">
+                <thead>
+                  <tr>
+                    <th>{t('report.table.surface')}</th>
+                    <th>{t('report.table.verdict')}</th>
+                    <th>{t('report.table.why')}</th>
+                    {MONTH_KEYS.map((month) => (
+                      <th
+                        key={month}
+                        className={month === totalMaxDailyYieldMonth?.month ? 'col-best' : month === totalMinDailyYieldMonth?.month ? 'col-worst' : undefined}
+                      >
+                        {getMonthLabel(month, t)}
+                      </th>
+                    ))}
+                    <th>{t('production.monthly.total_avg_kwh_day')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {surfaceYieldRows.map(({ surface, yieldRows, annualKwh, verdictSummary, verdictText, verdictStatus, verdictFit }) => (
+                    <tr key={`monthly-${surface.surface_id}`}>
+                      <th>{surface.name}</th>
+                      <td><StatusBadge status={verdictStatus} fit={verdictFit} /></td>
+                      <td title={verdictSummary ?? undefined}>{verdictText}</td>
+                      {yieldRows.map((row) => (
+                        <td
+                          key={`${surface.surface_id}-${row.month}`}
+                          className={row.month === totalMaxDailyYieldMonth?.month ? 'col-best best' : row.month === totalMinDailyYieldMonth?.month ? 'col-worst worst' : undefined}
+                        >
+                          {formatDailyYield(row.averageDailyKwh)}
+                        </td>
+                      ))}
+                      <td>{formatDailyYield(annualKwh / 365)}</td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <th>{t('production.monthly.total_avg_kwh_day')}</th>
+                    <td />
+                    <td>{t('production.monthly.description')}</td>
+                    {monthlyTotals.map((row) => (
+                      <td
+                        key={`total-day-${row.month}`}
+                        className={row.month === totalMaxDailyYieldMonth?.month ? 'col-best best' : row.month === totalMinDailyYieldMonth?.month ? 'col-worst worst' : undefined}
+                      >
+                        {formatDailyYield(row.averageDailyKwh)}
+                      </td>
+                    ))}
+                    <td>{formatDailyYield(totalAverageDailyKwh)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        <section className="panel">
+          <div className="section-head">
+            <h2>{t('production.surfaces.title')}</h2>
+            <p>{t('location.surfaces.count', { count: localSurfaceSummaries.length })}</p>
+          </div>
           <div className="surface-grid">
             {localSurfaceSummaries.length === 0 ? (
               <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
                 <p style={{ marginTop: 0, marginBottom: 0 }}>{t('location.surfaces.empty')}</p>
               </div>
             ) : null}
-            {surfaceYieldRows.map(({ surface, bestMonthDailyKwh }) => {
-              const verdictSummary = getRelationshipVerdictSummary('array_to_mppt', surface.status, surface.fit ?? undefined, t, surface.reasons);
-              const verdictText = getRelationshipVerdictLabel('array_to_mppt', surface.status, surface.fit ?? undefined, t);
-              return (
-                <div
-                  key={surface.surface_id}
-                  id={`surface-card-${surface.surface_id}`}
-                  className={`surface-card-stack ${focusedSurfaceId === surface.surface_id ? 'surface-card-highlight' : ''}`}
-                >
-                  <div className="surface-card">
-                    <div className="surface-card-top">
-                      <div>
-                        <h3>{surface.name}</h3>
-                        <div style={{ marginTop: 4 }}>
-                          <StatusBadge status={surface.status} fit={surface.fit} />
-                          <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--muted)', marginTop: 3 }} title={verdictSummary ?? undefined}>{verdictText}</span>
-                        </div>
+            {surfaceYieldRows.map(({ surface, verdictSummary, verdictText, verdictStatus, verdictFit }) => (
+              <div
+                key={surface.surface_id}
+                id={`surface-card-${surface.surface_id}`}
+                className={`surface-card-stack ${focusedSurfaceId === surface.surface_id ? 'surface-card-highlight' : ''}`}
+              >
+                <div className="surface-card">
+                  <div className="surface-card-top">
+                    <div>
+                      <h3>{surface.name}</h3>
+                      <div style={{ marginTop: 4 }}>
+                        <StatusBadge status={verdictStatus} fit={verdictFit} />
+                        <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--muted)', marginTop: 3 }} title={verdictSummary ?? undefined}>{verdictText}</span>
                       </div>
-                    </div>
-                    <dl className="detail-stats compact-stats" style={{ marginTop: 8, marginBottom: 0 }}>
-                      <div>
-                        <dt>{t('production.card.size')}</dt>
-                        <dd>{formatWp(surface.installed_wp)}</dd>
-                      </div>
-                      <div>
-                        <dt>{t('production.card.max_avg_yield_day')}</dt>
-                        <dd>{formatDailyYield(bestMonthDailyKwh)}</dd>
-                      </div>
-                    </dl>
-                    <div className="button-row">
-                      <button
-                        type="button"
-                        className="button button-secondary button-sm"
-                        onClick={() => navigateTo({ kind: 'surface', surfaceId: surface.surface_id })}
-                      >
-                        {t('common.detail')}
-                      </button>
-                      <button
-                        type="button"
-                        className="button button-danger button-sm"
-                        onClick={() => void handleDeleteSurface(surface.surface_id, surface.name)}
-                      >
-                        {t('common.delete')}
-                      </button>
                     </div>
                   </div>
+                  <dl className="detail-stats compact-stats" style={{ marginTop: 8, marginBottom: 0 }}>
+                    <div>
+                      <dt>{t('production.card.size')}</dt>
+                      <dd>{formatWp(surface.installed_wp)}</dd>
+                    </div>
+                  </dl>
+                  <div className="button-row">
+                    <button
+                      type="button"
+                      className="button button-secondary button-sm"
+                      onClick={() => navigateTo({ kind: 'surface', surfaceId: surface.surface_id })}
+                    >
+                      {t('common.detail')}
+                    </button>
+                    <button
+                      type="button"
+                      className="button button-danger button-sm"
+                      onClick={() => void handleDeleteSurface(surface.surface_id, surface.name)}
+                    >
+                      {t('common.delete')}
+                    </button>
+                  </div>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
           <div className="roof-config-inline row-synced-wrap" style={{ marginTop: 16 }}>
             <div className="config-field" style={{ alignSelf: 'end' }}>
-              <span>&nbsp;</span>
+              <span className="config-field-spacer" aria-hidden="true" />
               <button type="button" className="button button-secondary" onClick={() => void handleCreateSurface()} disabled={isCreatingSurface}>
                 {isCreatingSurface ? t('common.creating') : t('production.add_surface')}
               </button>
-            </div>
-          </div>
-        </section>
-
-        <section className="panel" style={{ display: 'none' }}>
-          <div className="section-head">
-            <h2>{t('production.monthly.title')}</h2>
-            <p>Read-only monthly summary.</p>
-          </div>
-          <div className="outcome-panel">
-            <div className="outcome-summary">
-              <div className="outcome-status-line">
-                <p className="result-label">Monthly production</p>
-                <span>{t('production.monthly.total_avg_kwh_day')}</span>
-              </div>
-              <p className="fit-note">This section is read-only and summarizes the derived production by month.</p>
-            </div>
-            <div className="yield-table-wrap">
-              <table className="yield-table">
-                <thead>
-                  <tr>
-                    <th></th>
-                    {MONTH_KEYS.map((month) => (
-                      <th
-                        key={month}
-                        className={month === totalMaxDailyYieldMonth?.month ? 'col-best' : month === totalMinDailyYieldMonth?.month ? 'col-worst' : undefined}
-                      >{getMonthLabel(month, t)}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {surfaceYieldRows.map(({ surface, yieldRows }) => (
-                    <tr key={`monthly-${surface.surface_id}`}>
-                      <th>{surface.name}</th>
-                      {yieldRows.map((row) => (
-                        <td
-                          key={`${surface.surface_id}-${row.month}`}
-                          className={row.month === totalMaxDailyYieldMonth?.month ? 'col-best best' : row.month === totalMinDailyYieldMonth?.month ? 'col-worst worst' : undefined}
-                        >{formatDailyYield(row.averageDailyKwh)}</td>
-                      ))}
-                    </tr>
-                  ))}
-                  <tr>
-                    <th>{t('production.monthly.total_avg_kwh_day')}</th>
-                    {monthlyTotals.map((row) => (
-                      <td
-                        key={`total-day-${row.month}`}
-                        className={row.month === totalMaxDailyYieldMonth?.month ? 'col-best best' : row.month === totalMinDailyYieldMonth?.month ? 'col-worst worst' : undefined}
-                      >{formatDailyYield(row.averageDailyKwh)}</td>
-                    ))}
-                  </tr>
-                </tbody>
-              </table>
             </div>
           </div>
         </section>

@@ -110,7 +110,7 @@ Production is the sum of all configured surfaces.
 
 - Table
 - Row for each surface
-- Columns with yield details including verdict
+- Columns with monthly output, verdict, and explanation
 - Row with totals at the bottom
 - Table
 - Columns for each month of the year

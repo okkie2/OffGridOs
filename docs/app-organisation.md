@@ -218,6 +218,7 @@ Purpose:
 - compare surfaces and months
 - summarize monthly supply contribution on the producer side
 - give a quick sense of strongest and weakest periods
+- show monthly output per surface together with a verdict for each surface
 
 This page is the place where surfaces are added, removed, and drilled into.
 
@@ -228,6 +229,8 @@ It should include:
 - remove surface action
 - open surface detail action
 - derived production overview
+- monthly output by surface
+- per-surface verdicts
 
 Important intent:
 
