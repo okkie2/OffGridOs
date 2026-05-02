@@ -7,5 +7,4 @@
 
 ## LATER
 
-- Add richer downstream AC-side modeling for load circuits, Loads, and generator scenarios in the web app and calculation layer.
-- Add durable import and export support for project data without making the frontend depend on generated JSON files.
+- Complete consumer-side monthly demand profiles and downstream relationship evaluation for load circuits and Loads.

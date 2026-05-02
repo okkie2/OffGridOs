@@ -35,6 +35,24 @@ The producer-side supply contribution comes from Production and Storage inputs. 
 
 It is the place where upstream and downstream choices meet in one view.
 
+## Consumer-side monthly demand slice
+
+The consumer-side part of this screen should be built from:
+
+- load-circuit monthly demand profiles
+- load monthly demand profiles
+- downstream relationship evaluation for load circuits and loads
+- circuit-level and load-level energy totals
+
+This slice should answer:
+
+- how much demand each load circuit contributes per month
+- how much demand each load contributes per month
+- which downstream relationships are under pressure
+- which months are driven by consumer-side demand rather than producer-side supply
+
+It should not introduce generator logic here. Generator modeling belongs on the producer side and only contributes as a separate supply input to the balance.
+
 ## Layout blocks
 
 Suggested layout:

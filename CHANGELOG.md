@@ -2,6 +2,11 @@
 
 ## 2026-05-02
 
+- Added the first consumer-side monthly-demand implementation slice, deriving month-by-month demand for loads and load circuits, surfacing it in the workbenches, and feeding the monthly balance screen from the consumer side.
+- Deferred producer-side generator monthly supply modeling by removing it from the active queue, leaving consumer-side monthly demand as the remaining `LATER` slice.
+- Added a dedicated consumer-monthly-demand implementation checklist covering persisted inputs, derived export fields, UI outputs, and the monthly-balance handoff.
+- Defined the remaining consumer-side monthly demand slice as load-circuit profiles, load profiles, and downstream relationship evaluation feeding the monthly balance screen.
+- Reworked `TODO.md` so the remaining roadmap-style work is split into consumer-side monthly demand modeling and producer-side generator supply modeling, and removed the already-complete import/export theme from the queue.
 - Shortened the Production, Consumption, and Reports page header subtitles so the visible UI stays lightweight while still reflecting the producer/consumer boundary.
 - Aligned the visible Production, Consumption, and Reports page header context strings with the producer/consumer boundary wording in the app-organisation docs.
 - Clarified the page-boundary docs so Production owns monthly supply contribution, Consumption owns downstream demand and sizing, and Reports compares the two.

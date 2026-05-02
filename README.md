@@ -112,6 +112,7 @@ The current publish workflow keeps `project.db` as the local source of truth and
 - [battery-inverter-screen.md](./docs/battery-inverter-screen.md): detailed screen for the battery bank, inverter, and their evaluated relationships.
 - [monthly-balance-screen.md](./docs/monthly-balance-screen.md): seasonal system screen for monthly surplus, deficit, battery pressure, and generator dependence.
 - [load-circuit-load-screen.md](./docs/load-circuit-load-screen.md): future screen for downstream load circuits, loads, and AC-side distribution.
+- [consumer-monthly-demand-slice.md](./docs/consumer-monthly-demand-slice.md): implementation checklist for consumer-side monthly demand profiles, downstream relationship evaluation, and the handoff into monthly balance.
 
 ### Testing and quality
 

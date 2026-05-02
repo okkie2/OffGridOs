@@ -698,9 +698,60 @@ interface MonthlyBalanceRow {
   month: string;
   solar_kwh: number | null;
   load_kwh: number | null;
+  generator_kwh?: number | null;
+  battery_charge_kwh?: number | null;
+  battery_discharge_kwh?: number | null;
   surplus_kwh: number | null;
   deficit_kwh: number | null;
   notes?: string;
+}
+
+interface LoadMonthlyDemandRow {
+  month: number;
+  load_circuit_id: string;
+  load_id: string;
+  demand_kwh: number;
+}
+
+interface LoadCircuitMonthlyDemandRow {
+  month: number;
+  load_circuit_id: string;
+  demand_kwh: number;
+}
+
+interface ConsumerMonthlyDemandRow {
+  month: string;
+  load_kwh: number;
+}
+
+interface ConversionDeviceToLoadCircuitRelationship {
+  relationship_id: string;
+  from_converter_id: string;
+  to_load_circuit_id: string;
+  continuous_power_w: number | null;
+  nominal_power_w: number;
+  monthly_demand_kwh: number;
+  evaluation: {
+    electrical_status: Status;
+    fit_status?: FitStatus;
+    reasons: string[];
+    notes: string;
+  };
+}
+
+interface LoadCircuitToLoadRelationship {
+  relationship_id: string;
+  from_load_circuit_id: string;
+  to_load_id: string;
+  running_power_w: number;
+  peak_power_w: number;
+  daily_energy_kwh: number;
+  evaluation: {
+    electrical_status: Status;
+    fit_status?: FitStatus;
+    reasons: string[];
+    notes: string;
+  };
 }
 
 interface DigitalTwinExport {
@@ -764,8 +815,8 @@ interface DigitalTwinExport {
     array_to_mppt: ArrayToMpptRelationship[];
     mppt_to_battery_bank: MpptToBatteryBankRelationship[];
     battery_bank_to_inverter: BatteryBankToInverterRelationship[];
-    conversion_device_to_load_circuit: [];
-    load_circuit_to_load: [];
+    conversion_device_to_load_circuit: ConversionDeviceToLoadCircuitRelationship[];
+    load_circuit_to_load: LoadCircuitToLoadRelationship[];
   };
   derived: {
     array_states: ArrayState[];
@@ -777,6 +828,9 @@ interface DigitalTwinExport {
       total_mppt_charge_current_a: number | null;
     }>;
     project_monthly_solar_output: ProjectMonthlySolarOutput[];
+    load_monthly_demand: LoadMonthlyDemandRow[];
+    load_circuit_monthly_demand: LoadCircuitMonthlyDemandRow[];
+    consumer_monthly_demand: ConsumerMonthlyDemandRow[];
     monthly_balance: MonthlyBalanceRow[];
     warnings: Array<{
       severity: 'info' | 'warning';
@@ -6407,6 +6461,11 @@ function ConverterDetailPage({
     : [];
   const converterLoadCircuitIdsKey = converterLoadCircuits.map((circuit) => circuit.load_circuit_id).join('|');
   const selectedCircuitLoadIdsKey = selectedCircuitLoads.map((load) => load.load_id).join('|');
+  const selectedCircuitMonthlyDemand = selectedLoadCircuit
+    ? data.derived.load_circuit_monthly_demand
+      .filter((row) => row.load_circuit_id === selectedLoadCircuit.load_circuit_id)
+      .sort((left, right) => left.month - right.month)
+    : [];
   const selectedCircuitNominalPowerW = selectedCircuitLoads.reduce((sum, load) => sum + loadNominalPowerW(load), 0);
   const selectedCircuitSurgePowerW = selectedCircuitLoads.reduce((sum, load) => sum + loadSurgePowerW(load), 0);
   const selectedCircuitDailyEnergyKwh = selectedCircuitLoads.reduce((sum, load) => sum + loadDailyEnergyKwh(load), 0);
@@ -6829,6 +6888,24 @@ function ConverterDetailPage({
                       <dt>{t('load.circuit.voltage')}</dt>
                       <dd>{formatVoltage(selectedCircuitVoltageV)}</dd>
                     </div>
+                  </dl>
+                </div>
+
+                <div className="outcome-panel" style={{ marginTop: 16 }}>
+                  <div className="outcome-summary">
+                    <div className="outcome-status-line">
+                      <p className="result-label">{t('load.circuit.monthly_demand')}</p>
+                      <span>{formatEnergyKwh(selectedCircuitMonthlyDemand.reduce((sum, row) => sum + row.demand_kwh, 0))}</span>
+                    </div>
+                    <p className="fit-note">{t('load.circuit.monthly_demand_note')}</p>
+                  </div>
+                  <dl className="detail-stats compact-stats">
+                    {selectedCircuitMonthlyDemand.map((row) => (
+                      <div key={`${selectedLoadCircuit.load_circuit_id}:${row.month}`}>
+                        <dt>{row.month}</dt>
+                        <dd>{formatEnergyKwh(row.demand_kwh)}</dd>
+                      </div>
+                    ))}
                   </dl>
                 </div>
               </>
@@ -11074,6 +11151,9 @@ function LoadsPage({
                 const loadTitle = isEditing ? draft.title.trim() || load.title : load.title;
                 const loadDescription = isEditing ? draft.description.trim() || load.description?.trim() || t('catalog.entry.load') : load.description?.trim() || t('catalog.entry.load');
                 const moveCircuitOptions = filteredLoadCircuitOptions.filter((circuit) => circuit.load_circuit_id !== load.load_circuit_id);
+                const loadMonthlyDemand = data.derived.load_monthly_demand
+                  .filter((row) => row.load_id === load.load_id)
+                  .sort((left, right) => left.month - right.month);
                 return (
                   <div key={load.load_id} id={`load-card-${load.load_id}`} className="surface-card-stack">
                       <div className={`surface-card consumption-selection-card ${isEditing || isMoving ? 'consumption-selection-editor' : ''}`}>
@@ -11165,6 +11245,23 @@ function LoadsPage({
                                 <dd>{formatPowerW(Number(draft.surge_power_w) || 0)}</dd>
                               </div>
                             </dl>
+                            <div className="outcome-panel" style={{ marginTop: 16 }}>
+                              <div className="outcome-summary">
+                                <div className="outcome-status-line">
+                                  <p className="result-label">{t('load.workbench.monthly_demand')}</p>
+                                  <span>{formatEnergyKwh(loadMonthlyDemand.reduce((sum, row) => sum + row.demand_kwh, 0))}</span>
+                                </div>
+                                <p className="fit-note">{t('load.workbench.monthly_demand_note')}</p>
+                              </div>
+                              <dl className="detail-stats compact-stats">
+                                {loadMonthlyDemand.map((row) => (
+                                  <div key={`${load.load_id}:${row.month}`}>
+                                    <dt>{row.month}</dt>
+                                    <dd>{formatEnergyKwh(row.demand_kwh)}</dd>
+                                  </div>
+                                ))}
+                              </dl>
+                            </div>
                             <div className="button-row">
                               <button type="button" className="button button-success button-sm" onClick={() => void handleSave()} disabled={isSaving || !draft.title.trim()}>
                                 {isSaving ? t('common.saving') : t('common.save')}
@@ -11244,6 +11341,23 @@ function LoadsPage({
                                 <dd>{formatVoltage(activeCircuitVoltageV)}</dd>
                               </div>
                             </dl>
+                            <div className="outcome-panel" style={{ marginTop: 16 }}>
+                              <div className="outcome-summary">
+                                <div className="outcome-status-line">
+                                  <p className="result-label">{t('load.workbench.monthly_demand')}</p>
+                                  <span>{formatEnergyKwh(loadMonthlyDemand.reduce((sum, row) => sum + row.demand_kwh, 0))}</span>
+                                </div>
+                                <p className="fit-note">{t('load.workbench.monthly_demand_note')}</p>
+                              </div>
+                              <dl className="detail-stats compact-stats">
+                                {loadMonthlyDemand.map((row) => (
+                                  <div key={`${load.load_id}:${row.month}`}>
+                                    <dt>{row.month}</dt>
+                                    <dd>{formatEnergyKwh(row.demand_kwh)}</dd>
+                                  </div>
+                                ))}
+                              </dl>
+                            </div>
                             <div className="button-row">
                               <button type="button" className="button button-secondary button-sm" onClick={() => startEditLoad(load)}>
                                 {t('common.edit')}

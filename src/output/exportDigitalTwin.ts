@@ -172,6 +172,19 @@ interface ExportLoad {
   sleeping_kw: number;
 }
 
+interface ExportLoadMonthlyDemand {
+  month: number;
+  load_circuit_id: string;
+  load_id: string;
+  demand_kwh: number;
+}
+
+interface ExportLoadCircuitMonthlyDemand {
+  month: number;
+  load_circuit_id: string;
+  demand_kwh: number;
+}
+
 interface ExportProject {
   project_id: string;
   name: string;
@@ -305,8 +318,34 @@ export interface DigitalTwinExport {
         notes: string;
       };
     }>;
-    conversion_device_to_load_circuit: [];
-    load_circuit_to_load: [];
+    conversion_device_to_load_circuit: Array<{
+      relationship_id: string;
+      from_converter_id: string;
+      to_load_circuit_id: string;
+      continuous_power_w: number | null;
+      nominal_power_w: number;
+      monthly_demand_kwh: number;
+      evaluation: {
+        electrical_status: 'within_limits' | 'outside_limits';
+        fit_status?: 'optimal' | 'fully_utilized' | 'underutilized';
+        reasons: string[];
+        notes: string;
+      };
+    }>;
+    load_circuit_to_load: Array<{
+      relationship_id: string;
+      from_load_circuit_id: string;
+      to_load_id: string;
+      running_power_w: number;
+      peak_power_w: number;
+      daily_energy_kwh: number;
+      evaluation: {
+        electrical_status: 'within_limits' | 'outside_limits';
+        fit_status?: 'optimal' | 'fully_utilized' | 'underutilized';
+        reasons: string[];
+        notes: string;
+      };
+    }>;
   };
   derived: {
     string_states: [];
@@ -326,6 +365,12 @@ export interface DigitalTwinExport {
       total_mppt_charge_current_a: number | null;
     }>;
     project_monthly_solar_output: ExportProjectMonthlySolarOutput[];
+    load_monthly_demand: ExportLoadMonthlyDemand[];
+    load_circuit_monthly_demand: ExportLoadCircuitMonthlyDemand[];
+    consumer_monthly_demand: Array<{
+      month: string;
+      load_kwh: number;
+    }>;
     monthly_balance: Array<{
       month: string;
       solar_kwh: number | null;
@@ -981,18 +1026,173 @@ function buildBatteryBankToInverterRelationships(
   }];
 }
 
-function buildMonthlyBalance(): DigitalTwinExport['derived']['monthly_balance'] {
-  return MONTHS.map((month) => ({
-    month,
-    solar_kwh: null,
-    load_kwh: null,
-    generator_kwh: null,
-    battery_charge_kwh: null,
-    battery_discharge_kwh: null,
-    surplus_kwh: null,
-    deficit_kwh: null,
-    notes: 'Monthly balance is not calculated yet in the current export foundation.',
-  }));
+function buildLoadMonthlyDemand(loads: ExportLoad[]): {
+  loadMonthlyDemand: ExportLoadMonthlyDemand[];
+  loadCircuitMonthlyDemand: ExportLoadCircuitMonthlyDemand[];
+  consumerMonthlyDemand: Array<{ month: string; load_kwh: number }>;
+} {
+  const loadMonthlyDemand: ExportLoadMonthlyDemand[] = [];
+  const loadCircuitMonthlyDemand = new Map<string, Map<number, number>>();
+
+  for (const load of loads) {
+    const dailyEnergyKwh = load.daily_energy_kwh ?? ((load.usage_kw ?? 0) * load.expected_usage_hours_per_day);
+    const loadCircuitDemandByMonth = loadCircuitMonthlyDemand.get(load.load_circuit_id) ?? new Map<number, number>();
+
+    MONTHS.forEach((month, index) => {
+      const monthNumber = index + 1;
+      const demandKwh = Number((dailyEnergyKwh * MONTH_DAY_COUNT[month]).toFixed(3));
+      loadMonthlyDemand.push({
+        month: monthNumber,
+        load_circuit_id: load.load_circuit_id,
+        load_id: load.load_id,
+        demand_kwh: demandKwh,
+      });
+      loadCircuitDemandByMonth.set(monthNumber, (loadCircuitDemandByMonth.get(monthNumber) ?? 0) + demandKwh);
+    });
+
+    loadCircuitMonthlyDemand.set(load.load_circuit_id, loadCircuitDemandByMonth);
+  }
+
+  const loadCircuitMonthlyDemandRows: ExportLoadCircuitMonthlyDemand[] = [];
+  const consumerMonthlyDemand = MONTHS.map((month, index) => {
+    const monthNumber = index + 1;
+    const demandKwh = Array.from(loadCircuitMonthlyDemand.values()).reduce((sum, demandByMonth) => sum + (demandByMonth.get(monthNumber) ?? 0), 0);
+    return {
+      month,
+      load_kwh: Number(demandKwh.toFixed(3)),
+    };
+  });
+
+  for (const [loadCircuitId, demandByMonth] of loadCircuitMonthlyDemand.entries()) {
+    for (const [monthNumber, demandKwh] of demandByMonth.entries()) {
+      loadCircuitMonthlyDemandRows.push({
+        month: monthNumber,
+        load_circuit_id: loadCircuitId,
+        demand_kwh: Number(demandKwh.toFixed(3)),
+      });
+    }
+  }
+
+  return {
+    loadMonthlyDemand,
+    loadCircuitMonthlyDemand: loadCircuitMonthlyDemandRows,
+    consumerMonthlyDemand,
+  };
+}
+
+function buildLoadSideRelationships(
+  converters: ExportProjectConverter[],
+  conversionDevices: ExportConversionDevice[],
+  loadCircuits: ExportLoadCircuit[],
+  loads: ExportLoad[],
+): {
+  conversionDeviceToLoadCircuit: DigitalTwinExport['relationships']['conversion_device_to_load_circuit'];
+  loadCircuitToLoad: DigitalTwinExport['relationships']['load_circuit_to_load'];
+} {
+  const converterById = new Map(converters.map((converter) => [converter.converter_id, converter]));
+  const converterTypeById = new Map(conversionDevices.map((device) => [device.converter_type_id, device]));
+
+  const circuitTotals = new Map<string, { nominalPowerW: number; dailyEnergyKwh: number }>();
+  for (const load of loads) {
+    const current = circuitTotals.get(load.load_circuit_id) ?? { nominalPowerW: 0, dailyEnergyKwh: 0 };
+    current.nominalPowerW += load.nominal_power_w ?? ((load.usage_kw ?? 0) * 1000);
+    current.dailyEnergyKwh += load.daily_energy_kwh ?? ((load.usage_kw ?? 0) * load.expected_usage_hours_per_day);
+    circuitTotals.set(load.load_circuit_id, current);
+  }
+
+  const conversionDeviceToLoadCircuit = loadCircuits.map((circuit) => {
+    const converter = circuit.converter_id ? converterById.get(circuit.converter_id) ?? null : null;
+    const converterType = converter ? converterTypeById.get(converter.converter_type_id) ?? null : converterTypeById.get(circuit.converter_type_id) ?? null;
+    const totals = circuitTotals.get(circuit.load_circuit_id) ?? { nominalPowerW: 0, dailyEnergyKwh: 0 };
+    const continuousPowerW = converterType?.continuous_power_w ?? null;
+    const withinLimits = continuousPowerW != null ? totals.nominalPowerW <= continuousPowerW : false;
+    const utilization = continuousPowerW && continuousPowerW > 0 ? totals.nominalPowerW / continuousPowerW : 0;
+    const electricalStatus: 'within_limits' | 'outside_limits' = withinLimits ? 'within_limits' : 'outside_limits';
+    const fitStatus: 'optimal' | 'fully_utilized' | 'underutilized' | undefined = withinLimits
+      ? utilization >= 0.95
+        ? 'fully_utilized'
+        : utilization >= 0.8
+          ? 'optimal'
+          : 'underutilized'
+      : undefined;
+
+    return {
+      relationship_id: `${converter?.converter_id ?? circuit.load_circuit_id}__${circuit.load_circuit_id}`,
+      from_converter_id: converter?.converter_id ?? circuit.converter_id ?? circuit.converter_type_id,
+      to_load_circuit_id: circuit.load_circuit_id,
+      continuous_power_w: continuousPowerW,
+      nominal_power_w: totals.nominalPowerW,
+      monthly_demand_kwh: Number((totals.dailyEnergyKwh * 30.4).toFixed(3)),
+      evaluation: {
+        electrical_status: electricalStatus,
+        fit_status: fitStatus,
+        reasons: withinLimits
+          ? ['circuit_demand_within_converter_limits']
+          : ['circuit_demand_exceeds_converter_limits'],
+        notes: withinLimits
+          ? 'The circuit demand is evaluated against the selected converter continuous power.'
+          : 'The circuit demand exceeds the selected converter continuous power.',
+      },
+    };
+  });
+
+  const loadCircuitToLoad = loads.map((load) => {
+    const dailyEnergyKwh = load.daily_energy_kwh ?? ((load.usage_kw ?? 0) * load.expected_usage_hours_per_day);
+    const loadKwh = Number((dailyEnergyKwh * 30.4).toFixed(3));
+    const circuitTotalsForLoad = circuitTotals.get(load.load_circuit_id) ?? { nominalPowerW: 0, dailyEnergyKwh: 0 };
+    const loadPowerW = load.nominal_power_w ?? ((load.usage_kw ?? 0) * 1000);
+    const loadPeakPowerW = load.surge_power_w ?? ((load.spike_kw ?? 0) * 1000);
+    const share = circuitTotalsForLoad.dailyEnergyKwh > 0 ? loadKwh / circuitTotalsForLoad.dailyEnergyKwh : 0;
+    const electricalStatus: 'within_limits' = 'within_limits';
+    const fitStatus: 'optimal' | 'fully_utilized' | 'underutilized' = share >= 0.5
+      ? 'fully_utilized'
+      : share >= 0.2
+        ? 'optimal'
+        : 'underutilized';
+
+    return {
+      relationship_id: `${load.load_circuit_id}__${load.load_id}`,
+      from_load_circuit_id: load.load_circuit_id,
+      to_load_id: load.load_id,
+      running_power_w: loadPowerW,
+      peak_power_w: loadPeakPowerW,
+      daily_energy_kwh: dailyEnergyKwh,
+      evaluation: {
+        electrical_status: electricalStatus,
+        fit_status: fitStatus,
+        reasons: [
+          'load_contribution_relative_to_circuit',
+        ],
+        notes: 'The load is evaluated as part of its circuit demand mix.',
+      },
+    };
+  });
+
+  return {
+    conversionDeviceToLoadCircuit,
+    loadCircuitToLoad,
+  };
+}
+
+function buildMonthlyBalance(consumerMonthlyDemand: Array<{ month: string; load_kwh: number }>, projectMonthlySolarOutput: ExportProjectMonthlySolarOutput[]): DigitalTwinExport['derived']['monthly_balance'] {
+  return MONTHS.map((month, index) => {
+    const solarKwh = projectMonthlySolarOutput.find((row) => row.month === month)?.monthly_kwh ?? null;
+    const loadKwh = consumerMonthlyDemand[index]?.load_kwh ?? null;
+    const surplusKwh = solarKwh != null && loadKwh != null ? Number((solarKwh - loadKwh).toFixed(3)) : null;
+    const deficitKwh = solarKwh != null && loadKwh != null && loadKwh > solarKwh ? Number((loadKwh - solarKwh).toFixed(3)) : 0;
+
+    return {
+      month,
+      solar_kwh: solarKwh,
+      load_kwh: loadKwh,
+      generator_kwh: null,
+      battery_charge_kwh: null,
+      battery_discharge_kwh: null,
+      surplus_kwh: surplusKwh,
+      deficit_kwh: deficitKwh,
+      notes: 'Monthly balance currently compares producer-side solar supply against consumer-side load demand.',
+    };
+  });
 }
 
 export function buildDigitalTwinExport(db: Database.Database, dbPath: string, projectId: string, locationId?: string | null): DigitalTwinExport {
@@ -1022,6 +1222,58 @@ export function buildDigitalTwinExport(db: Database.Database, dbPath: string, pr
 
   const { pvArrays: exportedPvArrays, arrayStates, totalInstalledWp } = buildArrays(pvArrays, pvStrings, panelTypes);
   const { solarMonthlyProfiles, projectMonthlySolarOutput } = buildSolarMonthlyProfiles(surfaces, exportedPvArrays, location);
+  const exportedConversionDevices = conversionDevices.map((device) => ({
+    converter_type_id: device.converter_type_id,
+    title: device.title,
+    description: device.description ?? null,
+    device_type: device.device_type,
+    input_voltage_v: device.input_voltage_v ?? null,
+    output_voltage_v: device.output_voltage_v ?? null,
+    continuous_power_w: device.continuous_power_w ?? null,
+    peak_power_va: device.peak_power_va ?? null,
+    max_charge_current_a: device.max_charge_current_a ?? null,
+    efficiency_pct: device.efficiency_pct ?? null,
+    output_ac_voltage_v: device.output_ac_voltage_v ?? null,
+    frequency_hz: device.frequency_hz ?? null,
+    surge_power_w: device.surge_power_w ?? null,
+    output_dc_voltage_v: device.output_dc_voltage_v ?? null,
+    max_output_current_a: device.max_output_current_a ?? null,
+    price: device.price ?? null,
+    price_source_url: device.price_source_url ?? null,
+    notes: device.notes ?? null,
+  }));
+  const exportedProjectConverters = projectConverters.map((converter) => ({
+    converter_id: converter.converter_id,
+    title: converter.title,
+    description: converter.description ?? null,
+    converter_type_id: converter.converter_type_id,
+  }));
+  const exportedLoadCircuits = loadCircuits.map((circuit) => ({
+    load_circuit_id: circuit.load_circuit_id,
+    converter_id: circuit.converter_id ?? null,
+    converter_type_id: circuit.converter_type_id,
+    title: circuit.title,
+    description: circuit.description ?? null,
+  }));
+  const exportedLoads = loads.map((load) => ({
+    load_id: load.load_id,
+    load_circuit_id: load.load_circuit_id,
+    title: load.title,
+    description: load.description ?? null,
+    nominal_current_a: load.nominal_current_a ?? null,
+    nominal_power_w: load.nominal_power_w ?? null,
+    startup_current_a: load.startup_current_a ?? null,
+    surge_power_w: load.surge_power_w ?? null,
+    standby_power_w: load.standby_power_w ?? null,
+    expected_usage_hours_per_day: load.expected_usage_hours_per_day,
+    daily_energy_kwh: load.daily_energy_kwh ?? null,
+    duty_profile: load.duty_profile ?? null,
+    notes: load.notes ?? null,
+    usage_kw: load.usage_kw ?? ((load.nominal_power_w ?? 0) / 1000),
+    spike_kw: load.spike_kw ?? ((load.surge_power_w ?? 0) / 1000),
+    sleeping_kw: load.sleeping_kw ?? ((load.standby_power_w ?? 0) / 1000),
+  }));
+  const { loadMonthlyDemand, loadCircuitMonthlyDemand, consumerMonthlyDemand } = buildLoadMonthlyDemand(exportedLoads);
   const mpptConfigurations = buildMpptConfigurations(exportedPvArrays, arrayToMpptMappings, panelTypes, mpptTypes);
   const arrayToMppt = buildArrayToMpptRelationships(exportedPvArrays, arrayToMpptMappings, mpptConfigurations, panelTypes, mpptTypes);
   const batteryBanks = buildBatteryBanks(batteryTypes, cabinetTypes, projectPreferences, batteryBankConfigurations, location);
@@ -1029,10 +1281,13 @@ export function buildDigitalTwinExport(db: Database.Database, dbPath: string, pr
   const mpptToBatteryBank = buildMpptToBatteryBankRelationships(mpptConfigurations, batteryBanks, mpptTypes, batteryTypes);
   const batteryBankStates = buildBatteryBankStates(batteryBanks, mpptToBatteryBank);
   const batteryBankToInverter = buildBatteryBankToInverterRelationships(batteryBanks, derivedInverterConfigurations, inverterTypes);
+  const loadSideRelationships = buildLoadSideRelationships(exportedProjectConverters, exportedConversionDevices, exportedLoadCircuits, exportedLoads);
+  const monthlyBalance = buildMonthlyBalance(consumerMonthlyDemand, projectMonthlySolarOutput);
   const hasOutsideLimits = [
     ...arrayToMppt.map((relationship) => relationship.evaluation.electrical_status),
     ...mpptToBatteryBank.map((relationship) => relationship.evaluation.electrical_status),
     ...batteryBankToInverter.map((relationship) => relationship.evaluation.electrical_status),
+    ...loadSideRelationships.conversionDeviceToLoadCircuit.map((relationship) => relationship.evaluation.electrical_status),
   ].some((status) => status === 'outside_limits');
 
   return {
@@ -1078,57 +1333,10 @@ export function buildDigitalTwinExport(db: Database.Database, dbPath: string, pr
       battery_banks: batteryBanks,
       inverter_types: inverterTypes,
       inverter_configurations: derivedInverterConfigurations,
-      converter_types: conversionDevices.map((device) => ({
-        converter_type_id: device.converter_type_id,
-        title: device.title,
-        description: device.description ?? null,
-        device_type: device.device_type,
-        input_voltage_v: device.input_voltage_v ?? null,
-        output_voltage_v: device.output_voltage_v ?? null,
-        continuous_power_w: device.continuous_power_w ?? null,
-        peak_power_va: device.peak_power_va ?? null,
-        max_charge_current_a: device.max_charge_current_a ?? null,
-        efficiency_pct: device.efficiency_pct ?? null,
-        output_ac_voltage_v: device.output_ac_voltage_v ?? null,
-        frequency_hz: device.frequency_hz ?? null,
-        surge_power_w: device.surge_power_w ?? null,
-        output_dc_voltage_v: device.output_dc_voltage_v ?? null,
-        max_output_current_a: device.max_output_current_a ?? null,
-        price: device.price ?? null,
-        price_source_url: device.price_source_url ?? null,
-        notes: device.notes ?? null,
-      })),
-      converters: projectConverters.map((converter) => ({
-        converter_id: converter.converter_id,
-        title: converter.title,
-        description: converter.description ?? null,
-        converter_type_id: converter.converter_type_id,
-      })),
-      load_circuits: loadCircuits.map((circuit) => ({
-        load_circuit_id: circuit.load_circuit_id,
-        converter_id: circuit.converter_id ?? null,
-        converter_type_id: circuit.converter_type_id,
-        title: circuit.title,
-        description: circuit.description ?? null,
-      })),
-      loads: loads.map((load) => ({
-        load_id: load.load_id,
-        load_circuit_id: load.load_circuit_id,
-        title: load.title,
-        description: load.description ?? null,
-        nominal_current_a: load.nominal_current_a ?? null,
-        nominal_power_w: load.nominal_power_w ?? null,
-        startup_current_a: load.startup_current_a ?? null,
-        surge_power_w: load.surge_power_w ?? null,
-        standby_power_w: load.standby_power_w ?? null,
-        expected_usage_hours_per_day: load.expected_usage_hours_per_day,
-        daily_energy_kwh: load.daily_energy_kwh ?? null,
-        duty_profile: load.duty_profile ?? null,
-        notes: load.notes ?? null,
-        usage_kw: load.usage_kw ?? ((load.nominal_power_w ?? 0) / 1000),
-        spike_kw: load.spike_kw ?? ((load.surge_power_w ?? 0) / 1000),
-        sleeping_kw: load.sleeping_kw ?? ((load.standby_power_w ?? 0) / 1000),
-      })),
+      converter_types: exportedConversionDevices,
+      converters: exportedProjectConverters,
+      load_circuits: exportedLoadCircuits,
+      loads: exportedLoads,
       solar_monthly_profiles: solarMonthlyProfiles,
       generators: [],
       load_monthly_profiles: [],
@@ -1138,15 +1346,18 @@ export function buildDigitalTwinExport(db: Database.Database, dbPath: string, pr
       array_to_mppt: arrayToMppt,
       mppt_to_battery_bank: mpptToBatteryBank,
       battery_bank_to_inverter: batteryBankToInverter,
-      conversion_device_to_load_circuit: [],
-      load_circuit_to_load: [],
+      conversion_device_to_load_circuit: loadSideRelationships.conversionDeviceToLoadCircuit,
+      load_circuit_to_load: loadSideRelationships.loadCircuitToLoad,
     },
     derived: {
       string_states: [],
       array_states: arrayStates,
       battery_bank_states: batteryBankStates,
       project_monthly_solar_output: projectMonthlySolarOutput,
-      monthly_balance: buildMonthlyBalance(),
+      load_monthly_demand: loadMonthlyDemand,
+      load_circuit_monthly_demand: loadCircuitMonthlyDemand,
+      consumer_monthly_demand: consumerMonthlyDemand,
+      monthly_balance: monthlyBalance,
       warnings: [
         {
           severity: 'info',
@@ -1180,7 +1391,7 @@ export function buildDigitalTwinExport(db: Database.Database, dbPath: string, pr
         {
           severity: 'info',
           scope: 'monthly_balance',
-          message: 'Monthly balance values are placeholders until the first calculation pipeline is implemented.',
+          message: 'Monthly balance currently compares producer-side solar supply against consumer-side load demand. Storage and generator contributions remain separate.',
           related_ids: [],
         },
       ],

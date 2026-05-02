@@ -103,7 +103,7 @@ Suggested shape:
   "array_to_mppt": [],
   "mppt_to_battery_bank": [],
   "battery_bank_to_inverter": [],
-  "converter_type_to_load_circuit": [],
+  "conversion_device_to_load_circuit": [],
   "load_circuit_to_load": []
 }
 ```
@@ -145,6 +145,9 @@ Suggested shape:
   "array_states": [],
   "battery_bank_states": [],
   "project_monthly_solar_output": [],
+  "load_monthly_demand": [],
+  "load_circuit_monthly_demand": [],
+  "consumer_monthly_demand": [],
   "monthly_balance": [],
   "warnings": [],
   "summary": {}
@@ -189,6 +192,36 @@ Suggested fields:
 - `monthly_kwh`
 - `notes`
 
+### `load_monthly_demand`
+
+One row per load and month with the derived monthly energy demand.
+
+Suggested fields:
+
+- `month`
+- `load_circuit_id`
+- `load_id`
+- `demand_kwh`
+
+### `load_circuit_monthly_demand`
+
+One row per load circuit and month with the rolled-up monthly energy demand.
+
+Suggested fields:
+
+- `month`
+- `load_circuit_id`
+- `demand_kwh`
+
+### `consumer_monthly_demand`
+
+One row per month with the total downstream consumer demand.
+
+Suggested fields:
+
+- `month`
+- `load_kwh`
+
 ### `monthly_balance`
 
 One row per month.
@@ -204,6 +237,8 @@ Suggested fields:
 - `surplus_kwh`
 - `deficit_kwh`
 - `notes`
+
+The current implementation derives `load_kwh` from the consumer-demand rows and compares it with monthly solar output. Storage and generator contributions remain separate until those slices are implemented.
 
 ### `warnings`
 

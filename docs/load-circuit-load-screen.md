@@ -185,3 +185,10 @@ The current UI now shows a first-pass demand summary on the load-circuit cards:
 - estimated monthly energy
 
 This is still a derived summary rather than a persisted monthly-profile model, but it gives the AC-side screen a concrete energy dimension while the richer monthly and generator modeling work remains on the roadmap.
+
+The next consumer-side monthly demand slice should extend that derived summary with:
+
+- monthly demand by load circuit
+- monthly demand by load
+- explicit downstream relationship evaluation
+- enough totals for the monthly balance screen to compare consumer demand against producer-side supply
