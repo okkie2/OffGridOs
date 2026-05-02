@@ -210,6 +210,8 @@ Test categories:
 - battery count must match batteries per string times parallel strings
 - selected battery type must exist
 - optional text and image can be cleared
+- full bank reload scenario should cover title, description, notes, selected battery type, configured count, batteries per string, and parallel strings together
+- image persistence should be covered by the separate battery image scenario
 
 ### Inverter configuration
 

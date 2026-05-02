@@ -177,3 +177,19 @@ Feature: Persistence field coverage
     When I reload OffGridOS
     And I open Battery array from the menu
     Then the battery bank image should still be visible
+
+  Scenario: Save and reload the full battery bank field set
+    Given OffGridOS is rendered with project data
+    When I open Battery array from the menu
+    And I set the battery title to "Main battery bank"
+    And I set the battery description to "Primary storage unit"
+    And I choose the last battery type
+    And I choose the last battery batteries per string option
+    And I choose the last battery parallel strings option
+    And I sync the battery count to the selected array layout
+    And I set the battery notes to "Check battery ventilation requirements"
+    And I save the battery bank configuration
+    Then the battery bank configuration should persist the full field set
+    When I reload OffGridOS
+    And I open Battery array from the menu
+    Then the battery bank configuration should persist the full field set

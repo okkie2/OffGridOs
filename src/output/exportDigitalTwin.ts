@@ -240,7 +240,7 @@ interface ExportProjectConverter {
   converter_type_id: string;
 }
 
-interface DigitalTwinExport {
+export interface DigitalTwinExport {
   project: ExportProject;
   entities: {
     surfaces: Surface[];

@@ -2,6 +2,19 @@
 
 ## 2026-05-02
 
+- Shortened the Production, Consumption, and Reports page header subtitles so the visible UI stays lightweight while still reflecting the producer/consumer boundary.
+- Aligned the visible Production, Consumption, and Reports page header context strings with the producer/consumer boundary wording in the app-organisation docs.
+- Clarified the page-boundary docs so Production owns monthly supply contribution, Consumption owns downstream demand and sizing, and Reports compares the two.
+- Added durable project import/export support via `/api/digital-twin/import`, plus a round-trip importer test that rebuilds the current export contract into SQLite and verifies the rehydrated project state.
+- Added a first AC-side demand summary to the Load circuits workbench, showing derived daily and estimated monthly energy alongside the existing load and power totals.
+- Added the new `npm run check:i18n` guardrail to the README so the repo docs match the active multilingual workflow.
+- Cleared the last stale `NOW` item from `TODO.md` after confirming the Loads multilingual work had already landed.
+- Added `npm run check:i18n`, a diff-based guardrail that flags newly introduced hardcoded UI copy in changed frontend TSX files before merge.
+- Added a repo-wide UI copy rule: new visible strings should be translated through `web/src/i18n.tsx` instead of being hardcoded inline in React components.
+- Continued the multilingual UI pass by translating the remaining older Load circuits and load-detail labels, status text, and fit summaries into English, Dutch, and Frisian.
+- Extended the multilingual UI pass to the Load circuits and Loads workbenches, including translated filters, editor fields, empty states, save/delete/move actions, confirm dialogs, and status messages for English, Dutch, and Frisian.
+- Started the multilingual UI pass by translating the Loads workbench filters, editor fields, empty states, move flow, and related confirm dialogs into the i18n catalog.
+- Simplified the full battery-bank persistence regression so it covers the stable text and layout contract separately from the battery image upload scenario.
 - Added a focused converter persistence regression that saves the full Consumption converter field set, reloads the app, and verifies the converter remains editable with title, description, and device selection intact.
 - Stabilized the load persistence coverage scenario so the full-field regression now uses the preset-backed test path reliably.
 - Removed the obsolete `Reports` routing task from `TODO.md` after confirming `Verdict summary` and `Cost summary` already live under the Reports area.

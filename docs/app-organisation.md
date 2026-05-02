@@ -22,6 +22,12 @@ The main structure follows the energy flow:
 
 Supporting catalogue maintenance sits outside that flow under `Catalogs`.
 
+Boundary rule:
+
+- `Production` owns the producer-side aggregate view, including monthly supply contribution
+- `Consumption` owns the consumer-side aggregate view, including downstream demand and sizing
+- `Reports` compares the producer and consumer aggregates over time
+
 ## Top-level Navigation
 
 Recommended top-level sections:
@@ -210,6 +216,7 @@ Purpose:
 - own the surface collection
 - show derived production after the site and surfaces are configured
 - compare surfaces and months
+- summarize monthly supply contribution on the producer side
 - give a quick sense of strongest and weakest periods
 
 This page is the place where surfaces are added, removed, and drilled into.
@@ -296,6 +303,7 @@ Purpose:
 - manage converters
 - manage load circuits
 - manage loads
+- summarize downstream demand and sizing on the consumer side
 
 Recommended order:
 
@@ -313,6 +321,8 @@ This section should include:
 - loads grouped by load circuit
 - `inverter -> load circuit` or `converter -> load circuit` feedback
 - `load circuit -> load` feedback
+- downstream demand totals
+- load-circuit sizing pressure
 
 Suggested routes:
 
@@ -327,6 +337,7 @@ Purpose:
 - present read-only summaries
 - show seasonal behavior
 - show technical verdicts and cost summaries
+- compare producer-side supply with consumer-side demand
 
 This section should stay compact and report-oriented.
 

@@ -115,6 +115,7 @@ The current publish workflow keeps `project.db` as the local source of truth and
 
 ### Testing and quality
 
+- `npm run check:i18n`: scan changed frontend TSX files for newly introduced hardcoded UI copy before merging.
 - [persistence-testing-strategy.md](./docs/persistence-testing-strategy.md): save-box persistence strategy, dependency-aware test approach, and field-coverage guidance for all editable fields.
 - [persistence-field-coverage-matrix.md](./docs/persistence-field-coverage-matrix.md): field-by-field save coverage matrix with routes, valid and invalid examples, and recommended primary test layers.
 - [docs/skills/offgridos-single-local-instance/SKILL.md](./docs/skills/offgridos-single-local-instance/SKILL.md): repo-local Codex skill for keeping the single-instance local runtime rule consistent.

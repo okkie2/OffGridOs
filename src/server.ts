@@ -3,6 +3,7 @@ import path from 'path';
 import http, { type IncomingMessage, type ServerResponse } from 'http';
 import { createLocation, createProject, createSurface, deleteProject, deleteCabinetType, deleteConversionDevice, deleteLoad, deleteLoadCircuit, deleteProjectConverter, deleteSurface, deleteSurfacePanelAssignmentsForSurface, getBatteryBankConfiguration, getBatteryType, getCabinetType, getConversionDevice, getInverterType, getLoad, getLoadCircuit, getMpptType, getProject, getPreferences, getPanelType, getProjectConverter, getSurface, getSurfaceConfiguration, insertBatteryType, insertCabinetType, insertInverterType, insertMpptType, insertPanelType, listArrayToMpptMappings, listBatteryBankConfigurations, listBatteryTypes, listCabinetTypes, listConversionDevices, listInverterConfigurations, listInverterTypes, listLoadCircuits, listLoads, listLocations, listMpptTypes, listPanelTypes, listProjectConverters, listProjects, listPvArrays, listSurfaceConfigurations, listSurfacePanelAssignments, setPref, updateBatteryType, updateCabinetType, updateInverterType, updateMpptType, updatePanelType, updateProject, updateSurface, upsertBatteryBankConfiguration, upsertConversionDevice, upsertInverterConfiguration, upsertLoad, upsertLoadCircuit, upsertLocation, upsertProjectConverter, upsertSurfaceConfiguration, upsertSurfacePanelAssignment, syncPvTopologyForSurface } from './db/queries.js';
 import { buildDigitalTwinExport } from './output/exportDigitalTwin.js';
+import { importDigitalTwinExport } from './output/importDigitalTwin.js';
 import { generateUniqueCatalogId } from './domain/panel-type-id.js';
 import { resolveDatabasePath, resolveServerHost, resolveServerPort, resolveWebDistPath } from './config/runtime.js';
 import { DEFAULT_PROJECT_ID } from './config/project.js';
@@ -345,6 +346,20 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
       const message = error instanceof Error ? error.message : 'Unknown server error';
       sendJson(response, 500, { error: message });
     }
+    return true;
+  }
+
+  if (method === 'POST' && url.pathname === '/api/digital-twin/import') {
+    void (async () => {
+      try {
+        const payload = await readJsonBody<unknown>(request);
+        const imported = withDb(databasePath, (db) => importDigitalTwinExport(db, databasePath, payload));
+        sendJson(response, 200, imported);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown server error';
+        sendJson(response, 400, { error: message });
+      }
+    })();
     return true;
   }
 

@@ -7,6 +7,7 @@
     "build": "tsc && vite build",
     "build:web": "vite build",
     "bdd": "node --import tsx ./node_modules/@cucumber/cucumber/bin/cucumber-js --import features/step_definitions/**/*.ts features/**/*.feature",
+    "check:i18n": "node --import tsx ./scripts/check-ui-copy.ts",
     "dev": "tsx",
     "dev:app": "node scripts/dev-app.mjs",
     "publish:db": "tsx scripts/publish-db.ts",

@@ -15,6 +15,12 @@ It should:
 - keep relationships explicit
 - stay readable in raw JSON
 
+This shape is also the durable project exchange format for import and export:
+
+- `GET /api/digital-twin` returns the current export
+- `POST /api/digital-twin/import` accepts the same shape and rebuilds the project data in SQLite
+- `derived` is export data, not input data; import should rebuild or restore persisted rows rather than depend on frontend-generated files
+
 ## Top-level shape
 
 ```json
@@ -233,6 +239,15 @@ Suggested fields:
 - `source_db_version`
 - `export_version`
 - `units`
+
+## Import behavior
+
+When the export is used for import:
+
+- `project`, `entities`, and the relationship maps are the authoritative payload
+- `derived` is ignored as a source of truth
+- the importer should restore persisted rows such as locations, surfaces, catalog selections, converters, load circuits, loads, and explicit PV topology rows
+- any runtime summaries or validation data should be regenerated after import rather than copied from the export
 
 Example:
 

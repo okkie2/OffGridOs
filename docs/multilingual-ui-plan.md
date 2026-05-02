@@ -35,6 +35,24 @@ This plan does not require:
 - The main frontend file is large; full string extraction and coverage across all pages is ongoing.
 - BDD tests currently assert English UI text. We keep that by forcing the BDD app runtime to English.
 
+## Ongoing Rule
+
+Do not introduce new hardcoded English in visible UI code.
+
+Whenever a page, dialog, button, label, placeholder, empty state, save message, error message, or confirmation sentence changes:
+
+- add or update the matching translation keys in the same change
+- keep the English text in the catalog, not inline in the component
+- only allow inline text when it is a real data value, a technical identifier, or a test fixture
+
+Recommended review habit:
+
+- grep touched frontend files for bare user-facing strings before merging
+- treat any leftover string literal in a React component as a translation miss until proven otherwise
+- run `npm run check:i18n` on the changed frontend files before merging
+
+This keeps translation coverage growing by default instead of relying on a separate cleanup pass.
+
 ## Recommended Approach
 
 Use a lightweight frontend translation setup with:

@@ -19,6 +19,8 @@ It should help the user answer:
 
 This is the main seasonal system view.
 
+Generator support belongs on the producer side as a supply contribution, not inside the downstream load model.
+
 ## Screen scope
 
 This screen should combine:
@@ -28,6 +30,8 @@ This screen should combine:
 - battery charge and discharge pressure
 - generator contribution
 - monthly surplus or deficit
+
+The producer-side supply contribution comes from Production and Storage inputs. The consumer-side demand comes from Consumption inputs.
 
 It is the place where upstream and downstream choices meet in one view.
 

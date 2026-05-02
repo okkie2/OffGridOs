@@ -58,17 +58,25 @@ async function getDigitalTwin() {
   const res = await fetch(`${BASE_URL}/api/digital-twin`);
   expect(res.status).toBe(200);
   return res.json() as Promise<{
+    project: {
+      project_id: string;
+    };
     entities: {
       surfaces: Array<{ surface_id: string }>;
       battery_types: Array<{ battery_type_id: string }>;
       mppt_types: Array<{ mppt_type_id: string }>;
       panel_types: Array<{ panel_type_id: string }>;
-      conversion_devices: Array<{
+      converter_types: Array<{
         converter_type_id: string;
         output_voltage_v?: number | null;
         output_ac_voltage_v?: number | null;
         output_dc_voltage_v?: number | null;
       }>;
+      converters: Array<{ converter_id: string }>;
+      load_circuits: Array<{ load_circuit_id: string }>;
+      loads: Array<{ load_id: string }>;
+      pv_arrays: Array<{ array_id: string }>;
+      pv_strings: Array<{ string_id: string }>;
     };
   }>;
 }
@@ -189,6 +197,30 @@ describe('GET and POST /api/locations', () => {
   });
 });
 
+describe('POST /api/digital-twin/import', () => {
+  it('accepts the current export contract and rehydrates the project', async () => {
+    const twin = await getDigitalTwin();
+
+    const res = await fetch(`${BASE_URL}/api/digital-twin/import`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(twin),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json() as {
+      project: {
+        project_id: string;
+      };
+      entities: {
+        surfaces: Array<{ surface_id: string }>;
+      };
+    };
+    expect(body.project.project_id).toBe(twin.project.project_id);
+    expect(body.entities.surfaces.length).toBeGreaterThan(0);
+  });
+});
+
 describe('PUT /api/surface-configurations/:surfaceId', () => {
   it('rejects non-zero panels_per_string when the surface has no panels', async () => {
     const twin = await getDigitalTwin();
@@ -230,7 +262,7 @@ describe('PUT /api/surface-configurations/:surfaceId', () => {
 describe('Load circuit and load routes', () => {
   it('supports creating a load circuit and a load', async () => {
     const twin = await getDigitalTwin();
-    const conversionDeviceId = twin.entities.conversion_devices[0]?.converter_type_id;
+    const conversionDeviceId = twin.entities.converter_types[0]?.converter_type_id;
     expect(conversionDeviceId).toBeTruthy();
 
     const circuitRes = await fetch(`${BASE_URL}/api/load-circuits`, {
@@ -269,7 +301,7 @@ describe('Load circuit and load routes', () => {
 
   it('derives load power from the circuit voltage when only current is provided', async () => {
     const twin = await getDigitalTwin();
-    const conversionDevice = twin.entities.conversion_devices.find((device) => (
+    const conversionDevice = twin.entities.converter_types.find((device) => (
       device.output_voltage_v != null || device.output_ac_voltage_v != null || device.output_dc_voltage_v != null
     ));
     expect(conversionDevice?.converter_type_id).toBeTruthy();
@@ -320,7 +352,7 @@ describe('Load circuit and load routes', () => {
 
   it('accepts load edits that add a note with neutral fields', async () => {
     const twin = await getDigitalTwin();
-    const conversionDeviceId = twin.entities.conversion_devices[0]?.converter_type_id;
+    const conversionDeviceId = twin.entities.converter_types[0]?.converter_type_id;
     expect(conversionDeviceId).toBeTruthy();
 
     const circuitRes = await fetch(`${BASE_URL}/api/load-circuits`, {

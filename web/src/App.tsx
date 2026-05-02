@@ -6409,6 +6409,8 @@ function ConverterDetailPage({
   const selectedCircuitLoadIdsKey = selectedCircuitLoads.map((load) => load.load_id).join('|');
   const selectedCircuitNominalPowerW = selectedCircuitLoads.reduce((sum, load) => sum + loadNominalPowerW(load), 0);
   const selectedCircuitSurgePowerW = selectedCircuitLoads.reduce((sum, load) => sum + loadSurgePowerW(load), 0);
+  const selectedCircuitDailyEnergyKwh = selectedCircuitLoads.reduce((sum, load) => sum + loadDailyEnergyKwh(load), 0);
+  const selectedCircuitMonthlyEnergyKwh = selectedCircuitDailyEnergyKwh * 30.4;
 
   const [isWorking, setIsWorking] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -6765,19 +6767,27 @@ function ConverterDetailPage({
                     <dd>{selectedConverter?.title ?? route.converterId}</dd>
                   </div>
                   <div>
-                    <dt>Loads</dt>
+                    <dt>{t('load.circuit.loads')}</dt>
                     <dd>{selectedCircuitLoads.length}</dd>
                   </div>
                   <div>
-                    <dt>Nominal power</dt>
+                    <dt>{t('load.circuit.nominal_power')}</dt>
                     <dd>{formatPowerW(selectedCircuitNominalPowerW)}</dd>
                   </div>
                   <div>
-                    <dt>Surge power</dt>
+                    <dt>{t('load.circuit.surge_power')}</dt>
                     <dd>{formatPowerW(selectedCircuitSurgePowerW)}</dd>
                   </div>
                   <div>
-                    <dt>Inherited voltage</dt>
+                    <dt>{t('load.circuit.daily_energy')}</dt>
+                    <dd>{formatEnergyKwh(selectedCircuitDailyEnergyKwh)}</dd>
+                  </div>
+                  <div>
+                    <dt>{t('load.circuit.monthly_energy')}</dt>
+                    <dd>{formatEnergyKwh(selectedCircuitMonthlyEnergyKwh)}</dd>
+                  </div>
+                  <div>
+                    <dt>{t('load.circuit.voltage')}</dt>
                     <dd>{formatVoltage(selectedCircuitVoltageV)}</dd>
                   </div>
                 </dl>
@@ -6785,30 +6795,38 @@ function ConverterDetailPage({
                 <div className="outcome-panel" style={{ marginTop: 16 }}>
                   <div className="outcome-summary">
                     <div className="outcome-status-line">
-                      <p className="result-label">Load circuit</p>
+                      <p className="result-label">{t('page.load_circuit')}</p>
                       <span>{selectedConverter ? getConversionDeviceTypeLabel(selectedConverter.device_type, t) : t('status.not_evaluated')}</span>
                     </div>
-                    <p className="fit-note">Each load in this circuit is shown as a block below.</p>
+                    <p className="fit-note">{t('load.circuit.loads_note')}</p>
                   </div>
                   <dl className="detail-stats outcome-checks">
                     <div>
-                      <dt>Converter</dt>
+                      <dt>{t('load.circuit.converter')}</dt>
                       <dd>{selectedConverter?.title ?? route.converterId}</dd>
                     </div>
                     <div>
-                      <dt>Loads</dt>
+                      <dt>{t('load.circuit.loads')}</dt>
                       <dd>{selectedCircuitLoads.length}</dd>
                     </div>
                     <div>
-                      <dt>Nominal power</dt>
+                      <dt>{t('load.circuit.nominal_power')}</dt>
                       <dd>{formatPowerW(selectedCircuitNominalPowerW)}</dd>
                     </div>
                     <div>
-                      <dt>Surge power</dt>
+                      <dt>{t('load.circuit.surge_power')}</dt>
                       <dd>{formatPowerW(selectedCircuitSurgePowerW)}</dd>
                     </div>
                     <div>
-                      <dt>Voltage</dt>
+                      <dt>{t('load.circuit.daily_energy')}</dt>
+                      <dd>{formatEnergyKwh(selectedCircuitDailyEnergyKwh)}</dd>
+                    </div>
+                    <div>
+                      <dt>{t('load.circuit.monthly_energy')}</dt>
+                      <dd>{formatEnergyKwh(selectedCircuitMonthlyEnergyKwh)}</dd>
+                    </div>
+                    <div>
+                      <dt>{t('load.circuit.voltage')}</dt>
                       <dd>{formatVoltage(selectedCircuitVoltageV)}</dd>
                     </div>
                   </dl>
@@ -6838,15 +6856,15 @@ function ConverterDetailPage({
                 <div className="outcome-panel" style={{ marginTop: 16 }}>
                   <div className="outcome-summary">
                     <div className="outcome-status-line">
-                      <p className="result-label">Converter bank fit</p>
+                      <p className="result-label">{t('load.circuit.converter_bank_fit')}</p>
                       {converterBankCompatibility ? <StatusBadge status={converterBankCompatibility.status} /> : <span>{t('status.not_evaluated')}</span>}
                     </div>
                     <p className="fit-note">
                       {converterBankCompatibility
                         ? (converterBankCompatibility.status === 'outside_limits'
-                          ? 'The selected battery bank cannot support this converter.'
-                          : 'The selected battery bank can support this converter.')
-                        : 'Select a battery bank to evaluate the fit.'}
+                          ? t('load.circuit.bank_fit.outside_limits')
+                          : t('load.circuit.bank_fit.inside_limits'))
+                        : t('load.circuit.bank_fit.select_bank')}
                     </p>
                     {converterBankCompatibility ? (
                       <ul className="reason-list">
@@ -6859,19 +6877,19 @@ function ConverterDetailPage({
                   {converterBankCompatibility ? (
                     <dl className="detail-stats outcome-checks">
                       <div>
-                        <dt>Continuous output</dt>
+                        <dt>{t('load.circuit.continuous_output')}</dt>
                         <dd>{formatKw(converterBankCompatibility.totalContinuousPowerW)}</dd>
                       </div>
                       <div>
-                        <dt>Peak output</dt>
+                        <dt>{t('load.circuit.peak_output')}</dt>
                         <dd>{formatKw(converterBankCompatibility.totalPeakPowerVA)}</dd>
                       </div>
                       <div>
-                        <dt>Battery discharge limit</dt>
+                        <dt>{t('load.circuit.battery_discharge_limit')}</dt>
                         <dd>{formatKw(converterBankCompatibility.batteryDischargeLimitW)}</dd>
                       </div>
                       <div>
-                        <dt>Estimated battery current</dt>
+                        <dt>{t('load.circuit.estimated_battery_current')}</dt>
                         <dd>{formatAmps(converterBankCompatibility.estimatedCurrentA)}</dd>
                       </div>
                     </dl>
@@ -6886,14 +6904,14 @@ function ConverterDetailPage({
           <div className="stack" style={{ gap: 12 }}>
             <div className="button-row button-row-between">
               <div className="stack" style={{ gap: 4, minWidth: 260 }}>
-                <h2 style={{ margin: 0 }}>{selectedLoadCircuit ? 'Loads' : 'Load circuits'}</h2>
-                <p>{selectedLoadCircuit ? 'Each load is shown as a block.' : 'Load circuits sit behind one converter.'}</p>
+                <h2 style={{ margin: 0 }}>{selectedLoadCircuit ? t('load.circuit.loads_heading') : t('page.load_circuits')}</h2>
+                <p>{selectedLoadCircuit ? t('load.circuit.loads_heading_body') : t('load.circuit.circuits_heading_body')}</p>
               </div>
               <div className="button-row">
                 {selectedLoadCircuit ? (
                   <>
                     <button type="button" className="button button-secondary" onClick={() => void handleCreateLoad()} disabled={isWorking}>
-                      {isWorking ? t('common.creating') : 'Add load'}
+                      {isWorking ? t('common.creating') : t('load.workbench.add_load')}
                     </button>
                     <select
                       value={selectedLoadPresetId}
@@ -6925,7 +6943,7 @@ function ConverterDetailPage({
                   </>
                 ) : (
                   <button type="button" className="button button-secondary" onClick={() => void handleCreateCircuit()} disabled={isWorking}>
-                    {isWorking ? t('common.creating') : 'Add circuit'}
+                    {isWorking ? t('common.creating') : t('load.circuit.add_circuit')}
                   </button>
                 )}
               </div>
@@ -6934,7 +6952,7 @@ function ConverterDetailPage({
               {selectedLoadCircuit ? (
                 selectedCircuitLoads.length === 0 ? (
                   <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
-                    <p style={{ marginTop: 0, marginBottom: 0 }}>No loads in this circuit yet.</p>
+                    <p style={{ marginTop: 0, marginBottom: 0 }}>{t('load.circuit.no_loads')}</p>
                   </div>
                 ) : (
                   selectedCircuitLoads.map((load) => {
@@ -6959,7 +6977,7 @@ function ConverterDetailPage({
                                   title: event.target.value,
                                 },
                               }))}
-                              placeholder="Fridge"
+                              placeholder={t('load.workbench.title_placeholder')}
                             />
                           </label>
                           <label className="config-field">
@@ -6974,40 +6992,40 @@ function ConverterDetailPage({
                                 },
                               }))}
                               rows={2}
-                              placeholder="Cold storage appliance"
+                              placeholder={t('load.workbench.description_placeholder')}
                             />
                           </label>
                           <dl className="detail-stats compact-stats" style={{ marginTop: 8, marginBottom: 0 }}>
                             <div>
-                              <dt>Supply</dt>
+                              <dt>{t('load.workbench.circuit_supply')}</dt>
                               <dd>{selectedCircuitSupplyType?.toUpperCase() ?? 'n/a'}</dd>
                             </div>
                             <div>
-                              <dt>Nominal power</dt>
+                              <dt>{t('load.workbench.nominal_power')}</dt>
                               <dd>{formatPowerW(loadNominalPowerW(load))}</dd>
                             </div>
                             <div>
-                              <dt>Surge power</dt>
+                              <dt>{t('load.workbench.surge_power')}</dt>
                               <dd>{formatPowerW(loadSurgePowerW(load))}</dd>
                             </div>
                             <div>
-                              <dt>Current</dt>
+                              <dt>{t('load.workbench.current')}</dt>
                               <dd>{loadNominalCurrentA(load, selectedCircuitVoltageV) != null ? formatCurrentA(loadNominalCurrentA(load, selectedCircuitVoltageV)!) : 'n/a'}</dd>
                             </div>
                             <div>
-                              <dt>Hours</dt>
-                              <dd>{load.expected_usage_hours_per_day.toLocaleString('en-US', { maximumFractionDigits: 1 })} h/day</dd>
+                              <dt>{t('load.workbench.hours_per_day')}</dt>
+                              <dd>{t('load.workbench.hours_per_day_suffix', { value: load.expected_usage_hours_per_day.toLocaleString('en-US', { maximumFractionDigits: 1 }) })}</dd>
                             </div>
                             <div>
-                              <dt>Daily energy</dt>
+                              <dt>{t('load.workbench.daily_energy')}</dt>
                               <dd>{formatEnergyKwh(loadDailyEnergyKwh(load))}</dd>
                             </div>
                             <div>
-                              <dt>Standby power</dt>
+                              <dt>{t('load.workbench.standby_power')}</dt>
                               <dd>{formatPowerW(loadStandbyPowerW(load))}</dd>
                             </div>
                             <div>
-                              <dt>Circuit voltage</dt>
+                              <dt>{t('load.workbench.circuit_voltage')}</dt>
                               <dd>{formatVoltage(selectedCircuitVoltageV)}</dd>
                             </div>
                           </dl>
@@ -7037,7 +7055,7 @@ function ConverterDetailPage({
               ) : (
                 converterLoadCircuits.length === 0 ? (
                   <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
-                    <p style={{ marginTop: 0, marginBottom: 0 }}>No load circuits found.</p>
+                    <p style={{ marginTop: 0, marginBottom: 0 }}>{t('load.circuit.no_circuits')}</p>
                   </div>
                   ) : (
                   converterLoadCircuits.map((circuit) => {
@@ -7069,7 +7087,7 @@ function ConverterDetailPage({
                                   title: event.target.value,
                                 },
                               }))}
-                              placeholder="Living room sockets"
+                              placeholder={t('load.circuit.title_placeholder')}
                             />
                           </label>
                           <label className="config-field">
@@ -7084,20 +7102,20 @@ function ConverterDetailPage({
                                 },
                               }))}
                               rows={2}
-                              placeholder="Grouped socket demand"
+                              placeholder={t('load.circuit.description_placeholder')}
                             />
                           </label>
                           <dl className="detail-stats compact-stats" style={{ marginTop: 8, marginBottom: 0 }}>
                             <div>
-                              <dt>Loads</dt>
+                              <dt>{t('load.circuit.loads')}</dt>
                               <dd>{circuitLoads.length}</dd>
                             </div>
                             <div>
-                              <dt>Nominal power</dt>
+                              <dt>{t('load.circuit.nominal_power')}</dt>
                               <dd>{formatPowerW(circuitNominalPowerW)}</dd>
                             </div>
                             <div>
-                              <dt>Surge power</dt>
+                              <dt>{t('load.circuit.surge_power')}</dt>
                               <dd>{formatPowerW(circuitSurgePowerW)}</dd>
                             </div>
                           </dl>
@@ -10262,7 +10280,7 @@ function LoadCircuitsPage({
     const conversionDeviceId = draft.converter_type_id.trim();
 
     if (!title || !projectConverterId) {
-      setSaveError('Select a converter above and fill in the title.');
+      setSaveError(t('load.circuit.save.error.required'));
       return;
     }
 
@@ -10291,9 +10309,9 @@ function LoadCircuitsPage({
       await refreshProjectData();
       closeEditor();
       setFocusLoadCircuitId(loadCircuitId);
-      setSaveMessage(`Load circuit "${loadCircuitId}" saved.`);
+      setSaveMessage(t('load.circuit.save.success', { title: loadCircuitId }));
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Failed to save load circuit.');
+      setSaveError(error instanceof Error ? error.message : t('load.circuit.save.error.failed'));
     } finally {
       setIsSaving(false);
     }
@@ -10316,9 +10334,9 @@ function LoadCircuitsPage({
 
       await refreshProjectData();
       closeEditor();
-      setSaveMessage(`Load circuit "${targetLoadCircuit.load_circuit_id}" deleted.`);
+      setSaveMessage(t('load.circuit.delete.success', { title: targetLoadCircuit.load_circuit_id }));
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Failed to delete load circuit.');
+      setSaveError(error instanceof Error ? error.message : t('load.circuit.delete.error.failed'));
     } finally {
       setIsSaving(false);
     }
@@ -10329,7 +10347,7 @@ function LoadCircuitsPage({
       <section className="detail-shell">
         <div className="button-row button-row-between" style={{ marginBottom: 12 }}>
           <label className="field" style={{ minWidth: 260 }}>
-            <span>Converter</span>
+            <span>{t('load.circuit.converter_filter')}</span>
             <select value={filterProjectConverterId} onChange={(event) => updateConverterFilter(event.target.value)}>
               {data.entities.converters.map((converter) => (
                 <option key={converter.converter_id} value={converter.converter_id}>
@@ -10351,7 +10369,7 @@ function LoadCircuitsPage({
                 onClick={startAddNew}
                 disabled={data.entities.converters.length === 0}
               >
-                Add load circuit
+                {t('load.circuit.add_load_circuit')}
               </button>
             </div>
           </div>
@@ -10362,7 +10380,7 @@ function LoadCircuitsPage({
                 <div key="new-load-circuit" className="surface-card-stack">
                   <div className="surface-card consumption-selection-card consumption-selection-editor">
                     <label className="config-field" style={{ marginTop: 8 }}>
-                      <span>Title</span>
+                      <span>{t('catalog.field.title')}</span>
                       <input
                         value={draft.title}
                         onInput={(event) => {
@@ -10373,7 +10391,7 @@ function LoadCircuitsPage({
                           const value = event.target.value;
                           setDraft((current) => ({ ...current, title: value }));
                         }}
-                        placeholder="Living room sockets"
+                        placeholder={t('load.circuit.title_placeholder')}
                       />
                     </label>
                     <label className="config-field">
@@ -10388,7 +10406,7 @@ function LoadCircuitsPage({
                           const value = event.target.value;
                           setDraft((current) => ({ ...current, description: value }));
                         }}
-                        placeholder="Grouped socket demand"
+                        placeholder={t('load.circuit.description_placeholder')}
                       />
                     </label>
                     {saveError ? <p className="save-error">{saveError}</p> : null}
@@ -10405,13 +10423,15 @@ function LoadCircuitsPage({
               ) : null}
               {filteredLoadCircuits.length === 0 && editorMode === 'closed' ? (
                 <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
-                  <p style={{ marginTop: 0, marginBottom: 0 }}>No load circuits found.</p>
+                  <p style={{ marginTop: 0, marginBottom: 0 }}>{t('load.circuit.no_circuits')}</p>
                 </div>
               ) : null}
               {filteredLoadCircuits.map((circuit) => {
                 const circuitLoads = data.entities.loads.filter((load) => load.load_circuit_id === circuit.load_circuit_id);
                 const circuitNominalPowerW = circuitLoads.reduce((sum, load) => sum + loadNominalPowerW(load), 0);
                 const circuitSurgePowerW = circuitLoads.reduce((sum, load) => sum + loadSurgePowerW(load), 0);
+                const circuitDailyEnergyKwh = circuitLoads.reduce((sum, load) => sum + loadDailyEnergyKwh(load), 0);
+                const circuitMonthlyEnergyKwh = circuitDailyEnergyKwh * 30.4;
                 const converter = data.entities.converter_types.find((item) => item.converter_type_id === circuit.converter_type_id) ?? null;
                 const isEditing = editorMode === 'edit' && draft.load_circuit_id === circuit.load_circuit_id;
                 const circuitTitle = isEditing ? draft.title.trim() || circuit.title : circuit.title;
@@ -10423,7 +10443,7 @@ function LoadCircuitsPage({
                       {isEditing ? (
                         <>
                           <label className="config-field" style={{ marginTop: 8 }}>
-                            <span>Title</span>
+                            <span>{t('catalog.field.title')}</span>
                             <input
                               value={draft.title}
                               onInput={(event) => {
@@ -10434,7 +10454,7 @@ function LoadCircuitsPage({
                                 const value = event.target.value;
                                 setDraft((current) => ({ ...current, title: value }));
                               }}
-                              placeholder="Living room sockets"
+                              placeholder={t('load.circuit.title_placeholder')}
                             />
                           </label>
                           <label className="config-field">
@@ -10449,25 +10469,33 @@ function LoadCircuitsPage({
                                 const value = event.target.value;
                                 setDraft((current) => ({ ...current, description: value }));
                               }}
-                              placeholder="Grouped socket demand"
+                              placeholder={t('load.circuit.description_placeholder')}
                             />
                           </label>
                           <dl className="mini-stats">
                             <div>
-                              <dt>Loads</dt>
+                              <dt>{t('load.circuit.loads')}</dt>
                               <dd>{circuitLoads.length}</dd>
                             </div>
                             <div>
-                              <dt>Voltage</dt>
+                              <dt>{t('load.circuit.voltage')}</dt>
                               <dd>{formatVoltage(converter?.output_voltage_v ?? null)}</dd>
                             </div>
                             <div>
-                              <dt>Nominal power</dt>
+                              <dt>{t('load.circuit.nominal_power')}</dt>
                               <dd>{formatPowerW(circuitNominalPowerW)}</dd>
                             </div>
                             <div>
-                              <dt>Surge power</dt>
+                              <dt>{t('load.circuit.surge_power')}</dt>
                               <dd>{formatPowerW(circuitSurgePowerW)}</dd>
+                            </div>
+                            <div>
+                              <dt>{t('load.circuit.daily_energy')}</dt>
+                              <dd>{formatEnergyKwh(circuitDailyEnergyKwh)}</dd>
+                            </div>
+                            <div>
+                              <dt>{t('load.circuit.monthly_energy')}</dt>
+                              <dd>{formatEnergyKwh(circuitMonthlyEnergyKwh)}</dd>
                             </div>
                           </dl>
                           <div className="button-row">
@@ -10475,10 +10503,10 @@ function LoadCircuitsPage({
                               {isSaving ? t('common.saving') : t('common.save')}
                             </button>
                             <button type="button" className="button button-secondary button-sm" onClick={closeEditor} disabled={isSaving}>
-                              Cancel
+                              {t('common.cancel')}
                             </button>
                             <button type="button" className="button button-danger button-sm" onClick={() => requestDeleteCircuit(circuit)} disabled={isSaving}>
-                              Remove
+                              {t('common.remove')}
                             </button>
                           </div>
                         </>
@@ -10492,31 +10520,39 @@ function LoadCircuitsPage({
                           </div>
                           <dl className="detail-stats compact-stats" style={{ marginTop: 8, marginBottom: 0 }}>
                             <div>
-                              <dt>Loads</dt>
+                              <dt>{t('load.circuit.loads')}</dt>
                               <dd>{circuitLoads.length}</dd>
                             </div>
                             <div>
-                              <dt>Nominal power</dt>
+                              <dt>{t('load.circuit.nominal_power')}</dt>
                               <dd>{formatPowerW(circuitNominalPowerW)}</dd>
                             </div>
                             <div>
-                              <dt>Surge power</dt>
+                              <dt>{t('load.circuit.surge_power')}</dt>
                               <dd>{formatPowerW(circuitSurgePowerW)}</dd>
                             </div>
                             <div>
-                              <dt>Voltage</dt>
+                              <dt>{t('load.circuit.daily_energy')}</dt>
+                              <dd>{formatEnergyKwh(circuitDailyEnergyKwh)}</dd>
+                            </div>
+                            <div>
+                              <dt>{t('load.circuit.monthly_energy')}</dt>
+                              <dd>{formatEnergyKwh(circuitMonthlyEnergyKwh)}</dd>
+                            </div>
+                            <div>
+                              <dt>{t('load.circuit.voltage')}</dt>
                               <dd>{formatVoltage(converter?.output_voltage_v ?? null)}</dd>
                             </div>
                           </dl>
                           <div className="button-row">
                             <button type="button" className="button button-secondary button-sm" onClick={() => startEditCircuit(circuit)}>
-                              Edit
+                              {t('common.edit')}
                             </button>
                             <button type="button" className="button button-secondary button-sm" onClick={() => requestOpenLoads(circuit)}>
-                              Show loads
+                              {t('load.circuit.show_loads')}
                             </button>
                             <button type="button" className="button button-danger button-sm" onClick={() => requestDeleteCircuit(circuit)} disabled={isSaving}>
-                              Remove
+                              {t('common.remove')}
                             </button>
                           </div>
                         </>
@@ -10531,8 +10567,8 @@ function LoadCircuitsPage({
       </section>
       {isDeleteConfirmOpen ? (
         <ConfirmDialog
-          title="Remove load circuit?"
-          message={`Are you sure you want to remove "${draft.title || pendingDeleteCircuit?.title || 'this load circuit'}"? This will delete the circuit and close the editor.`}
+          title={t('load.circuit.remove_confirm_title')}
+          message={t('load.circuit.remove_confirm_body', { title: draft.title || pendingDeleteCircuit?.title || 'this load circuit' })}
           confirmLabel={t('catalog.confirm.delete_action')}
           cancelLabel={t('common.cancel')}
           confirmTone="danger"
@@ -10548,9 +10584,9 @@ function LoadCircuitsPage({
       ) : null}
       {pendingLoadsCircuit ? (
         <ConfirmDialog
-          title="Open loads?"
-          message={`You are about to leave Load circuits and open the Loads workbench for "${pendingLoadsCircuit.title}". Continue?`}
-          confirmLabel="Open page"
+          title={t('load.circuit.open_loads_confirm_title')}
+          message={t('load.circuit.open_loads_confirm_body', { title: pendingLoadsCircuit.title })}
+          confirmLabel={t('common.open')}
           cancelLabel={t('common.cancel')}
           confirmTone="secondary"
           onConfirm={() => {
@@ -10757,7 +10793,7 @@ function LoadsPage({
       || expectedUsageHoursPerDay < 0
       || (dailyEnergyKwh != null && (!Number.isFinite(dailyEnergyKwh) || dailyEnergyKwh < 0))
     ) {
-      setSaveError('Fill in the title and numeric load fields.');
+      setSaveError(t('load.workbench.save.error.required_fields'));
       return;
     }
 
@@ -10768,7 +10804,7 @@ function LoadsPage({
       surgePowerW = activeCircuitVoltageV != null ? startupCurrentA * activeCircuitVoltageV : null;
     }
     if (nominalPowerW == null) {
-      setSaveError('Nominal power is required. Enter power directly, or provide current on a circuit with a voltage.');
+      setSaveError(t('load.workbench.save.error.nominal_power_required'));
       return;
     }
 
@@ -10804,9 +10840,9 @@ function LoadsPage({
 
       await refreshProjectData();
       closeEditor();
-      setSaveMessage(`Load "${loadId}" saved.`);
+      setSaveMessage(t('load.workbench.save.success', { title: loadId }));
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Failed to save load.');
+      setSaveError(error instanceof Error ? error.message : t('load.workbench.save.error.failed'));
     } finally {
       setIsSaving(false);
     }
@@ -10816,7 +10852,7 @@ function LoadsPage({
     const targetLoad = draft.load_id ? data.entities.loads.find((load) => load.load_id === draft.load_id) ?? null : null;
     const targetCircuit = data.entities.load_circuits.find((circuit) => circuit.load_circuit_id === moveTargetLoadCircuitId) ?? null;
     if (!targetLoad || !targetCircuit || !moveTargetLoadCircuitId || moveTargetLoadCircuitId === targetLoad.load_circuit_id) {
-      setSaveError('Choose a different target circuit.');
+      setSaveError(t('load.workbench.move.error.same_circuit'));
       return;
     }
 
@@ -10835,7 +10871,7 @@ function LoadsPage({
         targetSurgePowerW = targetCircuitVoltageV != null ? targetLoad.startup_current_a * targetCircuitVoltageV : null;
       }
       if (targetNominalPowerW == null) {
-        throw new Error('Nominal power is required. Enter power directly, or provide current on a circuit with a voltage.');
+        throw new Error(t('load.workbench.save.error.nominal_power_required'));
       }
 
       const response = await projectFetch(`/api/loads/${encodeURIComponent(targetLoad.load_id)}`, {
@@ -10866,9 +10902,9 @@ function LoadsPage({
       closeEditor();
       setFilterLoadCircuitId(moveTargetLoadCircuitId);
       syncLoadsFilters(filterProjectConverterId, moveTargetLoadCircuitId);
-      setSaveMessage(`Load "${targetLoad.title}" moved to "${targetCircuit.title}".`);
+      setSaveMessage(t('load.workbench.move.success', { title: targetLoad.title, circuit: targetCircuit.title }));
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Failed to move load.');
+      setSaveError(error instanceof Error ? error.message : t('load.workbench.move.error.failed'));
     } finally {
       setIsSaving(false);
     }
@@ -10891,9 +10927,9 @@ function LoadsPage({
 
       await refreshProjectData();
       closeEditor();
-      setSaveMessage(`Load "${targetLoad.load_id}" deleted.`);
+      setSaveMessage(t('load.workbench.delete.success', { title: targetLoad.load_id }));
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Failed to delete load.');
+      setSaveError(error instanceof Error ? error.message : t('load.workbench.delete.error.failed'));
     } finally {
       setIsSaving(false);
     }
@@ -10904,7 +10940,7 @@ function LoadsPage({
       <section className="detail-shell">
         <div style={{ display: 'grid', gap: 12, maxWidth: 360, marginBottom: 12 }}>
           <label className="field">
-            <span>Converter</span>
+            <span>{t('load.workbench.converter_filter')}</span>
             <select value={filterProjectConverterId} onChange={(event) => updateLoadsConverterFilter(event.target.value)}>
               {data.entities.converters.map((converter) => (
                 <option key={converter.converter_id} value={converter.converter_id}>
@@ -10914,7 +10950,7 @@ function LoadsPage({
             </select>
           </label>
           <label className="field">
-            <span>Load circuit</span>
+            <span>{t('load.workbench.load_circuit_filter')}</span>
             <select value={filterLoadCircuitId} onChange={(event) => updateLoadsCircuitFilter(event.target.value)}>
               {filteredLoadCircuitOptions.map((circuit) => (
                 <option key={circuit.load_circuit_id} value={circuit.load_circuit_id}>
@@ -10931,7 +10967,7 @@ function LoadsPage({
             onClick={startAddNew}
             disabled={!activeLoadCircuit}
           >
-            Add load
+            {t('load.workbench.add_load')}
           </button>
         </div>
       </section>
@@ -10944,7 +10980,7 @@ function LoadsPage({
                 <div key="new-load" className="surface-card-stack">
                   <div className="surface-card consumption-selection-card consumption-selection-editor">
                     <label className="config-field" style={{ marginTop: 8 }}>
-                      <span>Title</span>
+                      <span>{t('catalog.field.title')}</span>
                       <input
                         value={draft.title}
                         onInput={(event) => {
@@ -10955,7 +10991,7 @@ function LoadsPage({
                           const value = event.target.value;
                           setDraft((current) => ({ ...current, title: value }));
                         }}
-                        placeholder="Fridge"
+                        placeholder={t('load.workbench.title_placeholder')}
                       />
                     </label>
                     <label className="config-field">
@@ -10970,37 +11006,37 @@ function LoadsPage({
                           const value = event.target.value;
                           setDraft((current) => ({ ...current, description: value }));
                         }}
-                        placeholder="Cold storage appliance"
+                        placeholder={t('load.workbench.description_placeholder')}
                       />
                     </label>
                     <div className="detail-grid two-col">
                       <label className="field">
-                        <span>Circuit supply</span>
+                        <span>{t('load.workbench.circuit_supply')}</span>
                         <input value={activeCircuitSupplyType?.toUpperCase() ?? 'n/a'} readOnly />
                       </label>
                       <label className="field">
-                        <span>Circuit voltage (V)</span>
+                        <span>{t('load.workbench.circuit_voltage')}</span>
                         <input value={formatVoltage(activeCircuitVoltageV)} readOnly />
                       </label>
                     </div>
                     <div className="detail-grid two-col">
-                      <label className="field"><span>Nominal current (A)</span><input type="number" step="0.1" value={draft.nominal_current_a} onChange={(event) => setDraft((current) => ({ ...current, nominal_current_a: event.target.value }))} /></label>
-                      <label className="field"><span>Nominal power (W)</span><input type="number" step="1" value={draft.nominal_power_w} onChange={(event) => setDraft((current) => ({ ...current, nominal_power_w: event.target.value }))} /></label>
+                      <label className="field"><span>{t('load.workbench.nominal_current')}</span><input type="number" step="0.1" value={draft.nominal_current_a} onChange={(event) => setDraft((current) => ({ ...current, nominal_current_a: event.target.value }))} /></label>
+                      <label className="field"><span>{t('load.workbench.nominal_power')}</span><input type="number" step="1" value={draft.nominal_power_w} onChange={(event) => setDraft((current) => ({ ...current, nominal_power_w: event.target.value }))} /></label>
                     </div>
                     <div className="detail-grid two-col">
-                      <label className="field"><span>Startup current (A)</span><input type="number" step="0.1" value={draft.startup_current_a} onChange={(event) => setDraft((current) => ({ ...current, startup_current_a: event.target.value }))} /></label>
-                      <label className="field"><span>Surge power (W)</span><input type="number" step="1" value={draft.surge_power_w} onChange={(event) => setDraft((current) => ({ ...current, surge_power_w: event.target.value }))} /></label>
+                      <label className="field"><span>{t('load.workbench.startup_current')}</span><input type="number" step="0.1" value={draft.startup_current_a} onChange={(event) => setDraft((current) => ({ ...current, startup_current_a: event.target.value }))} /></label>
+                      <label className="field"><span>{t('load.workbench.surge_power')}</span><input type="number" step="1" value={draft.surge_power_w} onChange={(event) => setDraft((current) => ({ ...current, surge_power_w: event.target.value }))} /></label>
                     </div>
                     <div className="detail-grid two-col">
-                      <label className="field"><span>Standby power (W)</span><input type="number" step="1" value={draft.standby_power_w} onChange={(event) => setDraft((current) => ({ ...current, standby_power_w: event.target.value }))} /></label>
-                      <label className="field"><span>Hours per day</span><input type="number" step="0.1" value={draft.expected_usage_hours_per_day} onChange={(event) => setDraft((current) => ({ ...current, expected_usage_hours_per_day: event.target.value }))} /></label>
+                      <label className="field"><span>{t('load.workbench.standby_power')}</span><input type="number" step="1" value={draft.standby_power_w} onChange={(event) => setDraft((current) => ({ ...current, standby_power_w: event.target.value }))} /></label>
+                      <label className="field"><span>{t('load.workbench.hours_per_day')}</span><input type="number" step="0.1" value={draft.expected_usage_hours_per_day} onChange={(event) => setDraft((current) => ({ ...current, expected_usage_hours_per_day: event.target.value }))} /></label>
                     </div>
                     <div className="detail-grid two-col">
-                      <label className="field"><span>Daily energy (kWh)</span><input type="number" step="0.01" value={draft.daily_energy_kwh} onChange={(event) => setDraft((current) => ({ ...current, daily_energy_kwh: event.target.value }))} /></label>
-                      <label className="field"><span>Duty profile</span><input value={draft.duty_profile} onChange={(event) => setDraft((current) => ({ ...current, duty_profile: event.target.value }))} /></label>
+                      <label className="field"><span>{t('load.workbench.daily_energy')}</span><input type="number" step="0.01" value={draft.daily_energy_kwh} onChange={(event) => setDraft((current) => ({ ...current, daily_energy_kwh: event.target.value }))} /></label>
+                      <label className="field"><span>{t('load.workbench.duty_profile')}</span><input value={draft.duty_profile} onChange={(event) => setDraft((current) => ({ ...current, duty_profile: event.target.value }))} /></label>
                     </div>
                     <label className="config-field">
-                      <span>Notes</span>
+                      <span>{t('load.workbench.notes')}</span>
                       <textarea
                         value={draft.notes}
                         onInput={(event) => {
@@ -11012,7 +11048,7 @@ function LoadsPage({
                           setDraft((current) => ({ ...current, notes: value }));
                         }}
                         rows={2}
-                        placeholder="Any special electrical or usage notes"
+                        placeholder={t('load.workbench.notes_placeholder')}
                       />
                     </label>
                     {saveError ? <p className="save-error">{saveError}</p> : null}
@@ -11021,7 +11057,7 @@ function LoadsPage({
                         {isSaving ? t('common.saving') : t('common.save')}
                       </button>
                       <button type="button" className="button button-secondary button-sm" onClick={closeEditor} disabled={isSaving}>
-                        Cancel
+                        {t('common.cancel')}
                       </button>
                     </div>
                   </div>
@@ -11030,7 +11066,7 @@ function LoadsPage({
               {activeLoadCircuit ? (
                 activeCircuitLoads.length === 0 && editorMode === 'closed' ? (
                   <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
-                    <p style={{ marginTop: 0, marginBottom: 0 }}>No loads in this circuit yet.</p>
+                    <p style={{ marginTop: 0, marginBottom: 0 }}>{t('load.workbench.no_loads')}</p>
                   </div>
                 ) : activeCircuitLoads.map((load) => {
                 const isEditing = editorMode === 'edit' && draft.load_id === load.load_id;
@@ -11044,7 +11080,7 @@ function LoadsPage({
                         {isEditing ? (
                           <>
                             <label className="config-field" style={{ marginTop: 8 }}>
-                              <span>Title</span>
+                              <span>{t('catalog.field.title')}</span>
                               <input
                                 value={draft.title}
                                 onInput={(event) => {
@@ -11055,7 +11091,7 @@ function LoadsPage({
                                   const value = event.target.value;
                                   setDraft((current) => ({ ...current, title: value }));
                                 }}
-                                placeholder="Fridge"
+                                placeholder={t('load.workbench.title_placeholder')}
                               />
                             </label>
                             <label className="config-field">
@@ -11070,37 +11106,37 @@ function LoadsPage({
                                   const value = event.target.value;
                                   setDraft((current) => ({ ...current, description: value }));
                                 }}
-                                placeholder="Cold storage appliance"
+                                placeholder={t('load.workbench.description_placeholder')}
                               />
                             </label>
                             <div className="detail-grid two-col">
                               <label className="field">
-                                <span>Circuit supply</span>
+                                <span>{t('load.workbench.circuit_supply')}</span>
                                 <input value={activeCircuitSupplyType?.toUpperCase() ?? 'n/a'} readOnly />
                               </label>
                               <label className="field">
-                                <span>Circuit voltage (V)</span>
+                                <span>{t('load.workbench.circuit_voltage')}</span>
                                 <input value={formatVoltage(activeCircuitVoltageV)} readOnly />
                               </label>
                             </div>
                             <div className="detail-grid two-col">
-                              <label className="field"><span>Nominal current (A)</span><input type="number" step="0.1" value={draft.nominal_current_a} onChange={(event) => setDraft((current) => ({ ...current, nominal_current_a: event.target.value }))} /></label>
-                              <label className="field"><span>Nominal power (W)</span><input type="number" step="1" value={draft.nominal_power_w} onChange={(event) => setDraft((current) => ({ ...current, nominal_power_w: event.target.value }))} /></label>
+                              <label className="field"><span>{t('load.workbench.nominal_current')}</span><input type="number" step="0.1" value={draft.nominal_current_a} onChange={(event) => setDraft((current) => ({ ...current, nominal_current_a: event.target.value }))} /></label>
+                              <label className="field"><span>{t('load.workbench.nominal_power')}</span><input type="number" step="1" value={draft.nominal_power_w} onChange={(event) => setDraft((current) => ({ ...current, nominal_power_w: event.target.value }))} /></label>
                             </div>
                             <div className="detail-grid two-col">
-                              <label className="field"><span>Startup current (A)</span><input type="number" step="0.1" value={draft.startup_current_a} onChange={(event) => setDraft((current) => ({ ...current, startup_current_a: event.target.value }))} /></label>
-                              <label className="field"><span>Surge power (W)</span><input type="number" step="1" value={draft.surge_power_w} onChange={(event) => setDraft((current) => ({ ...current, surge_power_w: event.target.value }))} /></label>
+                              <label className="field"><span>{t('load.workbench.startup_current')}</span><input type="number" step="0.1" value={draft.startup_current_a} onChange={(event) => setDraft((current) => ({ ...current, startup_current_a: event.target.value }))} /></label>
+                              <label className="field"><span>{t('load.workbench.surge_power')}</span><input type="number" step="1" value={draft.surge_power_w} onChange={(event) => setDraft((current) => ({ ...current, surge_power_w: event.target.value }))} /></label>
                             </div>
                             <div className="detail-grid two-col">
-                              <label className="field"><span>Standby power (W)</span><input type="number" step="1" value={draft.standby_power_w} onChange={(event) => setDraft((current) => ({ ...current, standby_power_w: event.target.value }))} /></label>
-                              <label className="field"><span>Hours per day</span><input type="number" step="0.1" value={draft.expected_usage_hours_per_day} onChange={(event) => setDraft((current) => ({ ...current, expected_usage_hours_per_day: event.target.value }))} /></label>
+                              <label className="field"><span>{t('load.workbench.standby_power')}</span><input type="number" step="1" value={draft.standby_power_w} onChange={(event) => setDraft((current) => ({ ...current, standby_power_w: event.target.value }))} /></label>
+                              <label className="field"><span>{t('load.workbench.hours_per_day')}</span><input type="number" step="0.1" value={draft.expected_usage_hours_per_day} onChange={(event) => setDraft((current) => ({ ...current, expected_usage_hours_per_day: event.target.value }))} /></label>
                             </div>
                             <div className="detail-grid two-col">
-                              <label className="field"><span>Daily energy (kWh)</span><input type="number" step="0.01" value={draft.daily_energy_kwh} onChange={(event) => setDraft((current) => ({ ...current, daily_energy_kwh: event.target.value }))} /></label>
-                              <label className="field"><span>Duty profile</span><input value={draft.duty_profile} onChange={(event) => setDraft((current) => ({ ...current, duty_profile: event.target.value }))} /></label>
+                              <label className="field"><span>{t('load.workbench.daily_energy')}</span><input type="number" step="0.01" value={draft.daily_energy_kwh} onChange={(event) => setDraft((current) => ({ ...current, daily_energy_kwh: event.target.value }))} /></label>
+                              <label className="field"><span>{t('load.workbench.duty_profile')}</span><input value={draft.duty_profile} onChange={(event) => setDraft((current) => ({ ...current, duty_profile: event.target.value }))} /></label>
                             </div>
                             <label className="config-field">
-                              <span>Notes</span>
+                              <span>{t('load.workbench.notes')}</span>
                               <textarea
                                 value={draft.notes}
                                 onInput={(event) => {
@@ -11112,20 +11148,20 @@ function LoadsPage({
                                   setDraft((current) => ({ ...current, notes: value }));
                                 }}
                                 rows={2}
-                                placeholder="Any special electrical or usage notes"
+                                placeholder={t('load.workbench.notes_placeholder')}
                               />
                             </label>
                             <dl className="mini-stats">
                               <div>
-                                <dt>Voltage</dt>
+                                <dt>{t('load.workbench.voltage')}</dt>
                                 <dd>{formatVoltage(activeCircuitVoltageV)}</dd>
                               </div>
                               <div>
-                                <dt>Nominal power</dt>
+                                <dt>{t('load.workbench.nominal_power')}</dt>
                                 <dd>{formatPowerW(Number(draft.nominal_power_w) || 0)}</dd>
                               </div>
                               <div>
-                                <dt>Surge power</dt>
+                                <dt>{t('load.workbench.surge_power')}</dt>
                                 <dd>{formatPowerW(Number(draft.surge_power_w) || 0)}</dd>
                               </div>
                             </dl>
@@ -11134,17 +11170,17 @@ function LoadsPage({
                                 {isSaving ? t('common.saving') : t('common.save')}
                               </button>
                               <button type="button" className="button button-secondary button-sm" onClick={closeEditor} disabled={isSaving}>
-                                Cancel
+                                {t('common.cancel')}
                               </button>
                               <button type="button" className="button button-danger button-sm" onClick={() => requestDeleteLoad(load)} disabled={isSaving}>
-                                Remove
+                                {t('common.remove')}
                               </button>
                             </div>
                           </>
                         ) : isMoving ? (
                           <>
                             <label className="field" style={{ marginTop: 8 }}>
-                              <span>Target circuit</span>
+                              <span>{t('load.workbench.target_circuit')}</span>
                               <select value={moveTargetLoadCircuitId} onChange={(event) => setMoveTargetLoadCircuitId(event.target.value)} disabled={isSaving || moveCircuitOptions.length === 0}>
                                 {moveCircuitOptions.map((circuit) => (
                                   <option key={circuit.load_circuit_id} value={circuit.load_circuit_id}>
@@ -11154,15 +11190,15 @@ function LoadsPage({
                               </select>
                             </label>
                             <p className="save-message" style={{ marginTop: 8, marginBottom: 0 }}>
-                              This load will keep its own fields and move to another circuit in the same converter.
+                              {t('load.workbench.move_helper')}
                             </p>
                             {saveError ? <p className="save-error">{saveError}</p> : null}
                             <div className="button-row">
                               <button type="button" className="button button-success button-sm" onClick={() => void handleMoveLoad()} disabled={isSaving || !moveTargetLoadCircuitId}>
-                                {isSaving ? t('common.saving') : 'Move'}
+                                {isSaving ? t('common.saving') : t('load.workbench.move')}
                               </button>
                               <button type="button" className="button button-secondary button-sm" onClick={closeEditor} disabled={isSaving}>
-                                Cancel
+                                {t('common.cancel')}
                               </button>
                             </div>
                           </>
@@ -11176,41 +11212,41 @@ function LoadsPage({
                             </div>
                             <dl className="detail-stats compact-stats" style={{ marginTop: 8, marginBottom: 0 }}>
                               <div>
-                                <dt>Supply</dt>
+                                <dt>{t('load.workbench.circuit_supply')}</dt>
                                 <dd>{activeCircuitSupplyType?.toUpperCase() ?? 'n/a'}</dd>
                               </div>
                               <div>
-                                <dt>Nominal power</dt>
+                                <dt>{t('load.workbench.nominal_power')}</dt>
                                 <dd>{formatPowerW(loadNominalPowerW(load))}</dd>
                               </div>
                               <div>
-                                <dt>Surge power</dt>
+                                <dt>{t('load.workbench.surge_power')}</dt>
                                 <dd>{formatPowerW(loadSurgePowerW(load))}</dd>
                               </div>
                               <div>
-                                <dt>Current</dt>
+                                <dt>{t('load.workbench.current')}</dt>
                                 <dd>{loadNominalCurrentA(load, activeCircuitVoltageV) != null ? formatCurrentA(loadNominalCurrentA(load, activeCircuitVoltageV)!) : 'n/a'}</dd>
                               </div>
                               <div>
-                                <dt>Hours</dt>
-                                <dd>{load.expected_usage_hours_per_day.toLocaleString('en-US', { maximumFractionDigits: 1 })} h/day</dd>
+                                <dt>{t('load.workbench.hours_per_day')}</dt>
+                              <dd>{t('load.workbench.hours_per_day_suffix', { value: load.expected_usage_hours_per_day.toLocaleString('en-US', { maximumFractionDigits: 1 }) })}</dd>
                               </div>
                               <div>
-                                <dt>Daily energy</dt>
+                                <dt>{t('load.workbench.daily_energy')}</dt>
                                 <dd>{formatEnergyKwh(loadDailyEnergyKwh(load))}</dd>
                               </div>
                               <div>
-                                <dt>Standby power</dt>
+                                <dt>{t('load.workbench.standby_power')}</dt>
                                 <dd>{formatPowerW(loadStandbyPowerW(load))}</dd>
                               </div>
                               <div>
-                                <dt>Circuit voltage</dt>
+                                <dt>{t('load.workbench.circuit_voltage')}</dt>
                                 <dd>{formatVoltage(activeCircuitVoltageV)}</dd>
                               </div>
                             </dl>
                             <div className="button-row">
                               <button type="button" className="button button-secondary button-sm" onClick={() => startEditLoad(load)}>
-                                Edit
+                                {t('common.edit')}
                               </button>
                               <button
                                 type="button"
@@ -11218,10 +11254,10 @@ function LoadsPage({
                                 onClick={() => startMoveLoad(load)}
                                 disabled={moveCircuitOptions.length === 0}
                               >
-                                Move
+                                {t('load.workbench.move')}
                               </button>
                               <button type="button" className="button button-danger button-sm" onClick={() => requestDeleteLoad(load)} disabled={isSaving}>
-                                Remove
+                                {t('common.remove')}
                               </button>
                             </div>
                           </>
@@ -11232,7 +11268,7 @@ function LoadsPage({
                 })
               ) : (
                 <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
-                  <p style={{ marginTop: 0, marginBottom: 0 }}>No load circuit selected.</p>
+                  <p style={{ marginTop: 0, marginBottom: 0 }}>{t('load.workbench.no_circuit')}</p>
                 </div>
               )}
             </div>
@@ -11241,8 +11277,8 @@ function LoadsPage({
       </section>
       {isDeleteConfirmOpen && pendingDeleteLoad ? (
         <ConfirmDialog
-          title="Remove load?"
-          message={`Are you sure you want to remove "${pendingDeleteLoad.title}"? This will delete the load and close the editor.`}
+          title={t('load.workbench.remove_confirm_title')}
+          message={t('load.workbench.remove_confirm_body', { title: pendingDeleteLoad.title })}
           confirmLabel={t('catalog.confirm.delete_action')}
           cancelLabel={t('common.cancel')}
           confirmTone="danger"

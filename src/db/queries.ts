@@ -92,13 +92,13 @@ export function upsertLocation(db: Database.Database, data: Omit<Location, 'proj
       });
   } else {
     const existingLocationIds = (db.prepare('SELECT location_id FROM locations').all() as Array<{ location_id: string }>).map((row) => row.location_id);
-    const locationId = generateUniqueLocationId(data.place_name || data.title || projectId, existingLocationIds);
+    const resolvedLocationId = locationId ?? generateUniqueLocationId(data.place_name || data.title || projectId, existingLocationIds);
 
     db.prepare('INSERT INTO locations (project_id, location_id, title, country, place_name, description, notes, latitude, longitude, northing, easting, site_photo_data_url) VALUES (@project_id, @location_id, @title, @country, @place_name, @description, @notes, @latitude, @longitude, @northing, @easting, @site_photo_data_url)')
       .run({
         ...data,
         project_id: projectId,
-        location_id: locationId,
+        location_id: resolvedLocationId,
         title: data.title ?? null,
         description: data.description ?? null,
         notes: data.notes ?? null,

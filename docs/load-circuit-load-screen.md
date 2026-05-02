@@ -2,6 +2,8 @@
 
 This note defines the detailed screen for load circuits, loads, and downstream distribution.
 
+Generator modeling does not live on this screen; it belongs to the producer-side aggregate view.
+
 Terminology in this note must follow [UBIQUITOUS_LANGUAGE.md](../UBIQUITOUS_LANGUAGE.md).
 
 ## Purpose
@@ -16,6 +18,8 @@ This screen should help the user answer:
 
 It is the main AC-side distribution view.
 
+The consumer-side aggregate page is where downstream demand and sizing belong.
+
 ## Screen scope
 
 This screen should show:
@@ -25,6 +29,8 @@ This screen should show:
 - loads grouped by load circuit
 - `inverter -> load circuit` evaluations
 - `load circuit -> load` evaluations
+
+It should not try to model monthly supply contribution or generator contribution; those belong to the producer-side aggregate and reports.
 
 ## Layout blocks
 
@@ -167,3 +173,15 @@ The first implemented version of this screen should prioritize:
 5. monthly demand context
 
 That is enough to make the AC-side distribution understandable.
+
+## Current Implementation Note
+
+The current UI now shows a first-pass demand summary on the load-circuit cards:
+
+- load count
+- nominal power
+- surge power
+- daily energy
+- estimated monthly energy
+
+This is still a derived summary rather than a persisted monthly-profile model, but it gives the AC-side screen a concrete energy dimension while the richer monthly and generator modeling work remains on the roadmap.
