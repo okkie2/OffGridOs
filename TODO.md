@@ -6,5 +6,3 @@
 ## NEXT
 
 ## LATER
-
-- Complete consumer-side monthly demand profiles and downstream relationship evaluation for load circuits and Loads.

@@ -2,6 +2,7 @@
 
 ## 2026-05-02
 
+- Cleared the stale consumer-side monthly demand queue item from `TODO.md` now that the derived load and load-circuit demand slice is in place.
 - Added the first consumer-side monthly-demand implementation slice, deriving month-by-month demand for loads and load circuits, surfacing it in the workbenches, and feeding the monthly balance screen from the consumer side.
 - Deferred producer-side generator monthly supply modeling by removing it from the active queue, leaving consumer-side monthly demand as the remaining `LATER` slice.
 - Added a dedicated consumer-monthly-demand implementation checklist covering persisted inputs, derived export fields, UI outputs, and the monthly-balance handoff.
