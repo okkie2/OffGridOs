@@ -116,6 +116,48 @@ describe('initSchema', () => {
     }
   });
 
+  it('creates explicit location columns on the inverter configuration table', () => {
+    const db = makeTempDatabase();
+    try {
+      initSchema(db);
+
+      const columns = db.prepare("PRAGMA table_info('inverter_configurations')").all() as Array<{ name: string }>;
+      expect(columns.some((column) => column.name === 'project_id')).toBe(true);
+      expect(columns.some((column) => column.name === 'location_id')).toBe(true);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('uses location_id as the primary key on the locations table', () => {
+    const db = makeTempDatabase();
+    try {
+      initSchema(db);
+
+      const columns = db.prepare("PRAGMA table_info('locations')").all() as Array<{ name: string; pk: number }>;
+      expect(columns.some((column) => column.name === 'id')).toBe(false);
+      expect(columns.some((column) => column.name === 'location_id')).toBe(true);
+      expect(columns.find((column) => column.name === 'location_id')?.pk).toBe(1);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('creates explicit location columns on the PV topology tables', () => {
+    const db = makeTempDatabase();
+    try {
+      initSchema(db);
+
+      for (const table of ['surface_panel_assignments', 'pv_arrays', 'pv_strings', 'array_to_mppt_mappings', 'surface_configurations']) {
+        const columns = db.prepare(`PRAGMA table_info('${table}')`).all() as Array<{ name: string }>;
+        expect(columns.some((column) => column.name === 'location_id')).toBe(true);
+        expect(columns.some((column) => column.name === 'project_id')).toBe(true);
+      }
+    } finally {
+      db.close();
+    }
+  });
+
   it('creates a last upsert date column on the panel type table', () => {
     const db = makeTempDatabase();
     try {
@@ -152,6 +194,9 @@ describe('initSchema', () => {
       expect(hasTable(db, 'location')).toBe(false);
       expect(hasTable(db, 'locations')).toBe(true);
       expect(countRows(db, 'locations')).toBe(1);
+      const columns = db.prepare("PRAGMA table_info('locations')").all() as Array<{ name: string; pk: number }>;
+      expect(columns.some((column) => column.name === 'id')).toBe(false);
+      expect(columns.find((column) => column.name === 'location_id')?.pk).toBe(1);
       const row = db.prepare('SELECT project_id, location_id, country, place_name, latitude, longitude, northing, easting FROM locations LIMIT 1').get() as {
         project_id: string;
         location_id: string;
@@ -182,6 +227,7 @@ describe('initSchema', () => {
     try {
       db.exec('PRAGMA foreign_keys = OFF;');
       initSchema(db);
+      db.exec('PRAGMA foreign_keys = OFF;');
 
       db.prepare(`
         INSERT INTO pv_arrays (array_id, surface_id, name, panel_type_id, panel_count, panels_per_string, parallel_strings, installed_wp, notes)
@@ -218,6 +264,7 @@ describe('initSchema', () => {
     try {
       db.exec('PRAGMA foreign_keys = OFF;');
       initSchema(db);
+      db.exec('PRAGMA foreign_keys = OFF;');
 
       db.prepare(`
         INSERT INTO pv_arrays (array_id, surface_id, name, panel_type_id, panel_count, panels_per_string, parallel_strings, installed_wp, notes)
@@ -250,6 +297,7 @@ describe('initSchema', () => {
     try {
       db.exec('PRAGMA foreign_keys = OFF;');
       initSchema(db);
+      db.exec('PRAGMA foreign_keys = OFF;');
 
       db.prepare(`
         INSERT INTO pv_arrays (array_id, surface_id, name, panel_type_id, panel_count, panels_per_string, parallel_strings, installed_wp, notes)

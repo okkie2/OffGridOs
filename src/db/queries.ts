@@ -50,22 +50,9 @@ export function deleteProject(db: Database.Database, project_id: string): void {
   db.prepare('DELETE FROM inverter_configurations WHERE project_id = ?').run(project_id);
   db.prepare('DELETE FROM battery_bank_configurations WHERE project_id = ?').run(project_id);
   db.prepare('DELETE FROM surface_configurations WHERE project_id = ?').run(project_id);
-  db.prepare(`
-    DELETE FROM array_to_mppt_mappings WHERE array_id IN (
-      SELECT pa.array_id FROM pv_arrays pa
-      JOIN surfaces s ON pa.surface_id = s.surface_id WHERE s.project_id = ?
-    )
-  `).run(project_id);
-  db.prepare(`
-    DELETE FROM pv_strings WHERE surface_id IN (
-      SELECT surface_id FROM surfaces WHERE project_id = ?
-    )
-  `).run(project_id);
-  db.prepare(`
-    DELETE FROM pv_arrays WHERE surface_id IN (
-      SELECT surface_id FROM surfaces WHERE project_id = ?
-    )
-  `).run(project_id);
+  db.prepare('DELETE FROM array_to_mppt_mappings WHERE project_id = ?').run(project_id);
+  db.prepare('DELETE FROM pv_strings WHERE project_id = ?').run(project_id);
+  db.prepare('DELETE FROM pv_arrays WHERE project_id = ?').run(project_id);
   db.prepare('DELETE FROM surface_panel_assignments WHERE project_id = ?').run(project_id);
   db.prepare('DELETE FROM surfaces WHERE project_id = ?').run(project_id);
   db.prepare('DELETE FROM locations WHERE project_id = ?').run(project_id);
@@ -76,7 +63,7 @@ export function deleteProject(db: Database.Database, project_id: string): void {
 // ── Location ─────────────────────────────────────────────────────────────────
 
 export function listLocations(db: Database.Database, projectId: string): Location[] {
-  return db.prepare('SELECT * FROM locations WHERE project_id = ? ORDER BY id').all(projectId) as Location[];
+  return db.prepare('SELECT * FROM locations WHERE project_id = ? ORDER BY location_id').all(projectId) as Location[];
 }
 
 export function getLocation(db: Database.Database, projectId: string, locationId?: string | null): Location | null {
@@ -84,27 +71,27 @@ export function getLocation(db: Database.Database, projectId: string, locationId
     return (db.prepare('SELECT * FROM locations WHERE project_id = ? AND location_id = ? LIMIT 1').get(projectId, locationId) as Location) ?? null;
   }
 
-  return (db.prepare('SELECT * FROM locations WHERE project_id = ? ORDER BY id LIMIT 1').get(projectId) as Location) ?? null;
+  return (db.prepare('SELECT * FROM locations WHERE project_id = ? ORDER BY location_id LIMIT 1').get(projectId) as Location) ?? null;
 }
 
-export function upsertLocation(db: Database.Database, data: Omit<Location, 'id' | 'project_id' | 'location_id'>, projectId: string, locationId?: string | null): void {
+export function upsertLocation(db: Database.Database, data: Omit<Location, 'project_id' | 'location_id'>, projectId: string, locationId?: string | null): void {
   const existing = getLocation(db, projectId, locationId);
   if (existing) {
     const title = data.title === undefined ? (existing.title ?? null) : data.title;
     const sitePhotoDataUrl = data.site_photo_data_url === undefined
       ? (existing.site_photo_data_url ?? null)
       : data.site_photo_data_url;
-    db.prepare('UPDATE locations SET title=@title, country=@country, place_name=@place_name, description=@description, notes=@notes, latitude=@latitude, longitude=@longitude, northing=@northing, easting=@easting, site_photo_data_url=@site_photo_data_url WHERE id=@id')
+    db.prepare('UPDATE locations SET title=@title, country=@country, place_name=@place_name, description=@description, notes=@notes, latitude=@latitude, longitude=@longitude, northing=@northing, easting=@easting, site_photo_data_url=@site_photo_data_url WHERE location_id=@location_id')
       .run({
         ...data,
         title,
         description: data.description ?? null,
         notes: data.notes ?? null,
         site_photo_data_url: sitePhotoDataUrl,
-        id: existing.id,
+        location_id: existing.location_id,
       });
   } else {
-    const existingLocationIds = listLocations(db, projectId).map((location) => location.location_id);
+    const existingLocationIds = (db.prepare('SELECT location_id FROM locations').all() as Array<{ location_id: string }>).map((row) => row.location_id);
     const locationId = generateUniqueLocationId(data.place_name || data.title || projectId, existingLocationIds);
 
     db.prepare('INSERT INTO locations (project_id, location_id, title, country, place_name, description, notes, latitude, longitude, northing, easting, site_photo_data_url) VALUES (@project_id, @location_id, @title, @country, @place_name, @description, @notes, @latitude, @longitude, @northing, @easting, @site_photo_data_url)')
@@ -120,8 +107,8 @@ export function upsertLocation(db: Database.Database, data: Omit<Location, 'id' 
   }
 }
 
-export function createLocation(db: Database.Database, data: Omit<Location, 'id' | 'project_id' | 'location_id'>, projectId: string): void {
-  const existingLocationIds = listLocations(db, projectId).map((location) => location.location_id);
+export function createLocation(db: Database.Database, data: Omit<Location, 'project_id' | 'location_id'>, projectId: string): void {
+  const existingLocationIds = (db.prepare('SELECT location_id FROM locations').all() as Array<{ location_id: string }>).map((row) => row.location_id);
   const locationId = generateUniqueLocationId(data.place_name || data.title || projectId, existingLocationIds);
 
   db.prepare('INSERT INTO locations (project_id, location_id, title, country, place_name, description, notes, latitude, longitude, northing, easting, site_photo_data_url) VALUES (@project_id, @location_id, @title, @country, @place_name, @description, @notes, @latitude, @longitude, @northing, @easting, @site_photo_data_url)')
@@ -140,7 +127,7 @@ export function createLocation(db: Database.Database, data: Omit<Location, 'id' 
 
 export function listSurfaces(db: Database.Database, projectId: string, locationId?: string | null): Surface[] {
   if (!locationId) {
-    return db.prepare('SELECT * FROM surfaces WHERE project_id = ? ORDER BY sort_order, id').all(projectId) as Surface[];
+  return db.prepare('SELECT * FROM surfaces WHERE project_id = ? ORDER BY sort_order, id').all(projectId) as Surface[];
   }
   const location = getLocation(db, projectId, locationId);
   if (!location) {
@@ -151,6 +138,36 @@ export function listSurfaces(db: Database.Database, projectId: string, locationI
 
 export function getSurface(db: Database.Database, surface_id: string): Surface | null {
   return (db.prepare('SELECT * FROM surfaces WHERE surface_id = ?').get(surface_id) as Surface) ?? null;
+}
+
+function getSurfaceLocationId(db: Database.Database, surface_id: string): string | null {
+  const row = db.prepare('SELECT location_id FROM surfaces WHERE surface_id = ?').get(surface_id) as { location_id?: string | null } | undefined;
+  return row?.location_id ?? null;
+}
+
+function getSurfaceProjectId(db: Database.Database, surface_id: string): string | null {
+  const row = db.prepare('SELECT project_id FROM surfaces WHERE surface_id = ?').get(surface_id) as { project_id?: string | null } | undefined;
+  return row?.project_id ?? null;
+}
+
+function getArrayLocationId(db: Database.Database, array_id: string): string | null {
+  const row = db.prepare(`
+    SELECT s.location_id
+    FROM pv_arrays pa
+    JOIN surfaces s ON s.surface_id = pa.surface_id
+    WHERE pa.array_id = ?
+  `).get(array_id) as { location_id?: string | null } | undefined;
+  return row?.location_id ?? null;
+}
+
+function getArrayProjectId(db: Database.Database, array_id: string): string | null {
+  const row = db.prepare(`
+    SELECT s.project_id
+    FROM pv_arrays pa
+    JOIN surfaces s ON s.surface_id = pa.surface_id
+    WHERE pa.array_id = ?
+  `).get(array_id) as { project_id?: string | null } | undefined;
+  return row?.project_id ?? null;
 }
 
 export function insertSurface(db: Database.Database, data: Omit<Surface, 'id' | 'project_id' | 'location_id'>, projectId: string, locationId?: string | null): void {
@@ -354,21 +371,26 @@ export function deleteCabinetType(db: Database.Database, cabinet_type_id: string
 // ── Surface panel assignments ─────────────────────────────────────────────────
 
 export function listSurfacePanelAssignments(db: Database.Database): SurfacePanelAssignment[] {
-  return db.prepare('SELECT * FROM surface_panel_assignments ORDER BY surface_id, panel_type_id').all() as SurfacePanelAssignment[];
+  return db.prepare('SELECT * FROM surface_panel_assignments ORDER BY location_id, surface_id, panel_type_id').all() as SurfacePanelAssignment[];
 }
 
 export function getSurfacePanelAssignment(db: Database.Database, surface_id: string, panel_type_id: string): SurfacePanelAssignment | null {
   return (db.prepare('SELECT * FROM surface_panel_assignments WHERE surface_id=? AND panel_type_id=?').get(surface_id, panel_type_id) as SurfacePanelAssignment) ?? null;
 }
 
-export function upsertSurfacePanelAssignment(db: Database.Database, data: Omit<SurfacePanelAssignment, 'id'>): void {
+export function upsertSurfacePanelAssignment(
+  db: Database.Database,
+  data: Omit<SurfacePanelAssignment, 'id' | 'project_id' | 'location_id'> & { project_id?: string | null; location_id?: string | null },
+): void {
+  const projectId = data.project_id ?? getSurfaceProjectId(db, data.surface_id);
+  const locationId = data.location_id ?? getSurfaceLocationId(db, data.surface_id);
   const existing = getSurfacePanelAssignment(db, data.surface_id, data.panel_type_id);
   if (existing) {
-    db.prepare('UPDATE surface_panel_assignments SET count=? WHERE surface_id=? AND panel_type_id=?')
-      .run(data.count, data.surface_id, data.panel_type_id);
+    db.prepare('UPDATE surface_panel_assignments SET count=?, project_id=?, location_id=? WHERE surface_id=? AND panel_type_id=?')
+      .run(data.count, projectId, locationId, data.surface_id, data.panel_type_id);
   } else {
-    db.prepare('INSERT INTO surface_panel_assignments (surface_id, panel_type_id, count) VALUES (?,?,?)')
-      .run(data.surface_id, data.panel_type_id, data.count);
+    db.prepare('INSERT INTO surface_panel_assignments (project_id, location_id, surface_id, panel_type_id, count) VALUES (?,?,?,?,?)')
+      .run(projectId, locationId, data.surface_id, data.panel_type_id, data.count);
   }
   syncPvTopologyForSurface(db, data.surface_id);
 }
@@ -392,30 +414,33 @@ export function listPvArrays(db: Database.Database, projectId: string, locationI
   if (!locationId) {
     return db.prepare(`
       SELECT pa.* FROM pv_arrays pa
-      JOIN surfaces s ON pa.surface_id = s.surface_id
-      WHERE s.project_id = ?
-      ORDER BY pa.surface_id
+      WHERE pa.project_id = ?
+      ORDER BY pa.location_id, pa.surface_id
     `).all(projectId) as PvArray[];
   }
-  const location = getLocation(db, projectId, locationId);
-  if (!location) return [];
   return db.prepare(`
     SELECT pa.* FROM pv_arrays pa
-    JOIN surfaces s ON pa.surface_id = s.surface_id
-    WHERE s.project_id = ? AND s.location_id = ?
+    WHERE pa.project_id = ? AND pa.location_id = ?
     ORDER BY pa.surface_id
-  `).all(projectId, location.location_id) as PvArray[];
+  `).all(projectId, locationId) as PvArray[];
 }
 
 export function getPvArrayBySurface(db: Database.Database, surface_id: string): PvArray | null {
   return (db.prepare('SELECT * FROM pv_arrays WHERE surface_id = ?').get(surface_id) as PvArray) ?? null;
 }
 
-export function upsertPvArray(db: Database.Database, data: Omit<PvArray, 'id'>): void {
+export function upsertPvArray(
+  db: Database.Database,
+  data: Omit<PvArray, 'id' | 'project_id' | 'location_id'> & { project_id?: string | null; location_id?: string | null },
+): void {
+  const projectId = data.project_id ?? getSurfaceProjectId(db, data.surface_id);
+  const locationId = data.location_id ?? getSurfaceLocationId(db, data.surface_id);
   db.prepare(`
     INSERT INTO pv_arrays (
+      project_id,
       array_id,
       surface_id,
+      location_id,
       name,
       panel_type_id,
       panel_count,
@@ -425,8 +450,10 @@ export function upsertPvArray(db: Database.Database, data: Omit<PvArray, 'id'>):
       notes
     )
     VALUES (
+      @project_id,
       @array_id,
       @surface_id,
+      @location_id,
       @name,
       @panel_type_id,
       @panel_count,
@@ -436,6 +463,8 @@ export function upsertPvArray(db: Database.Database, data: Omit<PvArray, 'id'>):
       @notes
     )
     ON CONFLICT(surface_id) DO UPDATE SET
+      project_id = excluded.project_id,
+      location_id = excluded.location_id,
       name = excluded.name,
       panel_type_id = excluded.panel_type_id,
       panel_count = excluded.panel_count,
@@ -443,7 +472,11 @@ export function upsertPvArray(db: Database.Database, data: Omit<PvArray, 'id'>):
       parallel_strings = excluded.parallel_strings,
       installed_wp = excluded.installed_wp,
       notes = excluded.notes
-  `).run(data);
+  `).run({
+    ...data,
+    project_id: projectId,
+    location_id: locationId,
+  });
 }
 
 export function deletePvArrayForSurface(db: Database.Database, surface_id: string): void {
@@ -458,71 +491,76 @@ export function listPvStrings(db: Database.Database, projectId: string, location
   if (!locationId) {
     return db.prepare(`
       SELECT ps.* FROM pv_strings ps
-      JOIN surfaces s ON ps.surface_id = s.surface_id
-      WHERE s.project_id = ?
-      ORDER BY ps.surface_id, ps.string_index
+      WHERE ps.project_id = ?
+      ORDER BY ps.location_id, ps.surface_id, ps.string_index
     `).all(projectId) as PvString[];
   }
-  const location = getLocation(db, projectId, locationId);
-  if (!location) return [];
   return db.prepare(`
     SELECT ps.* FROM pv_strings ps
-    JOIN surfaces s ON ps.surface_id = s.surface_id
-    WHERE s.project_id = ? AND s.location_id = ?
+    WHERE ps.project_id = ? AND ps.location_id = ?
     ORDER BY ps.surface_id, ps.string_index
-  `).all(projectId, location.location_id) as PvString[];
+  `).all(projectId, locationId) as PvString[];
 }
 
 export function deletePvStringsForArray(db: Database.Database, array_id: string): void {
   db.prepare('DELETE FROM pv_strings WHERE array_id = ?').run(array_id);
 }
 
-export function upsertPvString(db: Database.Database, data: Omit<PvString, 'id'>): void {
+export function upsertPvString(
+  db: Database.Database,
+  data: Omit<PvString, 'id' | 'project_id' | 'location_id'> & { project_id?: string | null; location_id?: string | null },
+): void {
+  const projectId = data.project_id ?? getSurfaceProjectId(db, data.surface_id);
+  const locationId = data.location_id ?? getSurfaceLocationId(db, data.surface_id);
   db.prepare(`
     INSERT INTO pv_strings (
+      project_id,
       string_id,
       array_id,
       surface_id,
+      location_id,
       string_index,
       panel_type_id,
       panel_count
     )
     VALUES (
+      @project_id,
       @string_id,
       @array_id,
       @surface_id,
+      @location_id,
       @string_index,
       @panel_type_id,
       @panel_count
     )
     ON CONFLICT(string_id) DO UPDATE SET
+      project_id = excluded.project_id,
       array_id = excluded.array_id,
       surface_id = excluded.surface_id,
+      location_id = excluded.location_id,
       string_index = excluded.string_index,
       panel_type_id = excluded.panel_type_id,
       panel_count = excluded.panel_count
-  `).run(data);
+  `).run({
+    ...data,
+    project_id: projectId,
+    location_id: locationId,
+  });
 }
 
 export function listArrayToMpptMappings(db: Database.Database, projectId: string, locationId?: string | null): ArrayToMpptMapping[] {
   if (!locationId) {
     return db.prepare(`
       SELECT m.* FROM array_to_mppt_mappings m
-      JOIN pv_arrays pa ON m.array_id = pa.array_id
-      JOIN surfaces s ON pa.surface_id = s.surface_id
-      WHERE s.project_id = ?
-      ORDER BY m.array_id
+      WHERE m.project_id = ?
+      ORDER BY m.location_id, m.array_id
     `).all(projectId) as ArrayToMpptMapping[];
   }
-  const location = getLocation(db, projectId, locationId);
-  if (!location) return [];
   return db.prepare(`
-    SELECT m.* FROM array_to_mppt_mappings m
-    JOIN pv_arrays pa ON m.array_id = pa.array_id
-    JOIN surfaces s ON pa.surface_id = s.surface_id
-    WHERE s.project_id = ? AND s.location_id = ?
-    ORDER BY m.array_id
-  `).all(projectId, location.location_id) as ArrayToMpptMapping[];
+      SELECT m.* FROM array_to_mppt_mappings m
+      WHERE m.project_id = ? AND m.location_id = ?
+      ORDER BY m.array_id
+  `).all(projectId, locationId) as ArrayToMpptMapping[];
 }
 
 export function getArrayToMpptMapping(db: Database.Database, array_id: string): ArrayToMpptMapping | null {
@@ -533,14 +571,25 @@ export function deleteArrayToMpptMappingsForSurface(db: Database.Database, surfa
   db.prepare('DELETE FROM array_to_mppt_mappings WHERE mapping_id = ? OR array_id = ?').run(`array-mppt-${surface_id}`, `array-${surface_id}`);
 }
 
-export function upsertArrayToMpptMapping(db: Database.Database, data: Omit<ArrayToMpptMapping, 'id'>): void {
+export function upsertArrayToMpptMapping(
+  db: Database.Database,
+  data: Omit<ArrayToMpptMapping, 'id' | 'project_id' | 'location_id'> & { project_id?: string | null; location_id?: string | null },
+): void {
   try {
+    const projectId = data.project_id ?? getArrayProjectId(db, data.array_id);
+    const locationId = data.location_id ?? getArrayLocationId(db, data.array_id);
     db.prepare(`
-      INSERT INTO array_to_mppt_mappings (mapping_id, array_id, selected_mppt_type_id)
-      VALUES (@mapping_id, @array_id, @selected_mppt_type_id)
+      INSERT INTO array_to_mppt_mappings (project_id, mapping_id, array_id, location_id, selected_mppt_type_id)
+      VALUES (@project_id, @mapping_id, @array_id, @location_id, @selected_mppt_type_id)
       ON CONFLICT(array_id) DO UPDATE SET
+        project_id = excluded.project_id,
+        location_id = excluded.location_id,
         selected_mppt_type_id = excluded.selected_mppt_type_id
-    `).run(data);
+    `).run({
+      ...data,
+      project_id: projectId,
+      location_id: locationId,
+    });
   } catch (error) {
     const arrayExists = db.prepare('SELECT array_id, surface_id FROM pv_arrays WHERE array_id = ?').get(data.array_id) as
       | { array_id: string; surface_id: string }
@@ -607,6 +656,7 @@ export function syncPvTopologyForSurface(db: Database.Database, surface_id: stri
   upsertPvArray(db, {
     array_id: arrayId,
     surface_id,
+    location_id: surface.location_id,
     name: surface.name,
     panel_type_id: primaryAssignment?.panel_type_id ?? null,
     panel_count: panelCount,
@@ -627,6 +677,7 @@ export function syncPvTopologyForSurface(db: Database.Database, surface_id: stri
         string_id: `string-${surface_id}-${index}`,
         array_id: arrayId,
         surface_id,
+        location_id: surface.location_id,
         string_index: index,
         panel_type_id: primaryPanelType?.panel_type_id ?? primaryAssignment?.panel_type_id ?? null,
         panel_count: panelsPerStringValue,
@@ -638,6 +689,7 @@ export function syncPvTopologyForSurface(db: Database.Database, surface_id: stri
   upsertArrayToMpptMapping(db, {
     mapping_id: `array-mppt-${surface_id}`,
     array_id: arrayId,
+    location_id: surface.location_id,
     selected_mppt_type_id: selectedMpptTypeId,
   });
 }
@@ -662,34 +714,41 @@ export function listSurfaceConfigurations(db: Database.Database, projectId: stri
   if (!locationId) {
     return db.prepare(`
       SELECT sc.* FROM surface_configurations sc
-      JOIN surfaces s ON sc.surface_id = s.surface_id
-      WHERE s.project_id = ?
-      ORDER BY sc.surface_id
+      WHERE sc.project_id = ?
+      ORDER BY sc.location_id, sc.surface_id
     `).all(projectId) as SurfaceConfiguration[];
   }
-  const location = getLocation(db, projectId, locationId);
-  if (!location) return [];
   return db.prepare(`
     SELECT sc.* FROM surface_configurations sc
-    JOIN surfaces s ON sc.surface_id = s.surface_id
-    WHERE s.project_id = ? AND s.location_id = ?
+    WHERE sc.project_id = ? AND sc.location_id = ?
     ORDER BY sc.surface_id
-  `).all(projectId, location.location_id) as SurfaceConfiguration[];
+  `).all(projectId, locationId) as SurfaceConfiguration[];
 }
 
 export function getSurfaceConfiguration(db: Database.Database, surface_id: string): SurfaceConfiguration | null {
   return (db.prepare('SELECT * FROM surface_configurations WHERE surface_id = ?').get(surface_id) as SurfaceConfiguration) ?? null;
 }
 
-export function upsertSurfaceConfiguration(db: Database.Database, data: Omit<SurfaceConfiguration, 'id'>): void {
+export function upsertSurfaceConfiguration(
+  db: Database.Database,
+  data: Omit<SurfaceConfiguration, 'id' | 'project_id' | 'location_id'> & { project_id?: string | null; location_id?: string | null },
+): void {
+  const projectId = data.project_id ?? getSurfaceProjectId(db, data.surface_id);
+  const locationId = data.location_id ?? getSurfaceLocationId(db, data.surface_id);
   db.prepare(`
-    INSERT INTO surface_configurations (surface_id, panels_per_string, parallel_strings, selected_mppt_type_id)
-    VALUES (@surface_id, @panels_per_string, @parallel_strings, @selected_mppt_type_id)
+    INSERT INTO surface_configurations (project_id, surface_id, location_id, panels_per_string, parallel_strings, selected_mppt_type_id)
+    VALUES (@project_id, @surface_id, @location_id, @panels_per_string, @parallel_strings, @selected_mppt_type_id)
     ON CONFLICT(surface_id) DO UPDATE SET
+      project_id = excluded.project_id,
+      location_id = excluded.location_id,
       panels_per_string = excluded.panels_per_string,
       parallel_strings = excluded.parallel_strings,
       selected_mppt_type_id = excluded.selected_mppt_type_id
-  `).run(data);
+  `).run({
+    ...data,
+    project_id: projectId,
+    location_id: locationId,
+  });
   syncPvTopologyForSurface(db, data.surface_id);
 }
 
@@ -1024,18 +1083,30 @@ export function deleteInverterType(db: Database.Database, inverter_id: string): 
 
 // ── Inverter configuration state ────────────────────────────────────────────
 
-export function listInverterConfigurations(db: Database.Database, projectId: string): InverterConfiguration[] {
-  return db.prepare('SELECT * FROM inverter_configurations WHERE project_id = ? ORDER BY inverter_configuration_id').all(projectId) as InverterConfiguration[];
+export function listInverterConfigurations(db: Database.Database, projectId: string, locationId?: string | null): InverterConfiguration[] {
+  if (!locationId) {
+    return db.prepare('SELECT * FROM inverter_configurations WHERE project_id = ? ORDER BY inverter_configuration_id').all(projectId) as InverterConfiguration[];
+  }
+  const location = getLocation(db, projectId, locationId);
+  if (!location) {
+    return [];
+  }
+  return db.prepare('SELECT * FROM inverter_configurations WHERE project_id = ? AND location_id = ? ORDER BY inverter_configuration_id').all(projectId, location.location_id) as InverterConfiguration[];
 }
 
 export function getInverterConfiguration(db: Database.Database, inverter_configuration_id: string): InverterConfiguration | null {
   return (db.prepare('SELECT * FROM inverter_configurations WHERE inverter_configuration_id = ?').get(inverter_configuration_id) as InverterConfiguration) ?? null;
 }
 
-export function upsertInverterConfiguration(db: Database.Database, data: Omit<InverterConfiguration, 'id'>, projectId: string): void {
+export function upsertInverterConfiguration(db: Database.Database, data: Omit<InverterConfiguration, 'id' | 'project_id' | 'location_id'> & { project_id?: string | null; location_id?: string | null }, projectId: string, locationId?: string | null): void {
+  const location = getLocation(db, projectId, locationId);
+  if (!location) {
+    throw new Error('Location not found.');
+  }
   db.prepare(`
     INSERT INTO inverter_configurations (
       project_id,
+      location_id,
       inverter_configuration_id,
       selected_inverter_type_id,
       selected_cabinet_type_id,
@@ -1047,6 +1118,7 @@ export function upsertInverterConfiguration(db: Database.Database, data: Omit<In
     )
     VALUES (
       @project_id,
+      @location_id,
       @inverter_configuration_id,
       @selected_inverter_type_id,
       @selected_cabinet_type_id,
@@ -1057,6 +1129,7 @@ export function upsertInverterConfiguration(db: Database.Database, data: Omit<In
       @notes
     )
     ON CONFLICT(inverter_configuration_id) DO UPDATE SET
+      location_id = excluded.location_id,
       selected_inverter_type_id = excluded.selected_inverter_type_id,
       selected_cabinet_type_id = excluded.selected_cabinet_type_id,
       selected_dc_busbar_id = excluded.selected_dc_busbar_id,
@@ -1067,6 +1140,7 @@ export function upsertInverterConfiguration(db: Database.Database, data: Omit<In
   `).run({
     ...data,
     project_id: projectId,
+    location_id: location.location_id,
     selected_cabinet_type_id: data.selected_cabinet_type_id ?? null,
     selected_dc_busbar_id: data.selected_dc_busbar_id ?? null,
     title: data.title ?? null,

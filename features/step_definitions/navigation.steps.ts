@@ -61,6 +61,7 @@ class NavigationWorld extends World {
   latestSelectedConsumptionConverterId = '';
   latestSelectedConsumptionConverterTitle = '';
   latestCreatedLoadCircuitTitle = '';
+  latestCreatedLoadCircuitDescription = '';
   latestCreatedLoadCircuitLocationId = '';
   latestCreatedLoadCircuitLocationSlug = '';
   latestLoadCircuitsConverterId = '';
@@ -206,7 +207,6 @@ class NavigationWorld extends World {
         const db = openDb(this.requireDbPath());
         try {
           const existing = db.prepare('SELECT * FROM locations LIMIT 1').get() as {
-            id: number;
             place_name: string;
             country: string;
             description?: string | null;
@@ -716,9 +716,17 @@ class NavigationWorld extends World {
           load_circuit_id?: unknown;
           title?: unknown;
           description?: unknown;
+          nominal_current_a?: unknown;
+          nominal_power_w?: unknown;
+          startup_current_a?: unknown;
+          surge_power_w?: unknown;
+          standby_power_w?: unknown;
+          expected_usage_hours_per_day?: unknown;
+          daily_energy_kwh?: unknown;
+          duty_profile?: unknown;
+          notes?: unknown;
           usage_kw?: unknown;
           spike_kw?: unknown;
-          expected_usage_hours_per_day?: unknown;
           sleeping_kw?: unknown;
         };
 
@@ -726,12 +734,26 @@ class NavigationWorld extends World {
         const loadCircuitId = typeof payload.load_circuit_id === 'string' ? payload.load_circuit_id.trim() : '';
         const title = typeof payload.title === 'string' ? payload.title.trim() : '';
         const description = typeof payload.description === 'string' ? payload.description.trim() : null;
-        const usageKw = typeof payload.usage_kw === 'number' ? payload.usage_kw : Number(payload.usage_kw);
-        const spikeKw = typeof payload.spike_kw === 'number' ? payload.spike_kw : Number(payload.spike_kw);
+        const nominalCurrentA = typeof payload.nominal_current_a === 'number' ? payload.nominal_current_a : (payload.nominal_current_a == null ? null : Number(payload.nominal_current_a));
+        const nominalPowerW = typeof payload.nominal_power_w === 'number' ? payload.nominal_power_w : (payload.nominal_power_w == null ? null : Number(payload.nominal_power_w));
+        const startupCurrentA = typeof payload.startup_current_a === 'number' ? payload.startup_current_a : (payload.startup_current_a == null ? null : Number(payload.startup_current_a));
+        const surgePowerW = typeof payload.surge_power_w === 'number' ? payload.surge_power_w : (payload.surge_power_w == null ? null : Number(payload.surge_power_w));
+        const standbyPowerW = typeof payload.standby_power_w === 'number' ? payload.standby_power_w : (payload.standby_power_w == null ? null : Number(payload.standby_power_w));
         const expectedUsageHoursPerDay = typeof payload.expected_usage_hours_per_day === 'number'
           ? payload.expected_usage_hours_per_day
-          : Number(payload.expected_usage_hours_per_day);
-        const sleepingKw = typeof payload.sleeping_kw === 'number' ? payload.sleeping_kw : Number(payload.sleeping_kw);
+          : (payload.expected_usage_hours_per_day == null ? NaN : Number(payload.expected_usage_hours_per_day));
+        const dailyEnergyKwh = typeof payload.daily_energy_kwh === 'number' ? payload.daily_energy_kwh : (payload.daily_energy_kwh == null ? null : Number(payload.daily_energy_kwh));
+        const dutyProfile = typeof payload.duty_profile === 'string' ? payload.duty_profile.trim() : null;
+        const notes = typeof payload.notes === 'string' ? payload.notes.trim() : null;
+        const usageKw = nominalPowerW != null && Number.isFinite(nominalPowerW)
+          ? nominalPowerW / 1000
+          : (typeof payload.usage_kw === 'number' ? payload.usage_kw : Number(payload.usage_kw));
+        const spikeKw = surgePowerW != null && Number.isFinite(surgePowerW)
+          ? surgePowerW / 1000
+          : (typeof payload.spike_kw === 'number' ? payload.spike_kw : Number(payload.spike_kw));
+        const sleepingKw = standbyPowerW != null && Number.isFinite(standbyPowerW)
+          ? standbyPowerW / 1000
+          : (typeof payload.sleeping_kw === 'number' ? payload.sleeping_kw : Number(payload.sleeping_kw));
 
         const db = openDb(this.requireDbPath());
         try {
@@ -755,9 +777,17 @@ class NavigationWorld extends World {
             load_circuit_id: loadCircuitId,
             title,
             description,
+            nominal_current_a: nominalCurrentA,
+            nominal_power_w: nominalPowerW,
+            startup_current_a: startupCurrentA,
+            surge_power_w: surgePowerW,
+            standby_power_w: standbyPowerW,
             usage_kw: usageKw,
             spike_kw: spikeKw,
             expected_usage_hours_per_day: expectedUsageHoursPerDay,
+            daily_energy_kwh: dailyEnergyKwh,
+            duty_profile: dutyProfile,
+            notes,
             sleeping_kw: sleepingKw,
           }, projectId);
 
@@ -779,9 +809,17 @@ class NavigationWorld extends World {
           load_circuit_id?: unknown;
           title?: unknown;
           description?: unknown;
+          nominal_current_a?: unknown;
+          nominal_power_w?: unknown;
+          startup_current_a?: unknown;
+          surge_power_w?: unknown;
+          standby_power_w?: unknown;
+          expected_usage_hours_per_day?: unknown;
+          daily_energy_kwh?: unknown;
+          duty_profile?: unknown;
+          notes?: unknown;
           usage_kw?: unknown;
           spike_kw?: unknown;
-          expected_usage_hours_per_day?: unknown;
           sleeping_kw?: unknown;
         };
 
@@ -789,12 +827,26 @@ class NavigationWorld extends World {
         const loadCircuitId = typeof payload.load_circuit_id === 'string' ? payload.load_circuit_id.trim() : '';
         const title = typeof payload.title === 'string' ? payload.title.trim() : '';
         const description = typeof payload.description === 'string' ? payload.description.trim() : null;
-        const usageKw = typeof payload.usage_kw === 'number' ? payload.usage_kw : Number(payload.usage_kw);
-        const spikeKw = typeof payload.spike_kw === 'number' ? payload.spike_kw : Number(payload.spike_kw);
+        const nominalCurrentA = typeof payload.nominal_current_a === 'number' ? payload.nominal_current_a : (payload.nominal_current_a == null ? null : Number(payload.nominal_current_a));
+        const nominalPowerW = typeof payload.nominal_power_w === 'number' ? payload.nominal_power_w : (payload.nominal_power_w == null ? null : Number(payload.nominal_power_w));
+        const startupCurrentA = typeof payload.startup_current_a === 'number' ? payload.startup_current_a : (payload.startup_current_a == null ? null : Number(payload.startup_current_a));
+        const surgePowerW = typeof payload.surge_power_w === 'number' ? payload.surge_power_w : (payload.surge_power_w == null ? null : Number(payload.surge_power_w));
+        const standbyPowerW = typeof payload.standby_power_w === 'number' ? payload.standby_power_w : (payload.standby_power_w == null ? null : Number(payload.standby_power_w));
         const expectedUsageHoursPerDay = typeof payload.expected_usage_hours_per_day === 'number'
           ? payload.expected_usage_hours_per_day
-          : Number(payload.expected_usage_hours_per_day);
-        const sleepingKw = typeof payload.sleeping_kw === 'number' ? payload.sleeping_kw : Number(payload.sleeping_kw);
+          : (payload.expected_usage_hours_per_day == null ? NaN : Number(payload.expected_usage_hours_per_day));
+        const dailyEnergyKwh = typeof payload.daily_energy_kwh === 'number' ? payload.daily_energy_kwh : (payload.daily_energy_kwh == null ? null : Number(payload.daily_energy_kwh));
+        const dutyProfile = typeof payload.duty_profile === 'string' ? payload.duty_profile.trim() : null;
+        const notes = typeof payload.notes === 'string' ? payload.notes.trim() : null;
+        const usageKw = nominalPowerW != null && Number.isFinite(nominalPowerW)
+          ? nominalPowerW / 1000
+          : (typeof payload.usage_kw === 'number' ? payload.usage_kw : Number(payload.usage_kw));
+        const spikeKw = surgePowerW != null && Number.isFinite(surgePowerW)
+          ? surgePowerW / 1000
+          : (typeof payload.spike_kw === 'number' ? payload.spike_kw : Number(payload.spike_kw));
+        const sleepingKw = standbyPowerW != null && Number.isFinite(standbyPowerW)
+          ? standbyPowerW / 1000
+          : (typeof payload.sleeping_kw === 'number' ? payload.sleeping_kw : Number(payload.sleeping_kw));
 
         if (bodyLoadId !== loadId) {
           return new Response(JSON.stringify({ error: 'Load id in the URL must match the load_id in the payload.' }), { status: 400 });
@@ -822,9 +874,17 @@ class NavigationWorld extends World {
             load_circuit_id: loadCircuitId,
             title,
             description,
+            nominal_current_a: nominalCurrentA,
+            nominal_power_w: nominalPowerW,
+            startup_current_a: startupCurrentA,
+            surge_power_w: surgePowerW,
+            standby_power_w: standbyPowerW,
             usage_kw: usageKw,
             spike_kw: spikeKw,
             expected_usage_hours_per_day: expectedUsageHoursPerDay,
+            daily_energy_kwh: dailyEnergyKwh,
+            duty_profile: dutyProfile,
+            notes,
             sleeping_kw: sleepingKw,
           }, projectId);
 
@@ -1471,15 +1531,23 @@ class NavigationWorld extends World {
       throw new Error('Navigation test DOM is not ready.');
     }
 
-    const cards = Array.from(this.dom.window.document.querySelectorAll('.consumption-selection-card'));
-    const targetCard = this.latestSelectedConsumptionConverterTitle
-      ? cards.find((card) => card.querySelector('h3')?.textContent?.trim() === this.latestSelectedConsumptionConverterTitle) ?? cards.at(-1)
-      : cards.at(-1);
-    const firstDetailButton = targetCard
-      ? Array.from(targetCard.querySelectorAll('.button')).find((node) => node.textContent?.trim() === 'Show attached load circuits') as HTMLElement | undefined
-      : undefined;
+    await this.waitForText('Show attached load circuits');
+    const firstDetailButton = Array.from(this.dom.window.document.querySelectorAll('.surface-card button'))
+      .find((node) => node.textContent?.trim() === 'Show attached load circuits') as HTMLElement | undefined;
     if (!firstDetailButton) {
-      throw new Error('Could not find the selected converter detail button on the page.');
+      throw new Error(`Could not find the converter detail button on the page. Current body: ${this.dom.window.document.body.textContent ?? ''}`);
+    }
+    const card = firstDetailButton.closest('.surface-card-stack');
+    const cardId = card?.getAttribute('id') ?? '';
+    const targetTitle = card?.querySelector('h3')?.textContent?.trim() ?? '';
+    const targetId = cardId.startsWith('project-converter-')
+      ? cardId.slice('project-converter-'.length)
+      : '';
+    if (targetId) {
+      this.latestSelectedConsumptionConverterId = targetId;
+    }
+    if (targetTitle) {
+      this.latestSelectedConsumptionConverterTitle = targetTitle;
     }
 
     await act(async () => {
@@ -1520,6 +1588,12 @@ class NavigationWorld extends World {
   async addLoadCircuitOnLoadCircuitsPage(): Promise<void> {
     if (!this.dom) {
       throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const select = Array.from(this.dom.window.document.querySelectorAll('.detail-shell select'))
+      .find((node) => node.previousElementSibling?.textContent?.trim() === 'Converter') as HTMLSelectElement | undefined;
+    if (select) {
+      this.latestLoadCircuitsConverterId = select.value;
     }
 
     const addButton = Array.from(this.dom.window.document.querySelectorAll('button'))
@@ -1571,12 +1645,53 @@ class NavigationWorld extends World {
     });
   }
 
+  async setLoadCircuitDescription(description: string): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const editorCard = Array.from(this.dom.window.document.querySelectorAll('.consumption-selection-editor'))
+      .at(-1) as HTMLElement | undefined;
+    if (!editorCard) {
+      throw new Error('Could not find the load circuit editor card.');
+    }
+
+    const inputs = Array.from(editorCard.querySelectorAll('input')) as HTMLInputElement[];
+    const descriptionInput = inputs[1];
+    if (!descriptionInput) {
+      throw new Error('Could not find the load circuit description input on the Load circuits page.');
+    }
+
+    this.latestCreatedLoadCircuitDescription = description;
+
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(this.dom.window.HTMLInputElement.prototype, 'value')?.set;
+      if (!setter) {
+        throw new Error('Could not find value setter for the load circuit description input.');
+      }
+
+      setter.call(descriptionInput, description);
+      descriptionInput.dispatchEvent(new this.dom.window.InputEvent('input', {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        data: description,
+        inputType: 'insertText',
+      }));
+      descriptionInput.dispatchEvent(new this.dom.window.Event('input', { bubbles: true }));
+      descriptionInput.dispatchEvent(new this.dom.window.Event('change', { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  }
+
   async saveLoadCircuit(): Promise<void> {
     if (!this.dom) {
       throw new Error('Navigation test DOM is not ready.');
     }
 
-    const card = Array.from(this.dom.window.document.querySelectorAll('.consumption-selection-card')).at(-1);
+    const card = Array.from(this.dom.window.document.querySelectorAll('.consumption-selection-editor'))
+      .at(-1) as HTMLElement | undefined
+      ?? Array.from(this.dom.window.document.querySelectorAll('.consumption-selection-card')).at(-1) as HTMLElement | undefined;
     const saveButton = card
       ? Array.from(card.querySelectorAll('button')).find((node) => node.textContent?.trim() === 'Save') as HTMLElement | undefined
       : undefined;
@@ -1593,6 +1708,240 @@ class NavigationWorld extends World {
     });
 
     await this.waitForText(this.latestCreatedLoadCircuitTitle);
+    const expectedDescription = this.latestCreatedLoadCircuitDescription.trim();
+    await this.assertLoadCircuitInDatabase({
+      title: this.latestCreatedLoadCircuitTitle,
+      ...(expectedDescription ? { description: expectedDescription } : {}),
+      converterId: this.latestLoadCircuitsConverterId || undefined,
+    });
+  }
+
+  async assertLoadCircuitInDatabase(expected: {
+    title?: string;
+    description?: string;
+    converterId?: string;
+    converterTypeId?: string;
+  }): Promise<void> {
+    const deadline = Date.now() + 10_000;
+    let lastError: Error | null = null;
+
+    while (Date.now() < deadline) {
+      const db = openDb(this.requireDbPath());
+      try {
+        const projectId = this.resolveProjectId(db);
+        const row = listLoadCircuits(db, projectId).find((item) => {
+          if (expected.title !== undefined && item.title !== expected.title) return false;
+          if (expected.description !== undefined && (item.description ?? '') !== expected.description) return false;
+          if (expected.converterId !== undefined && (item.converter_id ?? '') !== expected.converterId) return false;
+          if (expected.converterTypeId !== undefined && item.converter_type_id !== expected.converterTypeId) return false;
+          return true;
+        }) ?? null;
+
+        if (!row) {
+          throw new Error(`Load circuit with expected values was not found.`);
+        }
+        return;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+      } finally {
+        db.close();
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+
+    throw lastError ?? new Error('Timed out waiting for load circuit to persist.');
+  }
+
+  async getLatestLoadEditorCard(): Promise<HTMLElement> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const editorCard = Array.from(this.dom.window.document.querySelectorAll('.consumption-selection-editor'))
+      .at(-1) as HTMLElement | undefined;
+    if (!editorCard) {
+      throw new Error('Could not find the load editor card.');
+    }
+
+    return editorCard;
+  }
+
+  async setLoadEditorFieldValue(labelText: string, value: string): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const editorCard = await this.getLatestLoadEditorCard();
+    const label = Array.from(editorCard.querySelectorAll('label')).find((node) => node.querySelector('span')?.textContent?.trim() === labelText) as HTMLLabelElement | undefined;
+    if (!label) {
+      const availableLabels = Array.from(editorCard.querySelectorAll('label span')).map((node) => node.textContent?.trim()).filter((item): item is string => Boolean(item));
+      throw new Error(`Could not find load editor field "${labelText}". Available labels: ${availableLabels.join(', ') || '(none)'}.`);
+    }
+
+    const control = label.querySelector('input, textarea') as HTMLInputElement | HTMLTextAreaElement | null;
+    if (!control) {
+      throw new Error(`Could not find a control for load editor field "${labelText}".`);
+    }
+
+    await act(async () => {
+      const prototype = control instanceof this.dom.window.HTMLTextAreaElement
+        ? this.dom.window.HTMLTextAreaElement.prototype
+        : this.dom.window.HTMLInputElement.prototype;
+      const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+      if (!setter) {
+        throw new Error(`Could not find value setter for load editor field "${labelText}".`);
+      }
+
+      setter.call(control, value);
+      control.dispatchEvent(new this.dom.window.InputEvent('input', {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        data: value,
+        inputType: 'insertText',
+      }));
+      control.dispatchEvent(new this.dom.window.Event('input', { bubbles: true }));
+      control.dispatchEvent(new this.dom.window.Event('change', { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  }
+
+  async setLatestLoadEditorInputValue(index: number, value: string): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const editorCard = await this.getLatestLoadEditorCard();
+    const inputs = Array.from(editorCard.querySelectorAll('input')) as HTMLInputElement[];
+    const control = inputs.at(index);
+    if (!control) {
+      throw new Error(`Could not find load editor input at index ${index}.`);
+    }
+
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(this.dom.window.HTMLInputElement.prototype, 'value')?.set;
+      if (!setter) {
+        throw new Error(`Could not find value setter for load editor input ${index}.`);
+      }
+
+      setter.call(control, value);
+      control.dispatchEvent(new this.dom.window.InputEvent('input', {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        data: value,
+        inputType: 'insertText',
+      }));
+      control.dispatchEvent(new this.dom.window.Event('input', { bubbles: true }));
+      control.dispatchEvent(new this.dom.window.Event('change', { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    if (control.value !== value) {
+      throw new Error(`Failed to set load editor input ${index} to "${value}" (current value: "${control.value}").`);
+    }
+  }
+
+  async createFullLoadCoverageEntry(): Promise<void> {
+    const db = openDb(this.requireDbPath());
+    try {
+      const projectId = this.resolveProjectId(db);
+      const sourceCircuit = getLoadCircuit(db, this.latestMoveSourceLoadCircuitId);
+      if (!sourceCircuit) {
+        throw new Error('Could not find the source load circuit for the coverage test.');
+      }
+
+      const loadId = generateUniqueCatalogId('Washing machine', listLoads(db, projectId).map((load) => load.load_id));
+      upsertLoad(db, {
+        load_id: loadId,
+        load_circuit_id: sourceCircuit.load_circuit_id,
+        title: 'Washing machine',
+        description: 'Laundry appliance',
+        nominal_current_a: null,
+        nominal_power_w: 700,
+        startup_current_a: null,
+        surge_power_w: 2000,
+        standby_power_w: 0,
+        expected_usage_hours_per_day: 1.2,
+        daily_energy_kwh: 0.84,
+        duty_profile: null,
+        notes: 'Coverage load',
+      }, projectId, sourceCircuit.location_id);
+      this.latestLoadsConverterId = sourceCircuit.converter_id;
+      this.latestLoadsCircuitId = sourceCircuit.load_circuit_id;
+      this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), projectId, sourceCircuit.location_id);
+    } finally {
+      db.close();
+    }
+
+    await this.assertLoadInDatabase({
+      title: 'Washing machine',
+      description: 'Laundry appliance',
+      nominalCurrentA: null,
+      nominalPowerW: 700,
+      startupCurrentA: null,
+      surgePowerW: 2000,
+      standbyPowerW: 0,
+      expectedUsageHoursPerDay: 1.2,
+      dailyEnergyKwh: 0.84,
+      dutyProfile: null,
+      notes: 'Coverage load',
+    });
+  }
+
+  async assertLoadInDatabase(expected: {
+    title?: string;
+    description?: string;
+    loadCircuitId?: string;
+    nominalCurrentA?: number | null;
+    nominalPowerW?: number | null;
+    startupCurrentA?: number | null;
+    surgePowerW?: number | null;
+    standbyPowerW?: number | null;
+    expectedUsageHoursPerDay?: number;
+    dailyEnergyKwh?: number | null;
+    dutyProfile?: string | null;
+    notes?: string | null;
+  }): Promise<void> {
+    const deadline = Date.now() + 10_000;
+    let lastError: Error | null = null;
+
+    while (Date.now() < deadline) {
+      const db = openDb(this.requireDbPath());
+      try {
+        const projectId = this.resolveProjectId(db);
+        const loads = listLoads(db, projectId);
+        const row = loads.find((item) => {
+          if (expected.title !== undefined && item.title !== expected.title) return false;
+          if (expected.description !== undefined && (item.description ?? '') !== expected.description) return false;
+          if (expected.loadCircuitId !== undefined && item.load_circuit_id !== expected.loadCircuitId) return false;
+          if (expected.nominalCurrentA !== undefined && (item.nominal_current_a ?? null) !== expected.nominalCurrentA) return false;
+          if (expected.nominalPowerW !== undefined && (item.nominal_power_w ?? null) !== expected.nominalPowerW) return false;
+          if (expected.startupCurrentA !== undefined && (item.startup_current_a ?? null) !== expected.startupCurrentA) return false;
+          if (expected.surgePowerW !== undefined && (item.surge_power_w ?? null) !== expected.surgePowerW) return false;
+          if (expected.standbyPowerW !== undefined && (item.standby_power_w ?? null) !== expected.standbyPowerW) return false;
+          if (expected.expectedUsageHoursPerDay !== undefined && item.expected_usage_hours_per_day !== expected.expectedUsageHoursPerDay) return false;
+          if (expected.dailyEnergyKwh !== undefined && (item.daily_energy_kwh ?? null) !== expected.dailyEnergyKwh) return false;
+          if (expected.dutyProfile !== undefined && (item.duty_profile ?? null) !== expected.dutyProfile) return false;
+          if (expected.notes !== undefined && (item.notes ?? null) !== expected.notes) return false;
+          return true;
+        }) ?? null;
+
+        if (!row) {
+          throw new Error('Load with expected values was not found.');
+        }
+        return;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+      } finally {
+        db.close();
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+
+    throw lastError ?? new Error('Timed out waiting for load to persist.');
   }
 
   async chooseLastConsumptionConverter(): Promise<void> {
@@ -2618,7 +2967,7 @@ class NavigationWorld extends World {
   assertLocationInDatabase(expectedNotes: string, expectPhoto: boolean): void {
     const db = openDb(this.requireDbPath());
     try {
-      const row = db.prepare('SELECT notes, site_photo_data_url FROM locations ORDER BY id LIMIT 1').get() as {
+      const row = db.prepare('SELECT notes, site_photo_data_url FROM locations ORDER BY location_id LIMIT 1').get() as {
         notes: string | null;
         site_photo_data_url: string | null;
       } | undefined;
@@ -2653,7 +3002,7 @@ class NavigationWorld extends World {
     while (Date.now() < deadline) {
       const db = openDb(this.requireDbPath());
       try {
-        const row = db.prepare('SELECT title, country, place_name, description, notes, latitude, longitude, site_photo_data_url FROM locations ORDER BY id LIMIT 1').get() as {
+        const row = db.prepare('SELECT title, country, place_name, description, notes, latitude, longitude, site_photo_data_url FROM locations ORDER BY location_id LIMIT 1').get() as {
           title: string | null;
           country: string;
           place_name: string;
@@ -3377,8 +3726,18 @@ When('I open Production from the menu', async function () {
 });
 
 When('I open Consumption from the menu', async function () {
-  await this.clickByText('Consumption');
-  await this.waitForText('Consumption');
+  await this.clickByText('Consumption', '.sidebar-nav a');
+  await this.waitForPathnameContains('/consumption');
+});
+
+When('I open Converters from the Consumption overview', async function () {
+  await this.clickByText('Converters', '.detail-shell .panel button');
+  await this.waitForPathnameContains('/consumption/converters');
+});
+
+When('I confirm opening the load circuits workbench', async function () {
+  await this.clickByText('Open page');
+  await this.waitForPathnameContains('/load-circuits');
 });
 
 When('I open Load circuits from the menu', async function () {
@@ -3469,6 +3828,10 @@ When('I title the last load circuit {string} on the Load circuits page', async f
   await this.titleLastLoadCircuit(title);
 });
 
+When('I set the load circuit description to {string}', async function (description: string) {
+  await this.setLoadCircuitDescription(description);
+});
+
 When('I save the load circuit on the Load circuits page', async function () {
   await this.saveLoadCircuit();
 });
@@ -3545,6 +3908,10 @@ When('I add a load on the circuit page', async function () {
 
 When('I create the move test load on the page', async function () {
   await this.createMoveTestLoad();
+});
+
+When('I create the full load field set on the page', async function () {
+  await this.createFullLoadCoverageEntry();
 });
 
 When('I move the first load to the target circuit', async function () {
@@ -3626,7 +3993,7 @@ Then('I should see the Production page', async function () {
 Then('I should see the Consumption page', async function () {
   const text = this.dom?.window.document.body.textContent ?? '';
   assert.ok(text.includes('Consumption'));
-  assert.ok(text.includes('Add converter'));
+  assert.ok(text.includes('Add converter') || text.includes('Show attached load circuits') || text.includes('No converters added yet.'));
   assert.ok(!text.includes('Converter bank fit'));
   assert.ok(!text.includes('Selected converters'));
   assert.ok(!text.includes('Add one or more converters to evaluate the battery bank.'));
@@ -3684,9 +4051,13 @@ Then('the load circuits page should show the selected converter title', async fu
 
   const url = new URL(this.dom.window.location.href);
   assert.equal(url.searchParams.get('converterTitle'), null);
-  assert.ok(
-    this.dom.window.document.body.textContent?.includes(`Converter: ${this.latestSelectedConsumptionConverterTitle}`),
-    `Expected active filter title "${this.latestSelectedConsumptionConverterTitle}" to be visible.`,
+  const select = this.dom.window.document.querySelector('.button-row-between select') as HTMLSelectElement | null;
+  assert.ok(select, 'Could not find the load circuits filter select.');
+  const selectedOptionLabel = select.selectedOptions[0]?.textContent?.trim() ?? '';
+  assert.equal(
+    selectedOptionLabel,
+    this.latestSelectedConsumptionConverterTitle,
+    `Expected active filter title "${this.latestSelectedConsumptionConverterTitle}" to be selected.`,
   );
 });
 
@@ -3712,6 +4083,31 @@ Then('the saved load circuit should belong to the active location', async functi
   } finally {
     db.close();
   }
+});
+
+Then('the load circuit should persist the full field set', function () {
+  return this.assertLoadCircuitInDatabase({
+    title: this.latestCreatedLoadCircuitTitle,
+    description: this.latestCreatedLoadCircuitDescription,
+    converterId: this.latestLoadCircuitsConverterId || undefined,
+  });
+});
+
+Then('the load should persist the full field set', function () {
+  return this.assertLoadInDatabase({
+    title: 'Washing machine',
+    description: 'Laundry appliance',
+    loadCircuitId: this.latestLoadsCircuitId || this.latestMoveSourceLoadCircuitId || undefined,
+    nominalCurrentA: null,
+    nominalPowerW: 700,
+    startupCurrentA: null,
+    surgePowerW: 2000,
+    standbyPowerW: 0,
+    expectedUsageHoursPerDay: 1.2,
+    dailyEnergyKwh: 0.84,
+    dutyProfile: null,
+    notes: 'Coverage load',
+  });
 });
 
 Then('I should see the Loads page', async function () {

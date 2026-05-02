@@ -1,5 +1,4 @@
 export interface Location {
-  id: number;
   project_id: string;
   location_id: string;
   title?: string | null;
@@ -74,6 +73,8 @@ export interface CabinetType {
 
 export interface SurfacePanelAssignment {
   id: number;
+  project_id: string;
+  location_id: string;
   surface_id: string;
   panel_type_id: string;
   count: number;
@@ -81,6 +82,8 @@ export interface SurfacePanelAssignment {
 
 export interface PvArray {
   id: number;
+  project_id: string;
+  location_id: string;
   array_id: string;
   surface_id: string;
   name: string;
@@ -94,6 +97,8 @@ export interface PvArray {
 
 export interface PvString {
   id: number;
+  project_id: string;
+  location_id: string;
   string_id: string;
   array_id: string;
   surface_id: string;
@@ -104,6 +109,8 @@ export interface PvString {
 
 export interface ArrayToMpptMapping {
   id: number;
+  project_id: string;
+  location_id: string;
   mapping_id: string;
   array_id: string;
   selected_mppt_type_id?: string | null;
@@ -111,6 +118,8 @@ export interface ArrayToMpptMapping {
 
 export interface SurfaceConfiguration {
   id: number;
+  project_id: string;
+  location_id: string;
   surface_id: string;
   panels_per_string?: number | null;
   parallel_strings?: number | null;
@@ -191,6 +200,8 @@ export interface InverterType {
 export interface InverterConfiguration {
   id: number;
   inverter_configuration_id: string;
+  project_id?: string | null;
+  location_id?: string | null;
   selected_inverter_type_id?: string | null;
   selected_cabinet_type_id?: string | null;
   selected_dc_busbar_id?: string | null;

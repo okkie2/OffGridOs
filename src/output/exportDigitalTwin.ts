@@ -45,6 +45,8 @@ import {
 import { DEFAULT_PROJECT_ID } from '../config/project.js';
 
 interface ExportArray {
+  project_id: string;
+  location_id: string;
   array_id: string;
   surface_id: string;
   name: string;
@@ -98,6 +100,8 @@ interface ExportProjectMonthlySolarOutput {
 }
 
 interface ExportString {
+  project_id: string;
+  location_id: string;
   string_id: string;
   array_id: string;
   surface_id: string;
@@ -108,6 +112,8 @@ interface ExportString {
 
 interface ExportInverterConfiguration {
   inverter_configuration_id: string;
+  project_id: string | null;
+  location_id: string | null;
   inverter_id?: string;
   selected_cabinet_type_id?: string | null;
   name: string;
@@ -170,7 +176,6 @@ interface ExportProject {
   project_id: string;
   name: string;
   locations: Array<{
-    id: number;
     project_id: string;
     location_id: string;
     title?: string | null;
@@ -207,6 +212,8 @@ interface ExportProject {
 }
 
 interface ExportSurfaceConfiguration {
+  project_id: string;
+  location_id: string;
   surface_id: string;
   panels_per_string: number | null;
   parallel_strings: number | null;
@@ -520,7 +527,6 @@ function toProject(projectId: string, projectTitle: string, locations: Location[
     project_id: projectId,
     name: projectTitle,
     locations: locations.map((location) => ({
-      id: location.id,
       project_id: location.project_id,
       location_id: location.location_id,
       title: location.title ?? null,
@@ -591,6 +597,8 @@ function buildArrays(
     const inputCurrent = parallelStrings && primaryPanelType ? primaryPanelType.imp * parallelStrings : null;
 
     exportedPvArrays.push({
+      project_id: pvArray.project_id,
+      location_id: pvArray.location_id,
       array_id: pvArray.array_id,
       surface_id: pvArray.surface_id,
       name: pvArray.name,
@@ -816,6 +824,8 @@ function conversionDeviceToInverterType(device: ConversionDevice): InverterType 
 function buildInverterConfigurations(
   inverterConfigurations: Array<{
     inverter_configuration_id: string;
+    project_id?: string | null;
+    location_id?: string | null;
     selected_inverter_type_id?: string | null;
     selected_cabinet_type_id?: string | null;
     title?: string | null;
@@ -835,6 +845,8 @@ function buildInverterConfigurations(
 
     return {
       inverter_configuration_id: configuration.inverter_configuration_id,
+      project_id: configuration.project_id ?? null,
+      location_id: configuration.location_id ?? null,
       inverter_id: selectedInverter?.inverter_id ?? derivedInverter?.inverter_id,
       selected_cabinet_type_id: configuration.selected_cabinet_type_id ?? null,
       name: selectedInverter?.model ?? derivedInverter?.model ?? 'Main inverter',
@@ -1001,7 +1013,7 @@ export function buildDigitalTwinExport(db: Database.Database, dbPath: string, pr
   const inverterTypes = conversionDevices
     .map((device) => conversionDeviceToInverterType(device))
     .filter((device): device is InverterType => device != null);
-  const inverterConfigurations = listInverterConfigurations(db, projectId);
+  const inverterConfigurations = listInverterConfigurations(db, projectId, activeLocationId);
   const loadCircuits = listLoadCircuits(db, projectId, activeLocationId);
   const loads = listLoads(db, projectId, activeLocationId);
   const pvArrays = listPvArrays(db, projectId, activeLocationId);
@@ -1028,6 +1040,8 @@ export function buildDigitalTwinExport(db: Database.Database, dbPath: string, pr
     entities: {
       surfaces,
       surface_configurations: surfaceConfigurations.map((design) => ({
+        project_id: design.project_id,
+        location_id: design.location_id,
         surface_id: design.surface_id,
         panels_per_string: design.panels_per_string ?? null,
         parallel_strings: design.parallel_strings ?? null,
@@ -1048,6 +1062,8 @@ export function buildDigitalTwinExport(db: Database.Database, dbPath: string, pr
       cabinet_types: cabinetTypes,
       panel_types: panelTypes,
       pv_strings: pvStrings.map((string) => ({
+        project_id: string.project_id,
+        location_id: string.location_id,
         string_id: string.string_id,
         array_id: string.array_id,
         surface_id: string.surface_id,

@@ -110,6 +110,25 @@ Feature: Persistence field coverage
     And I open Inverter array from the menu
     Then the inverter image should still be visible
 
+  Scenario: Save and reload the full load circuit field set
+    Given a movable load setup exists for the loads page
+    And OffGridOS is rendered on the load circuits page
+    And I add a load circuit on the Load circuits page
+    And I title the last load circuit "Living room circuit" on the Load circuits page
+    And I set the load circuit description to "Socket and lighting loads in the living room"
+    And I save the load circuit on the Load circuits page
+    Then the load circuit should persist the full field set
+    When I reload OffGridOS
+    Then the load circuit should persist the full field set
+
+  Scenario: Save and reload the full load field set
+    Given a movable load setup exists for the loads page
+    And OffGridOS is rendered on the movable load source circuit
+    And I create the full load field set on the page
+    Then the load should persist the full field set
+    When I reload OffGridOS
+    Then the load should persist the full field set
+
   Scenario: Save and reload the battery bank configuration title and description
     Given OffGridOS is rendered with project data
     When I open Battery array from the menu

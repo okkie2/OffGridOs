@@ -228,6 +228,44 @@ Test categories:
 - selected inverter type must exist
 - optional text and image can be cleared
 
+### Load circuits
+
+Save contract:
+
+- parent converter context
+- title
+- description
+
+Test categories:
+
+- all fields persist
+- converter context remains attached after reload
+- optional description can be cleared
+
+### Loads
+
+Save contract:
+
+- parent circuit context
+- title
+- description
+- nominal current
+- nominal power
+- startup current
+- surge power
+- standby power
+- expected usage hours per day
+- daily energy
+- duty profile
+- notes
+
+Test categories:
+
+- all fields persist
+- parent circuit context remains attached after reload
+- optional numeric and text fields can be cleared
+- full page audit confirms the load remains under the same circuit after reload
+
 ### Catalog editors
 
 Create matching persistence tests for:

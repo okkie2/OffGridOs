@@ -2952,7 +2952,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             }
           }
 
-          const inverterConfigId = projectId === DEFAULT_PROJECT_ID ? 'inverter-configuration-main' : `${projectId}-inverter-configuration-main`;
+          const inverterConfigId = locationId ? `inverter-configuration-${locationId}` : 'inverter-configuration-main';
           const existing = db.prepare('SELECT * FROM inverter_configurations WHERE inverter_configuration_id = ?').get(inverterConfigId) as { title?: string; description?: string; image_data_url?: string; notes?: string } | undefined;
 
           upsertInverterConfiguration(db, {
@@ -2963,7 +2963,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             description: description ?? existing?.description ?? null,
             image_data_url: imageDataUrl !== undefined ? imageDataUrl : (existing?.image_data_url ?? null),
             notes: notes ?? existing?.notes ?? null,
-          }, projectId);
+          }, projectId, locationId);
           setPref(db, projectId, 'preferred_inverter_type_id', selectedInverterTypeId);
 
           return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };

@@ -4,7 +4,6 @@ import type { ProjectInput } from '../domain/types.js';
 
 const baseInput: ProjectInput = {
   location: {
-    id: 1,
     project_id: '1',
     location_id: 'amsterdam-main',
     country: 'NL',
@@ -19,7 +18,7 @@ const baseInput: ProjectInput = {
     { id: 1, panel_type_id: 'p1', brand: 'TestBrand', model: 'TestPanel 400', wp: 400, voc: 37.5, vmp: 31.2, isc: 13.5, imp: 12.8, length_mm: 1722, width_mm: 1134, temp_coefficient_voc_pct_per_c: -0.30 },
   ],
   surfacePanelAssignments: [
-    { id: 1, surface_id: 'south', panel_type_id: 'p1', count: 10 },
+    { id: 1, project_id: '1', location_id: 'amsterdam-main', surface_id: 'south', panel_type_id: 'p1', count: 10 },
   ],
   mpptTypes: [
     {

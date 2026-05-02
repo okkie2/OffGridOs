@@ -2,6 +2,28 @@
 
 ## 2026-05-02
 
+- Stabilized the load persistence coverage scenario so the full-field regression now uses the preset-backed test path reliably.
+- Removed the obsolete `Reports` routing task from `TODO.md` after confirming `Verdict summary` and `Cost summary` already live under the Reports area.
+- Removed the PV-topology AC-side modeling placeholder from `TODO.md` after confirming the current Surface workbench already exposes the intended user-facing PV controls and no raw derived-topology editor is present.
+- Completed the PV topology workbench audit and confirmed the Surface page only exposes the intended user-facing panel, string, parallel-string, and MPPT controls.
+- Corrected the PV topology queue item in `TODO.md` so it now targets only derived-row internals while keeping the surface-level panel, string, and MPPT controls editable.
+- Promoted the PV topology editing slice into `NOW` and rewrote the remaining `NEXT` items in `TODO.md` as direct actions instead of preservation statements.
+- Promoted the single-instance local runtime audit to `NOW` in `TODO.md` after the Consumption, Load circuits, and Loads smoke/regression pass completed.
+- Removed the last passive `keep` wording from `TODO.md` so the queue now uses only direct action phrasing.
+- Reworded the remaining passive `NEXT` queue item in `TODO.md` so it now reads as a concrete deferred task instead of a "leave it as-is" statement.
+- Rewrote the `NEXT` queue in `TODO.md` so it stays action-oriented instead of carrying forward policy statements that begin with `Keep`.
+- Aligned the Consumption-to-Load-circuits BDD smoke scenario with the current `/consumption/converters` workbench route and the load-circuits confirmation dialog.
+- Rebuilt the remaining location-owned workbench tables so their live schema now enforces explicit `project_id` and `location_id` ownership where required.
+- Completed the page-state ownership sweep on the remaining workbench pages and confirmed the only remaining persistent browser storage outside the app shell is the intentional language preference.
+- Recast the `NOW` queue in `TODO.md` as a three-step stabilization checklist: audit page-state bleed, finish explicit scope alignment for UI-backed tables, and re-run the key smoke/regression coverage.
+- Scoped the remembered Load circuits and Loads workbench filters by both project and location so the same location slug in another project cannot inherit stale session state.
+- Made `inverter_configurations` explicitly location-owned by adding `location_id` to the table, scoping the save/export paths to the active location, and reshaping the live `project.db` to match.
+- Migrated the `locations` table so `location_id` is now the primary key and the old surrogate `id` is gone from the canonical schema and migration path.
+- Made `seedSurfaces()` reuse the actual existing location id when bootstrapping legacy databases, so the surface and surface-panel seed path no longer hardcodes `location-main` into a database that already owns a different location.
+- Made the PV topology bridge tables explicit by storing both `project_id` and `location_id` on surface panel assignments, PV arrays, PV strings, array-to-MPPT mappings, and surface configurations.
+- Added a dedicated stabilization plan that orders the remaining schema refactors from the simplest catalog tables through the location-owned workbench tables.
+- Added a scope matrix for the current tables so each one can be reviewed against the global, project-wide, or location-owned buckets.
+- Wrote down the three-bucket ownership rule so schema work can distinguish global catalog, project-wide, and location-owned tables explicitly.
 - Documented the table-id rule so future table work should prefer table-derived primary keys and matching foreign keys instead of bare `id` columns.
 - Normalized the converter-family foreign-key columns to `converter_id` and `converter_type_id` across the schema, app, export shape, and docs.
 - Renamed the exported converter data shape to `converter_types` and `converters`, and removed the last converter fallback reads from the frontend.

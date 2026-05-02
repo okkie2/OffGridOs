@@ -99,13 +99,12 @@ Feature: Navigation
     Then the loads page should remember the last selected converter and circuit
 
   Scenario: Open filtered load circuits from Consumption
-    Given OffGridOS is rendered with project data
+    Given a remembered load navigation setup exists
+    And OffGridOS is rendered with project data
     When I open Consumption from the menu
-    And I add a converter on the Consumption page
-    And I choose the last converter on the Consumption page
-    And I title the last converter "Galley inverter" on the Consumption page
-    And I save the converter on the Consumption page
+    And I open Converters from the Consumption overview
     And I open the first converter detail from the page
+    And I confirm opening the load circuits workbench
     Then I should see the Load circuits page
     And the load circuits page should be filtered to the selected converter
     And the load circuits page should show the selected converter title

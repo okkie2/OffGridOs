@@ -228,6 +228,8 @@ interface CabinetType {
 }
 
 interface SurfaceConfiguration {
+  project_id: string;
+  location_id: string;
   surface_id: string;
   panels_per_string: number | null;
   parallel_strings: number | null;
@@ -581,6 +583,8 @@ const LOAD_PRESETS: LoadPreset[] = [
 ];
 
 interface ArrayEntity {
+  project_id: string;
+  location_id: string;
   array_id: string;
   surface_id: string;
   name: string;
@@ -632,6 +636,8 @@ interface InverterConfiguration {
   selected_cabinet_type_id?: string | null;
   name: string;
   provisional: boolean;
+  project_id?: string | null;
+  location_id?: string | null;
   title?: string | null;
   description?: string | null;
   image_data_url?: string | null;
@@ -703,7 +709,6 @@ interface DigitalTwinExport {
     name: string;
     active_location_id?: string | null;
     locations?: Array<{
-      id: number;
       project_id: string;
       location_id: string;
       title?: string | null;
@@ -10123,7 +10128,7 @@ function LoadCircuitsPage({
   refreshProjectData: () => Promise<void>;
 }) {
   const { t } = useTranslation();
-  const activeLocationStorageKey = data.project.active_location_id ?? data.project.locations?.[0]?.location_id ?? 'default';
+  const activeLocationStorageKey = getLocationStorageKey(data);
   const readFilterFromUrl = () => {
     if (typeof window === 'undefined') return '';
     return new URLSearchParams(window.location.search).get('converter') ?? '';
@@ -10569,7 +10574,7 @@ function LoadsPage({
   refreshProjectData: () => Promise<void>;
 }) {
   const { t } = useTranslation();
-  const activeLocationStorageKey = data.project.active_location_id ?? data.project.locations?.[0]?.location_id ?? 'default';
+  const activeLocationStorageKey = getLocationStorageKey(data);
   const readLoadsFiltersFromUrl = () => {
     if (typeof window === 'undefined') return { converter: '', circuit: '' };
     const params = new URLSearchParams(window.location.search);

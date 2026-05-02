@@ -109,6 +109,39 @@ Route:
 | Inverter | About and configuration | Image | `image_data_url` | yes | `data:image/png;base64,...` | non-string payload | integration + bdd + audit | Verify upload and removal |
 | Inverter | About and configuration | Notes | `notes` | yes | `Check peak loads against pump startup` | numeric payload | integration + bdd + audit | Optional text field |
 
+## Load circuits
+
+Route:
+
+- `PUT /api/load-circuits/:loadCircuitId`
+
+| Page | Save box | Field label | Persisted property | Clear allowed | Valid example | Invalid example | Primary automated coverage | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Load circuit | Load circuit details | Parent converter | `converter_id` | no | `victron-mrs-48-6000-100-450-100` | unknown id | integration + bdd + audit | Inherited from the selected converter workbench context |
+| Load circuit | Load circuit details | Title | `title` | no | `Living room circuit` | empty string | integration + bdd + audit | Required |
+| Load circuit | Load circuit details | Description | `description` | yes | `Socket and lighting loads in the living room` | numeric payload | integration + bdd + audit | Optional text field |
+
+## Loads
+
+Route:
+
+- `PUT /api/loads/:loadId`
+
+| Page | Save box | Field label | Persisted property | Clear allowed | Valid example | Invalid example | Primary automated coverage | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Load | Load details | Parent circuit | `load_circuit_id` | no | `load-circuit-living-room` | unknown id | integration + bdd + audit | Inherited from the selected load circuit context |
+| Load | Load details | Title | `title` | no | `Dishwasher` | empty string | integration + bdd + audit | Required |
+| Load | Load details | Description | `description` | yes | `Dishwasher cycle and rinse` | numeric payload | integration + bdd + audit | Optional text field |
+| Load | Load details | Nominal current (A) | `nominal_current_a` | yes | `1.5` | `-1` | integration + bdd + audit | Optional when nominal power is saved directly |
+| Load | Load details | Nominal power (W) | `nominal_power_w` | no | `360` | `0` | integration + bdd + audit | Required |
+| Load | Load details | Startup current (A) | `startup_current_a` | yes | `2.0` | `-1` | integration + bdd + audit | Optional |
+| Load | Load details | Surge power (W) | `surge_power_w` | yes | `800` | `-1` | integration + bdd + audit | Optional when startup current is saved directly |
+| Load | Load details | Standby power (W) | `standby_power_w` | yes | `5` | `-1` | integration + bdd + audit | Optional |
+| Load | Load details | Hours per day | `expected_usage_hours_per_day` | no | `2.5` | `-1` | integration + bdd + audit | Required |
+| Load | Load details | Daily energy (kWh) | `daily_energy_kwh` | yes | `0.9` | `-1` | integration + bdd + audit | Optional derived override |
+| Load | Load details | Duty profile | `duty_profile` | yes | `Daily` | numeric payload | integration + bdd + audit | Optional text field |
+| Load | Load details | Notes | `notes` | yes | `Coverage load` | numeric payload | integration + bdd + audit | Optional text field |
+
 ## Panel type catalog
 
 Routes:

@@ -175,6 +175,7 @@ The field is named `orientation_deg` in both the DB column and the TypeScript mo
 - TypeScript interfaces use singular PascalCase.
 - Table primary keys should use the table-derived identifier pattern, for example `surface_id`, `converter_id`, and `load_circuit_id`.
 - Foreign keys should reference the target table's identifier name directly, for example `converter_type_id` or `converter_id`.
+- Scope-aware tables should follow the three-bucket rule: global catalog tables have no `project_id` or `location_id`, project-wide tables have `project_id` with `location_id = null`, and location-owned tables have both `project_id` and `location_id`.
 - CLI prompts, UI labels, and output text should match the canonical domain concept name.
 - Use `*_types` for catalog tables.
 - Use `*_configurations` for project-selected or project-configured records when the noun needs to cover the whole selected setup.

@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import { DEFAULT_PROJECT_ID } from '../config/project.js';
 
 const BATTERY_TYPES: Array<{
   battery_type_id: string;
@@ -911,13 +912,16 @@ export function seedInverterConfigurations(db: Database.Database): void {
       ? db.prepare('SELECT inverter_id FROM inverter_types WHERE inverter_id = ?').get(preferredInverterId) as { inverter_id?: string } | undefined
       : null;
     const fallbackInverter = db.prepare('SELECT inverter_id FROM inverter_types ORDER BY continuous_power_w, peak_power_va LIMIT 1').get() as { inverter_id?: string } | undefined;
+    const activeLocation = db.prepare('SELECT project_id, location_id FROM locations ORDER BY location_id LIMIT 1').get() as { project_id?: string; location_id?: string } | undefined;
 
     db.prepare(`
-      INSERT INTO inverter_configurations (inverter_configuration_id, selected_inverter_type_id)
-      VALUES (@inverter_configuration_id, @selected_inverter_type_id)
+      INSERT INTO inverter_configurations (inverter_configuration_id, selected_inverter_type_id, project_id, location_id)
+      VALUES (@inverter_configuration_id, @selected_inverter_type_id, @project_id, @location_id)
     `).run({
       inverter_configuration_id: 'inverter-configuration-main',
       selected_inverter_type_id: preferredInverter?.inverter_id ?? fallbackInverter?.inverter_id ?? null,
+      project_id: activeLocation?.project_id ?? DEFAULT_PROJECT_ID,
+      location_id: activeLocation?.location_id ?? 'location-main',
     });
   }
 }
@@ -937,6 +941,8 @@ export function seedLocation(db: Database.Database): void {
 export function seedSurfaces(db: Database.Database): void {
   const existing = db.prepare('SELECT COUNT(*) as count FROM surfaces').get() as { count: number } | undefined;
   if (!existing || existing.count === 0) {
+    const locationRow = db.prepare('SELECT location_id FROM locations ORDER BY location_id LIMIT 1').get() as { location_id?: string } | undefined;
+    const seedLocationId = locationRow?.location_id ?? 'location-main';
     const insert = db.prepare(`
       INSERT INTO surfaces (project_id, location_id, surface_id, name, sort_order, orientation_deg, tilt_deg, usable_area_m2, notes)
       VALUES (@project_id, @location_id, @surface_id, @name, @sort_order, @orientation_deg, @tilt_deg, @usable_area_m2, @notes)
@@ -946,7 +952,7 @@ export function seedSurfaces(db: Database.Database): void {
         insert.run({
           ...row,
           project_id: '1',
-          location_id: 'location-main',
+          location_id: seedLocationId,
         });
       }
     });
@@ -992,11 +998,27 @@ export function seedSurfacePanelAssignments(db: Database.Database): void {
   const existing = db.prepare('SELECT COUNT(*) as count FROM surface_panel_assignments').get() as { count: number } | undefined;
   if (!existing || existing.count === 0) {
     const insert = db.prepare(`
-      INSERT INTO surface_panel_assignments (surface_id, panel_type_id, count)
-      VALUES (@surface_id, @panel_type_id, @count)
+      INSERT INTO surface_panel_assignments (surface_id, panel_type_id, count, project_id, location_id)
+      VALUES (@surface_id, @panel_type_id, @count, @project_id, @location_id)
     `);
+    const surfaces = db.prepare('SELECT surface_id, project_id, location_id FROM surfaces').all() as Array<{
+      surface_id: string;
+      project_id: string | null;
+      location_id: string | null;
+    }>;
+    const surfaceById = new Map(surfaces.map((surface) => [surface.surface_id, surface]));
     const insertAll = db.transaction((rows: typeof BASELINE_SURFACE_PANEL_ASSIGNMENTS) => {
-      for (const row of rows) insert.run(row);
+      for (const row of rows) {
+        const surface = surfaceById.get(row.surface_id);
+        if (!surface) {
+          throw new Error(`Surface "${row.surface_id}" not found while seeding panel assignments.`);
+        }
+        insert.run({
+          ...row,
+          project_id: surface.project_id ?? DEFAULT_PROJECT_ID,
+          location_id: surface.location_id,
+        });
+      }
     });
     insertAll(BASELINE_SURFACE_PANEL_ASSIGNMENTS);
   }

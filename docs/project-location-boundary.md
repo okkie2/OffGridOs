@@ -29,23 +29,63 @@ The intended direction is:
 - `location` also owns the load-side (Consumption) operational setup for converters, load circuits, and loads
 - starting a new `location` duplicates nothing except access to the project catalogue
 - starting a new `project` starts empty unless a catalogue is intentionally copied or seeded
+- location-owned rows should persist both `project_id` and `location_id` explicitly in the row schema so ownership is visible in SQL.
 
-## Proposed Row Ownership Convention
+## Three-Bucket Scope Rule
 
-For UI-backed operational tables, the preferred direction is:
+Use three explicit ownership buckets when designing tables:
 
-- every row carries a `project_id`
-- every row may carry a nullable `location_id`
-- `location_id = null` means the row belongs to the wider project context
-- `location_id` set means the row belongs to the current location context
+### 1. Global catalog
 
-This makes the scope visible in the schema instead of relying on page behavior alone.
+- no `project_id`
+- no `location_id`
+- reusable definitions that are not owned by one project
 
-The convention is especially useful for:
+Examples:
 
-- shared catalogue rows
-- project-level configuration rows
-- location-specific operational rows
+- `panel_types`
+- `mppt_types`
+- `battery_types`
+- `inverter_types`
+- `converter_types`
+- `cabinet_types`
+- `dc_busbars`
+
+### 2. Project-wide
+
+- `project_id` present
+- `location_id = null`
+- owned by the project, but not by one location
+
+Examples:
+
+- `project_preferences`
+- future project-level settings or shared project setup rows
+
+### 3. Location-owned
+
+- `project_id` present
+- `location_id` present
+- owned by one specific location inside the project
+
+Examples:
+
+- `locations`
+- `surfaces`
+- `surface_panel_assignments`
+- `pv_arrays`
+- `pv_strings`
+- `array_to_mppt_mappings`
+- `surface_configurations`
+- `battery_bank_configurations`
+- `inverter_configurations`
+- `converters`
+- `load_circuits`
+- `loads`
+
+This keeps scope visible in the schema instead of relying on page behavior alone.
+
+Boundary tables such as `projects` and `locations` are allowed to be exceptions when carrying scope columns would not make the meaning clearer.
 
 ## Timestamp Convention
 
@@ -57,6 +97,36 @@ If a table needs audit-friendly lifecycle fields, add them explicitly as:
 - `updated_at`
 
 Use them only on mutable tables where the timestamps help explain history or support synchronization.
+
+## Scope Matrix
+
+This matrix translates the three-bucket rule into the current schema so future migrations can be planned table by table.
+
+| Table | Bucket | Note |
+|---|---|---|
+| `projects` | Boundary exception | Root tenant table; does not need scope columns. |
+| `locations` | Location-owned boundary table | Defines the location itself and carries the current location context. |
+| `panel_types` | Global catalog | Reusable panel definitions. |
+| `mppt_types` | Global catalog | Reusable MPPT definitions. |
+| `battery_types` | Global catalog | Reusable battery definitions. |
+| `inverter_types` | Global catalog | Reusable inverter definitions. |
+| `converter_types` | Global catalog | Reusable converter definitions. |
+| `cabinet_types` | Global catalog | Reusable cabinet definitions. |
+| `dc_busbars` | Global catalog | Shared DC busbar definitions; currently empty in the live DB. |
+| `project_preferences` | Project-wide | Shared project settings. |
+| `surfaces` | Location-owned | Surface rows belong to one project and one location. |
+| `surface_panel_assignments` | Location-owned | Explicitly stores the owning project and location for each panel assignment. |
+| `pv_arrays` | Location-owned | Explicitly stores the owning project and location for each array. |
+| `pv_strings` | Location-owned | Explicitly stores the owning project and location for each string. |
+| `array_to_mppt_mappings` | Location-owned | Explicitly stores the owning project and location for each array-to-MPPT mapping. |
+| `surface_configurations` | Location-owned | Explicitly stores the owning project and location for each per-surface configuration. |
+| `battery_bank_configurations` | Location-owned | Current project/location battery setup. |
+| `inverter_configurations` | Location-owned | Inverter setup follows the active location the same way battery-bank setup does. |
+| `converters` | Location-owned | Project-selected converter instances shown on Consumption. |
+| `load_circuits` | Location-owned | Circuits belong to one converter context in one location. |
+| `loads` | Location-owned | Loads belong to one circuit in one location. |
+
+Tables still using inherited scope instead of explicit `location_id` should be treated as migration candidates if the goal is maximum traceability.
 
 ## Current Implication
 

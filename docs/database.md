@@ -12,10 +12,10 @@ The app-wide page state, naming, and scope conventions are documented in [app-or
 - `locations`: shared site metadata for the project
 - `surfaces`: roof or mounting surfaces
 - `panel_types`: reusable PV panel catalog entries
-- `pv_arrays` and `pv_strings`: persisted PV topology for each surface
+- `pv_arrays` and `pv_strings`: persisted PV topology for each surface, with explicit project and location ownership
 - `mppt_types` and `mppt_configurations`: MPPT catalog and selected MPPT setup
 - `battery_types` and `battery_bank_configurations`: battery catalog and selected battery-bank setup
-- `inverter_types` and `inverter_configurations`: legacy inverter catalog and selected inverter setup
+- `inverter_types` and `inverter_configurations`: inverter catalog and selected inverter setup, both owned by the active location
 - `dc_busbars`: shared DC distribution points between the battery bank and downstream branches
 - `converter_types`, `converters`, `load_circuits`, and `loads`: the load-side model for downstream electrical demand, with converters, circuits, and loads owned by the active location
 
@@ -49,14 +49,14 @@ Reading the sketch:
 
 ## Scope Convention
 
-The preferred ownership rule for UI-backed tables is:
+The preferred ownership rule follows three buckets:
 
-- `project_id` is always present
-- `location_id` is nullable
-- `location_id = null` means project-wide scope
-- `location_id` filled means location scope
+- global catalog tables have no `project_id` and no `location_id`
+- project-wide tables have `project_id` and `location_id = null`
+- location-owned tables have both `project_id` and `location_id`
 
 This is a design convention for the app and schema, not a built-in SQLite feature.
+Boundary tables such as `projects` and `locations` may be exceptions where carrying both scope columns would not clarify ownership.
 
 ## Load-Side Model
 
@@ -67,6 +67,7 @@ This is a design convention for the app and schema, not a built-in SQLite featur
 - `battery_bank_configurations.selected_dc_busbar_id` and `inverter_configurations.selected_dc_busbar_id` optionally link those configurations to one shared busbar
 - `load_circuits` groups one or more loads behind one protected distribution point within a location, links to the owning `converter_id`, and carries the inherited supply type and voltage context through its attached converter
 - `loads` stores the individual electrical loads within a location and their own electrical inputs, such as nominal current, nominal power, surge power, standby power, duty profile, and optional daily energy
+- Location-owned tables now persist both `project_id` and `location_id` explicitly on disk, instead of inheriting scope through parent rows.
 
 ## Naming Review
 
@@ -79,6 +80,7 @@ Current review candidates:
 - `converter_types`: clear enough, but still technical rather than user-facing
 - `load_circuits`: clear in intent and a good current term
 - `loads`: clear in intent and a good current term
+- `inverter_configurations`: clear enough and now explicitly location-owned
 - `dc_busbars`: acceptable, but worth revisiting if the UI ever needs a more user-facing synonym
 - `battery_bank_configurations`, `inverter_configurations`, `mppt_configurations`, `surface_configurations`: clear enough, though long
 - `project_preferences`: clear
@@ -115,6 +117,8 @@ Preferred examples:
 Foreign keys should reference that identifier name directly, such as `converter_type_id` or `converter_id`.
 
 If a table still uses a bare `id`, treat that as a candidate for future migration work rather than as the default pattern.
+
+The `locations` table is already on the canonical shape: `location_id` is the primary key and the old surrogate `id` is no longer part of the table design.
 
 ## Notes
 

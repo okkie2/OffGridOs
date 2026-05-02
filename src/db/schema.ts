@@ -258,27 +258,143 @@ function ensureLocationIdentity(db: Database.Database): void {
     db.exec('ALTER TABLE locations ADD COLUMN location_id TEXT;');
   }
 
-  const rows = db.prepare('SELECT id, location_id, title, place_name FROM locations ORDER BY id').all() as Array<{
-    id: number;
-    location_id: string | null;
-    title: string | null;
-    place_name: string;
-  }>;
-  const usedIds = new Set(rows.map((row) => row.location_id).filter((value): value is string => Boolean(value)));
-  const updateLocation = db.prepare('UPDATE locations SET location_id = ? WHERE id = ?');
+  if (cols.has('id')) {
+    const rows = db.prepare('SELECT id, location_id, title, place_name FROM locations ORDER BY id').all() as Array<{
+      id: number;
+      location_id: string | null;
+      title: string | null;
+      place_name: string;
+    }>;
+    const usedIds = new Set(rows.map((row) => row.location_id).filter((value): value is string => Boolean(value)));
+    const updateLocation = db.prepare('UPDATE locations SET location_id = ? WHERE id = ?');
 
-  for (const row of rows) {
-    if (row.location_id) {
-      continue;
+    for (const row of rows) {
+      if (row.location_id) {
+        continue;
+      }
+
+      const label = row.title?.trim() || row.place_name?.trim() || 'location';
+      const locationId = generateUniqueLocationId(label, usedIds);
+      updateLocation.run(locationId, row.id);
+      usedIds.add(locationId);
     }
-
-    const label = row.title?.trim() || row.place_name?.trim() || 'location';
-    const locationId = generateUniqueLocationId(label, usedIds);
-    updateLocation.run(locationId, row.id);
-    usedIds.add(locationId);
   }
 
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS locations_location_id_idx ON locations(location_id);');
+}
+
+function migrateLocationsPrimaryKey(db: Database.Database): void {
+  if (!hasTable(db, 'locations')) {
+    return;
+  }
+
+  const cols = tableColumns(db, 'locations');
+  const tableInfo = db.prepare("PRAGMA table_info('locations')").all() as Array<{ name: string; pk: number }>;
+  const pkCols = tableInfo.filter((column) => column.pk > 0).map((column) => column.name);
+  if (!cols.has('id') && pkCols.length === 1 && pkCols[0] === 'location_id') {
+    return;
+  }
+
+  const rows = db.prepare(`
+    SELECT project_id, location_id, title, country, place_name, description, notes, latitude, longitude, northing, easting, site_photo_data_url
+    FROM locations
+    ORDER BY location_id
+  `).all() as Array<{
+    project_id: string | null;
+    location_id: string | null;
+    title: string | null;
+    country: string;
+    place_name: string;
+    description: string | null;
+    notes: string | null;
+    latitude: number;
+    longitude: number;
+    northing: number | null;
+    easting: number | null;
+    site_photo_data_url: string | null;
+  }>;
+
+  const usedIds = new Set(rows.map((row) => row.location_id).filter((value): value is string => Boolean(value)));
+  const nextRows = rows.map((row) => {
+    const label = row.title?.trim() || row.place_name?.trim() || 'location';
+    const locationId = row.location_id ?? generateUniqueLocationId(label, usedIds);
+    usedIds.add(locationId);
+    return {
+      project_id: row.project_id ?? DEFAULT_PROJECT_ID,
+      location_id: locationId,
+      title: row.title,
+      country: row.country,
+      place_name: row.place_name,
+      description: row.description,
+      notes: row.notes,
+      latitude: row.latitude,
+      longitude: row.longitude,
+      northing: row.northing,
+      easting: row.easting,
+      site_photo_data_url: row.site_photo_data_url,
+    };
+  });
+
+  db.exec('PRAGMA foreign_keys = OFF;');
+  try {
+    db.exec(`
+      ALTER TABLE locations RENAME TO locations_legacy;
+      CREATE TABLE locations (
+        location_id TEXT PRIMARY KEY,
+        project_id  TEXT NOT NULL REFERENCES projects(project_id),
+        title       TEXT,
+        country     TEXT NOT NULL,
+        place_name  TEXT NOT NULL,
+        description TEXT,
+        notes       TEXT,
+        latitude    REAL NOT NULL,
+        longitude   REAL NOT NULL,
+        northing    REAL,
+        easting     REAL,
+        site_photo_data_url TEXT
+      );
+    `);
+
+    const insert = db.prepare(`
+      INSERT INTO locations (
+        location_id,
+        project_id,
+        title,
+        country,
+        place_name,
+        description,
+        notes,
+        latitude,
+        longitude,
+        northing,
+        easting,
+        site_photo_data_url
+      ) VALUES (
+        @location_id,
+        @project_id,
+        @title,
+        @country,
+        @place_name,
+        @description,
+        @notes,
+        @latitude,
+        @longitude,
+        @northing,
+        @easting,
+        @site_photo_data_url
+      )
+    `);
+    const insertAll = db.transaction((rowsToInsert: typeof nextRows) => {
+      for (const row of rowsToInsert) {
+        insert.run(row);
+      }
+    });
+    insertAll(nextRows);
+    db.exec('DROP TABLE locations_legacy;');
+    db.exec('CREATE INDEX IF NOT EXISTS locations_project_id_idx ON locations(project_id);');
+  } finally {
+    db.exec('PRAGMA foreign_keys = ON;');
+  }
 }
 
 function ensureSurfaceLocationId(db: Database.Database): void {
@@ -314,6 +430,57 @@ function ensureSurfaceLocationId(db: Database.Database): void {
   db.exec('CREATE INDEX IF NOT EXISTS surfaces_location_id_idx ON surfaces(location_id);');
 }
 
+function ensureSurfaceScopedLocationId(db: Database.Database, tableName: string, surfaceColumn: string = 'surface_id'): void {
+  const cols = new Set(
+    (db.prepare(`PRAGMA table_info('${tableName}')`).all() as { name: string }[]).map((r) => r.name),
+  );
+  if (!cols.has('location_id')) {
+    db.exec(`ALTER TABLE ${tableName} ADD COLUMN location_id TEXT REFERENCES locations(location_id);`);
+  }
+
+  db.exec(`
+    UPDATE ${tableName}
+    SET location_id = COALESCE(
+      location_id,
+      (
+        SELECT surfaces.location_id
+        FROM surfaces
+        WHERE surfaces.surface_id = ${tableName}.${surfaceColumn}
+        LIMIT 1
+      )
+    )
+    WHERE location_id IS NULL;
+  `);
+
+  db.exec(`CREATE INDEX IF NOT EXISTS ${tableName}_location_id_idx ON ${tableName}(location_id);`);
+}
+
+function ensureArrayScopedLocationId(db: Database.Database): void {
+  const cols = new Set(
+    (db.prepare("PRAGMA table_info('array_to_mppt_mappings')").all() as { name: string }[]).map((r) => r.name),
+  );
+  if (!cols.has('location_id')) {
+    db.exec('ALTER TABLE array_to_mppt_mappings ADD COLUMN location_id TEXT REFERENCES locations(location_id);');
+  }
+
+  db.exec(`
+    UPDATE array_to_mppt_mappings
+    SET location_id = COALESCE(
+      location_id,
+      (
+        SELECT s.location_id
+        FROM pv_arrays pa
+        JOIN surfaces s ON s.surface_id = pa.surface_id
+        WHERE pa.array_id = array_to_mppt_mappings.array_id
+        LIMIT 1
+      )
+    )
+    WHERE location_id IS NULL;
+  `);
+
+  db.exec('CREATE INDEX IF NOT EXISTS array_to_mppt_mappings_location_id_idx ON array_to_mppt_mappings(location_id);');
+}
+
 function ensureLoadCircuitsConverterId(db: Database.Database): void {
   const cols = new Set(
     (db.prepare("PRAGMA table_info('load_circuits')").all() as { name: string }[]).map((r) => r.name),
@@ -337,7 +504,7 @@ function ensureLoadCircuitsConverterId(db: Database.Database): void {
         SELECT location_id
         FROM locations
         WHERE locations.project_id = lc.project_id
-        ORDER BY id
+        ORDER BY location_id
         LIMIT 1
       )),
       lc.converter_type_id,
@@ -382,7 +549,7 @@ function ensureConverterLocationId(db: Database.Database): void {
         SELECT location_id
         FROM locations
         WHERE locations.project_id = converters.project_id
-        ORDER BY id
+        ORDER BY location_id
         LIMIT 1
       )
     )
@@ -412,7 +579,7 @@ function ensureLoadCircuitLocationId(db: Database.Database): void {
         SELECT location_id
         FROM locations
         WHERE locations.project_id = load_circuits.project_id
-        ORDER BY id
+        ORDER BY location_id
         LIMIT 1
       )
     )
@@ -588,16 +755,21 @@ function dropLegacyLocationTable(db: Database.Database): void {
   const legacyCount = (db.prepare("SELECT COUNT(*) AS count FROM location").get() as { count: number } | undefined)?.count ?? 0;
   const currentCount = (db.prepare("SELECT COUNT(*) AS count FROM locations").get() as { count: number } | undefined)?.count ?? 0;
 
-  if (legacyCount > 0 && currentCount === 0) {
-    db.exec(`
-      INSERT INTO locations (id, location_id, title, country, place_name, description, notes, latitude, longitude, northing, easting, site_photo_data_url)
-      SELECT id, printf('legacy-location-%d', id), NULL, country, place_name, NULL, NULL, latitude, longitude, northing, easting, NULL
-      FROM location
-      ORDER BY id
-    `);
-  }
+  db.exec('PRAGMA foreign_keys = OFF;');
+  try {
+    if (legacyCount > 0 && currentCount === 0) {
+      db.exec(`
+        INSERT INTO locations (location_id, project_id, title, country, place_name, description, notes, latitude, longitude, northing, easting, site_photo_data_url)
+        SELECT printf('legacy-location-%d', id), '${DEFAULT_PROJECT_ID}', NULL, country, place_name, NULL, NULL, latitude, longitude, northing, easting, NULL
+        FROM location
+        ORDER BY id
+      `);
+    }
 
-  db.exec('DROP TABLE IF EXISTS location;');
+    db.exec('DROP TABLE IF EXISTS location;');
+  } finally {
+    db.exec('PRAGMA foreign_keys = ON;');
+  }
 }
 
 function dropLegacyTransitionTables(db: Database.Database): void {
@@ -717,7 +889,29 @@ function ensureBatteryBankConfigurationColumns(db: Database.Database): void {
         SELECT location_id
         FROM locations
         WHERE locations.project_id = battery_bank_configurations.project_id
-        ORDER BY id
+        ORDER BY location_id
+        LIMIT 1
+      )
+    )
+    WHERE location_id IS NULL;
+  `);
+}
+
+function ensureInverterConfigurationLocationId(db: Database.Database): void {
+  const cols = new Set((db.prepare("PRAGMA table_info('inverter_configurations')").all() as { name: string }[]).map((row) => row.name));
+  if (!cols.has('location_id')) {
+    db.exec('ALTER TABLE inverter_configurations ADD COLUMN location_id TEXT;');
+  }
+
+  db.exec(`
+    UPDATE inverter_configurations
+    SET location_id = COALESCE(
+      location_id,
+      (
+        SELECT location_id
+        FROM locations
+        WHERE locations.project_id = COALESCE(inverter_configurations.project_id, '${DEFAULT_PROJECT_ID}')
+        ORDER BY location_id
         LIMIT 1
       )
     )
@@ -819,27 +1013,258 @@ function ensureCabinetTypesColumns(db: Database.Database): void {
   }
 }
 
+type ExplicitScopeTableDefinition = {
+  tableName: string;
+  createSql: string;
+  postSql?: string;
+};
+
+function rebuildExplicitScopeTable(db: Database.Database, definition: ExplicitScopeTableDefinition): void {
+  const info = db.prepare(`PRAGMA table_info('${definition.tableName}')`).all() as Array<{ name: string; notnull: number }>;
+  const projectColumn = info.find((column) => column.name === 'project_id') ?? null;
+  const locationColumn = info.find((column) => column.name === 'location_id') ?? null;
+  const needsRebuild = !projectColumn || !locationColumn || projectColumn.notnull === 0 || locationColumn.notnull === 0;
+  const legacyTableName = `${definition.tableName}_explicit_scope_legacy`;
+  const hasLegacyTable = hasTable(db, legacyTableName);
+  if (!needsRebuild && !hasLegacyTable) {
+    return;
+  }
+
+  const targetColumnNames = info.map((column) => column.name);
+  db.exec('PRAGMA foreign_keys = OFF;');
+  try {
+    if (!needsRebuild && hasLegacyTable) {
+      db.exec(`
+        DELETE FROM ${definition.tableName};
+        INSERT INTO ${definition.tableName} (${targetColumnNames.join(', ')})
+        SELECT ${targetColumnNames.join(', ')} FROM ${legacyTableName};
+        DROP TABLE ${legacyTableName};
+        ${definition.postSql ?? ''}
+      `);
+      return;
+    }
+
+    db.exec(`
+      ALTER TABLE ${definition.tableName} RENAME TO ${legacyTableName};
+      ${definition.createSql}
+      INSERT INTO ${definition.tableName} (${targetColumnNames.join(', ')})
+      SELECT ${targetColumnNames.join(', ')} FROM ${legacyTableName};
+      DROP TABLE ${legacyTableName};
+      ${definition.postSql ?? ''}
+    `);
+  } finally {
+    db.exec('PRAGMA foreign_keys = ON;');
+  }
+}
+
+function migrateExplicitScopeTables(db: Database.Database): void {
+  const definitions: ExplicitScopeTableDefinition[] = [
+    {
+      tableName: 'surfaces',
+      createSql: `
+        CREATE TABLE surfaces (
+          id             INTEGER PRIMARY KEY AUTOINCREMENT,
+          surface_id     TEXT UNIQUE NOT NULL,
+          name           TEXT NOT NULL,
+          sort_order     INTEGER NOT NULL DEFAULT 0,
+          orientation_deg REAL NOT NULL,
+          tilt_deg       REAL NOT NULL,
+          usable_area_m2 REAL,
+          notes          TEXT,
+          photo_data_url TEXT,
+          description    TEXT,
+          area_height_m  REAL,
+          area_width_m   REAL,
+          project_id     TEXT NOT NULL REFERENCES projects(project_id),
+          location_id    TEXT NOT NULL REFERENCES locations(location_id)
+        );
+      `,
+      postSql: 'CREATE INDEX IF NOT EXISTS surfaces_location_id_idx ON surfaces(location_id);',
+    },
+    {
+      tableName: 'surface_panel_assignments',
+      createSql: `
+        CREATE TABLE surface_panel_assignments (
+          id            INTEGER PRIMARY KEY AUTOINCREMENT,
+          surface_id    TEXT NOT NULL REFERENCES surfaces(surface_id),
+          panel_type_id TEXT NOT NULL REFERENCES panel_types(panel_type_id),
+          count         INTEGER NOT NULL,
+          project_id    TEXT NOT NULL REFERENCES projects(project_id),
+          location_id   TEXT NOT NULL REFERENCES locations(location_id)
+        );
+      `,
+    },
+    {
+      tableName: 'pv_arrays',
+      createSql: `
+        CREATE TABLE pv_arrays (
+          id                INTEGER PRIMARY KEY AUTOINCREMENT,
+          array_id          TEXT UNIQUE NOT NULL,
+          surface_id        TEXT UNIQUE NOT NULL REFERENCES surfaces(surface_id),
+          name              TEXT NOT NULL,
+          panel_type_id     TEXT REFERENCES panel_types(panel_type_id),
+          panel_count       INTEGER NOT NULL DEFAULT 0,
+          panels_per_string INTEGER,
+          parallel_strings  INTEGER,
+          installed_wp      REAL NOT NULL DEFAULT 0,
+          notes             TEXT,
+          project_id        TEXT NOT NULL REFERENCES projects(project_id),
+          location_id       TEXT NOT NULL REFERENCES locations(location_id)
+        );
+      `,
+    },
+    {
+      tableName: 'pv_strings',
+      createSql: `
+        CREATE TABLE pv_strings (
+          id             INTEGER PRIMARY KEY AUTOINCREMENT,
+          string_id      TEXT UNIQUE NOT NULL,
+          array_id       TEXT NOT NULL REFERENCES pv_arrays(array_id),
+          surface_id     TEXT NOT NULL REFERENCES surfaces(surface_id),
+          string_index   INTEGER NOT NULL,
+          panel_type_id  TEXT REFERENCES panel_types(panel_type_id),
+          panel_count    INTEGER NOT NULL,
+          project_id     TEXT NOT NULL REFERENCES projects(project_id),
+          location_id    TEXT NOT NULL REFERENCES locations(location_id)
+        );
+      `,
+    },
+    {
+      tableName: 'array_to_mppt_mappings',
+      createSql: `
+        CREATE TABLE array_to_mppt_mappings (
+          id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+          mapping_id            TEXT UNIQUE NOT NULL,
+          array_id              TEXT UNIQUE NOT NULL REFERENCES pv_arrays(array_id),
+          selected_mppt_type_id  TEXT REFERENCES mppt_types(mppt_type_id),
+          project_id            TEXT NOT NULL REFERENCES projects(project_id),
+          location_id           TEXT NOT NULL REFERENCES locations(location_id)
+        );
+      `,
+      postSql: 'CREATE INDEX IF NOT EXISTS array_to_mppt_mappings_location_id_idx ON array_to_mppt_mappings(location_id);',
+    },
+    {
+      tableName: 'surface_configurations',
+      createSql: `
+        CREATE TABLE surface_configurations (
+          id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+          surface_id            TEXT UNIQUE NOT NULL REFERENCES surfaces(surface_id),
+          panels_per_string     INTEGER,
+          parallel_strings      INTEGER,
+          selected_mppt_type_id TEXT REFERENCES mppt_types(mppt_type_id),
+          project_id            TEXT NOT NULL REFERENCES projects(project_id),
+          location_id           TEXT NOT NULL REFERENCES locations(location_id)
+        );
+      `,
+    },
+    {
+      tableName: 'battery_bank_configurations',
+      createSql: `
+        CREATE TABLE battery_bank_configurations (
+          id                        INTEGER PRIMARY KEY AUTOINCREMENT,
+          battery_bank_id           TEXT UNIQUE NOT NULL,
+          selected_battery_type_id  TEXT REFERENCES battery_types(battery_type_id),
+          configured_battery_count  INTEGER NOT NULL DEFAULT 1,
+          batteries_per_string      INTEGER NOT NULL DEFAULT 1,
+          parallel_strings          INTEGER NOT NULL DEFAULT 1,
+          title                     TEXT,
+          description               TEXT,
+          image_data_url            TEXT,
+          notes                     TEXT,
+          selected_cabinet_type_id  TEXT REFERENCES cabinet_types(cabinet_type_id),
+          selected_dc_busbar_id     TEXT REFERENCES dc_busbars(dc_busbar_id) ON DELETE SET NULL,
+          project_id                TEXT NOT NULL REFERENCES projects(project_id),
+          location_id               TEXT NOT NULL REFERENCES locations(location_id)
+        );
+      `,
+    },
+    {
+      tableName: 'inverter_configurations',
+      createSql: `
+        CREATE TABLE inverter_configurations (
+          id                         INTEGER PRIMARY KEY AUTOINCREMENT,
+          inverter_configuration_id  TEXT UNIQUE NOT NULL,
+          selected_inverter_type_id   TEXT REFERENCES inverter_types(inverter_id),
+          title                      TEXT,
+          description                TEXT,
+          image_data_url             TEXT,
+          notes                      TEXT,
+          selected_cabinet_type_id    TEXT REFERENCES cabinet_types(cabinet_type_id),
+          selected_dc_busbar_id       TEXT REFERENCES dc_busbars(dc_busbar_id) ON DELETE SET NULL,
+          project_id                  TEXT NOT NULL REFERENCES projects(project_id),
+          location_id                 TEXT NOT NULL REFERENCES locations(location_id)
+        );
+      `,
+    },
+    {
+      tableName: 'load_circuits',
+      createSql: `
+        CREATE TABLE load_circuits (
+          id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+          load_circuit_id        TEXT UNIQUE NOT NULL,
+          project_id             TEXT NOT NULL REFERENCES projects(project_id),
+          location_id            TEXT NOT NULL REFERENCES locations(location_id),
+          converter_id           TEXT REFERENCES converters(converter_id),
+          converter_type_id      TEXT NOT NULL REFERENCES converter_types(converter_type_id),
+          title                  TEXT NOT NULL,
+          description            TEXT
+        );
+      `,
+    },
+    {
+      tableName: 'loads',
+      createSql: `
+        CREATE TABLE loads (
+          id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+          load_id                TEXT UNIQUE NOT NULL,
+          load_circuit_id        TEXT NOT NULL REFERENCES load_circuits(load_circuit_id),
+          title                  TEXT NOT NULL,
+          description            TEXT,
+          nominal_current_a      REAL,
+          nominal_power_w        REAL,
+          startup_current_a      REAL,
+          surge_power_w          REAL,
+          standby_power_w        REAL,
+          expected_usage_hours_per_day REAL NOT NULL,
+          daily_energy_kwh       REAL,
+          duty_profile           TEXT,
+          notes                  TEXT,
+          usage_kw               REAL NOT NULL,
+          spike_kw               REAL NOT NULL,
+          sleeping_kw            REAL NOT NULL,
+          project_id             TEXT NOT NULL REFERENCES projects(project_id),
+          location_id            TEXT NOT NULL REFERENCES locations(location_id)
+        );
+      `,
+    },
+  ];
+
+  for (const definition of definitions) {
+    rebuildExplicitScopeTable(db, definition);
+  }
+}
+
 export function initSchema(db: Database.Database): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS locations (
-      id        INTEGER PRIMARY KEY AUTOINCREMENT,
-      location_id TEXT UNIQUE NOT NULL,
-      title     TEXT,
-      country   TEXT NOT NULL,
-      place_name TEXT NOT NULL,
+      location_id TEXT PRIMARY KEY,
+      project_id  TEXT NOT NULL REFERENCES projects(project_id),
+      title       TEXT,
+      country     TEXT NOT NULL,
+      place_name  TEXT NOT NULL,
       description TEXT,
-      notes     TEXT,
-      latitude  REAL NOT NULL,
-      longitude REAL NOT NULL,
-      northing  REAL,
-      easting   REAL,
+      notes       TEXT,
+      latitude    REAL NOT NULL,
+      longitude   REAL NOT NULL,
+      northing    REAL,
+      easting     REAL,
       site_photo_data_url TEXT
     );
 
     CREATE TABLE IF NOT EXISTS surfaces (
       id             INTEGER PRIMARY KEY AUTOINCREMENT,
-      project_id     TEXT REFERENCES projects(project_id),
-      location_id    TEXT,
+      project_id     TEXT NOT NULL REFERENCES projects(project_id),
+      location_id    TEXT NOT NULL REFERENCES locations(location_id),
       surface_id     TEXT UNIQUE NOT NULL,
       name           TEXT NOT NULL,
       description    TEXT,
@@ -894,6 +1319,8 @@ export function initSchema(db: Database.Database): void {
 
     CREATE TABLE IF NOT EXISTS surface_panel_assignments (
       id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id    TEXT NOT NULL REFERENCES projects(project_id),
+      location_id   TEXT NOT NULL REFERENCES locations(location_id),
       surface_id    TEXT NOT NULL REFERENCES surfaces(surface_id),
       panel_type_id TEXT NOT NULL REFERENCES panel_types(panel_type_id),
       count         INTEGER NOT NULL
@@ -903,6 +1330,8 @@ export function initSchema(db: Database.Database): void {
       id               INTEGER PRIMARY KEY AUTOINCREMENT,
       array_id         TEXT UNIQUE NOT NULL,
       surface_id       TEXT UNIQUE NOT NULL REFERENCES surfaces(surface_id),
+      project_id       TEXT NOT NULL REFERENCES projects(project_id),
+      location_id      TEXT NOT NULL REFERENCES locations(location_id),
       name             TEXT NOT NULL,
       panel_type_id    TEXT REFERENCES panel_types(panel_type_id),
       panel_count      INTEGER NOT NULL DEFAULT 0,
@@ -917,6 +1346,8 @@ export function initSchema(db: Database.Database): void {
       string_id      TEXT UNIQUE NOT NULL,
       array_id       TEXT NOT NULL REFERENCES pv_arrays(array_id),
       surface_id     TEXT NOT NULL REFERENCES surfaces(surface_id),
+      project_id     TEXT NOT NULL REFERENCES projects(project_id),
+      location_id    TEXT NOT NULL REFERENCES locations(location_id),
       string_index   INTEGER NOT NULL,
       panel_type_id  TEXT REFERENCES panel_types(panel_type_id),
       panel_count    INTEGER NOT NULL
@@ -926,12 +1357,16 @@ export function initSchema(db: Database.Database): void {
       id                        INTEGER PRIMARY KEY AUTOINCREMENT,
       mapping_id                TEXT UNIQUE NOT NULL,
       array_id                  TEXT UNIQUE NOT NULL REFERENCES pv_arrays(array_id),
+      project_id                TEXT NOT NULL REFERENCES projects(project_id),
+      location_id               TEXT NOT NULL REFERENCES locations(location_id),
       selected_mppt_type_id     TEXT REFERENCES mppt_types(mppt_type_id)
     );
 
     CREATE TABLE IF NOT EXISTS surface_configurations (
       id                    INTEGER PRIMARY KEY AUTOINCREMENT,
       surface_id            TEXT UNIQUE NOT NULL REFERENCES surfaces(surface_id),
+      project_id            TEXT NOT NULL REFERENCES projects(project_id),
+      location_id           TEXT NOT NULL REFERENCES locations(location_id),
       panels_per_string     INTEGER,
       parallel_strings      INTEGER,
       selected_mppt_type_id TEXT REFERENCES mppt_types(mppt_type_id)
@@ -946,7 +1381,7 @@ export function initSchema(db: Database.Database): void {
 
     CREATE TABLE IF NOT EXISTS battery_bank_configurations (
       id                       INTEGER PRIMARY KEY AUTOINCREMENT,
-      project_id               TEXT REFERENCES projects(project_id),
+      project_id               TEXT NOT NULL REFERENCES projects(project_id),
       location_id              TEXT NOT NULL REFERENCES locations(location_id),
       battery_bank_id          TEXT UNIQUE NOT NULL,
       title                    TEXT,
@@ -1023,6 +1458,8 @@ export function initSchema(db: Database.Database): void {
     CREATE TABLE IF NOT EXISTS inverter_configurations (
       id                        INTEGER PRIMARY KEY AUTOINCREMENT,
       inverter_configuration_id TEXT UNIQUE NOT NULL,
+      project_id                TEXT NOT NULL REFERENCES projects(project_id),
+      location_id               TEXT NOT NULL REFERENCES locations(location_id),
       selected_inverter_type_id  TEXT REFERENCES inverter_types(inverter_id),
       selected_cabinet_type_id   TEXT REFERENCES cabinet_types(cabinet_type_id),
       selected_dc_busbar_id      TEXT REFERENCES dc_busbars(dc_busbar_id) ON DELETE SET NULL
@@ -1060,6 +1497,7 @@ export function initSchema(db: Database.Database): void {
     CREATE TABLE IF NOT EXISTS load_circuits (
       id                     INTEGER PRIMARY KEY AUTOINCREMENT,
       load_circuit_id        TEXT UNIQUE NOT NULL,
+      project_id             TEXT NOT NULL REFERENCES projects(project_id),
       location_id            TEXT NOT NULL REFERENCES locations(location_id),
       converter_id   TEXT REFERENCES converters(converter_id),
       converter_type_id   TEXT NOT NULL REFERENCES converter_types(converter_type_id),
@@ -1070,6 +1508,7 @@ export function initSchema(db: Database.Database): void {
     CREATE TABLE IF NOT EXISTS loads (
       id                     INTEGER PRIMARY KEY AUTOINCREMENT,
       load_id                TEXT UNIQUE NOT NULL,
+      project_id             TEXT NOT NULL REFERENCES projects(project_id),
       location_id            TEXT NOT NULL REFERENCES locations(location_id),
       load_circuit_id        TEXT NOT NULL REFERENCES load_circuits(load_circuit_id),
       title                  TEXT NOT NULL,
@@ -1092,6 +1531,9 @@ export function initSchema(db: Database.Database): void {
 
   ensureLocationColumns(db);
   ensureLocationIdentity(db);
+  ensureProjectsTable(db);
+  migrateLegacyDefaultProjectId(db);
+  ensureProjectId(db, 'locations');
   dropLegacyLocationTable(db);
   ensureSurfaceColumns(db);
   ensureDcBusbarColumns(db);
@@ -1108,18 +1550,21 @@ export function initSchema(db: Database.Database): void {
   // Phase 1 multi-project: add projects table and project_id to all project-scoped
   // tables. Catalog tables (panel_types, mppt_types, battery_types, inverter_types,
   // cabinet_types, converter_types, dc_busbars) stay global and are not scoped.
-  ensureProjectsTable(db);
-  migrateLegacyDefaultProjectId(db);
-  ensureProjectId(db, 'locations');
   ensureBatteryBankConfigurationColumns(db);
   ensureProjectId(db, 'surfaces');
   ensureSurfaceLocationId(db);
+  ensureSurfaceScopedLocationId(db, 'surface_panel_assignments');
+  ensureSurfaceScopedLocationId(db, 'pv_arrays');
+  ensureSurfaceScopedLocationId(db, 'pv_strings');
+  ensureArrayScopedLocationId(db);
+  ensureSurfaceScopedLocationId(db, 'surface_configurations');
   ensureProjectId(db, 'surface_panel_assignments');
   ensureProjectId(db, 'pv_arrays');
   ensureProjectId(db, 'pv_strings');
   ensureProjectId(db, 'array_to_mppt_mappings');
   ensureProjectId(db, 'surface_configurations');
   ensureProjectId(db, 'inverter_configurations');
+  ensureInverterConfigurationLocationId(db);
   ensureProjectId(db, 'converters');
   ensureProjectId(db, 'load_circuits');
   ensureProjectId(db, 'loads');
@@ -1130,6 +1575,7 @@ export function initSchema(db: Database.Database): void {
   ensureLoadCircuitLocationId(db);
   ensureLoadColumns(db);
   ensureLoadLocationId(db);
+  migrateExplicitScopeTables(db);
   seedSurfaces(db);
   seedPanelTypes(db);
   seedMpptTypes(db);
@@ -1138,6 +1584,7 @@ export function initSchema(db: Database.Database): void {
   seedSurfacePanelAssignments(db);
   seedInverterTypes(db);
   seedInverterConfigurations(db);
+  migrateLocationsPrimaryKey(db);
   // PV topology rows are derived data. Skip rebuilding them at startup so
   // legacy production data can still boot and be repaired in-app.
 }
