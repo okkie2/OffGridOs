@@ -2,6 +2,7 @@
 
 ## 2026-05-02
 
+- Added a focused converter persistence regression that saves the full Consumption converter field set, reloads the app, and verifies the converter remains editable with title, description, and device selection intact.
 - Stabilized the load persistence coverage scenario so the full-field regression now uses the preset-backed test path reliably.
 - Removed the obsolete `Reports` routing task from `TODO.md` after confirming `Verdict summary` and `Cost summary` already live under the Reports area.
 - Removed the PV-topology AC-side modeling placeholder from `TODO.md` after confirming the current Surface workbench already exposes the intended user-facing PV controls and no raw derived-topology editor is present.

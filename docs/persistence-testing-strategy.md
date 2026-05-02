@@ -228,6 +228,21 @@ Test categories:
 - selected inverter type must exist
 - optional text and image can be cleared
 
+### Consumption converter
+
+Save contract:
+
+- title
+- description
+- selected converter type
+
+Test categories:
+
+- all fields persist
+- selected converter type must exist
+- edit existing values
+- clear optional text fields
+
 ### Load circuits
 
 Save contract:

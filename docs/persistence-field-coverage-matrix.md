@@ -109,6 +109,18 @@ Route:
 | Inverter | About and configuration | Image | `image_data_url` | yes | `data:image/png;base64,...` | non-string payload | integration + bdd + audit | Verify upload and removal |
 | Inverter | About and configuration | Notes | `notes` | yes | `Check peak loads against pump startup` | numeric payload | integration + bdd + audit | Optional text field |
 
+## Consumption converter
+
+Route:
+
+- `PUT /api/converters/:converterId`
+
+| Page | Save box | Field label | Persisted property | Clear allowed | Valid example | Invalid example | Primary automated coverage | Notes |
+|---|---|---|---|---|---|---|---|---|
+| Consumption | Converter details | Title | `title` | no | `Kitchen inverter` | empty string | integration + bdd + audit | Required |
+| Consumption | Converter details | Description | `description` | yes | `AC loads in kitchen and utility room` | numeric payload | integration + bdd + audit | Optional text field |
+| Consumption | Converter details | Device | `converter_type_id` | no | `victron-mrs-48-6000-100-450-100` | unknown id | integration + bdd + rule + audit | Required and must exist |
+
 ## Load circuits
 
 Route:

@@ -110,6 +110,21 @@ Feature: Persistence field coverage
     And I open Inverter array from the menu
     Then the inverter image should still be visible
 
+  Scenario: Save and reload the full converter field set
+    Given OffGridOS is rendered with project data
+    When I open Consumption from the menu
+    And I open Converters from the Consumption overview
+    And I add a converter on the Consumption page
+    And I title the last converter "Kitchen inverter" on the Consumption page
+    And I set the converter description to "AC loads in kitchen and utility room"
+    And I choose the last converter device on the Consumption page
+    And I save the converter on the Consumption page
+    Then the converter should persist the full field set
+    When I reload OffGridOS
+    And I open Consumption from the menu
+    And I open Converters from the Consumption overview
+    Then the converter should persist the full field set
+
   Scenario: Save and reload the full load circuit field set
     Given a movable load setup exists for the loads page
     And OffGridOS is rendered on the load circuits page

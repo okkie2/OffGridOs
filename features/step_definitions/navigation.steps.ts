@@ -60,6 +60,7 @@ class NavigationWorld extends World {
   latestEnteredBatteryCatalogModel = '';
   latestSelectedConsumptionConverterId = '';
   latestSelectedConsumptionConverterTitle = '';
+  latestSelectedConsumptionConverterDeviceId = '';
   latestCreatedLoadCircuitTitle = '';
   latestCreatedLoadCircuitDescription = '';
   latestCreatedLoadCircuitLocationId = '';
@@ -516,7 +517,7 @@ class NavigationWorld extends World {
             title,
             description,
             converter_type_id: conversionDeviceId,
-          });
+          }, this.resolveProjectId(db), locationId);
           this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), this.resolveProjectId(db));
           return new Response(JSON.stringify(this.projectData), { status: 201, headers: { 'Content-Type': 'application/json' } });
         } finally {
@@ -545,7 +546,7 @@ class NavigationWorld extends World {
             title,
             description,
             converter_type_id: conversionDeviceId,
-          });
+          }, this.resolveProjectId(db), locationId);
           this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), this.resolveProjectId(db));
           return new Response(JSON.stringify(this.projectData), { status: 200, headers: { 'Content-Type': 'application/json' } });
         } finally {
@@ -1566,6 +1567,7 @@ class NavigationWorld extends World {
       throw new Error('Navigation test DOM is not ready.');
     }
 
+    await this.waitForText('Add converter');
     const addButton = Array.from(this.dom.window.document.querySelectorAll('button'))
       .find((node) => node.textContent?.trim() === 'Add converter') as HTMLElement | undefined;
     if (!addButton) {
@@ -2005,6 +2007,79 @@ class NavigationWorld extends World {
     });
   }
 
+  async setConsumptionConverterDescription(description: string): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const card = Array.from(this.dom.window.document.querySelectorAll('.consumption-selection-card')).at(-1) as HTMLElement | undefined;
+    const descriptionInput = card?.querySelectorAll('input').item(1) as HTMLInputElement | undefined;
+    if (!descriptionInput) {
+      throw new Error('Could not find the converter description input on the Consumption page.');
+    }
+
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(this.dom.window.HTMLInputElement.prototype, 'value')?.set;
+      if (!setter) {
+        throw new Error('Could not find value setter for the converter description input.');
+      }
+
+      setter.call(descriptionInput, description);
+      descriptionInput.dispatchEvent(new this.dom.window.InputEvent('input', {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        data: description,
+        inputType: 'insertText',
+      }));
+      descriptionInput.dispatchEvent(new this.dom.window.Event('input', { bubbles: true }));
+      descriptionInput.dispatchEvent(new this.dom.window.Event('change', { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  }
+
+  async chooseLastConsumptionConverterDevice(): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const select = await this.waitForPageFieldControl('Device');
+    if (!(select instanceof this.dom.window.HTMLSelectElement)) {
+      throw new Error('The converter device field is not a select.');
+    }
+
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline && select.options.length === 0) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    const option = select.options[select.options.length - 1];
+    if (!option) {
+      throw new Error('No converter device options are available on the Consumption page.');
+    }
+
+    this.latestSelectedConsumptionConverterDeviceId = option.value;
+    await act(async () => {
+      select.value = option.value;
+      select.dispatchEvent(new this.dom.window.Event('input', { bubbles: true }));
+      select.dispatchEvent(new this.dom.window.Event('change', { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    const enableDeadline = Date.now() + 10_000;
+    while (Date.now() < enableDeadline) {
+      const card = Array.from(this.dom.window.document.querySelectorAll('.consumption-selection-card')).at(-1);
+      const saveButton = card
+        ? Array.from(card.querySelectorAll('button')).find((node) => node.textContent?.trim() === 'Save') as HTMLButtonElement | undefined
+        : undefined;
+      if (saveButton && !saveButton.disabled) {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+
+    throw new Error('Timed out waiting for the converter Save button to become enabled.');
+  }
+
   async saveConsumptionConverter(): Promise<void> {
     if (!this.dom) {
       throw new Error('Navigation test DOM is not ready.');
@@ -2025,12 +2100,83 @@ class NavigationWorld extends World {
       }));
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-
-    await this.waitForText(this.latestSelectedConsumptionConverterTitle);
-    const projectConverter = this.projectData?.entities.project_converters.find((converter) => converter.title === this.latestSelectedConsumptionConverterTitle);
+    const projectConverter = this.projectData?.entities.converters?.find((converter) =>
+      converter.title === this.latestSelectedConsumptionConverterTitle,
+    );
     if (projectConverter) {
       this.latestSelectedConsumptionConverterId = projectConverter.converter_id;
     }
+  }
+
+  async assertConsumptionConverterInDatabase(expected: {
+    title?: string;
+    description?: string;
+    converterTypeId?: string;
+  }): Promise<void> {
+    const deadline = Date.now() + 10_000;
+    let lastError: Error | null = null;
+
+    while (Date.now() < deadline) {
+      const db = openDb(this.requireDbPath());
+      try {
+        const projectId = this.resolveProjectId(db);
+        const converters = listProjectConverters(db, projectId);
+        const row = converters.find((item) => {
+          if (expected.title !== undefined && item.title !== expected.title) return false;
+          if (expected.description !== undefined && (item.description ?? '') !== expected.description) return false;
+          if (expected.converterTypeId !== undefined && item.converter_type_id !== expected.converterTypeId) return false;
+          return true;
+        }) ?? null;
+
+        if (!row) {
+          throw new Error(`Converter with expected values was not found. Existing converters: ${JSON.stringify(converters, null, 2)}`);
+        }
+        return;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+      } finally {
+        db.close();
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+
+    throw lastError ?? new Error('Timed out waiting for converter to persist.');
+  }
+
+  async assertConsumptionConverterInDatabase(expected: {
+    title?: string;
+    description?: string;
+    converterTypeId?: string;
+  }): Promise<void> {
+    const deadline = Date.now() + 10_000;
+    let lastError: Error | null = null;
+
+    while (Date.now() < deadline) {
+      const db = openDb(this.requireDbPath());
+      try {
+        const projectId = this.resolveProjectId(db);
+        const row = listProjectConverters(db, projectId).find((item) => {
+          if (expected.title !== undefined && item.title !== expected.title) return false;
+          if (expected.description !== undefined && (item.description ?? '') !== expected.description) return false;
+          if (expected.converterTypeId !== undefined && item.converter_type_id !== expected.converterTypeId) return false;
+          return true;
+        }) ?? null;
+
+        if (!row) {
+          throw new Error('Converter with expected values was not found.');
+        }
+        return;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+      } finally {
+        db.close();
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+
+    throw lastError ?? new Error('Timed out waiting for converter to persist.');
   }
 
   async addLoadOnCircuitPage(): Promise<void> {
@@ -3793,6 +3939,14 @@ When('I add a converter on the Consumption page', async function () {
   await this.addConverterOnConsumptionPage();
 });
 
+When('I set the converter description to {string}', async function (description: string) {
+  await this.setConsumptionConverterDescription(description);
+});
+
+When('I choose the last converter device on the Consumption page', async function () {
+  await this.chooseLastConsumptionConverterDevice();
+});
+
 When('I choose the last converter on the Load circuits page', async function () {
   if (!this.dom) {
     throw new Error('Navigation test DOM is not ready.');
@@ -3900,6 +4054,14 @@ When('I title the last converter {string} on the Consumption page', async functi
 
 When('I save the converter on the Consumption page', async function () {
   await this.saveConsumptionConverter();
+});
+
+Then('the converter should persist the full field set', async function () {
+  return this.assertConsumptionConverterInDatabase({
+    title: 'Kitchen inverter',
+    description: 'AC loads in kitchen and utility room',
+    converterTypeId: this.latestSelectedConsumptionConverterDeviceId || undefined,
+  });
 });
 
 When('I add a load on the circuit page', async function () {
