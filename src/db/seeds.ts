@@ -282,7 +282,7 @@ const INVERTER_TYPES: Array<{
 ];
 
 const ORION_CONVERSION_DEVICES: Array<{
-  conversion_device_id: string;
+  converter_type_id: string;
   title: string;
   description: string;
   device_type: 'dc_dc_converter';
@@ -302,7 +302,7 @@ const ORION_CONVERSION_DEVICES: Array<{
   notes: string;
 }> = [
   {
-    conversion_device_id: 'victron-orion-tr-48-12-20',
+    converter_type_id: 'victron-orion-tr-48-12-20',
     title: 'Orion-Tr 48/12-20A',
     description: 'Victron Orion-Tr Smart isolated DC-DC converter for a 48 V battery stack feeding 12 V loads.',
     device_type: 'dc_dc_converter',
@@ -322,7 +322,7 @@ const ORION_CONVERSION_DEVICES: Array<{
     notes: 'Good fit for lighter 12 V loads from a 48 V battery stack, such as a pump and a smaller fridge duty cycle.',
   },
   {
-    conversion_device_id: 'victron-orion-tr-48-12-9',
+    converter_type_id: 'victron-orion-tr-48-12-9',
     title: 'Orion-Tr 48/12-9A',
     description: 'Victron Orion-Tr isolated DC-DC converter for a 48 V battery stack feeding lighter 12 V loads.',
     device_type: 'dc_dc_converter',
@@ -342,7 +342,7 @@ const ORION_CONVERSION_DEVICES: Array<{
     notes: 'Smallest Orion option in the catalog. Good for a 12 V pump and lighter auxiliary loads from a 48 V battery stack.',
   },
   {
-    conversion_device_id: 'victron-orion-tr-48-12-30',
+    converter_type_id: 'victron-orion-tr-48-12-30',
     title: 'Orion-Tr 48/12-30A',
     description: 'Victron Orion-Tr Smart isolated DC-DC converter for a 48 V battery stack feeding 12 V loads.',
     device_type: 'dc_dc_converter',
@@ -827,14 +827,14 @@ export function seedInverterTypes(db: Database.Database): void {
 
 export function seedConversionDevices(db: Database.Database): void {
   const insert = db.prepare(`
-    INSERT OR IGNORE INTO conversion_devices
-      (conversion_device_id, title, description, device_type, input_voltage_v, output_voltage_v, continuous_power_w, peak_power_va, max_charge_current_a, efficiency_pct, output_ac_voltage_v, frequency_hz, surge_power_w, output_dc_voltage_v, max_output_current_a, price, price_source_url, notes)
+    INSERT OR IGNORE INTO converter_types
+      (converter_type_id, title, description, device_type, input_voltage_v, output_voltage_v, continuous_power_w, peak_power_va, max_charge_current_a, efficiency_pct, output_ac_voltage_v, frequency_hz, surge_power_w, output_dc_voltage_v, max_output_current_a, price, price_source_url, notes)
     VALUES
-      (@conversion_device_id, @title, @description, @device_type, @input_voltage_v, @output_voltage_v, @continuous_power_w, @peak_power_va, @max_charge_current_a, @efficiency_pct, @output_ac_voltage_v, @frequency_hz, @surge_power_w, @output_dc_voltage_v, @max_output_current_a, @price, @price_source_url, @notes)
+      (@converter_type_id, @title, @description, @device_type, @input_voltage_v, @output_voltage_v, @continuous_power_w, @peak_power_va, @max_charge_current_a, @efficiency_pct, @output_ac_voltage_v, @frequency_hz, @surge_power_w, @output_dc_voltage_v, @max_output_current_a, @price, @price_source_url, @notes)
   `);
 
   const update = db.prepare(`
-    UPDATE conversion_devices
+    UPDATE converter_types
     SET
       title = COALESCE(title, @title),
       description = COALESCE(description, @description),
@@ -853,13 +853,13 @@ export function seedConversionDevices(db: Database.Database): void {
       price = COALESCE(price, @price),
       price_source_url = COALESCE(price_source_url, @price_source_url),
       notes = COALESCE(notes, @notes)
-    WHERE conversion_device_id = @conversion_device_id
+    WHERE converter_type_id = @converter_type_id
   `);
 
   const insertAll = db.transaction((rows: typeof INVERTER_TYPES) => {
     for (const row of rows) {
       const payload = {
-        conversion_device_id: row.inverter_id,
+        converter_type_id: row.inverter_id,
         title: row.model,
         description: row.notes ?? null,
         device_type: 'inverter',

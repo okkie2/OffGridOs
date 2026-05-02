@@ -23,11 +23,13 @@ The local interactive app must have:
 - one production-style local entrypoint: `npm run start`
 - no alternate interactive localhost port for manual use
 
+This is a hard rule for all development work in OffGridOS. Do not treat it as a soft guideline.
+
 ## Rules
 
 1. Treat `http://127.0.0.1:3000` as the only supported manual browser URL.
-2. Do not introduce a second documented manual app URL such as `6001`.
-3. If development needs multiple processes internally, keep extra ports internal-only and undocumented for manual browsing.
+2. Do not introduce a second documented manual app URL.
+3. Keep any extra development ports internal-only and undocumented for manual browsing.
 4. Add or preserve startup guards that refuse to launch if the canonical port is already occupied.
 5. Prefer one wrapper command that starts the full local experience instead of expecting the user to compose multiple raw commands.
 6. When touching docs, scripts, tests, or agent guidance, keep all local-run instructions aligned with the canonical URL.

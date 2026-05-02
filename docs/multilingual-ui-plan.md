@@ -31,10 +31,9 @@ This plan does not require:
 
 ## Current Situation
 
-- The UI text is mostly hardcoded in [web/src/App.tsx](/Users/joostokkinga/Code/OffGridOS/web/src/App.tsx).
-- There is no current i18n framework or translation layer.
-- The main frontend file is large, so string extraction will be the largest part of the work.
-- BDD tests currently assert English UI text. We will keep that by forcing the BDD app runtime to English.
+- The multilingual foundation is in place via `web/src/i18n.tsx`, with translation dictionaries for `en`, `nl`, and `fy`.
+- The main frontend file is large; full string extraction and coverage across all pages is ongoing.
+- BDD tests currently assert English UI text. We keep that by forcing the BDD app runtime to English.
 
 ## Recommended Approach
 
@@ -61,7 +60,7 @@ Recommended behavior:
 
 ### 1. Keep routes stable
 
-Do not translate route fragments like `#/location` or `#/battery-array`.
+Do not translate route fragments. The app uses clean deeplinkable routes (e.g. `/:lang/:locationSlug/production`). Route segments such as `/location`, `/production`, and `/storage` are not translated.
 
 Reason:
 
@@ -153,8 +152,8 @@ Recommended order:
 1. Location
 2. Surface detail
 3. Production
-4. Battery array
-5. Inverter array
+4. Storage
+5. Consumption
 
 Tasks per page:
 

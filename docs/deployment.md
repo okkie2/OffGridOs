@@ -138,15 +138,15 @@ For normal work:
 
 ### Publish command
 
-Use the built-in local command to publish `project.db` to Railway:
+Use the publish CLI script (`scripts/publish-db.ts`) to upload `project.db` to Railway:
 
 ```bash
 npm run publish:db
 ```
 
-The command validates the local SQLite file first. It uses `DATABASE_PUBLISH_TOKEN` from your shell when available, and otherwise falls back to the Railway CLI variables for the `OffGridOs` / `production` service.
+The script validates that the local file is a real SQLite database, then POSTs it to `/api/admin/publish-database`. It reads `DATABASE_PUBLISH_TOKEN` from your shell and falls back to reading it from Railway CLI variables (`OffGridOs` / `production`) when the env var is not set.
 
-If you prefer the raw HTTP call, publish the local database with:
+If you prefer the raw HTTP call instead:
 
 ```bash
 curl -X POST \
@@ -200,12 +200,13 @@ If Vimexx refuses the root `ALIAS` again, fall back to `www.offgridos.eu` as the
 
 This setup is a good fit while OffGridOS remains:
 
-- single-project
 - single-user
 - single-instance
 - low traffic
 - low concurrency
 - centered on one small SQLite-backed project dataset
+
+Multi-project isolation has shipped: multiple independent projects can be created and managed within the same instance.
 
 ## What the server is responsible for
 

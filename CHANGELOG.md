@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 2026-05-02
+
+- Documented the table-id rule so future table work should prefer table-derived primary keys and matching foreign keys instead of bare `id` columns.
+- Normalized the converter-family foreign-key columns to `converter_id` and `converter_type_id` across the schema, app, export shape, and docs.
+- Renamed the exported converter data shape to `converter_types` and `converters`, and removed the last converter fallback reads from the frontend.
+- Removed the legacy `arrays` and `strings` fallback shapes from the frontend and digital-twin export so the app now reads and emits only `pv_arrays` and `pv_strings`.
+- Retired the legacy PV and roof transition tables (`arrays`, `strings`, `preferences`, `roof_faces`, `roof_panels`, `roof_face_configurations`) from the schema migration so only the canonical tables remain.
+- Removed the legacy cleanup ports from `stop:app` support so the local-runtime helper only knows about the canonical `3000`/`3001` pair.
+- Removed the public `npm run dev:web` alias and tightened the local-runtime docs so `http://127.0.0.1:3000` remains the only manual browser URL.
+- Hardened the single-instance local runtime rule across AGENTS, README, local-runtime docs, and the enforcing skill so `http://127.0.0.1:3000` remains the only manual app URL.
+- Added an app-wide stabilization plan to document page-state ownership, project/location scope rules, timestamp conventions, and the table-naming review path.
+- Updated the navigation and boundary docs so remembered workbench state is explicitly location-scoped across all pages.
+- Merged the schema sketch into the main database note, added a database naming review, and kept the schema documentation as a single source of truth.
+- Renamed the converter catalog and project-instance tables to `converter_types` and `converters`, and aligned the canonical language with `Converter type` and `Converter`.
+
 ## 2026-05-01 (continued)
 
 - Wired full multi-project isolation through the backend: added `Project` type, `projects` CRUD queries, and project-scoped filtering for all project-scoped tables (surfaces, locations, loads, load circuits, project converters, battery banks, inverter configs, surface configurations, PV topology, and project preferences).

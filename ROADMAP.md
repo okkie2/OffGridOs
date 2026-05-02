@@ -26,7 +26,7 @@ The deployment docs explicitly call this out as a single-instance, single-user s
 
 - Add a `projects` table: `(project_id, title, created_at)`
 - Introduce a real `locations` boundary under each project
-- Move location-specific tables and fields to `location_id` where appropriate
+- Move location-specific tables and fields to `location_id` where appropriate, including the load-side (Consumption) operational setup for converters, load circuits, and loads
 - Keep shared catalogue tables scoped to `project_id`
 - Update all API routes to carry both project and location context where needed
 - Update the frontend URL scheme to make project and location explicit

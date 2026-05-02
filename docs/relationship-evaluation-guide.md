@@ -45,7 +45,7 @@ Use `outside_limits` only for hard violations or incompatibilities.
 Allowed values:
 
 - `optimal`
-- `acceptable`
+- `fully_utilized`
 - `clipping_expected`
 - `underutilized`
 
@@ -153,7 +153,7 @@ For example:
 - `winter_biased_configuration`
 
 These should not force `outside_limits`.
-They belong under `within_limits` with a fit status such as `clipping_expected` or `acceptable`.
+They belong under `within_limits` with a fit status such as `clipping_expected` or `fully_utilized`.
 
 ## UI guidance
 

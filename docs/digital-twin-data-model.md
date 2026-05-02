@@ -60,13 +60,13 @@ Key fields:
 - `price`
 - `notes`
 
-### String
+### PvString
 
 Represents one series-connected set of panels.
 
 Key fields:
 
-- `string_id`
+- `pv_string_id`
 - `surface_id`
 - `panel_type_id`
 - `panel_count`
@@ -74,13 +74,13 @@ Key fields:
 - `derived_current_a`
 - `derived_power_wp`
 
-### Array
+### PvArray
 
 Represents one PV grouping connected to one MPPT.
 
 Key fields:
 
-- `array_id`
+- `pv_array_id`
 - `surface_id`
 - `name`
 - `string_ids`
@@ -135,7 +135,6 @@ Represents one inverter or inverter/charger in the design.
 
 Key fields:
 
-- `inverter_id`
 - `inverter_type_id`
 - `model`
 - `input_voltage_v`
@@ -249,13 +248,15 @@ That means a room or socket group can be a `load` if it is being modeled as one 
 
 Relationships should be explicit model objects, not only implied by foreign keys.
 
+See [digital-twin-types.md](./digital-twin-types.md) for the TypeScript definitions of these relationship objects.
+
 ### Array to MPPT
 
 Fields:
 
 - `relationship_id`
-- `from_array_id`
-- `to_mppt_id`
+- `from_pv_array_id`
+- `to_mppt_configuration_id`
 - `electrical_status`
 - `fit_status`
 - `derived_input_voltage_v`
@@ -269,7 +270,7 @@ Fields:
 Fields:
 
 - `relationship_id`
-- `from_mppt_id`
+- `from_mppt_configuration_id`
 - `to_battery_bank_id`
 - `electrical_status`
 - `fit_status`
@@ -285,7 +286,7 @@ Fields:
 
 - `relationship_id`
 - `from_battery_bank_id`
-- `to_inverter_id`
+- `to_inverter_configuration_id`
 - `electrical_status`
 - `fit_status`
 - `derived_supply_voltage_v`
@@ -299,7 +300,7 @@ Fields:
 Fields:
 
 - `relationship_id`
-- `from_inverter_id`
+- `from_inverter_configuration_id`
 - `to_load_circuit_id`
 - `electrical_status`
 - `fit_status`
@@ -344,7 +345,7 @@ Allowed values:
 Allowed values:
 
 - `optimal`
-- `acceptable`
+- `fully_utilized`
 - `clipping_expected`
 - `underutilized`
 
@@ -387,40 +388,7 @@ The general model should remain flexible, but the current project can start with
 
 ## JSON export shape
 
-The JSON export should be explicit and frontend-friendly.
-
-Suggested top-level shape:
-
-```json
-{
-  "project": {},
-  "entities": {
-    "surfaces": [],
-    "panel_types": [],
-    "strings": [],
-    "arrays": [],
-    "mppt_configurations": [],
-    "battery_banks": [],
-    "inverter_types": [],
-    "load_circuits": [],
-    "loads": [],
-    "generators": [],
-    "monthly_profiles": []
-  },
-  "relationships": {
-    "array_to_mppt": [],
-    "mppt_to_battery_bank": [],
-    "battery_bank_to_inverter": [],
-    "inverter_to_load_circuit": [],
-    "load_circuit_to_load": []
-  },
-  "derived": {
-    "monthly_balance": [],
-    "warnings": [],
-    "summary": {}
-  }
-}
-```
+See [json-export-shape.md](./json-export-shape.md) for the authoritative definition of the API export contract.
 
 ## Implementation order
 

@@ -1364,7 +1364,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         });
 
           upsertConversionDevice(db, {
-            conversion_device_id: resolvedInverterId,
+            converter_type_id: resolvedInverterId,
             title: model,
             description: notes ?? null,
             device_type: 'inverter',
@@ -1476,7 +1476,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         });
 
           upsertConversionDevice(db, {
-            conversion_device_id: inverterId,
+            converter_type_id: inverterId,
             title: model,
             description: notes ?? null,
             device_type: 'inverter',
@@ -1557,7 +1557,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
     void (async () => {
       try {
         const payload = await readJsonBody<{
-          conversion_device_id?: unknown;
+          converter_type_id?: unknown;
           title?: unknown;
           description?: unknown;
           device_type?: unknown;
@@ -1577,7 +1577,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           notes?: unknown;
         }>(request);
 
-        const conversionDeviceId = typeof payload.conversion_device_id === 'string' ? payload.conversion_device_id.trim() : '';
+        const conversionDeviceId = typeof payload.converter_type_id === 'string' ? payload.converter_type_id.trim() : '';
         const title = typeof payload.title === 'string' ? payload.title.trim() : '';
         const description = isValidNonEmptyText(payload.description) ? payload.description.trim() : null;
         const deviceType = typeof payload.device_type === 'string' ? payload.device_type.trim() : '';
@@ -1612,7 +1612,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
         if (!title || !deviceType || !Number.isFinite(inputVoltageV) || inputVoltageV <= 0 || !Number.isFinite(outputVoltageV) || outputVoltageV <= 0 || !Number.isFinite(continuousPowerW) || continuousPowerW <= 0 || !Number.isFinite(peakPowerVA) || peakPowerVA <= 0 || !Number.isFinite(maxChargeCurrentA) || maxChargeCurrentA <= 0) {
           sendJson(response, 400, {
-            error: 'Invalid conversion device payload. Provide title, device_type, input_voltage_v, output_voltage_v, continuous_power_w, peak_power_va, and max_charge_current_a.',
+            error: 'Invalid converter payload. Provide title, device_type, input_voltage_v, output_voltage_v, continuous_power_w, peak_power_va, and max_charge_current_a.',
           });
           return;
         }
@@ -1626,18 +1626,18 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           || (maxOutputCurrentA != null && !Number.isFinite(maxOutputCurrentA))
           || (price != null && !Number.isFinite(price))
         ) {
-          sendJson(response, 400, { error: 'Invalid conversion device payload. Optional numeric fields must be valid numbers when provided.' });
+          sendJson(response, 400, { error: 'Invalid converter payload. Optional numeric fields must be valid numbers when provided.' });
           return;
         }
 
         const updated = withDb(databasePath, (db) => {
-          const resolvedConversionDeviceId = conversionDeviceId || generateUniqueCatalogId(title, listConversionDevices(db).map((device) => device.conversion_device_id));
+          const resolvedConversionDeviceId = conversionDeviceId || generateUniqueCatalogId(title, listConversionDevices(db).map((device) => device.converter_type_id));
           if (getConversionDevice(db, resolvedConversionDeviceId)) {
-            return { status: 409 as const, body: { error: `Conversion device "${resolvedConversionDeviceId}" already exists.` } };
+            return { status: 409 as const, body: { error: `Converter "${resolvedConversionDeviceId}" already exists.` } };
           }
 
           upsertConversionDevice(db, {
-            conversion_device_id: resolvedConversionDeviceId,
+            converter_type_id: resolvedConversionDeviceId,
             title,
             description,
             device_type: deviceType,
@@ -1674,12 +1674,12 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
       try {
         const conversionDeviceId = decodeURIComponent(url.pathname.slice('/api/conversion-devices/'.length));
         if (!conversionDeviceId) {
-          sendJson(response, 400, { error: 'Conversion device id is required.' });
+          sendJson(response, 400, { error: 'Converter id is required.' });
           return;
         }
 
         const payload = await readJsonBody<{
-          conversion_device_id?: unknown;
+          converter_type_id?: unknown;
           title?: unknown;
           description?: unknown;
           device_type?: unknown;
@@ -1699,7 +1699,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           notes?: unknown;
         }>(request);
 
-        const bodyConversionDeviceId = typeof payload.conversion_device_id === 'string' ? payload.conversion_device_id.trim() : conversionDeviceId;
+        const bodyConversionDeviceId = typeof payload.converter_type_id === 'string' ? payload.converter_type_id.trim() : conversionDeviceId;
         const title = typeof payload.title === 'string' ? payload.title.trim() : '';
         const description = isValidNonEmptyText(payload.description) ? payload.description.trim() : null;
         const deviceType = typeof payload.device_type === 'string' ? payload.device_type.trim() : '';
@@ -1733,13 +1733,13 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         const notes = isValidNonEmptyText(payload.notes) ? payload.notes.trim() : null;
 
         if (bodyConversionDeviceId !== conversionDeviceId) {
-          sendJson(response, 400, { error: 'Conversion device id in the URL must match the conversion_device_id in the payload.' });
+          sendJson(response, 400, { error: 'Converter id in the URL must match the converter_type_id in the payload.' });
           return;
         }
 
         if (!title || !deviceType || !Number.isFinite(inputVoltageV) || inputVoltageV <= 0 || !Number.isFinite(outputVoltageV) || outputVoltageV <= 0 || !Number.isFinite(continuousPowerW) || continuousPowerW <= 0 || !Number.isFinite(peakPowerVA) || peakPowerVA <= 0 || !Number.isFinite(maxChargeCurrentA) || maxChargeCurrentA <= 0) {
           sendJson(response, 400, {
-            error: 'Invalid conversion device payload. Provide title, device_type, input_voltage_v, output_voltage_v, continuous_power_w, peak_power_va, and max_charge_current_a.',
+            error: 'Invalid converter payload. Provide title, device_type, input_voltage_v, output_voltage_v, continuous_power_w, peak_power_va, and max_charge_current_a.',
           });
           return;
         }
@@ -1753,18 +1753,18 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           || (maxOutputCurrentA != null && !Number.isFinite(maxOutputCurrentA))
           || (price != null && !Number.isFinite(price))
         ) {
-          sendJson(response, 400, { error: 'Invalid conversion device payload. Optional numeric fields must be valid numbers when provided.' });
+          sendJson(response, 400, { error: 'Invalid converter payload. Optional numeric fields must be valid numbers when provided.' });
           return;
         }
 
         const updated = withDb(databasePath, (db) => {
           const existing = getConversionDevice(db, conversionDeviceId);
           if (!existing) {
-            return { status: 404 as const, body: { error: `Conversion device "${conversionDeviceId}" not found.` } };
+            return { status: 404 as const, body: { error: `Converter "${conversionDeviceId}" not found.` } };
           }
 
           upsertConversionDevice(db, {
-            conversion_device_id: conversionDeviceId,
+            converter_type_id: conversionDeviceId,
             title,
             description,
             device_type: deviceType,
@@ -1801,14 +1801,14 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
       try {
         const conversionDeviceId = decodeURIComponent(url.pathname.slice('/api/conversion-devices/'.length));
         if (!conversionDeviceId) {
-          sendJson(response, 400, { error: 'Conversion device id is required.' });
+          sendJson(response, 400, { error: 'Converter id is required.' });
           return;
         }
 
         const updated = withDb(databasePath, (db) => {
           const existing = getConversionDevice(db, conversionDeviceId);
           if (!existing) {
-            return { status: 404 as const, body: { error: `Conversion device "${conversionDeviceId}" not found.` } };
+            return { status: 404 as const, body: { error: `Converter "${conversionDeviceId}" not found.` } };
           }
 
           deleteConversionDevice(db, conversionDeviceId);
@@ -1824,7 +1824,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
     return true;
   }
 
-  if (method === 'GET' && url.pathname === '/api/project-converters') {
+  if (method === 'GET' && (url.pathname === '/api/converters' || url.pathname === '/api/project-converters')) {
     try {
       const payload = withDb(databasePath, (db) => listProjectConverters(db, projectId, locationId));
       sendJson(response, 200, payload);
@@ -1835,42 +1835,42 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
     return true;
   }
 
-  if (method === 'POST' && url.pathname === '/api/project-converters') {
+  if (method === 'POST' && (url.pathname === '/api/converters' || url.pathname === '/api/project-converters')) {
     void (async () => {
       try {
         const payload = await readJsonBody<{
-          project_converter_id?: unknown;
+          converter_id?: unknown;
           title?: unknown;
           description?: unknown;
-          conversion_device_id?: unknown;
+          converter_type_id?: unknown;
         }>(request);
 
-        const requestedId = typeof payload.project_converter_id === 'string' ? payload.project_converter_id.trim() : '';
+        const requestedId = typeof payload.converter_id === 'string' ? payload.converter_id.trim() : '';
         const title = typeof payload.title === 'string' ? payload.title.trim() : '';
         const description = isValidNonEmptyText(payload.description) ? payload.description.trim() : null;
-        const conversionDeviceId = typeof payload.conversion_device_id === 'string' ? payload.conversion_device_id.trim() : '';
+        const conversionDeviceId = typeof payload.converter_type_id === 'string' ? payload.converter_type_id.trim() : '';
 
         if (!title || !conversionDeviceId) {
-          sendJson(response, 400, { error: 'Invalid project converter payload. Provide title and conversion_device_id.' });
+          sendJson(response, 400, { error: 'Invalid converter payload. Provide title and converter_type_id.' });
           return;
         }
 
         const updated = withDb(databasePath, (db) => {
           const conversionDevice = getConversionDevice(db, conversionDeviceId);
           if (!conversionDevice) {
-            return { status: 400 as const, body: { error: `Conversion device "${conversionDeviceId}" not found.` } };
+            return { status: 400 as const, body: { error: `Converter "${conversionDeviceId}" not found.` } };
           }
 
-          const projectConverterId = requestedId || generateUniqueCatalogId(title, listProjectConverters(db, projectId).map((converter) => converter.project_converter_id));
+          const projectConverterId = requestedId || generateUniqueCatalogId(title, listProjectConverters(db, projectId).map((converter) => converter.converter_id));
           if (getProjectConverter(db, projectConverterId)) {
-            return { status: 409 as const, body: { error: `Project converter "${projectConverterId}" already exists.` } };
+            return { status: 409 as const, body: { error: `Converter "${projectConverterId}" already exists.` } };
           }
 
           upsertProjectConverter(db, {
-            project_converter_id: projectConverterId,
+            converter_id: projectConverterId,
             title,
             description,
-            conversion_device_id: conversionDeviceId,
+            converter_type_id: conversionDeviceId,
           }, projectId, locationId);
 
           return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
@@ -1885,56 +1885,57 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
     return true;
   }
 
-  if (method === 'PUT' && url.pathname.startsWith('/api/project-converters/')) {
+  if (method === 'PUT' && (url.pathname.startsWith('/api/converters/') || url.pathname.startsWith('/api/project-converters/'))) {
     void (async () => {
       try {
-        const projectConverterId = decodeURIComponent(url.pathname.slice('/api/project-converters/'.length));
+        const converterPrefix = url.pathname.startsWith('/api/converters/') ? '/api/converters/' : '/api/project-converters/';
+        const projectConverterId = decodeURIComponent(url.pathname.slice(converterPrefix.length));
         if (!projectConverterId) {
-          sendJson(response, 400, { error: 'Project converter id is required.' });
+          sendJson(response, 400, { error: 'Converter id is required.' });
           return;
         }
 
         const payload = await readJsonBody<{
-          project_converter_id?: unknown;
+          converter_id?: unknown;
           title?: unknown;
           description?: unknown;
-          conversion_device_id?: unknown;
+          converter_type_id?: unknown;
         }>(request);
 
-        const bodyProjectConverterId = typeof payload.project_converter_id === 'string' ? payload.project_converter_id.trim() : projectConverterId;
+        const bodyProjectConverterId = typeof payload.converter_id === 'string' ? payload.converter_id.trim() : projectConverterId;
         const title = typeof payload.title === 'string' ? payload.title.trim() : '';
         const description = isValidNonEmptyText(payload.description) ? payload.description.trim() : null;
-        const conversionDeviceId = typeof payload.conversion_device_id === 'string' ? payload.conversion_device_id.trim() : '';
+        const conversionDeviceId = typeof payload.converter_type_id === 'string' ? payload.converter_type_id.trim() : '';
 
         if (bodyProjectConverterId !== projectConverterId) {
-          sendJson(response, 400, { error: 'Project converter id in the URL must match the project_converter_id in the payload.' });
+          sendJson(response, 400, { error: 'Converter id in the URL must match the converter_id in the payload.' });
           return;
         }
 
         if (!title || !conversionDeviceId) {
-          sendJson(response, 400, { error: 'Invalid project converter payload. Provide title and conversion_device_id.' });
+          sendJson(response, 400, { error: 'Invalid converter payload. Provide title and converter_type_id.' });
           return;
         }
 
         const updated = withDb(databasePath, (db) => {
-          const existing = listProjectConverters(db, projectId, locationId).find((converter) => converter.project_converter_id === projectConverterId) ?? null;
+          const existing = listProjectConverters(db, projectId, locationId).find((converter) => converter.converter_id === projectConverterId) ?? null;
           if (!existing) {
-            return { status: 404 as const, body: { error: `Project converter "${projectConverterId}" not found.` } };
+            return { status: 404 as const, body: { error: `Converter "${projectConverterId}" not found.` } };
           }
 
           const conversionDevice = getConversionDevice(db, conversionDeviceId);
           if (!conversionDevice) {
-            return { status: 400 as const, body: { error: `Conversion device "${conversionDeviceId}" not found.` } };
+            return { status: 400 as const, body: { error: `Converter "${conversionDeviceId}" not found.` } };
           }
 
           upsertProjectConverter(db, {
-            project_converter_id: projectConverterId,
+            converter_id: projectConverterId,
             title,
             description,
-            conversion_device_id: conversionDeviceId,
+            converter_type_id: conversionDeviceId,
           }, projectId, locationId);
 
-          db.prepare('UPDATE load_circuits SET conversion_device_id = ? WHERE project_converter_id = ? AND location_id = ?').run(conversionDeviceId, projectConverterId, existing.location_id);
+          db.prepare('UPDATE load_circuits SET converter_type_id = ? WHERE converter_id = ? AND location_id = ?').run(conversionDeviceId, projectConverterId, existing.location_id);
           return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
 
@@ -1947,19 +1948,20 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
     return true;
   }
 
-  if (method === 'DELETE' && url.pathname.startsWith('/api/project-converters/')) {
+  if (method === 'DELETE' && (url.pathname.startsWith('/api/converters/') || url.pathname.startsWith('/api/project-converters/'))) {
     void (async () => {
       try {
-        const projectConverterId = decodeURIComponent(url.pathname.slice('/api/project-converters/'.length));
+        const converterPrefix = url.pathname.startsWith('/api/converters/') ? '/api/converters/' : '/api/project-converters/';
+        const projectConverterId = decodeURIComponent(url.pathname.slice(converterPrefix.length));
         if (!projectConverterId) {
-          sendJson(response, 400, { error: 'Project converter id is required.' });
+          sendJson(response, 400, { error: 'Converter id is required.' });
           return;
         }
 
         const updated = withDb(databasePath, (db) => {
-          const existing = listProjectConverters(db, projectId, locationId).find((converter) => converter.project_converter_id === projectConverterId) ?? null;
+          const existing = listProjectConverters(db, projectId, locationId).find((converter) => converter.converter_id === projectConverterId) ?? null;
           if (!existing) {
-            return { status: 404 as const, body: { error: `Project converter "${projectConverterId}" not found.` } };
+            return { status: 404 as const, body: { error: `Converter "${projectConverterId}" not found.` } };
           }
 
           deleteProjectConverter(db, projectConverterId);
@@ -1991,20 +1993,20 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
       try {
         const payload = await readJsonBody<{
           load_circuit_id?: unknown;
-          project_converter_id?: unknown;
-          conversion_device_id?: unknown;
+          converter_id?: unknown;
+          converter_type_id?: unknown;
           title?: unknown;
           description?: unknown;
         }>(request);
 
         const loadCircuitId = typeof payload.load_circuit_id === 'string' ? payload.load_circuit_id.trim() : '';
-        const projectConverterId = typeof payload.project_converter_id === 'string' ? payload.project_converter_id.trim() : '';
-        const conversionDeviceId = typeof payload.conversion_device_id === 'string' ? payload.conversion_device_id.trim() : '';
+        const projectConverterId = typeof payload.converter_id === 'string' ? payload.converter_id.trim() : '';
+        const conversionDeviceId = typeof payload.converter_type_id === 'string' ? payload.converter_type_id.trim() : '';
         const title = typeof payload.title === 'string' ? payload.title.trim() : '';
         const description = typeof payload.description === 'string' ? payload.description.trim() : null;
 
         if (!title || (!projectConverterId && !conversionDeviceId)) {
-          sendJson(response, 400, { error: 'Invalid load circuit payload. Provide title and project_converter_id or conversion_device_id.' });
+          sendJson(response, 400, { error: 'Invalid load circuit payload. Provide title and converter_id or converter_type_id.' });
           return;
         }
 
@@ -2015,25 +2017,26 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
           }
 
           const projectConverter = projectConverterId
-            ? listProjectConverters(db, projectId, locationId).find((converter) => converter.project_converter_id === projectConverterId) ?? null
+            ? getProjectConverter(db, projectConverterId) ?? null
             : null;
           if (projectConverterId && !projectConverter) {
-            return { status: 400 as const, body: { error: `Project converter "${projectConverterId}" not found.` } };
+            return { status: 400 as const, body: { error: `Converter "${projectConverterId}" not found.` } };
           }
 
-          const resolvedConversionDeviceId = projectConverter?.conversion_device_id ?? conversionDeviceId;
+          const resolvedConversionDeviceId = projectConverter?.converter_type_id ?? conversionDeviceId;
+          const resolvedLocationId = projectConverter?.location_id ?? locationId;
           const conversionDevice = getConversionDevice(db, resolvedConversionDeviceId);
           if (!conversionDevice) {
-            return { status: 400 as const, body: { error: `Conversion device "${resolvedConversionDeviceId}" not found.` } };
+            return { status: 400 as const, body: { error: `Converter "${resolvedConversionDeviceId}" not found.` } };
           }
 
           upsertLoadCircuit(db, {
             load_circuit_id: resolvedLoadCircuitId,
-            project_converter_id: projectConverterId || null,
-            conversion_device_id: resolvedConversionDeviceId,
+            converter_id: projectConverterId || null,
+            converter_type_id: resolvedConversionDeviceId,
             title,
             description,
-          }, projectId, locationId);
+          }, projectId, resolvedLocationId);
 
           return { status: 201 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
@@ -2058,15 +2061,15 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
         const payload = await readJsonBody<{
           load_circuit_id?: unknown;
-          project_converter_id?: unknown;
-          conversion_device_id?: unknown;
+          converter_id?: unknown;
+          converter_type_id?: unknown;
           title?: unknown;
           description?: unknown;
         }>(request);
 
         const bodyLoadCircuitId = typeof payload.load_circuit_id === 'string' ? payload.load_circuit_id.trim() : loadCircuitId;
-        const projectConverterId = typeof payload.project_converter_id === 'string' ? payload.project_converter_id.trim() : '';
-        const conversionDeviceId = typeof payload.conversion_device_id === 'string' ? payload.conversion_device_id.trim() : '';
+        const projectConverterId = typeof payload.converter_id === 'string' ? payload.converter_id.trim() : '';
+        const conversionDeviceId = typeof payload.converter_type_id === 'string' ? payload.converter_type_id.trim() : '';
         const title = typeof payload.title === 'string' ? payload.title.trim() : '';
         const description = typeof payload.description === 'string' ? payload.description.trim() : null;
 
@@ -2076,7 +2079,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
         }
 
         if (!title || (!projectConverterId && !conversionDeviceId)) {
-          sendJson(response, 400, { error: 'Invalid load circuit payload. Provide title and project_converter_id or conversion_device_id.' });
+          sendJson(response, 400, { error: 'Invalid load circuit payload. Provide title and converter_id or converter_type_id.' });
           return;
         }
 
@@ -2088,22 +2091,23 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
 
           const projectConverter = projectConverterId ? getProjectConverter(db, projectConverterId) : null;
           if (projectConverterId && !projectConverter) {
-            return { status: 400 as const, body: { error: `Project converter "${projectConverterId}" not found.` } };
+            return { status: 400 as const, body: { error: `Converter "${projectConverterId}" not found.` } };
           }
 
-          const resolvedConversionDeviceId = projectConverter?.conversion_device_id ?? conversionDeviceId;
+          const resolvedConversionDeviceId = projectConverter?.converter_type_id ?? conversionDeviceId;
+          const resolvedLocationId = projectConverter?.location_id ?? locationId;
           const conversionDevice = getConversionDevice(db, resolvedConversionDeviceId);
           if (!conversionDevice) {
-            return { status: 400 as const, body: { error: `Conversion device "${resolvedConversionDeviceId}" not found.` } };
+            return { status: 400 as const, body: { error: `Converter "${resolvedConversionDeviceId}" not found.` } };
           }
 
           upsertLoadCircuit(db, {
             load_circuit_id: loadCircuitId,
-            project_converter_id: projectConverterId || null,
-            conversion_device_id: resolvedConversionDeviceId,
+            converter_id: projectConverterId || null,
+            converter_type_id: resolvedConversionDeviceId,
             title,
             description,
-          }, projectId, locationId);
+          }, projectId, resolvedLocationId);
 
           return { status: 200 as const, body: buildDigitalTwinExport(db, databasePath, projectId, locationId) };
         });
@@ -2186,7 +2190,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             return { status: 400 as const, body: { error: `Load circuit "${loadCircuitId}" not found.` } };
           }
 
-          const loadCircuitDevice = getConversionDevice(db, loadCircuit.conversion_device_id);
+          const loadCircuitDevice = getConversionDevice(db, loadCircuit.converter_type_id);
           const circuitVoltageV = loadCircuitDevice?.output_voltage_v ?? loadCircuitDevice?.output_dc_voltage_v ?? loadCircuitDevice?.output_ac_voltage_v ?? null;
           const nominalPowerW = resolveLoadPowerW(payload, circuitVoltageV);
           const surgePowerW = resolveLoadSurgePowerW(payload, circuitVoltageV);
@@ -2266,7 +2270,7 @@ function handleApiRequest(request: IncomingMessage, response: ServerResponse): b
             return { status: 400 as const, body: { error: `Load circuit "${loadCircuitId}" not found.` } };
           }
 
-          const loadCircuitDevice = getConversionDevice(db, loadCircuit.conversion_device_id);
+          const loadCircuitDevice = getConversionDevice(db, loadCircuit.converter_type_id);
           const circuitVoltageV = loadCircuitDevice?.output_voltage_v ?? loadCircuitDevice?.output_dc_voltage_v ?? loadCircuitDevice?.output_ac_voltage_v ?? null;
           const nominalPowerW = resolveLoadPowerW(payload, circuitVoltageV);
           const surgePowerW = resolveLoadSurgePowerW(payload, circuitVoltageV);

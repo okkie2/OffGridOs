@@ -47,7 +47,7 @@ describe('initSchema', () => {
         'surfaces',
         'panel_types',
         'cabinet_types',
-        'conversion_devices',
+        'converter_types',
         'load_circuits',
         'loads',
         'surface_panel_assignments',
@@ -69,7 +69,7 @@ describe('initSchema', () => {
       expect(first.surfaces).toBeGreaterThan(0);
       expect(first.panel_types).toBeGreaterThan(0);
       expect(first.cabinet_types).toBe(0);
-      expect(first.conversion_devices).toBeGreaterThan(0);
+      expect(first.converter_types).toBeGreaterThan(0);
       expect(first.load_circuits).toBe(0);
       expect(first.loads).toBe(0);
       expect(first.surface_panel_assignments).toBeGreaterThan(0);

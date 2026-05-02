@@ -4,7 +4,7 @@ OffGridOS now has one canonical interactive local app URL:
 
 - `http://127.0.0.1:3000`
 
-That URL is the only supported browser entrypoint for local work.
+That URL is the only supported browser entrypoint for local work. This rule is mandatory and must not be violated during development.
 
 ## Supported commands
 
@@ -14,11 +14,11 @@ Use exactly one of these commands at a time:
 - `npm run start`
 - `npm run stop:app` when you need to clear stale local OffGridOS listeners before restarting
 
-`npm run dev:web` remains as a backward-compatible alias for `npm run dev:app`, but it now uses the same canonical local URL and the same guard rules.
-
 ## Single-instance rule
 
 OffGridOS must not run multiple local app instances on different ports anymore.
+
+This is a hard constraint, not a preference.
 
 The repo now enforces this:
 
@@ -40,9 +40,6 @@ That command looks for local listeners on the known OffGridOS ports:
 
 - `3000`
 - `3001`
-- `4173`
-- `6001`
-
 and sends `SIGTERM` to the matching listener processes so the canonical local app can be started cleanly again.
 
 ## Local development shape

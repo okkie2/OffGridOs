@@ -119,7 +119,7 @@ interface ExportInverterConfiguration {
 }
 
 interface ExportConversionDevice {
-  conversion_device_id: string;
+  converter_type_id: string;
   title: string;
   description: string | null;
   device_type: string;
@@ -141,8 +141,8 @@ interface ExportConversionDevice {
 
 interface ExportLoadCircuit {
   load_circuit_id: string;
-  project_converter_id: string | null;
-  conversion_device_id: string;
+  converter_id: string | null;
+  converter_type_id: string;
   title: string;
   description: string | null;
 }
@@ -227,10 +227,10 @@ interface ExportBatteryBankConfiguration {
 }
 
 interface ExportProjectConverter {
-  project_converter_id: string;
+  converter_id: string;
   title: string;
   description: string | null;
-  conversion_device_id: string;
+  converter_type_id: string;
 }
 
 interface DigitalTwinExport {
@@ -242,17 +242,15 @@ interface DigitalTwinExport {
     cabinet_types: CabinetType[];
     panel_types: PanelType[];
     pv_strings: ExportString[];
-    strings?: ExportString[];
     pv_arrays: ExportArray[];
-    arrays?: ExportArray[];
     mppt_types: MpptType[];
     mppt_configurations: ExportMpptConfiguration[];
     battery_types: BatteryType[];
     battery_banks: ExportBatteryBank[];
     inverter_types: InverterType[];
     inverter_configurations: ExportInverterConfiguration[];
-    conversion_devices: ExportConversionDevice[];
-    project_converters: ExportProjectConverter[];
+    converter_types: ExportConversionDevice[];
+    converters: ExportProjectConverter[];
     load_circuits: ExportLoadCircuit[];
     loads: ExportLoad[];
     solar_monthly_profiles: ExportSolarMonthlyProfile[];
@@ -800,7 +798,7 @@ function conversionDeviceToInverterType(device: ConversionDevice): InverterType 
 
   return {
     id: device.id,
-    inverter_id: device.conversion_device_id,
+    inverter_id: device.converter_type_id,
     brand: '',
     model: device.title,
     input_voltage_v: device.input_voltage_v,
@@ -1057,24 +1055,15 @@ export function buildDigitalTwinExport(db: Database.Database, dbPath: string, pr
         panel_type_id: string.panel_type_id ?? null,
         panel_count: string.panel_count,
       })),
-      strings: pvStrings.map((string) => ({
-        string_id: string.string_id,
-        array_id: string.array_id,
-        surface_id: string.surface_id,
-        string_index: string.string_index,
-        panel_type_id: string.panel_type_id ?? null,
-        panel_count: string.panel_count,
-      })),
       pv_arrays: exportedPvArrays,
-      arrays: exportedPvArrays,
       mppt_types: mpptTypes,
       mppt_configurations: mpptConfigurations,
       battery_types: batteryTypes,
       battery_banks: batteryBanks,
       inverter_types: inverterTypes,
       inverter_configurations: derivedInverterConfigurations,
-      conversion_devices: conversionDevices.map((device) => ({
-        conversion_device_id: device.conversion_device_id,
+      converter_types: conversionDevices.map((device) => ({
+        converter_type_id: device.converter_type_id,
         title: device.title,
         description: device.description ?? null,
         device_type: device.device_type,
@@ -1093,16 +1082,16 @@ export function buildDigitalTwinExport(db: Database.Database, dbPath: string, pr
         price_source_url: device.price_source_url ?? null,
         notes: device.notes ?? null,
       })),
-      project_converters: projectConverters.map((converter) => ({
-        project_converter_id: converter.project_converter_id,
+      converters: projectConverters.map((converter) => ({
+        converter_id: converter.converter_id,
         title: converter.title,
         description: converter.description ?? null,
-        conversion_device_id: converter.conversion_device_id,
+        converter_type_id: converter.converter_type_id,
       })),
       load_circuits: loadCircuits.map((circuit) => ({
         load_circuit_id: circuit.load_circuit_id,
-        project_converter_id: circuit.project_converter_id ?? null,
-        conversion_device_id: circuit.conversion_device_id,
+        converter_id: circuit.converter_id ?? null,
+        converter_type_id: circuit.converter_type_id,
         title: circuit.title,
         description: circuit.description ?? null,
       })),

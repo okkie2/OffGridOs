@@ -10,7 +10,7 @@ import { JSDOM } from 'jsdom';
 import { openDb } from '../../src/db/connection.js';
 import { ensureDatabaseReady } from '../../src/server/bootstrap.js';
 import { buildDigitalTwinExport } from '../../src/output/exportDigitalTwin.js';
-import { deleteBatteryType, deleteLoad, deleteLoadCircuit, deleteProjectConverter, getBatteryBankConfiguration, getConversionDevice, getInverterConfiguration, getLoad, getLoadCircuit, getProjectConverter, getSurface, insertBatteryType, listBatteryTypes, listConversionDevices, listLoadCircuits, listLoads, listProjects, listProjectConverters, syncPvTopologyForSurface, updateBatteryType, updateSurface, upsertBatteryBankConfiguration, upsertInverterConfiguration, upsertLoad, upsertLoadCircuit, upsertProjectConverter, upsertSurfaceConfiguration, upsertSurfacePanelAssignment } from '../../src/db/queries.js';
+import { createLocation, deleteBatteryType, deleteLoad, deleteLoadCircuit, deleteProjectConverter, getBatteryBankConfiguration, getConversionDevice, getInverterConfiguration, getLoad, getLoadCircuit, getProjectConverter, getSurface, insertBatteryType, listBatteryTypes, listConversionDevices, listLoadCircuits, listLoads, listLocations, listProjects, listProjectConverters, syncPvTopologyForSurface, updateBatteryType, updateSurface, upsertBatteryBankConfiguration, upsertInverterConfiguration, upsertLoad, upsertLoadCircuit, upsertProjectConverter, upsertSurfaceConfiguration, upsertSurfacePanelAssignment } from '../../src/db/queries.js';
 import { generateUniqueCatalogId } from '../../src/domain/panel-type-id.js';
 import { App } from '../../web/src/App.tsx';
 import type { DigitalTwinExport } from '../../web/src/App.tsx';
@@ -60,6 +60,9 @@ class NavigationWorld extends World {
   latestEnteredBatteryCatalogModel = '';
   latestSelectedConsumptionConverterId = '';
   latestSelectedConsumptionConverterTitle = '';
+  latestCreatedLoadCircuitTitle = '';
+  latestCreatedLoadCircuitLocationId = '';
+  latestCreatedLoadCircuitLocationSlug = '';
   latestLoadCircuitsConverterId = '';
   latestLoadsConverterId = '';
   latestLoadsCircuitId = '';
@@ -140,9 +143,11 @@ class NavigationWorld extends World {
           : input.url;
       const url = new URL(requestUrl, 'http://127.0.0.1/');
       const method = (init?.method ?? 'GET').toUpperCase();
+      const requestHeaders = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
+      const locationId = requestHeaders.get('X-Location-Id')?.trim() || null;
 
       if (url.pathname === '/api/digital-twin' && method === 'GET') {
-        return new Response(JSON.stringify(this.readProjectData()), {
+        return new Response(JSON.stringify(this.readProjectData(locationId)), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
@@ -482,35 +487,35 @@ class NavigationWorld extends World {
         }
       }
 
-      if (url.pathname === '/api/project-converters' && method === 'POST') {
+      if (url.pathname === '/api/converters' && method === 'POST') {
         const rawBody = typeof init?.body === 'string' ? init.body : '{}';
         const payload = JSON.parse(rawBody) as {
-          project_converter_id?: unknown;
+          converter_id?: unknown;
           title?: unknown;
           description?: unknown;
-          conversion_device_id?: unknown;
+          converter_type_id?: unknown;
         };
 
         const title = typeof payload.title === 'string' ? payload.title.trim() : '';
         const description = typeof payload.description === 'string' ? payload.description.trim() : null;
-        const conversionDeviceId = typeof payload.conversion_device_id === 'string' ? payload.conversion_device_id.trim() : '';
+        const conversionDeviceId = typeof payload.converter_type_id === 'string' ? payload.converter_type_id.trim() : '';
 
         const db = openDb(this.requireDbPath());
         try {
           if (!title || !conversionDeviceId) {
-            return new Response(JSON.stringify({ error: 'Invalid project converter payload.' }), { status: 400 });
+            return new Response(JSON.stringify({ error: 'Invalid converter payload.' }), { status: 400 });
           }
           if (!getConversionDevice(db, conversionDeviceId)) {
-            return new Response(JSON.stringify({ error: `Conversion device "${conversionDeviceId}" not found.` }), { status: 400 });
+            return new Response(JSON.stringify({ error: `Converter "${conversionDeviceId}" not found.` }), { status: 400 });
           }
-          const projectConverterId = typeof payload.project_converter_id === 'string' && payload.project_converter_id.trim()
-            ? payload.project_converter_id.trim()
-            : generateUniqueCatalogId(title, listProjectConverters(db).map((converter) => converter.project_converter_id));
+          const projectConverterId = typeof payload.converter_id === 'string' && payload.converter_id.trim()
+            ? payload.converter_id.trim()
+            : generateUniqueCatalogId(title, listProjectConverters(db).map((converter) => converter.converter_id));
           upsertProjectConverter(db, {
-            project_converter_id: projectConverterId,
+            converter_id: projectConverterId,
             title,
             description,
-            conversion_device_id: conversionDeviceId,
+            converter_type_id: conversionDeviceId,
           });
           this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), this.resolveProjectId(db));
           return new Response(JSON.stringify(this.projectData), { status: 201, headers: { 'Content-Type': 'application/json' } });
@@ -519,27 +524,27 @@ class NavigationWorld extends World {
         }
       }
 
-      if (url.pathname.startsWith('/api/project-converters/') && method === 'PUT') {
-        const projectConverterId = decodeURIComponent(url.pathname.slice('/api/project-converters/'.length));
+      if (url.pathname.startsWith('/api/converters/') && method === 'PUT') {
+        const projectConverterId = decodeURIComponent(url.pathname.slice('/api/converters/'.length));
         const rawBody = typeof init?.body === 'string' ? init.body : '{}';
         const payload = JSON.parse(rawBody) as {
           title?: unknown;
           description?: unknown;
-          conversion_device_id?: unknown;
+          converter_type_id?: unknown;
         };
         const title = typeof payload.title === 'string' ? payload.title.trim() : '';
         const description = typeof payload.description === 'string' ? payload.description.trim() : null;
-        const conversionDeviceId = typeof payload.conversion_device_id === 'string' ? payload.conversion_device_id.trim() : '';
+        const conversionDeviceId = typeof payload.converter_type_id === 'string' ? payload.converter_type_id.trim() : '';
         const db = openDb(this.requireDbPath());
         try {
           if (!getProjectConverter(db, projectConverterId)) {
-            return new Response(JSON.stringify({ error: `Project converter "${projectConverterId}" not found.` }), { status: 404 });
+            return new Response(JSON.stringify({ error: `Converter "${projectConverterId}" not found.` }), { status: 404 });
           }
           upsertProjectConverter(db, {
-            project_converter_id: projectConverterId,
+            converter_id: projectConverterId,
             title,
             description,
-            conversion_device_id: conversionDeviceId,
+            converter_type_id: conversionDeviceId,
           });
           this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), this.resolveProjectId(db));
           return new Response(JSON.stringify(this.projectData), { status: 200, headers: { 'Content-Type': 'application/json' } });
@@ -548,8 +553,8 @@ class NavigationWorld extends World {
         }
       }
 
-      if (url.pathname.startsWith('/api/project-converters/') && method === 'DELETE') {
-        const projectConverterId = decodeURIComponent(url.pathname.slice('/api/project-converters/'.length));
+      if (url.pathname.startsWith('/api/converters/') && method === 'DELETE') {
+        const projectConverterId = decodeURIComponent(url.pathname.slice('/api/converters/'.length));
         const db = openDb(this.requireDbPath());
         try {
           deleteProjectConverter(db, projectConverterId);
@@ -564,15 +569,15 @@ class NavigationWorld extends World {
         const rawBody = typeof init?.body === 'string' ? init.body : '{}';
         const payload = JSON.parse(rawBody) as {
           load_circuit_id?: unknown;
-          project_converter_id?: unknown;
-          conversion_device_id?: unknown;
+          converter_id?: unknown;
+          converter_type_id?: unknown;
           title?: unknown;
           description?: unknown;
         };
 
         const loadCircuitId = typeof payload.load_circuit_id === 'string' ? payload.load_circuit_id.trim() : '';
-        const projectConverterId = typeof payload.project_converter_id === 'string' ? payload.project_converter_id.trim() : '';
-        const conversionDeviceId = typeof payload.conversion_device_id === 'string' ? payload.conversion_device_id.trim() : '';
+        const projectConverterId = typeof payload.converter_id === 'string' ? payload.converter_id.trim() : '';
+        const conversionDeviceId = typeof payload.converter_type_id === 'string' ? payload.converter_type_id.trim() : '';
         const title = typeof payload.title === 'string' ? payload.title.trim() : '';
         const description = typeof payload.description === 'string' ? payload.description.trim() : null;
 
@@ -580,14 +585,14 @@ class NavigationWorld extends World {
         try {
           const projectId = listProjects(db)[0]?.project_id ?? this.projectData?.project.project_id ?? 'offgridos-project';
           const projectConverter = projectConverterId ? getProjectConverter(db, projectConverterId) : null;
-          const resolvedConversionDeviceId = projectConverter?.conversion_device_id ?? conversionDeviceId;
+          const resolvedConversionDeviceId = projectConverter?.converter_type_id ?? conversionDeviceId;
           if (!title || (!projectConverterId && !resolvedConversionDeviceId)) {
             return new Response(JSON.stringify({ error: 'Invalid load circuit payload. Provide title and converter.' }), { status: 400 });
           }
 
           const conversionDevice = getConversionDevice(db, resolvedConversionDeviceId);
           if (!conversionDevice) {
-            return new Response(JSON.stringify({ error: `Conversion device "${resolvedConversionDeviceId}" not found.` }), { status: 400 });
+            return new Response(JSON.stringify({ error: `Converter "${resolvedConversionDeviceId}" not found.` }), { status: 400 });
           }
 
           const resolvedLoadCircuitId = loadCircuitId || generateUniqueCatalogId(title, listLoadCircuits(db, projectId).map((circuit) => circuit.load_circuit_id));
@@ -597,13 +602,13 @@ class NavigationWorld extends World {
 
           upsertLoadCircuit(db, {
             load_circuit_id: resolvedLoadCircuitId,
-            project_converter_id: projectConverterId || null,
-            conversion_device_id: resolvedConversionDeviceId,
+            converter_id: projectConverterId || null,
+            converter_type_id: resolvedConversionDeviceId,
             title,
             description,
           }, projectId);
 
-          this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), this.resolveProjectId(db));
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), this.resolveProjectId(db), locationId);
           return new Response(JSON.stringify(this.projectData), {
             status: 201,
             headers: { 'Content-Type': 'application/json' },
@@ -618,15 +623,15 @@ class NavigationWorld extends World {
         const rawBody = typeof init?.body === 'string' ? init.body : '{}';
         const payload = JSON.parse(rawBody) as {
           load_circuit_id?: unknown;
-          project_converter_id?: unknown;
-          conversion_device_id?: unknown;
+          converter_id?: unknown;
+          converter_type_id?: unknown;
           title?: unknown;
           description?: unknown;
         };
 
         const bodyLoadCircuitId = typeof payload.load_circuit_id === 'string' ? payload.load_circuit_id.trim() : loadCircuitId;
-        const projectConverterId = typeof payload.project_converter_id === 'string' ? payload.project_converter_id.trim() : '';
-        const conversionDeviceId = typeof payload.conversion_device_id === 'string' ? payload.conversion_device_id.trim() : '';
+        const projectConverterId = typeof payload.converter_id === 'string' ? payload.converter_id.trim() : '';
+        const conversionDeviceId = typeof payload.converter_type_id === 'string' ? payload.converter_type_id.trim() : '';
         const title = typeof payload.title === 'string' ? payload.title.trim() : '';
         const description = typeof payload.description === 'string' ? payload.description.trim() : null;
 
@@ -638,7 +643,7 @@ class NavigationWorld extends World {
         try {
           const projectId = listProjects(db)[0]?.project_id ?? this.projectData?.project.project_id ?? 'offgridos-project';
           const projectConverter = projectConverterId ? getProjectConverter(db, projectConverterId) : null;
-          const resolvedConversionDeviceId = projectConverter?.conversion_device_id ?? conversionDeviceId;
+          const resolvedConversionDeviceId = projectConverter?.converter_type_id ?? conversionDeviceId;
           if (!title || (!projectConverterId && !resolvedConversionDeviceId)) {
             return new Response(JSON.stringify({ error: 'Invalid load circuit payload. Provide title and converter.' }), { status: 400 });
           }
@@ -650,18 +655,18 @@ class NavigationWorld extends World {
 
           const conversionDevice = getConversionDevice(db, resolvedConversionDeviceId);
           if (!conversionDevice) {
-            return new Response(JSON.stringify({ error: `Conversion device "${resolvedConversionDeviceId}" not found.` }), { status: 400 });
+            return new Response(JSON.stringify({ error: `Converter "${resolvedConversionDeviceId}" not found.` }), { status: 400 });
           }
 
           upsertLoadCircuit(db, {
             load_circuit_id: loadCircuitId,
-            project_converter_id: projectConverterId || null,
-            conversion_device_id: resolvedConversionDeviceId,
+            converter_id: projectConverterId || null,
+            converter_type_id: resolvedConversionDeviceId,
             title,
             description,
           }, projectId);
 
-          this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), this.resolveProjectId(db));
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), this.resolveProjectId(db), locationId);
           return new Response(JSON.stringify(this.projectData), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
@@ -681,7 +686,7 @@ class NavigationWorld extends World {
           }
 
           deleteLoadCircuit(db, loadCircuitId);
-          this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), this.resolveProjectId(db));
+          this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), this.resolveProjectId(db), locationId);
           return new Response(JSON.stringify(this.projectData), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
@@ -1122,6 +1127,8 @@ class NavigationWorld extends World {
     this.latestSelectedBatteryTypeId = '';
     this.latestSelectedBatteryCount = '';
     this.latestEnteredBatteryCatalogModel = '';
+    this.latestCreatedLoadCircuitLocationId = '';
+    this.latestCreatedLoadCircuitLocationSlug = '';
   }
 
   prepareProjectData(): void {
@@ -1144,33 +1151,33 @@ class NavigationWorld extends World {
       const projectId = listProjects(db)[0]?.project_id ?? this.projectData?.project.project_id ?? 'offgridos-project';
       const conversionDevice = listConversionDevices(db)[0];
       if (!conversionDevice) {
-        throw new Error('No conversion device available for the load move test.');
+        throw new Error('No converter available for the load move test.');
       }
 
       const projectConverter = listProjectConverters(db, projectId)[0] ?? null;
-      const projectConverterId = projectConverter?.project_converter_id ?? null;
-      const projectConverterDeviceId = projectConverter?.conversion_device_id ?? conversionDevice.conversion_device_id;
+      const projectConverterId = projectConverter?.converter_id ?? null;
+      const projectConverterDeviceId = projectConverter?.converter_type_id ?? conversionDevice.converter_type_id;
       if (!projectConverter) {
-        const generatedProjectConverterId = `${conversionDevice.conversion_device_id}-move-test-converter`;
+        const generatedProjectConverterId = `${conversionDevice.converter_type_id}-move-test-converter`;
         upsertProjectConverter(db, {
-          project_converter_id: generatedProjectConverterId,
+          converter_id: generatedProjectConverterId,
           title: 'Move test converter',
-          description: 'Project converter for the load move regression',
-          conversion_device_id: conversionDevice.conversion_device_id,
+          description: 'Converter for the load move regression',
+          converter_type_id: conversionDevice.converter_type_id,
         }, projectId);
       }
 
       const activeProjectConverter = listProjectConverters(db, projectId)[0] ?? null;
-      const activeProjectConverterId = activeProjectConverter?.project_converter_id ?? projectConverterId;
-      const activeProjectConverterDeviceId = activeProjectConverter?.conversion_device_id ?? projectConverterDeviceId;
+      const activeProjectConverterId = activeProjectConverter?.converter_id ?? projectConverterId;
+      const activeProjectConverterDeviceId = activeProjectConverter?.converter_type_id ?? projectConverterDeviceId;
 
-      const circuits = listLoadCircuits(db, projectId).filter((circuit) => circuit.project_converter_id === activeProjectConverterId);
+      const circuits = listLoadCircuits(db, projectId).filter((circuit) => circuit.converter_id === activeProjectConverterId);
       let sourceCircuit = circuits[0] ?? null;
       if (!sourceCircuit) {
         upsertLoadCircuit(db, {
           load_circuit_id: `${activeProjectConverterId}-source`,
-          project_converter_id: activeProjectConverterId,
-          conversion_device_id: activeProjectConverterDeviceId,
+          converter_id: activeProjectConverterId,
+          converter_type_id: activeProjectConverterDeviceId,
           title: 'Source circuit',
           description: 'Load move source circuit',
         }, projectId);
@@ -1182,8 +1189,8 @@ class NavigationWorld extends World {
         const targetCircuitId = `${activeProjectConverterId}-target`;
         upsertLoadCircuit(db, {
           load_circuit_id: targetCircuitId,
-          project_converter_id: activeProjectConverterId,
-          conversion_device_id: activeProjectConverterDeviceId,
+          converter_id: activeProjectConverterId,
+          converter_type_id: activeProjectConverterDeviceId,
           title: 'Target circuit',
           description: 'Load move target circuit',
         }, projectId);
@@ -1233,40 +1240,40 @@ class NavigationWorld extends World {
       const projectId = listProjects(db)[0]?.project_id ?? this.projectData?.project.project_id ?? 'offgridos-project';
       const conversionDevice = listConversionDevices(db)[0];
       if (!conversionDevice) {
-        throw new Error('No conversion device available for the navigation memory test.');
+        throw new Error('No converter available for the navigation memory test.');
       }
 
       upsertProjectConverter(db, {
-        project_converter_id: 'memory-converter-a',
+        converter_id: 'memory-converter-a',
         title: 'Memory converter A',
         description: 'Navigation memory source converter',
-        conversion_device_id: conversionDevice.conversion_device_id,
+        converter_type_id: conversionDevice.converter_type_id,
       }, projectId);
       upsertProjectConverter(db, {
-        project_converter_id: 'memory-converter-b',
+        converter_id: 'memory-converter-b',
         title: 'Memory converter B',
         description: 'Navigation memory target converter',
-        conversion_device_id: conversionDevice.conversion_device_id,
+        converter_type_id: conversionDevice.converter_type_id,
       }, projectId);
 
       upsertLoadCircuit(db, {
         load_circuit_id: 'memory-circuit-a',
-        project_converter_id: 'memory-converter-a',
-        conversion_device_id: conversionDevice.conversion_device_id,
+        converter_id: 'memory-converter-a',
+        converter_type_id: conversionDevice.converter_type_id,
         title: 'Memory circuit A',
         description: 'Source circuit for remembered selection',
       }, projectId);
       upsertLoadCircuit(db, {
         load_circuit_id: 'memory-circuit-b',
-        project_converter_id: 'memory-converter-b',
-        conversion_device_id: conversionDevice.conversion_device_id,
+        converter_id: 'memory-converter-b',
+        converter_type_id: conversionDevice.converter_type_id,
         title: 'Memory circuit B',
         description: 'First target circuit for remembered selection',
       }, projectId);
       upsertLoadCircuit(db, {
         load_circuit_id: 'memory-circuit-c',
-        project_converter_id: 'memory-converter-b',
-        conversion_device_id: conversionDevice.conversion_device_id,
+        converter_id: 'memory-converter-b',
+        converter_type_id: conversionDevice.converter_type_id,
         title: 'Memory circuit C',
         description: 'Second target circuit for remembered selection',
       }, projectId);
@@ -1275,6 +1282,48 @@ class NavigationWorld extends World {
       this.latestLoadsConverterId = 'memory-converter-b';
       this.latestLoadsCircuitId = 'memory-circuit-c';
       this.projectData = buildDigitalTwinExport(db, this.dbPath, projectId);
+    } finally {
+      db.close();
+    }
+  }
+
+  prepareLoadCircuitCreationData(): void {
+    const db = openDb(this.requireDbPath());
+    try {
+      const projectId = listProjects(db)[0]?.project_id ?? this.projectData?.project.project_id ?? 'offgridos-project';
+      const conversionDevice = listConversionDevices(db)[0];
+      if (!conversionDevice) {
+        throw new Error('No converter available for the load circuit creation test.');
+      }
+
+      createLocation(db, {
+        title: 'Location 2',
+        place_name: 'Location 2',
+        country: 'NL',
+        description: 'Second location for the load circuit regression test',
+        notes: null,
+        latitude: 52.0,
+        longitude: 5.0,
+        northing: null,
+        easting: null,
+        site_photo_data_url: null,
+      }, projectId);
+      const secondaryLocation = listLocations(db, projectId).at(-1) ?? null;
+      const secondaryLocationId = secondaryLocation?.location_id ?? '';
+      if (!secondaryLocationId) {
+        throw new Error('Failed to create the secondary location for the load circuit creation test.');
+      }
+
+      upsertProjectConverter(db, {
+        converter_id: 'creation-converter-a',
+        title: 'Creation converter',
+        description: 'Load circuit creation source converter',
+        converter_type_id: conversionDevice.converter_type_id,
+      }, projectId, secondaryLocationId);
+
+      this.latestCreatedLoadCircuitLocationId = secondaryLocationId;
+      this.latestCreatedLoadCircuitLocationSlug = 'location-2';
+      this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), projectId, secondaryLocationId);
     } finally {
       db.close();
     }
@@ -1291,12 +1340,12 @@ class NavigationWorld extends World {
     return listProjects(db)[0]?.project_id ?? this.projectData?.project.project_id ?? 'offgridos-project';
   }
 
-  readProjectData(): DigitalTwinExport {
+  readProjectData(locationId?: string | null): DigitalTwinExport {
     const dbPath = this.requireDbPath();
     const db = openDb(dbPath);
     try {
       const projectId = listProjects(db)[0]?.project_id ?? this.projectData?.project.project_id ?? 'offgridos-project';
-      this.projectData = buildDigitalTwinExport(db, dbPath, projectId);
+      this.projectData = buildDigitalTwinExport(db, dbPath, projectId, locationId);
       return this.projectData;
     } finally {
       db.close();
@@ -1464,6 +1513,86 @@ class NavigationWorld extends World {
       );
       this.dom.window.dispatchEvent(new this.dom.window.HashChangeEvent('hashchange'));
     });
+
+    await this.waitForPageFieldControl('Title');
+  }
+
+  async addLoadCircuitOnLoadCircuitsPage(): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const addButton = Array.from(this.dom.window.document.querySelectorAll('button'))
+      .find((node) => node.textContent?.trim() === 'Add load circuit') as HTMLElement | undefined;
+    if (!addButton) {
+      throw new Error('Could not find the Add load circuit button on the Load circuits page.');
+    }
+
+    await act(async () => {
+      addButton.dispatchEvent(
+        new this.dom.window.MouseEvent('click', {
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      this.dom.window.dispatchEvent(new this.dom.window.HashChangeEvent('hashchange'));
+    });
+  }
+
+  async titleLastLoadCircuit(title: string): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const control = await this.waitForPageFieldControl('Title');
+    if (!(control instanceof this.dom.window.HTMLInputElement)) {
+      throw new Error('Could not find the load circuit title input on the Load circuits page.');
+    }
+
+    this.latestCreatedLoadCircuitTitle = title;
+
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(this.dom.window.HTMLInputElement.prototype, 'value')?.set;
+      if (!setter) {
+        throw new Error('Could not find value setter for the load circuit title input.');
+      }
+
+      setter.call(control, title);
+      control.dispatchEvent(new this.dom.window.InputEvent('input', {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        data: title,
+        inputType: 'insertText',
+      }));
+      control.dispatchEvent(new this.dom.window.Event('input', { bubbles: true }));
+      control.dispatchEvent(new this.dom.window.Event('change', { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  }
+
+  async saveLoadCircuit(): Promise<void> {
+    if (!this.dom) {
+      throw new Error('Navigation test DOM is not ready.');
+    }
+
+    const card = Array.from(this.dom.window.document.querySelectorAll('.consumption-selection-card')).at(-1);
+    const saveButton = card
+      ? Array.from(card.querySelectorAll('button')).find((node) => node.textContent?.trim() === 'Save') as HTMLElement | undefined
+      : undefined;
+    if (!saveButton) {
+      throw new Error('Could not find the load circuit Save button on the Load circuits page.');
+    }
+
+    await act(async () => {
+      saveButton.dispatchEvent(new this.dom.window.MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+      }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    await this.waitForText(this.latestCreatedLoadCircuitTitle);
   }
 
   async chooseLastConsumptionConverter(): Promise<void> {
@@ -1551,7 +1680,7 @@ class NavigationWorld extends World {
     await this.waitForText(this.latestSelectedConsumptionConverterTitle);
     const projectConverter = this.projectData?.entities.project_converters.find((converter) => converter.title === this.latestSelectedConsumptionConverterTitle);
     if (projectConverter) {
-      this.latestSelectedConsumptionConverterId = projectConverter.project_converter_id;
+      this.latestSelectedConsumptionConverterId = projectConverter.converter_id;
     }
   }
 
@@ -3126,6 +3255,31 @@ Given('OffGridOS is rendered on the load circuits page', async function () {
   await this.waitForText('Load circuits');
 });
 
+Given('OffGridOS is rendered on the prepared load circuits page', async function () {
+  if (!this.dom) {
+    throw new Error('Navigation test DOM is not ready.');
+  }
+
+  if (!this.latestCreatedLoadCircuitLocationSlug) {
+    throw new Error('No prepared location slug was recorded for the load circuit test.');
+  }
+
+  this.dom.window.history.replaceState(null, '', `/en/${this.latestCreatedLoadCircuitLocationSlug}/load-circuits`);
+  await this.renderApp();
+  await this.waitForText('Load circuits');
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    const addButton = Array.from(this.dom.window.document.querySelectorAll('button'))
+      .find((node) => node.textContent?.trim() === 'Add load circuit') as HTMLButtonElement | undefined;
+    if (addButton && !addButton.disabled) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+
+  throw new Error('Timed out waiting for the prepared load circuits page to finish loading.');
+});
+
 Given('a remembered load navigation setup exists', async function () {
   this.prepareNavigationMemoryData();
   if (!this.dom) {
@@ -3135,6 +3289,14 @@ Given('a remembered load navigation setup exists', async function () {
   this.dom.window.sessionStorage.setItem('offgridos:load-circuits:converter', JSON.stringify(this.latestLoadCircuitsConverterId));
   this.dom.window.sessionStorage.setItem('offgridos:loads:converter', JSON.stringify(this.latestLoadsConverterId));
   this.dom.window.sessionStorage.setItem('offgridos:loads:circuit', JSON.stringify(this.latestLoadsCircuitId));
+});
+
+Given('a load circuit creation setup exists', async function () {
+  this.prepareLoadCircuitCreationData();
+});
+
+Given('a load circuit creation setup exists on a secondary location', async function () {
+  this.prepareLoadCircuitCreationData();
 });
 
 Given('OffGridOS is rendered on the loads page with remembered filters', async function () {
@@ -3297,6 +3459,18 @@ When('I choose the last converter on the Load circuits page', async function () 
     select.dispatchEvent(new this.dom.window.Event('change', { bubbles: true }));
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
+});
+
+When('I add a load circuit on the Load circuits page', async function () {
+  await this.addLoadCircuitOnLoadCircuitsPage();
+});
+
+When('I title the last load circuit {string} on the Load circuits page', async function (title: string) {
+  await this.titleLastLoadCircuit(title);
+});
+
+When('I save the load circuit on the Load circuits page', async function () {
+  await this.saveLoadCircuit();
 });
 
 When('I choose the last converter on the Loads page', async function () {
@@ -3464,6 +3638,16 @@ Then('I should see the Load circuits page', async function () {
   assert.ok(text.includes('Load circuit'));
 });
 
+Then('I should see {string}', async function (textToFind: string) {
+  const text = this.dom?.window.document.body.textContent ?? '';
+  assert.ok(text.includes(textToFind), `Expected to find "${textToFind}" in the page text.`);
+});
+
+Then('I should not see {string}', async function (textToHide: string) {
+  const text = this.dom?.window.document.body.textContent ?? '';
+  assert.ok(!text.includes(textToHide), `Expected not to find "${textToHide}" in the page text.`);
+});
+
 Then('the load circuits page should remember the last selected converter', async function () {
   if (!this.dom) {
     throw new Error('Navigation test DOM is not ready.');
@@ -3504,6 +3688,30 @@ Then('the load circuits page should show the selected converter title', async fu
     this.dom.window.document.body.textContent?.includes(`Converter: ${this.latestSelectedConsumptionConverterTitle}`),
     `Expected active filter title "${this.latestSelectedConsumptionConverterTitle}" to be visible.`,
   );
+});
+
+Then('the saved load circuit should belong to the active location', async function () {
+  if (!this.dom) {
+    throw new Error('Navigation test DOM is not ready.');
+  }
+
+  const activeLocationId = this.latestCreatedLoadCircuitLocationId
+    || this.projectData?.project.active_location_id
+    || this.projectData?.project.locations?.[0]?.location_id
+    || '';
+  assert.ok(activeLocationId, 'No active location is available for the load circuit test.');
+  assert.ok(this.latestCreatedLoadCircuitTitle, 'No load circuit title was recorded in the test world.');
+
+  const db = openDb(this.requireDbPath());
+  try {
+    const projectId = listProjects(db)[0]?.project_id ?? this.projectData?.project.project_id ?? 'offgridos-project';
+    const loadCircuit = listLoadCircuits(db, projectId, activeLocationId)
+      .find((circuit) => circuit.title === this.latestCreatedLoadCircuitTitle.trim()) ?? null;
+    assert.ok(loadCircuit, `Expected load circuit "${this.latestCreatedLoadCircuitTitle}" to exist.`);
+    assert.equal(loadCircuit?.location_id, activeLocationId);
+  } finally {
+    db.close();
+  }
 });
 
 Then('I should see the Loads page', async function () {

@@ -82,11 +82,27 @@ Routing rules:
 - the root breadcrumb should use the configured location or project title, not a vague `Project` label
 - `/load-circuits` stays in primary navigation as a filtered workbench with URL state
 - `/loads` stays in primary navigation as a filtered workbench with URL state
-- `converter` query parameters on workbench routes refer to `project_converters.project_converter_id`
+- `converter` query parameters on workbench routes refer to `converters.converter_id`
 - converter `Show attached load circuits` on `/consumption` opens `/load-circuits?converter=:projectConverterId`, not a hidden nested child page
 - load circuit Detail opens `/loads?converter=:converterId&circuit=:loadCircuitId`
 - catalog routes should stay under `Catalogs`
 - report routes should stay under `Reports`
+
+## State Ownership Across Pages
+
+Page state should follow a clear ownership order:
+
+1. the URL is the source of truth for shareable state
+2. session state is a convenience for the current browser session only
+3. location-scoped pages must key remembered filters and selections by location
+4. a remembered value must never leak from one location into another
+
+Practical rules:
+
+- a workbench may remember the last chosen converter or circuit, but only inside the active location
+- a master-detail page should derive child context from the selected parent, not from stale browser memory
+- a page opened from the menu should start from its own route defaults unless the URL already says otherwise
+- if a nested page needs parent context, the parent should be visible in the URL or breadcrumb, not hidden in browser state
 
 ## Page Pattern
 
@@ -119,7 +135,7 @@ A `surface` may be:
 `Roof face` is therefore a subtype or common case, not the only type of surface.
 
 Do not assume there can only be one downstream converter or inverter-like device.
-The UI may begin with one converter, but the domain model and page framing should allow multiple conversion devices over time.
+The UI may begin with one converter, but the domain model and page framing should allow multiple converter types over time.
 
 ### Control Placement
 
@@ -159,7 +175,7 @@ Examples:
 - `load circuit -> load`
 
 Broad entity pages should avoid vague standalone labels like `Within limits`.
-Relationship pages may use labels such as `optimal`, `acceptable`, `underutilized`, or `outside limits`.
+Relationship pages may use labels such as `optimal`, `fully_utilized`, `underutilized`, or `outside limits`.
 
 ## Section Definitions
 
@@ -288,7 +304,7 @@ Recommended order:
 3. loads
 
 Use `Converters` as the navigation label when it helps the user understand the chain.
-Keep `Conversion device` as the underlying domain concept in code, schema, and catalog language unless the ubiquitous language is deliberately changed.
+Keep `Converter type` as the reusable catalog concept and `Converter` as the project-owned instance concept.
 
 This section should include:
 
@@ -338,7 +354,7 @@ This section should contain:
 - MPPT types
 - battery types
 - inverter types
-- conversion devices
+- converter types
 - cabinet types
 
 ## Filtering Behavior

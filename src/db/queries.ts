@@ -46,7 +46,7 @@ export function updateProject(db: Database.Database, project_id: string, title: 
 export function deleteProject(db: Database.Database, project_id: string): void {
   db.prepare('DELETE FROM loads WHERE project_id = ?').run(project_id);
   db.prepare('DELETE FROM load_circuits WHERE project_id = ?').run(project_id);
-  db.prepare('DELETE FROM project_converters WHERE project_id = ?').run(project_id);
+  db.prepare('DELETE FROM converters WHERE project_id = ?').run(project_id);
   db.prepare('DELETE FROM inverter_configurations WHERE project_id = ?').run(project_id);
   db.prepare('DELETE FROM battery_bank_configurations WHERE project_id = ?').run(project_id);
   db.prepare('DELETE FROM surface_configurations WHERE project_id = ?').run(project_id);
@@ -1076,20 +1076,20 @@ export function upsertInverterConfiguration(db: Database.Database, data: Omit<In
   });
 }
 
-// ── Conversion devices ───────────────────────────────────────────────────────
+// ── Converter types ──────────────────────────────────────────────────────────
 
 export function listConversionDevices(db: Database.Database): ConversionDevice[] {
-  return db.prepare('SELECT * FROM conversion_devices ORDER BY title, conversion_device_id').all() as ConversionDevice[];
+  return db.prepare('SELECT * FROM converter_types ORDER BY title, converter_type_id').all() as ConversionDevice[];
 }
 
-export function getConversionDevice(db: Database.Database, conversion_device_id: string): ConversionDevice | null {
-  return (db.prepare('SELECT * FROM conversion_devices WHERE conversion_device_id = ?').get(conversion_device_id) as ConversionDevice) ?? null;
+export function getConversionDevice(db: Database.Database, converter_type_id: string): ConversionDevice | null {
+  return (db.prepare('SELECT * FROM converter_types WHERE converter_type_id = ?').get(converter_type_id) as ConversionDevice) ?? null;
 }
 
 export function upsertConversionDevice(db: Database.Database, data: Omit<ConversionDevice, 'id'>): void {
   db.prepare(`
-    INSERT INTO conversion_devices (
-      conversion_device_id,
+    INSERT INTO converter_types (
+      converter_type_id,
       title,
       description,
       device_type,
@@ -1109,7 +1109,7 @@ export function upsertConversionDevice(db: Database.Database, data: Omit<Convers
       notes
     )
     VALUES (
-      @conversion_device_id,
+      @converter_type_id,
       @title,
       @description,
       @device_type,
@@ -1128,7 +1128,7 @@ export function upsertConversionDevice(db: Database.Database, data: Omit<Convers
       @price_source_url,
       @notes
     )
-    ON CONFLICT(conversion_device_id) DO UPDATE SET
+    ON CONFLICT(converter_type_id) DO UPDATE SET
       title = excluded.title,
       description = excluded.description,
       device_type = excluded.device_type,
@@ -1166,28 +1166,28 @@ export function upsertConversionDevice(db: Database.Database, data: Omit<Convers
   });
 }
 
-export function deleteConversionDevice(db: Database.Database, conversion_device_id: string): void {
-  const circuits = db.prepare('SELECT load_circuit_id FROM load_circuits WHERE conversion_device_id = ?').all(conversion_device_id) as Array<{ load_circuit_id: string }>;
+export function deleteConversionDevice(db: Database.Database, converter_type_id: string): void {
+  const circuits = db.prepare('SELECT load_circuit_id FROM load_circuits WHERE converter_type_id = ?').all(converter_type_id) as Array<{ load_circuit_id: string }>;
   for (const circuit of circuits) {
     deleteLoadCircuit(db, circuit.load_circuit_id);
   }
-  db.prepare('DELETE FROM project_converters WHERE conversion_device_id = ?').run(conversion_device_id);
-  db.prepare('DELETE FROM conversion_devices WHERE conversion_device_id = ?').run(conversion_device_id);
+  db.prepare('DELETE FROM converters WHERE converter_type_id = ?').run(converter_type_id);
+  db.prepare('DELETE FROM converter_types WHERE converter_type_id = ?').run(converter_type_id);
 }
 
-// ── Project converters ──────────────────────────────────────────────────────
+// ── Converters ──────────────────────────────────────────────────────────────
 
 export function listProjectConverters(db: Database.Database, projectId: string, locationId?: string | null): ProjectConverter[] {
   if (!locationId) {
-    return db.prepare('SELECT * FROM project_converters WHERE project_id = ? ORDER BY title, project_converter_id').all(projectId) as ProjectConverter[];
+    return db.prepare('SELECT * FROM converters WHERE project_id = ? ORDER BY title, converter_id').all(projectId) as ProjectConverter[];
   }
   const location = getLocation(db, projectId, locationId);
   if (!location) return [];
-  return db.prepare('SELECT * FROM project_converters WHERE project_id = ? AND location_id = ? ORDER BY title, project_converter_id').all(projectId, location.location_id) as ProjectConverter[];
+  return db.prepare('SELECT * FROM converters WHERE project_id = ? AND location_id = ? ORDER BY title, converter_id').all(projectId, location.location_id) as ProjectConverter[];
 }
 
-export function getProjectConverter(db: Database.Database, project_converter_id: string): ProjectConverter | null {
-  return (db.prepare('SELECT * FROM project_converters WHERE project_converter_id = ?').get(project_converter_id) as ProjectConverter) ?? null;
+export function getProjectConverter(db: Database.Database, converter_id: string): ProjectConverter | null {
+  return (db.prepare('SELECT * FROM converters WHERE converter_id = ?').get(converter_id) as ProjectConverter) ?? null;
 }
 
 export function upsertProjectConverter(db: Database.Database, data: Omit<ProjectConverter, 'id' | 'project_id' | 'location_id'>, projectId: string, locationId?: string | null): void {
@@ -1196,27 +1196,27 @@ export function upsertProjectConverter(db: Database.Database, data: Omit<Project
     throw new Error(`No location found for project "${projectId}".`);
   }
   db.prepare(`
-    INSERT INTO project_converters (
+    INSERT INTO converters (
       project_id,
       location_id,
-      project_converter_id,
+      converter_id,
       title,
       description,
-      conversion_device_id
+      converter_type_id
     )
     VALUES (
       @project_id,
       @location_id,
-      @project_converter_id,
+      @converter_id,
       @title,
       @description,
-      @conversion_device_id
+      @converter_type_id
     )
-    ON CONFLICT(project_converter_id) DO UPDATE SET
+    ON CONFLICT(converter_id) DO UPDATE SET
       location_id = excluded.location_id,
       title = excluded.title,
       description = excluded.description,
-      conversion_device_id = excluded.conversion_device_id
+      converter_type_id = excluded.converter_type_id
   `).run({
     ...data,
     project_id: projectId,
@@ -1225,12 +1225,12 @@ export function upsertProjectConverter(db: Database.Database, data: Omit<Project
   });
 }
 
-export function deleteProjectConverter(db: Database.Database, project_converter_id: string): void {
-  const circuits = db.prepare('SELECT load_circuit_id FROM load_circuits WHERE project_converter_id = ?').all(project_converter_id) as Array<{ load_circuit_id: string }>;
+export function deleteProjectConverter(db: Database.Database, converter_id: string): void {
+  const circuits = db.prepare('SELECT load_circuit_id FROM load_circuits WHERE converter_id = ?').all(converter_id) as Array<{ load_circuit_id: string }>;
   for (const circuit of circuits) {
     deleteLoadCircuit(db, circuit.load_circuit_id);
   }
-  db.prepare('DELETE FROM project_converters WHERE project_converter_id = ?').run(project_converter_id);
+  db.prepare('DELETE FROM converters WHERE converter_id = ?').run(converter_id);
 }
 
 // ── Load circuits ────────────────────────────────────────────────────────────
@@ -1250,20 +1250,23 @@ export function getLoadCircuit(db: Database.Database, load_circuit_id: string): 
 
 export function upsertLoadCircuit(db: Database.Database, data: Omit<LoadCircuit, 'id' | 'project_id' | 'location_id'>, projectId: string, locationId?: string | null): void {
   const location = getLocation(db, projectId, locationId);
-  const resolvedLocationId = location?.location_id ?? 'location-main';
-  if (data.project_converter_id) {
-    const projectConverter = db.prepare('SELECT * FROM project_converters WHERE project_converter_id = ? AND project_id = ? AND location_id = ?').get(data.project_converter_id, projectId, resolvedLocationId) as ProjectConverter | undefined;
+  const fallbackLocationId = location?.location_id ?? 'location-main';
+  let resolvedLocationId = fallbackLocationId;
+  if (data.converter_id) {
+    const projectConverter = db.prepare('SELECT * FROM converters WHERE converter_id = ? AND project_id = ?')
+      .get(data.converter_id, projectId) as ProjectConverter | undefined;
     if (!projectConverter) {
-      throw new Error(`Project converter "${data.project_converter_id}" not found in location "${resolvedLocationId}".`);
+      throw new Error(`Converter "${data.converter_id}" not found.`);
     }
+    resolvedLocationId = projectConverter.location_id ?? fallbackLocationId;
   }
   db.prepare(`
     INSERT INTO load_circuits (
       project_id,
       location_id,
       load_circuit_id,
-      project_converter_id,
-      conversion_device_id,
+      converter_id,
+      converter_type_id,
       title,
       description
     )
@@ -1271,22 +1274,22 @@ export function upsertLoadCircuit(db: Database.Database, data: Omit<LoadCircuit,
       @project_id,
       @location_id,
       @load_circuit_id,
-      @project_converter_id,
-      @conversion_device_id,
+      @converter_id,
+      @converter_type_id,
       @title,
       @description
     )
     ON CONFLICT(load_circuit_id) DO UPDATE SET
       location_id = excluded.location_id,
-      project_converter_id = excluded.project_converter_id,
-      conversion_device_id = excluded.conversion_device_id,
+      converter_id = excluded.converter_id,
+      converter_type_id = excluded.converter_type_id,
       title = excluded.title,
       description = excluded.description
   `).run({
     ...data,
     project_id: projectId,
     location_id: resolvedLocationId,
-    project_converter_id: data.project_converter_id ?? null,
+    converter_id: data.converter_id ?? null,
     description: data.description ?? null,
   });
 }

@@ -64,7 +64,7 @@ async function getDigitalTwin() {
       mppt_types: Array<{ mppt_type_id: string }>;
       panel_types: Array<{ panel_type_id: string }>;
       conversion_devices: Array<{
-        conversion_device_id: string;
+        converter_type_id: string;
         output_voltage_v?: number | null;
         output_ac_voltage_v?: number | null;
         output_dc_voltage_v?: number | null;
@@ -230,14 +230,14 @@ describe('PUT /api/surface-configurations/:surfaceId', () => {
 describe('Load circuit and load routes', () => {
   it('supports creating a load circuit and a load', async () => {
     const twin = await getDigitalTwin();
-    const conversionDeviceId = twin.entities.conversion_devices[0]?.conversion_device_id;
+    const conversionDeviceId = twin.entities.conversion_devices[0]?.converter_type_id;
     expect(conversionDeviceId).toBeTruthy();
 
     const circuitRes = await fetch(`${BASE_URL}/api/load-circuits`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        conversion_device_id: conversionDeviceId,
+        converter_type_id: conversionDeviceId,
         title: 'Living room group',
       }),
     });
@@ -272,13 +272,13 @@ describe('Load circuit and load routes', () => {
     const conversionDevice = twin.entities.conversion_devices.find((device) => (
       device.output_voltage_v != null || device.output_ac_voltage_v != null || device.output_dc_voltage_v != null
     ));
-    expect(conversionDevice?.conversion_device_id).toBeTruthy();
+    expect(conversionDevice?.converter_type_id).toBeTruthy();
 
     const circuitRes = await fetch(`${BASE_URL}/api/load-circuits`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        conversion_device_id: conversionDevice!.conversion_device_id,
+        converter_type_id: conversionDevice!.converter_type_id,
         title: 'Inherited voltage circuit',
       }),
     });
@@ -320,14 +320,14 @@ describe('Load circuit and load routes', () => {
 
   it('accepts load edits that add a note with neutral fields', async () => {
     const twin = await getDigitalTwin();
-    const conversionDeviceId = twin.entities.conversion_devices[0]?.conversion_device_id;
+    const conversionDeviceId = twin.entities.conversion_devices[0]?.converter_type_id;
     expect(conversionDeviceId).toBeTruthy();
 
     const circuitRes = await fetch(`${BASE_URL}/api/load-circuits`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        conversion_device_id: conversionDeviceId,
+        converter_type_id: conversionDeviceId,
         title: 'Edit test circuit',
       }),
     });

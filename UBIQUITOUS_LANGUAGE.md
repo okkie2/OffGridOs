@@ -1,7 +1,7 @@
 ## OffGridOS Ubiquitous Language
 
 This is the canonical source for all domain terminology in this repository.
-Every concept must be referred to by its canonical name across the database schema, TypeScript interfaces, CLI prompts, validation messages, UI labels, and documentation.
+Every concept must be referred to by its canonical name across the database schema, TypeScript interfaces, validation messages, UI labels, and documentation.
 
 ## Core concepts
 
@@ -20,8 +20,8 @@ Every concept must be referred to by its canonical name across the database sche
 | Inverter type | `inverter_types` | `InverterType` | Inverter |
 | Cabinet type | `cabinet_types` | `CabinetType` | Cabinet |
 | DC busbar | `dc_busbars` | `DcBusbar` | DC busbar |
-| Conversion device | `conversion_devices` | `ConversionDevice` | Conversion device |
-| Project converter | `project_converters` | `ProjectConverter` | Converter |
+| Converter type | `converter_types` | `ConverterType` | Converter |
+| Converter | `converters` | `Converter` | Converter |
 | Project preference | `project_preferences` | `ProjectPreferences` | Preference |
 | Victron CAN | `battery_types.victron_can` | `BatteryType.victron_can` | Victron CAN |
 
@@ -32,7 +32,7 @@ Use these labels for the main app sections. Do not introduce umbrella domain con
 | App area | Meaning | Preferred label |
 |---|---|---|
 | Production | Energy-supply side of the project. Currently this is the surface collection and derived production overview. | Production |
-| Consumption | Energy-use side of the project, including load circuits and loads. | Consumption |
+| Consumption | Energy-use side of the project, including converters, load circuits, and loads. | Consumption |
 
 ## Project configuration concepts
 
@@ -45,7 +45,7 @@ Use `configuration` for project-selected or project-configured records when you 
 | MPPT configuration | `mppt_configurations` | `MpptConfiguration` | MPPT configuration |
 | Inverter configuration | `inverter_configurations` | `InverterConfiguration` | Inverter configuration |
 
-`Project converter` means a converter instance selected for the current project. It owns the user-facing title and description on `Consumption` and references one catalogue `Conversion device`.
+`Converter` means a converter instance selected for the current location. It owns the user-facing title and description on `Consumption` and references one catalogue `Converter type`.
 
 ## Legacy terminology
 
@@ -88,7 +88,7 @@ Use the following terms consistently in the digital twin and future schema work.
 | MPPT solar charger | Solar charger that tracks maximum power point and charges the battery bank | MPPT |
 | Battery bank | The connected battery system | Battery bank |
 | Inverter/charger | Combined inverter and charger such as a MultiPlus or Quattro | Inverter/charger |
-| Load circuit | A group of loads protected by one final fuse or breaker downstream of a conversion device | Load circuit |
+| Load circuit | A group of loads protected by one final fuse or breaker downstream of a converter | Load circuit |
 | Load | An electrical load item connected to a load circuit, which may be one appliance, one endpoint, or one modeled load group | Load |
 | Generator | AC source used as backup or supplemental charging supply | Generator |
 | MPPT input fit | The quality of match between a selected array and a selected MPPT on the PV input side | MPPT input fit |
@@ -173,6 +173,8 @@ The field is named `orientation_deg` in both the DB column and the TypeScript mo
 - The catalogue is shared within a `project` and can span multiple `locations`.
 - DB tables use plural snake_case.
 - TypeScript interfaces use singular PascalCase.
+- Table primary keys should use the table-derived identifier pattern, for example `surface_id`, `converter_id`, and `load_circuit_id`.
+- Foreign keys should reference the target table's identifier name directly, for example `converter_type_id` or `converter_id`.
 - CLI prompts, UI labels, and output text should match the canonical domain concept name.
 - Use `*_types` for catalog tables.
 - Use `*_configurations` for project-selected or project-configured records when the noun needs to cover the whole selected setup.
@@ -189,7 +191,9 @@ The field is named `orientation_deg` in both the DB column and the TypeScript mo
 - Use `load circuit` for the protected electrical group above the load level.
 - Use `load` for the electrical load item you want to reason about in the model.
 - Use `DC busbar` for the shared DC distribution point between the battery bank and downstream branches.
-- Use `output_voltage_v` for the output voltage of a conversion device.
+- Use `converter type` for the reusable converter catalogue row.
+- Use `converter` for the project-selected converter instance.
+- Use `output_voltage_v` for the output voltage of a converter type.
 - Evaluate component relationships with both `electrical_status` and `fit_status` when the distinction matters.
 - Do not introduce near-synonyms for core concepts without a deliberate reason.
 - If a concept is added, renamed, or removed, update this file in the same change.

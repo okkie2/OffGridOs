@@ -76,7 +76,7 @@ Suggested shape:
   "battery_banks": [],
   "inverter_types": [],
   "inverter_configurations": [],
-  "conversion_devices": [],
+  "converter_types": [],
   "load_circuits": [],
   "loads": [],
   "generators": [],
@@ -97,7 +97,7 @@ Suggested shape:
   "array_to_mppt": [],
   "mppt_to_battery_bank": [],
   "battery_bank_to_inverter": [],
-  "conversion_device_to_load_circuit": [],
+  "converter_type_to_load_circuit": [],
   "load_circuit_to_load": []
 }
 ```
@@ -114,14 +114,14 @@ Example:
 ```json
 {
   "relationship_id": "array-ne-1__mppt-ne-1",
-  "from_array_id": "array-ne-1",
+  "from_pv_array_id": "pv-array-ne-1",
   "to_mppt_configuration_id": "mppt-ne-1",
   "input_voltage_v": 82.0,
   "input_current_a": 11.37,
   "input_power_w": 780.0,
   "evaluation": {
     "electrical_status": "within_limits",
-    "fit_status": "acceptable",
+    "fit_status": "fully_utilized",
     "reasons": ["winter_biased_design"]
   }
 }
@@ -149,7 +149,7 @@ Suggested shape:
 
 Suggested fields:
 
-- `string_id`
+- `pv_string_id`
 - `voltage_v`
 - `current_a`
 - `power_wp`
@@ -158,7 +158,7 @@ Suggested fields:
 
 Suggested fields:
 
-- `array_id`
+- `pv_array_id`
 - `voltage_v`
 - `current_a`
 - `power_wp`

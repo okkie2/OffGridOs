@@ -58,6 +58,28 @@ Feature: Navigation
     Given OffGridOS is rendered on the load circuits page
     Then I should see the Load circuits page
 
+  Scenario: Newly created load circuit remains visible after save
+    Given a load circuit creation setup exists
+    And OffGridOS is rendered on the load circuits page
+    When I add a load circuit on the Load circuits page
+    And I title the last load circuit "Kitchen sockets" on the Load circuits page
+    And I save the load circuit on the Load circuits page
+    Then I should see "Load circuit \"kitchen-sockets\" saved."
+    And I should see "Kitchen sockets"
+    And the saved load circuit should belong to the active location
+    And I should not see "No load circuits found."
+
+  Scenario: Newly created load circuit remains visible after save on a secondary location
+    Given a load circuit creation setup exists on a secondary location
+    And OffGridOS is rendered on the prepared load circuits page
+    When I add a load circuit on the Load circuits page
+    And I title the last load circuit "Garage sockets" on the Load circuits page
+    And I save the load circuit on the Load circuits page
+    Then I should see "Load circuit \"garage-sockets\" saved."
+    And I should see "Garage sockets"
+    And the saved load circuit should belong to the active location
+    And I should not see "No load circuits found."
+
   Scenario: Loads page renders directly
     Given OffGridOS is rendered on the loads page
     Then I should see the Loads page

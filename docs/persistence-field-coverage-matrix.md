@@ -185,7 +185,7 @@ Routes:
 
 | Page | Save box | Field label | Persisted property | Clear allowed | Valid example | Invalid example | Primary automated coverage | Notes |
 |---|---|---|---|---|---|---|---|---|
-| Catalogs / Inverter types | Inverter type editor | Catalog id | `inverter_id` | generated on create | `multiplus-ii-48-3000` | conflicting id | integration + bdd | Generated when omitted on create |
+| Catalogs / Inverter types | Inverter type editor | Catalog id | `inverter_type_id` | generated on create | `multiplus-ii-48-3000` | conflicting id | integration + bdd | Generated when omitted on create |
 | Catalogs / Inverter types | Inverter type editor | Model | `model` | no | `MultiPlus-II 48/3000` | empty string | integration + bdd + audit | Required |
 | Catalogs / Inverter types | Inverter type editor | Input voltage | `input_voltage_v` | no | `48` | `0` | integration + bdd + rule | Must be positive |
 | Catalogs / Inverter types | Inverter type editor | Output voltage | `output_voltage_v` | no | `230` | `0` | integration + bdd + rule | Must be positive |

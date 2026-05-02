@@ -9,6 +9,155 @@ function hasTable(db: Database.Database, tableName: string): boolean {
   return Boolean(row);
 }
 
+function tableColumns(db: Database.Database, tableName: string): Set<string> {
+  return new Set((db.prepare(`PRAGMA table_info('${tableName}')`).all() as { name: string }[]).map((row) => row.name));
+}
+
+function migrateLegacyConverterTables(db: Database.Database): void {
+  db.exec('PRAGMA foreign_keys = OFF;');
+  try {
+    if (hasTable(db, 'converter_types')) {
+      const cols = tableColumns(db, 'converter_types');
+      if (cols.has('conversion_device_id') || !cols.has('converter_type_id')) {
+        db.exec(`
+          ALTER TABLE converter_types RENAME TO converter_types_legacy;
+          CREATE TABLE converter_types (
+            id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+            converter_type_id    TEXT UNIQUE NOT NULL,
+            title                TEXT NOT NULL,
+            description          TEXT,
+            device_type          TEXT NOT NULL,
+            input_voltage_v      REAL,
+            output_voltage_v     REAL,
+            continuous_power_w   REAL,
+            peak_power_va        REAL,
+            max_charge_current_a REAL,
+            efficiency_pct       REAL,
+            output_ac_voltage_v  REAL,
+            frequency_hz         REAL,
+            surge_power_w        REAL,
+            output_dc_voltage_v  REAL,
+            max_output_current_a REAL
+          );
+          INSERT INTO converter_types (
+            id,
+            converter_type_id,
+            title,
+            description,
+            device_type,
+            input_voltage_v,
+            output_voltage_v,
+            continuous_power_w,
+            peak_power_va,
+            max_charge_current_a,
+            efficiency_pct,
+            output_ac_voltage_v,
+            frequency_hz,
+            surge_power_w,
+            output_dc_voltage_v,
+            max_output_current_a
+          )
+          SELECT
+            id,
+            converter_type_id,
+            title,
+            description,
+            device_type,
+            input_voltage_v,
+            output_voltage_v,
+            continuous_power_w,
+            peak_power_va,
+            max_charge_current_a,
+            efficiency_pct,
+            output_ac_voltage_v,
+            frequency_hz,
+            surge_power_w,
+            output_dc_voltage_v,
+            max_output_current_a
+          FROM converter_types_legacy;
+          DROP TABLE converter_types_legacy;
+        `);
+      }
+    }
+
+    if (hasTable(db, 'converters')) {
+      const cols = tableColumns(db, 'converters');
+      if (cols.has('project_converter_id') || cols.has('conversion_device_id') || !cols.has('converter_id') || !cols.has('converter_type_id')) {
+        db.exec(`
+          ALTER TABLE converters RENAME TO converters_legacy;
+          CREATE TABLE converters (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id       TEXT NOT NULL REFERENCES projects(project_id),
+            location_id      TEXT NOT NULL REFERENCES locations(location_id),
+            converter_id     TEXT UNIQUE NOT NULL,
+            title            TEXT NOT NULL,
+            description      TEXT,
+            converter_type_id TEXT NOT NULL REFERENCES converter_types(converter_type_id)
+          );
+          INSERT INTO converters (
+            id,
+            project_id,
+            location_id,
+            converter_id,
+            title,
+            description,
+            converter_type_id
+          )
+          SELECT
+            id,
+            project_id,
+            location_id,
+            converter_id,
+            title,
+            description,
+            converter_type_id
+          FROM converters_legacy;
+          DROP TABLE converters_legacy;
+        `);
+      }
+    }
+
+    if (hasTable(db, 'load_circuits')) {
+      const cols = tableColumns(db, 'load_circuits');
+      if (cols.has('project_converter_id') || cols.has('conversion_device_id') || !cols.has('converter_id') || !cols.has('converter_type_id')) {
+        db.exec(`
+          ALTER TABLE load_circuits RENAME TO load_circuits_legacy;
+          CREATE TABLE load_circuits (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            load_circuit_id  TEXT UNIQUE NOT NULL,
+            location_id      TEXT NOT NULL REFERENCES locations(location_id),
+            converter_id     TEXT REFERENCES converters(converter_id),
+            converter_type_id TEXT NOT NULL REFERENCES converter_types(converter_type_id),
+            title            TEXT NOT NULL,
+            description      TEXT
+          );
+          INSERT INTO load_circuits (
+            id,
+            load_circuit_id,
+            location_id,
+            converter_id,
+            converter_type_id,
+            title,
+            description
+          )
+          SELECT
+            id,
+            load_circuit_id,
+            location_id,
+            converter_id,
+            converter_type_id,
+            title,
+            description
+          FROM load_circuits_legacy;
+          DROP TABLE load_circuits_legacy;
+        `);
+      }
+    }
+  } finally {
+    db.exec('PRAGMA foreign_keys = ON;');
+  }
+}
+
 function ensureProjectsTable(db: Database.Database): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS projects (
@@ -47,7 +196,7 @@ function migrateLegacyDefaultProjectId(db: Database.Database): void {
     'surface_configurations',
     'battery_bank_configurations',
     'inverter_configurations',
-    'project_converters',
+    'converters',
     'load_circuits',
     'loads',
     'project_preferences',
@@ -165,22 +314,22 @@ function ensureSurfaceLocationId(db: Database.Database): void {
   db.exec('CREATE INDEX IF NOT EXISTS surfaces_location_id_idx ON surfaces(location_id);');
 }
 
-function ensureLoadCircuitsProjectConverterId(db: Database.Database): void {
+function ensureLoadCircuitsConverterId(db: Database.Database): void {
   const cols = new Set(
     (db.prepare("PRAGMA table_info('load_circuits')").all() as { name: string }[]).map((r) => r.name),
   );
-  if (!cols.has('project_converter_id')) {
-    db.exec('ALTER TABLE load_circuits ADD COLUMN project_converter_id TEXT REFERENCES project_converters(project_converter_id);');
+  if (!cols.has('converter_id')) {
+    db.exec('ALTER TABLE load_circuits ADD COLUMN converter_id TEXT REFERENCES converters(converter_id);');
   }
 
   db.exec(`
-    INSERT OR IGNORE INTO project_converters (
+    INSERT OR IGNORE INTO converters (
       project_id,
       location_id,
-      project_converter_id,
+      converter_id,
       title,
       description,
-      conversion_device_id
+      converter_type_id
     )
     SELECT
       lc.project_id,
@@ -191,48 +340,48 @@ function ensureLoadCircuitsProjectConverterId(db: Database.Database): void {
         ORDER BY id
         LIMIT 1
       )),
-      lc.conversion_device_id,
+      lc.converter_type_id,
       cd.title,
       cd.description,
-      lc.conversion_device_id
+      lc.converter_type_id
     FROM load_circuits lc
-    JOIN conversion_devices cd ON cd.conversion_device_id = lc.conversion_device_id
-    WHERE lc.project_converter_id IS NULL
-    GROUP BY lc.conversion_device_id;
+    JOIN converter_types cd ON cd.converter_type_id = lc.converter_type_id
+    WHERE lc.converter_id IS NULL
+    GROUP BY lc.converter_type_id;
   `);
   db.exec(`
     UPDATE load_circuits
-    SET project_converter_id = conversion_device_id
-    WHERE project_converter_id IS NULL
-      AND conversion_device_id IN (
-        SELECT project_converter_id FROM project_converters
+    SET converter_id = converter_type_id
+    WHERE converter_id IS NULL
+      AND converter_type_id IN (
+        SELECT converter_id FROM converters
       );
   `);
 }
 
-function ensureProjectConverterLocationId(db: Database.Database): void {
+function ensureConverterLocationId(db: Database.Database): void {
   const cols = new Set(
-    (db.prepare("PRAGMA table_info('project_converters')").all() as { name: string }[]).map((r) => r.name),
+    (db.prepare("PRAGMA table_info('converters')").all() as { name: string }[]).map((r) => r.name),
   );
   if (!cols.has('location_id')) {
-    db.exec('ALTER TABLE project_converters ADD COLUMN location_id TEXT;');
+    db.exec('ALTER TABLE converters ADD COLUMN location_id TEXT;');
   }
 
   db.exec(`
-    UPDATE project_converters
+    UPDATE converters
     SET location_id = COALESCE(
       location_id,
       (
         SELECT lc.location_id
         FROM load_circuits lc
-        WHERE lc.project_converter_id = project_converters.project_converter_id
+        WHERE lc.converter_id = converters.converter_id
         ORDER BY lc.id
         LIMIT 1
       ),
       (
         SELECT location_id
         FROM locations
-        WHERE locations.project_id = project_converters.project_id
+        WHERE locations.project_id = converters.project_id
         ORDER BY id
         LIMIT 1
       )
@@ -253,6 +402,12 @@ function ensureLoadCircuitLocationId(db: Database.Database): void {
     UPDATE load_circuits
     SET location_id = COALESCE(
       location_id,
+      (
+        SELECT location_id
+        FROM converters
+        WHERE converters.converter_id = load_circuits.converter_id
+        LIMIT 1
+      ),
       (
         SELECT location_id
         FROM locations
@@ -396,12 +551,12 @@ function ensureBatteryTypesColumns(db: Database.Database): void {
   `).run();
 }
 
-function ensureConversionDeviceColumns(db: Database.Database): void {
-  const cols = new Set((db.prepare("PRAGMA table_info('conversion_devices')").all() as { name: string }[]).map((row) => row.name));
+function ensureConverterTypeColumns(db: Database.Database): void {
+  const cols = new Set((db.prepare("PRAGMA table_info('converter_types')").all() as { name: string }[]).map((row) => row.name));
   const additions = [
-    !cols.has('price') ? 'ALTER TABLE conversion_devices ADD COLUMN price REAL;' : '',
-    !cols.has('price_source_url') ? 'ALTER TABLE conversion_devices ADD COLUMN price_source_url TEXT;' : '',
-    !cols.has('notes') ? 'ALTER TABLE conversion_devices ADD COLUMN notes TEXT;' : '',
+    !cols.has('price') ? 'ALTER TABLE converter_types ADD COLUMN price REAL;' : '',
+    !cols.has('price_source_url') ? 'ALTER TABLE converter_types ADD COLUMN price_source_url TEXT;' : '',
+    !cols.has('notes') ? 'ALTER TABLE converter_types ADD COLUMN notes TEXT;' : '',
   ].filter(Boolean);
 
   if (additions.length > 0) {
@@ -443,6 +598,19 @@ function dropLegacyLocationTable(db: Database.Database): void {
   }
 
   db.exec('DROP TABLE IF EXISTS location;');
+}
+
+function dropLegacyTransitionTables(db: Database.Database): void {
+  // These tables were superseded by the canonical surface and project tables.
+  // Drop them once the live schema has the modern equivalents in place.
+  db.exec(`
+    DROP TABLE IF EXISTS arrays;
+    DROP TABLE IF EXISTS strings;
+    DROP TABLE IF EXISTS preferences;
+    DROP TABLE IF EXISTS roof_faces;
+    DROP TABLE IF EXISTS roof_panels;
+    DROP TABLE IF EXISTS roof_face_configurations;
+  `);
 }
 
 function ensureSurfaceColumns(db: Database.Database): void {
@@ -860,9 +1028,9 @@ export function initSchema(db: Database.Database): void {
       selected_dc_busbar_id      TEXT REFERENCES dc_busbars(dc_busbar_id) ON DELETE SET NULL
     );
 
-    CREATE TABLE IF NOT EXISTS conversion_devices (
+    CREATE TABLE IF NOT EXISTS converter_types (
       id                     INTEGER PRIMARY KEY AUTOINCREMENT,
-      conversion_device_id   TEXT UNIQUE NOT NULL,
+      converter_type_id   TEXT UNIQUE NOT NULL,
       title                  TEXT NOT NULL,
       description            TEXT,
       device_type            TEXT NOT NULL,
@@ -879,22 +1047,22 @@ export function initSchema(db: Database.Database): void {
       max_output_current_a   REAL
     );
 
-    CREATE TABLE IF NOT EXISTS project_converters (
+    CREATE TABLE IF NOT EXISTS converters (
       id                     INTEGER PRIMARY KEY AUTOINCREMENT,
       project_id             TEXT NOT NULL REFERENCES projects(project_id),
       location_id            TEXT NOT NULL REFERENCES locations(location_id),
-      project_converter_id   TEXT UNIQUE NOT NULL,
+      converter_id   TEXT UNIQUE NOT NULL,
       title                  TEXT NOT NULL,
       description            TEXT,
-      conversion_device_id   TEXT NOT NULL REFERENCES conversion_devices(conversion_device_id)
+      converter_type_id   TEXT NOT NULL REFERENCES converter_types(converter_type_id)
     );
 
     CREATE TABLE IF NOT EXISTS load_circuits (
       id                     INTEGER PRIMARY KEY AUTOINCREMENT,
       load_circuit_id        TEXT UNIQUE NOT NULL,
       location_id            TEXT NOT NULL REFERENCES locations(location_id),
-      project_converter_id   TEXT REFERENCES project_converters(project_converter_id),
-      conversion_device_id   TEXT NOT NULL REFERENCES conversion_devices(conversion_device_id),
+      converter_id   TEXT REFERENCES converters(converter_id),
+      converter_type_id   TEXT NOT NULL REFERENCES converter_types(converter_type_id),
       title                  TEXT NOT NULL,
       description            TEXT
     );
@@ -927,17 +1095,19 @@ export function initSchema(db: Database.Database): void {
   dropLegacyLocationTable(db);
   ensureSurfaceColumns(db);
   ensureDcBusbarColumns(db);
-  ensureConversionDeviceColumns(db);
+  migrateLegacyConverterTables(db);
+  ensureConverterTypeColumns(db);
   ensureInverterConfigurationColumns(db);
   ensureCabinetTypesColumns(db);
   ensureBatteryTypesColumns(db);
   ensurePanelTypesColumns(db);
   ensureMpptTypesColumns(db);
   ensureInverterTypesColumns(db);
+  dropLegacyTransitionTables(db);
 
   // Phase 1 multi-project: add projects table and project_id to all project-scoped
   // tables. Catalog tables (panel_types, mppt_types, battery_types, inverter_types,
-  // cabinet_types, conversion_devices, dc_busbars) stay global and are not scoped.
+  // cabinet_types, converter_types, dc_busbars) stay global and are not scoped.
   ensureProjectsTable(db);
   migrateLegacyDefaultProjectId(db);
   ensureProjectId(db, 'locations');
@@ -950,13 +1120,13 @@ export function initSchema(db: Database.Database): void {
   ensureProjectId(db, 'array_to_mppt_mappings');
   ensureProjectId(db, 'surface_configurations');
   ensureProjectId(db, 'inverter_configurations');
-  ensureProjectId(db, 'project_converters');
+  ensureProjectId(db, 'converters');
   ensureProjectId(db, 'load_circuits');
   ensureProjectId(db, 'loads');
   ensureProjectPreferencesMigration(db);
   seedLocation(db);
-  ensureProjectConverterLocationId(db);
-  ensureLoadCircuitsProjectConverterId(db);
+  ensureConverterLocationId(db);
+  ensureLoadCircuitsConverterId(db);
   ensureLoadCircuitLocationId(db);
   ensureLoadColumns(db);
   ensureLoadLocationId(db);

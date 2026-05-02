@@ -12,8 +12,7 @@ export const LOCAL_APP_PORT = 3000;
 export const LOCAL_API_PORT = 3001;
 export const LOCAL_APP_URL = `http://${LOCAL_APP_HOST}:${LOCAL_APP_PORT}`;
 export const LOCAL_API_TARGET = `http://${LOCAL_APP_HOST}:${LOCAL_API_PORT}`;
-export const LEGACY_LOCAL_APP_PORTS = [4173, 6001];
-export const ALL_LOCAL_APP_PORTS = [LOCAL_APP_PORT, LOCAL_API_PORT, ...LEGACY_LOCAL_APP_PORTS];
+export const ALL_LOCAL_APP_PORTS = [LOCAL_APP_PORT, LOCAL_API_PORT];
 
 function formatPortLabel(label, port) {
   return `${label} (${port})`;
@@ -100,17 +99,11 @@ export async function assertPortAvailable(port, label) {
 
 export async function assertCanonicalLocalPortsAvailable() {
   await assertPortAvailable(LOCAL_APP_PORT, 'the canonical local app port');
-  for (const legacyPort of LEGACY_LOCAL_APP_PORTS) {
-    assertNoListenerOnPort(legacyPort, 'a legacy local app port');
-  }
 }
 
 export async function assertDevPortsAvailable() {
   await assertPortAvailable(LOCAL_APP_PORT, 'the canonical local app port');
   await assertPortAvailable(LOCAL_API_PORT, 'the internal local API port');
-  for (const legacyPort of LEGACY_LOCAL_APP_PORTS) {
-    assertNoListenerOnPort(legacyPort, 'a legacy local app port');
-  }
 }
 
 export function findOccupiedLocalAppPorts() {

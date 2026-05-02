@@ -3,6 +3,9 @@
 
 ## NOW
 
+- Stabilize page-state ownership across all pages so remembered filters, selected rows, and location context cannot bleed between workbenches.
+- Review the UI-backed tables for explicit `project_id` ownership, nullable `location_id` scope, and ambiguous names that should be aligned with the ubiquitous language.
+
 ## NEXT
 
 - Keep the single-instance local runtime rule intact: one canonical manual app URL on `http://127.0.0.1:3000`, guarded startup scripts, and no alternate localhost browser path for manual use.
@@ -14,7 +17,5 @@
 
 ## LATER
 
-- Add richer downstream AC-side modeling for branch circuits, consumers, and generator scenarios in the web app and calculation layer.
+- Add richer downstream AC-side modeling for load circuits, Loads, and generator scenarios in the web app and calculation layer.
 - Add durable import and export support for project data without making the frontend depend on generated JSON files.
-- Improve the CLI experience with richer summaries, navigation shortcuts, and clearer status reporting.
-- Review packaging and distribution so the command-line entrypoint and deployed web app both stay easy to run.

@@ -16,6 +16,7 @@ Terminology in this note must follow [UBIQUITOUS_LANGUAGE.md](../UBIQUITOUS_LANG
 
 - `project` data is shared context for the whole project.
 - `location` data is site-specific configuration and observed assets.
+- load-side (Consumption) operational data, including converters, circuits, and loads, is location-scoped.
 - `catalogue` data is reusable definitions that can span multiple locations in the same project.
 
 ## Design Direction
@@ -25,8 +26,37 @@ The intended direction is:
 
 - `project` owns the shared catalogue
 - `location` owns the actual installation configuration
+- `location` also owns the load-side (Consumption) operational setup for converters, load circuits, and loads
 - starting a new `location` duplicates nothing except access to the project catalogue
 - starting a new `project` starts empty unless a catalogue is intentionally copied or seeded
+
+## Proposed Row Ownership Convention
+
+For UI-backed operational tables, the preferred direction is:
+
+- every row carries a `project_id`
+- every row may carry a nullable `location_id`
+- `location_id = null` means the row belongs to the wider project context
+- `location_id` set means the row belongs to the current location context
+
+This makes the scope visible in the schema instead of relying on page behavior alone.
+
+The convention is especially useful for:
+
+- shared catalogue rows
+- project-level configuration rows
+- location-specific operational rows
+
+## Timestamp Convention
+
+SQLite does not add application-level timestamps automatically.
+
+If a table needs audit-friendly lifecycle fields, add them explicitly as:
+
+- `created_at`
+- `updated_at`
+
+Use them only on mutable tables where the timestamps help explain history or support synchronization.
 
 ## Current Implication
 
@@ -54,8 +84,7 @@ Start Slice 3 in the catalogue layer:
 
 - [x] [src/server.ts](/Users/joostokkinga/Code/OffGridOS/src/server.ts): update API routes so location-specific data is written and read against a location boundary.
 - [x] [web/src/App.tsx](/Users/joostokkinga/Code/OffGridOS/web/src/App.tsx): add project and location selection flows in the UI and stop implying there is only one site context.
-- [x] [docs/database.md](/Users/joostokkinga/Code/OffGridOS/docs/database.md): keep the schema narrative aligned with the current migration step.
-- [x] [docs/database-schema.md](/Users/joostokkinga/Code/OffGridOS/docs/database-schema.md): update the ER diagram after the location boundary lands.
+- [x] [docs/database.md](/Users/joostokkinga/Code/OffGridOS/docs/database.md): keep the schema narrative and ER diagram aligned after the location boundary lands.
 
 ### Slice 3: Scope the catalogue cleanly
 

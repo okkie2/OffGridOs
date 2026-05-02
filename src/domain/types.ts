@@ -207,9 +207,9 @@ export interface DcBusbar {
   description?: string | null;
 }
 
-export interface ConversionDevice {
+export interface ConverterType {
   id: number;
-  conversion_device_id: string;
+  converter_type_id: string;
   title: string;
   description?: string | null;
   device_type: string;
@@ -229,23 +229,27 @@ export interface ConversionDevice {
   notes?: string | null;
 }
 
-export interface ProjectConverter {
+export type ConversionDevice = ConverterType;
+
+export interface Converter {
   id: number;
   project_id: string;
   location_id: string;
-  project_converter_id: string;
+  converter_id: string;
   title: string;
   description?: string | null;
-  conversion_device_id: string;
+  converter_type_id: string;
 }
+
+export type ProjectConverter = Converter;
 
 export interface LoadCircuit {
   id: number;
   project_id: string;
   location_id: string;
   load_circuit_id: string;
-  project_converter_id?: string | null;
-  conversion_device_id: string;
+  converter_id?: string | null;
+  converter_type_id: string;
   title: string;
   description?: string | null;
 }

@@ -14,7 +14,7 @@ Use this guide together with [relationship-evaluation-guide.md](./relationship-e
 OffGridOS verdicts should not stop at a class label such as:
 
 - `Optimal`
-- `Acceptable`
+- `Fully utilized`
 - `Underutilized`
 - `Outside limits`
 
@@ -45,13 +45,13 @@ When the verdict is not `outside_limits`, the explanation should still name the 
 Do not say only:
 
 - `Underutilized`
-- `Acceptable`
+- `Fully utilized`
 - `Optimal`
 
 Instead say:
 
 - what is underutilized by what
-- what is an acceptable match for what
+- what is a fully utilized match for what
 - what is closely matched to what
 
 ## Canonical sentence pattern
@@ -60,7 +60,7 @@ Use these sentence shapes:
 
 - `Outside limits`: `{Left side} is not electrically compatible with {right side}.`
 - `Optimal`: `{Left side} is closely matched to {right side}.`
-- `Acceptable`: `{Left side} is a workable match for {right side}, with some headroom or tradeoff.`
+- `Fully utilized`: `{Left side} is a well-utilized match for {right side}, with capacity meaningfully in use.`
 - `Clipping expected`: `{Left side} is intentionally large relative to {right side}, so clipping is expected in stronger conditions.`
 - `Underutilized`: `{Right side} has significant unused capacity relative to {left side}.`
 
@@ -71,7 +71,7 @@ This keeps the wording aligned with relationship direction while still naming th
 ### Array -> MPPT
 
 - `Optimal`: `This array is closely matched to the selected MPPT.`
-- `Acceptable`: `This array is a workable match for the selected MPPT, with some headroom or tradeoff.`
+- `Fully utilized`: `This array is a well-utilized match for the selected MPPT, with capacity meaningfully in use.`
 - `Clipping expected`: `This array is intentionally large relative to the selected MPPT, so clipping is expected in stronger conditions.`
 - `Underutilized`: `The selected MPPT has significant unused PV capacity relative to this array.`
 - `Outside limits`: `This array is not electrically compatible with the selected MPPT.`
@@ -87,7 +87,7 @@ Reason-level wording:
 ### MPPT -> battery bank
 
 - `Optimal`: `The selected MPPT is closely matched to this battery bank.`
-- `Acceptable`: `The selected MPPT can charge this battery bank appropriately, with some headroom or limitation.`
+- `Fully utilized`: `The selected MPPT charges this battery bank appropriately, with capacity meaningfully in use.`
 - `Underutilized`: `The battery charge path is underutilized relative to the selected MPPT.`
 - `Outside limits`: `The selected MPPT is not electrically compatible with this battery bank.`
 
@@ -101,7 +101,7 @@ Reason-level wording:
 ### Battery bank -> inverter
 
 - `Optimal`: `This battery bank is closely matched to the selected inverter.`
-- `Acceptable`: `This battery bank can support the selected inverter, with some headroom or tradeoff.`
+- `Fully utilized`: `This battery bank supports the selected inverter with capacity meaningfully in use.`
 - `Underutilized`: `The selected inverter has significant unused capacity relative to this battery bank.`
 - `Outside limits`: `This battery bank is not electrically compatible with the selected inverter.`
 
@@ -116,14 +116,14 @@ Reason-level wording:
 ### Inverter -> load circuit
 
 - `Optimal`: `This load circuit is closely matched to the inverter.`
-- `Acceptable`: `This load circuit is a workable load path for the inverter, with some headroom or tradeoff.`
+- `Fully utilized`: `This load circuit uses the inverter's output capacity well.`
 - `Underutilized`: `The inverter has significant unused capacity relative to this load circuit.`
 - `Outside limits`: `This load circuit is not electrically compatible with the inverter.`
 
 ### Load circuit -> load
 
 - `Optimal`: `This load is closely matched to the load circuit.`
-- `Acceptable`: `This load can run on this load circuit, with some headroom or startup tradeoff.`
+- `Fully utilized`: `This load runs on this load circuit with circuit capacity meaningfully in use.`
 - `Underutilized`: `This load circuit has significant unused capacity relative to this load.`
 - `Outside limits`: `This load is not electrically compatible with this load circuit.`
 
@@ -132,7 +132,7 @@ Reason-level wording:
 The badge can stay short:
 
 - `Optimal`
-- `Acceptable`
+- `Fully utilized`
 - `Underutilized`
 - `Clipping expected`
 - `Outside limits`

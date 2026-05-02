@@ -32,12 +32,6 @@ Install dependencies:
 ```bash
 npm install
 ```
-Create or verify the local database:
-
-```bash
-npx tsx src/cli/index.ts init
-```
-
 Run the local app in development:
 
 ```bash
@@ -68,12 +62,11 @@ OffGridOS now uses one canonical manual browser URL for local work:
 http://127.0.0.1:3000
 ```
 
-Do not use alternate localhost ports for manual app testing. See [local-runtime.md](./docs/local-runtime.md) for the enforced single-instance rule.
+Do not use alternate localhost ports for manual app testing. This is a hard invariant for all development work in this repository. See [local-runtime.md](./docs/local-runtime.md) for the enforced single-instance rule.
 
 For deployment, persistent-storage requirements, and the recommended local-first SQLite publishing workflow, see [deployment.md](./docs/deployment.md).
 
 The current publish workflow keeps `project.db` as the local source of truth and pushes database updates to Railway separately from GitHub code deploys.
-Use `npm run publish:db` to upload the local database, or open the CLI menu and choose `Project -> Publish local database to Railway`.
 
 ## Documentation
 
@@ -94,8 +87,7 @@ Use `npm run publish:db` to upload the local database, or open the CLI menu and 
 
 ### Domain and schema
 
-- [naming-conventions.md](./docs/naming-conventions.md): target naming rule for catalog tables, project configurations, and derived outputs.
-- [database-schema.md](./docs/database-schema.md): Mermaid ER diagram of the current SQLite schema and how the core tables relate to each other.
+- [database.md](./docs/database.md): schema narrative, scope conventions, table-name review notes, and the Mermaid ER diagram of the current SQLite schema.
 - [project-location-boundary.md](./docs/project-location-boundary.md): the intended boundary between project-scoped catalogue data and location-scoped configuration.
 - [project-baseline.md](./docs/project-baseline.md): current real-project baseline and intended configuration details from `project.db`.
 
@@ -116,7 +108,7 @@ Use `npm run publish:db` to upload the local database, or open the CLI menu and 
 ### Screen specs
 
 - [first-screen-layout.md](./docs/first-screen-layout.md): overview screen layout and what it should show on load.
-- [roof-face-array-screen.md](./docs/roof-face-array-screen.md): detailed screen for one surface, its array, and MPPT fit evaluation.
+- [surface-array-screen.md](./docs/surface-array-screen.md): detailed screen for one surface, its array, and MPPT fit evaluation.
 - [battery-inverter-screen.md](./docs/battery-inverter-screen.md): detailed screen for the battery bank, inverter, and their evaluated relationships.
 - [monthly-balance-screen.md](./docs/monthly-balance-screen.md): seasonal system screen for monthly surplus, deficit, battery pressure, and generator dependence.
 - [load-circuit-load-screen.md](./docs/load-circuit-load-screen.md): future screen for downstream load circuits, loads, and AC-side distribution.

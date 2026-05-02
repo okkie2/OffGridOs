@@ -20,7 +20,7 @@ Treat the installation as a dependency graph, not as a flat form.
 Every important relationship in that graph should be evaluated in two layers:
 
 1. `electrical_status`: `within_limits` or `outside_limits`
-2. `fit_status`: `optimal`, `acceptable`, `clipping_expected`, or `underutilized`
+2. `fit_status`: `optimal`, `fully_utilized`, `clipping_expected`, or `underutilized`
 
 This distinction should apply wherever it helps explain both hard constraints and softer design trade-offs.
 
@@ -166,20 +166,18 @@ The important interaction is:
 
 ## Data shape direction
 
-For the React app, keep the deployment simple:
+The React app reads from the Node server API. The server assembles and returns the digital twin payload from the SQLite database.
 
-- local database remains the source of truth
-- a local export step generates JSON
-- the React app reads that JSON
+`digital-twin.json` is not the deployment boundary. It is a scratch artifact and should not be treated as durable application state.
 
-The JSON should represent:
+The API payload should represent:
 
 - component definitions
 - relationships between components
 - monthly scenario values
 - derived result snapshots if precomputed
 
-Use the terminology and concept boundaries from [UBIQUITOUS_LANGUAGE.md](../UBIQUITOUS_LANGUAGE.md) when defining these JSON objects.
+Use the terminology and concept boundaries from [UBIQUITOUS_LANGUAGE.md](../UBIQUITOUS_LANGUAGE.md) when defining these API response objects.
 
 ## Recommendation
 

@@ -21,7 +21,7 @@ They should summarize, not replace, the existing subsystem screens.
 Answer:
 
 - is the current configuration technically coherent
-- which selected components are underutilized, acceptable, optimal, or outside limits
+- which selected components are underutilized, fully utilized, optimal, or outside limits
 
 ### Route
 
@@ -65,7 +65,7 @@ The chips may show values such as:
 
 - `Mixed`
 - `Optimal`
-- `Acceptable`
+- `Fully utilized`
 - `Underutilized`
 - `Outside limits`
 - `Not evaluated`
@@ -92,7 +92,7 @@ Empty state:
 Recommended verdict phrases:
 
 - `Array well matched to MPPT`
-- `Array acceptable for MPPT`
+- `Array fully utilized for MPPT`
 - `MPPT underutilized by array`
 - `Array clipping at MPPT`
 - `Array outside MPPT limits`
@@ -136,7 +136,7 @@ Fields:
 
 Action:
 
-- `Open Inverter array`
+- `Open Storage`
 
 Empty state:
 

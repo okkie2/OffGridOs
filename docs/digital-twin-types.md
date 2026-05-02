@@ -29,7 +29,7 @@ type ElectricalStatus = 'within_limits' | 'outside_limits';
 
 type FitStatus =
   | 'optimal'
-  | 'acceptable'
+  | 'fully_utilized'
   | 'clipping_expected'
   | 'underutilized';
 ```
@@ -76,8 +76,8 @@ interface PanelType {
   notes?: string;
 }
 
-interface String {
-  string_id: string;
+interface PvString {
+  pv_string_id: string;
   surface_id: string;
   panel_type_id: string;
   panel_count: number;
@@ -85,8 +85,8 @@ interface String {
   notes?: string;
 }
 
-interface Array {
-  array_id: string;
+interface PvArray {
+  pv_array_id: string;
   surface_id: string;
   name: string;
   string_ids: string[];
@@ -139,7 +139,7 @@ interface BatteryBank {
 }
 
 interface InverterType {
-  inverter_id: string;
+  inverter_type_id: string;
   model: string;
   input_voltage_v: number;
   output_voltage_v: number;
@@ -153,13 +153,13 @@ interface InverterType {
 
 interface InverterConfiguration {
   inverter_configuration_id: string;
-  inverter_id: string;
+  inverter_type_id: string;
   name: string;
   notes?: string;
 }
 
-interface ConversionDevice {
-  conversion_device_id: string;
+interface ConverterType {
+  converter_type_id: string;
   title: string;
   description?: string | null;
   device_type: string;
@@ -181,7 +181,7 @@ interface ConversionDevice {
 
 interface LoadCircuit {
   load_circuit_id: string;
-  conversion_device_id: string;
+  converter_id: string;
   title: string;
   description?: string | null;
 }
@@ -234,7 +234,7 @@ interface GeneratorMonthlyProfile {
 
 interface SolarMonthlyProfile {
   surface_id?: string;
-  array_id?: string;
+  pv_array_id?: string;
   month: number;
   solar_factor: number;
   notes?: string;
@@ -247,14 +247,14 @@ These objects should usually be derived, not persisted first.
 
 ```ts
 interface DerivedStringElectricalState {
-  string_id: string;
+  pv_string_id: string;
   voltage_v: number;
   current_a: number;
   power_wp: number;
 }
 
 interface DerivedArrayElectricalState {
-  array_id: string;
+  pv_array_id: string;
   voltage_v: number;
   current_a: number;
   power_wp: number;
@@ -273,7 +273,7 @@ interface DerivedBatteryBankState {
 ```ts
 interface ArrayToMpptRelationship {
   relationship_id: string;
-  from_array_id: string;
+  from_pv_array_id: string;
   to_mppt_configuration_id: string;
   input_voltage_v: number;
   input_current_a: number;
@@ -327,15 +327,15 @@ interface LoadCircuitToLoadRelationship {
 interface DigitalTwin {
   surfaces: Surface[];
   panel_types: PanelType[];
-  strings: String[];
-  arrays: Array[];
+  pv_strings: PvString[];
+  pv_arrays: PvArray[];
   mppt_types: MpptType[];
   mppt_configurations: MpptConfiguration[];
   battery_types: BatteryType[];
   battery_banks: BatteryBank[];
   inverter_types: InverterType[];
   inverter_configurations: InverterConfiguration[];
-  conversion_devices: ConversionDevice[];
+  converter_types: ConverterType[];
   load_circuits: LoadCircuit[];
   loads: Load[];
   generators: Generator[];

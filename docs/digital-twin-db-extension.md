@@ -80,7 +80,7 @@ Purpose:
 Suggested columns:
 
 - `id INTEGER PRIMARY KEY AUTOINCREMENT`
-- `string_id TEXT UNIQUE NOT NULL`
+- `pv_string_id TEXT UNIQUE NOT NULL` — **known violation if using `string_id`; correct PK name is `pv_string_id`**
 - `surface_id TEXT NOT NULL REFERENCES surfaces(surface_id)`
 - `panel_type_id TEXT NOT NULL REFERENCES panel_types(panel_type_id)`
 - `panel_count INTEGER NOT NULL`
@@ -100,7 +100,7 @@ Purpose:
 Suggested columns:
 
 - `id INTEGER PRIMARY KEY AUTOINCREMENT`
-- `array_id TEXT UNIQUE NOT NULL`
+- `pv_array_id TEXT UNIQUE NOT NULL` — **known violation if using `array_id`; correct PK name is `pv_array_id`**
 - `surface_id TEXT NOT NULL REFERENCES surfaces(surface_id)`
 - `name TEXT NOT NULL`
 - `notes TEXT`
@@ -118,8 +118,8 @@ Purpose:
 Suggested columns:
 
 - `id INTEGER PRIMARY KEY AUTOINCREMENT`
-- `array_id TEXT NOT NULL REFERENCES pv_arrays(array_id)`
-- `string_id TEXT NOT NULL REFERENCES pv_strings(string_id)`
+- `pv_array_id TEXT NOT NULL REFERENCES pv_arrays(pv_array_id)`
+- `pv_string_id TEXT NOT NULL REFERENCES pv_strings(pv_string_id)`
 - `sort_order INTEGER`
 
 Persist rationale:
@@ -153,14 +153,14 @@ Purpose:
 Suggested columns:
 
 - `id INTEGER PRIMARY KEY AUTOINCREMENT`
-- `array_id TEXT NOT NULL REFERENCES pv_arrays(array_id)`
+- `pv_array_id TEXT NOT NULL REFERENCES pv_arrays(pv_array_id)`
 - `mppt_configuration_id TEXT NOT NULL REFERENCES mppt_configurations(mppt_configuration_id)`
 
 Rules:
 
 - in the current project direction, this should be `1:1`
 
-### `battery_banks`
+### `battery_bank_configurations`
 
 Purpose:
 
@@ -191,7 +191,7 @@ Suggested columns:
 
 - `id INTEGER PRIMARY KEY AUTOINCREMENT`
 - `mppt_configuration_id TEXT NOT NULL REFERENCES mppt_configurations(mppt_configuration_id)`
-- `battery_bank_id TEXT NOT NULL REFERENCES battery_banks(battery_bank_id)`
+- `battery_bank_id TEXT NOT NULL REFERENCES battery_bank_configurations(battery_bank_id)`
 
 ### `inverter_configurations`
 
@@ -203,7 +203,7 @@ Suggested columns:
 
 - `id INTEGER PRIMARY KEY AUTOINCREMENT`
 - `inverter_configuration_id TEXT UNIQUE NOT NULL`
-- `inverter_type_id TEXT NOT NULL REFERENCES inverter_types(inverter_id)`
+- `inverter_type_id TEXT NOT NULL REFERENCES inverter_types(inverter_type_id)`
 - `name TEXT NOT NULL`
 - `notes TEXT`
 
@@ -220,7 +220,7 @@ Purpose:
 Suggested columns:
 
 - `id INTEGER PRIMARY KEY AUTOINCREMENT`
-- `battery_bank_id TEXT NOT NULL REFERENCES battery_banks(battery_bank_id)`
+- `battery_bank_id TEXT NOT NULL REFERENCES battery_bank_configurations(battery_bank_id)`
 - `inverter_configuration_id TEXT NOT NULL REFERENCES inverter_configurations(inverter_configuration_id)`
 
 ### `load_circuits`
@@ -265,7 +265,7 @@ Suggested columns:
 - `duty_profile TEXT`
 - `notes TEXT`
 
-The circuit's attached conversion device provides the inherited supply type and voltage context for each load.
+The circuit's attached converter provides the inherited supply type and voltage context for each load.
 
 Migration note:
 
@@ -329,7 +329,7 @@ Suggested columns:
 
 - `id INTEGER PRIMARY KEY AUTOINCREMENT`
 - `surface_id TEXT REFERENCES surfaces(surface_id)`
-- `array_id TEXT REFERENCES pv_arrays(array_id)`
+- `pv_array_id TEXT REFERENCES pv_arrays(pv_array_id)`
 - `month INTEGER NOT NULL`
 - `solar_factor REAL NOT NULL DEFAULT 1.0`
 - `notes TEXT`
@@ -337,7 +337,7 @@ Suggested columns:
 Recommendation:
 
 - start with `surface_id`
-- only move to `array_id` if split-per-surface becomes necessary
+- only move to `pv_array_id` if split-per-surface becomes necessary
 
 ## Tables not recommended yet
 
@@ -362,7 +362,7 @@ To keep scope manageable, the first useful database extension should only add:
 - `array_strings`
 - `mppt_configurations`
 - `array_mppts`
-- `battery_banks`
+- `battery_bank_configurations`
 - `mppt_battery_banks`
 
 This first slice is enough to model:
