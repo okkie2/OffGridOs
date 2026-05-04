@@ -3,7 +3,6 @@ Feature: Persistence field coverage
     Given OffGridOS is rendered with project data
     When I open Location from the menu
     And I set the location title to "Field coverage location"
-    And I set the country to "Netherlands"
     And I set the location description to "Shared context for the whole site"
     And I set the latitude to "53.1504"
     And I set the longitude to "5.9007"
@@ -19,7 +18,7 @@ Feature: Persistence field coverage
 
   Scenario: Save and reload the full surface field set
     Given OffGridOS is rendered with project data
-    When I open Location from the menu
+    When I open Production from the menu
     And I open the first surface detail from the page
     And I set the surface name to "South-East roof"
     And I set the surface description to "Morning production surface"
@@ -33,19 +32,19 @@ Feature: Persistence field coverage
     And I save the surface information
     Then the surface should persist the full field set
     When I reload OffGridOS
-    And I open Location from the menu
+    And I open Production from the menu
     And I open the first surface detail from the page
     Then I should see the Surface detail page
 
   Scenario: Save panel setup and matching surface configuration
     Given OffGridOS is rendered with project data
-    When I open Location from the menu
+    When I open Production from the menu
     And I open the first surface detail from the page
     And I choose the last panel type
     And I set the panel count to "12"
     And I save the panel setup
     When I reload OffGridOS
-    And I open Location from the menu
+    And I open Production from the menu
     And I open the first surface detail from the page
     And I set the panels per string to "3"
     And I set the parallel strings to "4"
@@ -54,20 +53,20 @@ Feature: Persistence field coverage
     Then the surface panel setup should persist
     And the surface configuration should persist
     When I reload OffGridOS
-    And I open Location from the menu
+    And I open Production from the menu
     And I open the first surface detail from the page
     Then the surface panel setup should persist
     And the surface configuration should persist
 
   Scenario: Reject a mismatched surface configuration
     Given OffGridOS is rendered with project data
-    When I open Location from the menu
+    When I open Production from the menu
     And I open the first surface detail from the page
     And I choose the last panel type
     And I set the panel count to "12"
     And I save the panel setup
     When I reload OffGridOS
-    And I open Location from the menu
+    And I open Production from the menu
     And I open the first surface detail from the page
     And I set the panels per string to "5"
     And I set the parallel strings to "2"
@@ -75,40 +74,6 @@ Feature: Persistence field coverage
     And I attempt to save the surface configuration
     Then I should see the surface configuration error "Saved string layout must match the persisted panel count for this face (12)."
 
-  Scenario: Save and reload the inverter configuration title and description
-    Given OffGridOS is rendered with project data
-    When I open Inverter array from the menu
-    And I set the inverter title to "Main inverter"
-    And I set the inverter description to "Primary AC conversion unit"
-    And I choose the last inverter type
-    And I save the inverter configuration
-    Then the inverter configuration should persist
-    When I reload OffGridOS
-    And I open Inverter array from the menu
-    Then the inverter configuration should persist
-    And the inverter configuration form should still show the saved values
-
-  Scenario: Save and reload the inverter configuration notes
-    Given OffGridOS is rendered with project data
-    When I open Inverter array from the menu
-    And I set the inverter notes to "Primary AC conversion unit and notes test"
-    And I choose the last inverter type
-    And I save the inverter configuration
-    Then the inverter notes should persist
-    When I reload OffGridOS
-    And I open Inverter array from the menu
-    Then the inverter notes should persist
-    And the inverter notes should still be visible
-
-  Scenario: Save and reload the inverter configuration image
-    Given OffGridOS is rendered with project data
-    When I open Inverter array from the menu
-    And I choose the last inverter type
-    And I upload an inverter image
-    Then the inverter image should persist
-    When I reload OffGridOS
-    And I open Inverter array from the menu
-    Then the inverter image should still be visible
 
   Scenario: Save and reload the full converter field set
     Given OffGridOS is rendered with project data

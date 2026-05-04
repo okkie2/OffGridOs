@@ -1,7 +1,24 @@
 # CHANGELOG
 
+## 2026-05-03
+
+- Removed three stale BDD scenarios that tested `InverterArrayPage`, which became dead code when the `inverter-array` route was redirected to `ConsumptionPage`. The scenarios were "Save and reload the inverter configuration title and description", "Save and reload the inverter configuration notes", and "Save and reload the inverter configuration image".
+- Fixed the load circuit creation test setup so the primary-location scenario and the secondary-location scenario each receive a converter on the correct location, preventing a disabled "Add load circuit" button and a mismatched `latestCreatedLoadCircuitLocationId` assertion.
+- Fixed `prepareLoadCircuitCreationData` to find the secondary location by `place_name` rather than by list position, eliminating a silent mismatch caused by alphabetical ordering of location IDs (`'location-2' < 'location-main'`).
+
+## 2026-05-03 (earlier)
+
+- Made shared yield tables layout-fixed so the Consumption monthly table can no longer visually collapse below the Production table width.
+- Moved the Consumption monthly table into its own full-width panel so it matches the Production table layout.
+- Aligned the Consumption, Load circuits, and Loads workbenches to the same wide detail-grid rhythm as Production.
+- Made the Consumption, Load circuits, and Loads workbenches use the same wide detail-grid span as Production.
+- Widened the Consumption converter workbench so its main content uses the same wide detail-grid span as Production.
+
 ## 2026-05-02
 
+- Restored the Consumption overview/workbench split so `/consumption` shows the aggregate fit story and `/consumption/converters` stays on converter editing.
+- Restored the Consumption overview/workbench split so `/consumption` shows the overview and `/consumption/converters` shows the converter workbench again, which brings back the location-scoped converters and the Add converter flow on the correct page.
+- Restored the Consumption menu route to the actual converter workbench so the converter cards, `Add converter`, and monthly-fit summary are visible again when opening the page from the menu.
 - Reworked the Production workbench into a visible monthly output-by-surface table with per-surface verdicts, then moved the Consumption workbench refactor back to `NOW` in `TODO.md`.
 - Added a `Workbench Coherence` roadmap theme and moved the Production/Consumption UX work into `TODO.md` as concrete workbench refactors.
 - Refreshed the roadmap baseline wording to reflect the current canonical local app state, and seeded `TODO.md` with concrete stabilization, smoke-test, and Phase 1 follow-up items.

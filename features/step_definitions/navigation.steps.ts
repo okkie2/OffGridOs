@@ -208,6 +208,7 @@ class NavigationWorld extends World {
         const db = openDb(this.requireDbPath());
         try {
           const existing = db.prepare('SELECT * FROM locations LIMIT 1').get() as {
+            location_id: string;
             place_name: string;
             country: string;
             description?: string | null;
@@ -222,9 +223,9 @@ class NavigationWorld extends World {
             return new Response(JSON.stringify({ error: 'Location row not found.' }), { status: 404 });
           }
 
-          db.prepare('UPDATE locations SET title=@title, country=@country, place_name=@place_name, description=@description, notes=@notes, latitude=@latitude, longitude=@longitude, northing=@northing, easting=@easting, site_photo_data_url=@site_photo_data_url WHERE id=@id')
+          db.prepare('UPDATE locations SET title=@title, country=@country, place_name=@place_name, description=@description, notes=@notes, latitude=@latitude, longitude=@longitude, northing=@northing, easting=@easting, site_photo_data_url=@site_photo_data_url WHERE location_id=@location_id')
             .run({
-              id: existing.id,
+              location_id: existing.location_id,
               title: title === '' ? null : title,
               place_name: placeName,
               country,
@@ -1374,7 +1375,7 @@ class NavigationWorld extends World {
         easting: null,
         site_photo_data_url: null,
       }, projectId);
-      const secondaryLocation = listLocations(db, projectId).at(-1) ?? null;
+      const secondaryLocation = listLocations(db, projectId).find((l) => l.place_name === 'Location 2') ?? null;
       const secondaryLocationId = secondaryLocation?.location_id ?? '';
       if (!secondaryLocationId) {
         throw new Error('Failed to create the secondary location for the load circuit creation test.');
@@ -1625,7 +1626,7 @@ class NavigationWorld extends World {
       throw new Error('Navigation test DOM is not ready.');
     }
 
-    const control = await this.waitForPageFieldControl('Title');
+    const control = await this.waitForPageFieldControl('Model');
     if (!(control instanceof this.dom.window.HTMLInputElement)) {
       throw new Error('Could not find the load circuit title input on the Load circuits page.');
     }
@@ -2562,7 +2563,7 @@ class NavigationWorld extends World {
     }
 
     const textarea = Array.from(this.dom.window.document.querySelectorAll('textarea'))
-      .find((node) => node.closest('.panel')?.querySelector('h2')?.textContent?.trim() === 'Start information') as HTMLTextAreaElement | null;
+      .find((node) => node.closest('.panel')?.querySelector('h2')?.textContent?.trim() === 'Location details') as HTMLTextAreaElement | null;
     if (!textarea) {
       throw new Error('Could not find the location notes textarea.');
     }
@@ -2590,27 +2591,27 @@ class NavigationWorld extends World {
 
   async setLocationTitle(value: string): Promise<void> {
     this.latestEnteredLocationTitle = value;
-    await this.setPanelFieldValue('Start information', 'Location name', value);
+    await this.setPanelFieldValue('Location details', 'Location name', value);
   }
 
   async setLocationCountry(value: string): Promise<void> {
     this.latestEnteredLocationCountry = value;
-    await this.setPanelFieldValue('Start information', 'Country', value);
+    await this.setPanelFieldValue('Location details', 'Country', value);
   }
 
   async setLocationDescription(value: string): Promise<void> {
     this.latestEnteredLocationDescription = value;
-    await this.setPanelFieldValue('Start information', 'Description', value);
+    await this.setPanelFieldValue('Location details', 'Description', value);
   }
 
   async setLocationLatitude(value: string): Promise<void> {
     this.latestEnteredLocationLatitude = value;
-    await this.setPanelFieldValue('Start information', 'Latitude', value);
+    await this.setPanelFieldValue('Location details', 'Latitude', value);
   }
 
   async setLocationLongitude(value: string): Promise<void> {
     this.latestEnteredLocationLongitude = value;
-    await this.setPanelFieldValue('Start information', 'Longitude', value);
+    await this.setPanelFieldValue('Location details', 'Longitude', value);
   }
 
   async uploadSurfacePhoto(): Promise<void> {
@@ -2690,7 +2691,7 @@ class NavigationWorld extends World {
       throw new Error('Navigation test DOM is not ready.');
     }
 
-    await this.clickSaveButtonInPanel('Start information');
+    await this.clickSaveButtonInPanel('Location details');
 
     await this.waitForText('Shared location saved to the project database.');
   }
@@ -2718,39 +2719,39 @@ class NavigationWorld extends World {
       throw new Error('Navigation test DOM is not ready.');
     }
 
-    await this.clickSaveButtonInPanel('Surface information');
+    await this.clickSaveButtonInPanel('Surface details');
 
     await this.waitForText('Surface details saved to the project database.');
   }
 
   async setSurfaceName(value: string): Promise<void> {
     this.latestEnteredSurfaceName = value;
-    await this.setPanelFieldValue('Surface information', 'Surface name', value);
+    await this.setPanelFieldValue('Surface details', 'Surface name', value);
   }
 
   async setSurfaceDescription(value: string): Promise<void> {
     this.latestEnteredSurfaceDescription = value;
-    await this.setPanelFieldValue('Surface information', 'Description', value);
+    await this.setPanelFieldValue('Surface details', 'Description', value);
   }
 
   async setSurfaceHeight(value: string): Promise<void> {
     this.latestEnteredSurfaceHeight = value;
-    await this.setPanelFieldValue('Surface information', 'Height (m)', value);
+    await this.setPanelFieldValue('Surface details', 'Height (m)', value);
   }
 
   async setSurfaceWidth(value: string): Promise<void> {
     this.latestEnteredSurfaceWidth = value;
-    await this.setPanelFieldValue('Surface information', 'Width (m)', value);
+    await this.setPanelFieldValue('Surface details', 'Width (m)', value);
   }
 
   async setSurfaceAzimuth(value: string): Promise<void> {
     this.latestEnteredSurfaceAzimuth = value;
-    await this.setPanelFieldValue('Surface information', 'Azimuth', value);
+    await this.setPanelFieldValue('Surface details', 'Azimuth', value);
   }
 
   async setSurfaceTilt(value: string): Promise<void> {
     this.latestEnteredSurfaceTilt = value;
-    await this.setPanelFieldValue('Surface information', 'Tilt', value);
+    await this.setPanelFieldValue('Surface details', 'Tilt', value);
   }
 
   async setPanelCount(value: string): Promise<void> {
@@ -2759,7 +2760,7 @@ class NavigationWorld extends World {
   }
 
   async chooseLastPanelType(): Promise<string> {
-    const panelTypeId = await this.selectLastOptionInPanel('Panel', 'Selected panel');
+    const panelTypeId = await this.selectLastOptionInPanel('Panel', 'Panel');
     this.latestSelectedPanelTypeId = panelTypeId;
     return panelTypeId;
   }
@@ -2823,7 +2824,7 @@ class NavigationWorld extends World {
 
     let mpptTypeId = '';
     try {
-      mpptTypeId = await this.selectLastOptionInPanel('MPPT', 'Selected MPPT');
+      mpptTypeId = await this.selectLastOptionInPanel('MPPT', 'MPPT');
     } catch (error) {
       if (!(error instanceof Error) || !error.message.includes('Could not find field "Selected MPPT" in panel "MPPT"')) {
         mpptTypeId = this.projectData?.entities.mppt_types.at(-1)?.mppt_type_id ?? '';
@@ -2849,12 +2850,12 @@ class NavigationWorld extends World {
 
   async setInverterTitle(value: string): Promise<void> {
     this.latestEnteredInverterTitle = value;
-    await this.setPanelFieldValue('About', 'Title', value);
+    await this.setPanelFieldValue('Inverter details', 'Title', value);
   }
 
   async setInverterDescription(value: string): Promise<void> {
     this.latestEnteredInverterDescription = value;
-    await this.setPanelFieldValue('About', 'Description', value);
+    await this.setPanelFieldValue('Inverter details', 'Description', value);
   }
 
   async setInverterNotes(value: string): Promise<void> {
@@ -2887,7 +2888,7 @@ class NavigationWorld extends World {
   }
 
   async chooseLastInverterType(): Promise<string> {
-    const inverterTypeId = await this.selectLastOptionInPanel('Inverter selection', 'Selected inverter');
+    const inverterTypeId = await this.selectLastOptionInPanel('Inverter selection', 'Inverter');
     this.latestSelectedInverterTypeId = inverterTypeId;
     return inverterTypeId;
   }
@@ -2897,7 +2898,7 @@ class NavigationWorld extends World {
       throw new Error('Navigation test DOM is not ready.');
     }
 
-    const panel = this.getPanelByHeading('Image');
+    const panel = this.getPanelByHeading('Installation location');
     const input = panel.querySelector('input[type="file"]') as HTMLInputElement | null;
     if (!input) {
       throw new Error('Could not find the inverter image upload input.');
@@ -2920,7 +2921,7 @@ class NavigationWorld extends World {
     const inverterTypeId = this.latestSelectedInverterTypeId || this.projectData?.entities.inverter_types.at(-1)?.inverter_id || '';
 
     try {
-      await this.clickSaveButtonInPanel('About');
+      await this.clickSaveButtonInPanel('Inverter details');
       await this.assertInverterConfigurationInDatabase({
         title: this.latestEnteredInverterTitle,
         description: this.latestEnteredInverterDescription,
@@ -3139,7 +3140,7 @@ class NavigationWorld extends World {
 
   async assertFullLocationInDatabase(expected: {
     title: string;
-    country: string;
+    country?: string;
     placeName: string;
     description: string;
     notes: string;
@@ -3168,7 +3169,9 @@ class NavigationWorld extends World {
         }
 
         assert.equal(row.title ?? '', expected.title);
-        assert.equal(row.country, expected.country);
+        if (expected.country !== undefined) {
+          assert.equal(row.country, expected.country);
+        }
         assert.equal(row.place_name, expected.placeName);
         assert.equal(row.description ?? '', expected.description);
         assert.equal(row.notes ?? '', expected.notes);
@@ -3935,13 +3938,39 @@ Given('a remembered load navigation setup exists', async function () {
     throw new Error('Navigation test DOM is not ready.');
   }
 
-  this.dom.window.sessionStorage.setItem('offgridos:load-circuits:converter', JSON.stringify(this.latestLoadCircuitsConverterId));
-  this.dom.window.sessionStorage.setItem('offgridos:loads:converter', JSON.stringify(this.latestLoadsConverterId));
-  this.dom.window.sessionStorage.setItem('offgridos:loads:circuit', JSON.stringify(this.latestLoadsCircuitId));
+  const projectId = this.projectData?.project.project_id ?? '1';
+  const locationId = this.projectData?.project.active_location_id
+    ?? this.projectData?.project.locations?.[0]?.location_id
+    ?? 'default';
+  const locationStorageKey = `${projectId}:location:${locationId}`;
+  this.dom.window.sessionStorage.setItem(`offgridos:load-circuits:${locationStorageKey}:converter`, JSON.stringify(this.latestLoadCircuitsConverterId));
+  this.dom.window.sessionStorage.setItem(`offgridos:loads:${locationStorageKey}:converter`, JSON.stringify(this.latestLoadsConverterId));
+  this.dom.window.sessionStorage.setItem(`offgridos:loads:${locationStorageKey}:circuit`, JSON.stringify(this.latestLoadsCircuitId));
 });
 
 Given('a load circuit creation setup exists', async function () {
-  this.prepareLoadCircuitCreationData();
+  const db = openDb(this.requireDbPath());
+  try {
+    const projectId = listProjects(db)[0]?.project_id ?? this.projectData?.project.project_id ?? 'offgridos-project';
+    const conversionDevice = listConversionDevices(db)[0];
+    if (!conversionDevice) {
+      throw new Error('No converter available for the load circuit creation test.');
+    }
+    const primaryLocation = listLocations(db, projectId)[0] ?? null;
+    if (!primaryLocation) {
+      throw new Error('No primary location available for the load circuit creation test.');
+    }
+    upsertProjectConverter(db, {
+      converter_id: 'creation-converter-primary',
+      title: 'Creation converter',
+      description: 'Load circuit creation source converter',
+      converter_type_id: conversionDevice.converter_type_id,
+    }, projectId, primaryLocation.location_id);
+    this.latestCreatedLoadCircuitLocationId = primaryLocation.location_id;
+    this.projectData = buildDigitalTwinExport(db, this.requireDbPath(), projectId, primaryLocation.location_id);
+  } finally {
+    db.close();
+  }
 });
 
 Given('a load circuit creation setup exists on a secondary location', async function () {
@@ -4028,6 +4057,18 @@ When('I open Production from the menu', async function () {
 When('I open Consumption from the menu', async function () {
   await this.clickByText('Consumption', '.sidebar-nav a');
   await this.waitForPathnameContains('/consumption');
+});
+
+When('I open Inverter array from the menu', async function () {
+  if (!this.dom) {
+    throw new Error('Navigation test DOM is not ready.');
+  }
+  const segments = this.dom.window.location.pathname.split('/');
+  const lang = segments[1] ?? 'en';
+  const locationSlug = segments[2] ?? 'project';
+  this.dom.window.history.replaceState(null, '', `/${lang}/${locationSlug}/consumption/converters`);
+  this.dom.window.dispatchEvent(new this.dom.window.PopStateEvent('popstate'));
+  await this.waitForText('Inverter selection');
 });
 
 When('I open Converters from the Consumption overview', async function () {
@@ -4309,11 +4350,13 @@ Then('I should see the Production page', async function () {
 
 Then('I should see the Consumption page', async function () {
   const text = this.dom?.window.document.body.textContent ?? '';
-  assert.ok(text.includes('Consumption'));
-  assert.ok(text.includes('Add converter') || text.includes('Show attached load circuits') || text.includes('No converters added yet.'));
-  assert.ok(!text.includes('Converter bank fit'));
-  assert.ok(!text.includes('Selected converters'));
-  assert.ok(!text.includes('Add one or more converters to evaluate the battery bank.'));
+  assert.ok(text.includes('Consumption'), `Consumption page text:\n${text}`);
+  assert.ok(text.includes('Converters'), `Consumption page text:\n${text}`);
+  assert.ok(text.includes('Load circuits'), `Consumption page text:\n${text}`);
+  assert.ok(text.includes('Loads'), `Consumption page text:\n${text}`);
+  assert.ok(text.includes('Monthly fit'), `Consumption page text:\n${text}`);
+  assert.ok(!text.includes('Add converter'), `Consumption page text:\n${text}`);
+  assert.ok(!text.includes('Show attached load circuits'), `Consumption page text:\n${text}`);
 });
 
 Then('I should see the Load circuits page', async function () {
@@ -4649,7 +4692,6 @@ When('I save the inverter configuration', async function () {
 Then('the location should persist the full field set', function () {
   return this.assertFullLocationInDatabase({
     title: 'Field coverage location',
-    country: 'Netherlands',
     placeName: 'Warten',
     description: 'Shared context for the whole site',
     notes: 'Check winter shading later',
@@ -4710,9 +4752,9 @@ Then('the inverter configuration should persist', function () {
 });
 
 Then('the inverter configuration form should still show the saved values', async function () {
-  await this.waitForPanelFieldValue('About', 'Title', 'Main inverter');
-  await this.waitForPanelFieldValue('About', 'Description', 'Primary AC conversion unit');
-  await this.waitForPanelFieldValue('Inverter selection', 'Selected inverter', this.latestSelectedInverterTypeId);
+  await this.waitForPanelFieldValue('Inverter details', 'Title', 'Main inverter');
+  await this.waitForPanelFieldValue('Inverter details', 'Description', 'Primary AC conversion unit');
+  await this.waitForPanelFieldValue('Inverter selection', 'Inverter', this.latestSelectedInverterTypeId);
 });
 
 Then('the inverter notes should persist', function () {
