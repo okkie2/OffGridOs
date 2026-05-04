@@ -5261,7 +5261,7 @@ function BatteryArrayPage({
         </div>
 
         <section className="detail-grid">
-          <section className="panel panel-with-actions">
+          <section className="panel panel-with-actions battery-config-panel">
             <div className="section-head">
               <h2>{t('battery.selection.title')}</h2>
             </div>
@@ -5573,7 +5573,7 @@ function BatteryArrayPage({
             </div>
           </dl>
           <div className="yield-table-wrap">
-            <table className="yield-table">
+            <table className="yield-table verdict-table">
               <thead>
                 <tr>
                   <th>{t('battery.capacity.table.title')}</th>
@@ -6081,128 +6081,126 @@ function ConsumptionOverviewPage({
 
   return (
     <section className="detail-shell">
-      <div className="detail-grid detail-intro-grid">
-        <section className="panel panel-span-2">
-          <div className="section-head">
-            <h2>{t('nav.consumption')}</h2>
-            <p>{t('page.consumption.context')}</p>
-          </div>
-          <div className="hero-strip">
-            <SummaryCard
-              label={t('consumption.summary.peak_load')}
-              value={formatPowerW(aggregateLoadPeakW)}
-              detail={selectedConverters.length > 0 ? `${selectedConverters.length} ${t('nav.converters').toLowerCase()}` : undefined}
-            />
-            <SummaryCard
-              label={t('consumption.summary.expected_daily_load')}
-              value={formatEnergyKwh(aggregateLoadDailyEnergyKwh)}
-              detail={formatEnergyKwh(aggregateLoadMonthlyEnergyKwh)}
-            />
-            <SummaryCard
-              label={t('consumption.summary.monthly_fit')}
-              value={monthlyCoveragePercent != null ? formatPercent(monthlyCoveragePercent) : 'n/a'}
-              detail={monthlyBalanceRows.length > 0 ? formatSignedEnergyKwh(monthlyNetKwh) : undefined}
-              tone={monthlyFitStatus === 'outside_limits' ? 'warn' : monthlyFitStatus === 'within_limits' ? 'good' : 'muted'}
-            />
-            <SummaryCard
-              label={t('consumption.summary.battery_fit')}
-              value={batteryCapacityFit.daysOfAutonomy != null ? `${batteryCapacityFit.daysOfAutonomy.toLocaleString('en-US', { maximumFractionDigits: 1 })} d` : 'n/a'}
-              detail={batteryArrayConfig?.totalCapacityKwh != null ? formatEnergyKwh(batteryArrayConfig.totalCapacityKwh) : undefined}
-              tone={batteryFitTone}
-            />
-          </div>
-          <div className="consumption-insight-grid">
-            <div className="outcome-panel">
-              <div className="outcome-summary">
-                <div className="outcome-status-line">
-                  <p className="result-label">{t('consumption.monthly.title')}</p>
-                  <StatusBadge status={monthlyFitStatus} />
-                </div>
-                <p className="fit-note">
-                  {monthlyFitStatus === 'outside_limits'
-                    ? t('consumption.monthly.outside_limits')
-                    : monthlyFitStatus === 'within_limits'
-                      ? t('consumption.monthly.within_limits')
-                      : t('consumption.monthly.unknown')}
-                </p>
-                <p className="fit-note">{t('consumption.monthly.note')}</p>
-                {monthlyBalanceRows.length > 0 ? (
-                  <ul className="reason-list">
-                    <li>{t('consumption.monthly.yearly_solar', { value: formatEnergyKwh(monthlyBalanceSummary.yearlySolarKwh) })}</li>
-                    <li>{t('consumption.monthly.yearly_load', { value: formatEnergyKwh(monthlyBalanceSummary.yearlyLoadKwh) })}</li>
-                    <li>{t('consumption.monthly.yearly_net', { value: formatSignedEnergyKwh(monthlyNetKwh) })}</li>
-                    <li>{t('consumption.monthly.deficit_months', { value: monthlyBalanceSummary.deficitMonths })}</li>
-                    <li>{t('consumption.monthly.surplus_months', { value: monthlyBalanceSummary.surplusMonths })}</li>
-                  </ul>
-                ) : null}
+      <section className="panel">
+        <div className="section-head">
+          <h2>{t('nav.consumption')}</h2>
+          <p>{t('page.consumption.context')}</p>
+        </div>
+        <div className="hero-strip">
+          <SummaryCard
+            label={t('consumption.summary.peak_load')}
+            value={formatPowerW(aggregateLoadPeakW)}
+            detail={selectedConverters.length > 0 ? `${selectedConverters.length} ${t('nav.converters').toLowerCase()}` : undefined}
+          />
+          <SummaryCard
+            label={t('consumption.summary.expected_daily_load')}
+            value={formatEnergyKwh(aggregateLoadDailyEnergyKwh)}
+            detail={formatEnergyKwh(aggregateLoadMonthlyEnergyKwh)}
+          />
+          <SummaryCard
+            label={t('consumption.summary.monthly_fit')}
+            value={monthlyCoveragePercent != null ? formatPercent(monthlyCoveragePercent) : 'n/a'}
+            detail={monthlyBalanceRows.length > 0 ? formatSignedEnergyKwh(monthlyNetKwh) : undefined}
+            tone={monthlyFitStatus === 'outside_limits' ? 'warn' : monthlyFitStatus === 'within_limits' ? 'good' : 'muted'}
+          />
+          <SummaryCard
+            label={t('consumption.summary.battery_fit')}
+            value={batteryCapacityFit.daysOfAutonomy != null ? `${batteryCapacityFit.daysOfAutonomy.toLocaleString('en-US', { maximumFractionDigits: 1 })} d` : 'n/a'}
+            detail={batteryArrayConfig?.totalCapacityKwh != null ? formatEnergyKwh(batteryArrayConfig.totalCapacityKwh) : undefined}
+            tone={batteryFitTone}
+          />
+        </div>
+        <div className="consumption-insight-grid">
+          <div className="outcome-panel">
+            <div className="outcome-summary">
+              <div className="outcome-status-line">
+                <p className="result-label">{t('consumption.monthly.title')}</p>
+                <StatusBadge status={monthlyFitStatus} />
               </div>
+              <p className="fit-note">
+                {monthlyFitStatus === 'outside_limits'
+                  ? t('consumption.monthly.outside_limits')
+                  : monthlyFitStatus === 'within_limits'
+                    ? t('consumption.monthly.within_limits')
+                    : t('consumption.monthly.unknown')}
+              </p>
+              <p className="fit-note">{t('consumption.monthly.note')}</p>
               {monthlyBalanceRows.length > 0 ? (
-                <dl className="detail-stats outcome-checks">
-                  <div>
-                    <dt>{t('consumption.summary.yearly_solar_label')}</dt>
-                    <dd>{formatEnergyKwh(monthlyBalanceSummary.yearlySolarKwh)}</dd>
-                  </div>
-                  <div>
-                    <dt>{t('consumption.summary.yearly_load_label')}</dt>
-                    <dd>{formatEnergyKwh(monthlyBalanceSummary.yearlyLoadKwh)}</dd>
-                  </div>
-                  <div>
-                    <dt>{t('consumption.summary.yearly_net_label')}</dt>
-                    <dd>{formatSignedEnergyKwh(monthlyNetKwh)}</dd>
-                  </div>
-                  <div>
-                    <dt>{t('consumption.summary.deficit_months_label')}</dt>
-                    <dd>{monthlyBalanceSummary.deficitMonths}</dd>
-                  </div>
-                </dl>
-              ) : null}
-              <dl className="detail-stats outcome-checks">
-                <div>
-                  <dt>{t('consumption.summary.strongest_month')}</dt>
-                  <dd>{monthlyBalanceSummary.strongestMonth ? getMonthLabel(monthlyBalanceSummary.strongestMonth.month, t) : 'n/a'}</dd>
-                </div>
-                <div>
-                  <dt>{t('consumption.summary.weakest_month')}</dt>
-                  <dd>{monthlyBalanceSummary.weakestMonth ? getMonthLabel(monthlyBalanceSummary.weakestMonth.month, t) : 'n/a'}</dd>
-                </div>
-              </dl>
-            </div>
-            <div className="outcome-panel">
-              <div className="outcome-summary">
-                <div className="outcome-status-line">
-                  <p className="result-label">{t('consumption.battery.title')}</p>
-                  <StatusBadge status={batteryCapacityFit.status} fit={batteryCapacityFit.fit} />
-                </div>
-                <p className="fit-note">{t('consumption.battery.description')}</p>
-                <p className="fit-note">{batteryCapacityFit.headline}</p>
                 <ul className="reason-list">
-                  {batteryCapacityFit.reasons.map((reason) => (
-                    <li key={reason}>{reason}</li>
-                  ))}
+                  <li>{t('consumption.monthly.yearly_solar', { value: formatEnergyKwh(monthlyBalanceSummary.yearlySolarKwh) })}</li>
+                  <li>{t('consumption.monthly.yearly_load', { value: formatEnergyKwh(monthlyBalanceSummary.yearlyLoadKwh) })}</li>
+                  <li>{t('consumption.monthly.yearly_net', { value: formatSignedEnergyKwh(monthlyNetKwh) })}</li>
+                  <li>{t('consumption.monthly.deficit_months', { value: monthlyBalanceSummary.deficitMonths })}</li>
+                  <li>{t('consumption.monthly.surplus_months', { value: monthlyBalanceSummary.surplusMonths })}</li>
                 </ul>
-              </div>
+              ) : null}
+            </div>
+            {monthlyBalanceRows.length > 0 ? (
               <dl className="detail-stats outcome-checks">
                 <div>
-                  <dt>{t('consumption.battery.capacity')}</dt>
-                  <dd>{batteryArrayConfig?.totalCapacityKwh != null ? formatEnergyKwh(batteryArrayConfig.totalCapacityKwh) : 'n/a'}</dd>
+                  <dt>{t('consumption.summary.yearly_solar_label')}</dt>
+                  <dd>{formatEnergyKwh(monthlyBalanceSummary.yearlySolarKwh)}</dd>
                 </div>
                 <div>
-                  <dt>{t('consumption.battery.autonomy')}</dt>
-                  <dd>{batteryCapacityFit.daysOfAutonomy != null ? `${batteryCapacityFit.daysOfAutonomy.toLocaleString('en-US', { maximumFractionDigits: 1 })} d` : 'n/a'}</dd>
+                  <dt>{t('consumption.summary.yearly_load_label')}</dt>
+                  <dd>{formatEnergyKwh(monthlyBalanceSummary.yearlyLoadKwh)}</dd>
                 </div>
                 <div>
-                  <dt>{t('consumption.battery.daily_load')}</dt>
-                  <dd>{formatEnergyKwh(aggregateLoadDailyEnergyKwh)}</dd>
+                  <dt>{t('consumption.summary.yearly_net_label')}</dt>
+                  <dd>{formatSignedEnergyKwh(monthlyNetKwh)}</dd>
                 </div>
                 <div>
-                  <dt>{t('consumption.battery.discharge_limit')}</dt>
-                  <dd>{batteryArrayConfig?.maxDischargePowerW != null ? formatKw(batteryArrayConfig.maxDischargePowerW) : 'n/a'}</dd>
+                  <dt>{t('consumption.summary.deficit_months_label')}</dt>
+                  <dd>{monthlyBalanceSummary.deficitMonths}</dd>
                 </div>
               </dl>
-            </div>
+            ) : null}
+            <dl className="detail-stats outcome-checks">
+              <div>
+                <dt>{t('consumption.summary.strongest_month')}</dt>
+                <dd>{monthlyBalanceSummary.strongestMonth ? getMonthLabel(monthlyBalanceSummary.strongestMonth.month, t) : 'n/a'}</dd>
+              </div>
+              <div>
+                <dt>{t('consumption.summary.weakest_month')}</dt>
+                <dd>{monthlyBalanceSummary.weakestMonth ? getMonthLabel(monthlyBalanceSummary.weakestMonth.month, t) : 'n/a'}</dd>
+              </div>
+            </dl>
           </div>
-        </section>
-      </div>
+          <div className="outcome-panel">
+            <div className="outcome-summary">
+              <div className="outcome-status-line">
+                <p className="result-label">{t('consumption.battery.title')}</p>
+                <StatusBadge status={batteryCapacityFit.status} fit={batteryCapacityFit.fit} />
+              </div>
+              <p className="fit-note">{t('consumption.battery.description')}</p>
+              <p className="fit-note">{batteryCapacityFit.headline}</p>
+              <ul className="reason-list">
+                {batteryCapacityFit.reasons.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+            </div>
+            <dl className="detail-stats outcome-checks">
+              <div>
+                <dt>{t('consumption.battery.capacity')}</dt>
+                <dd>{batteryArrayConfig?.totalCapacityKwh != null ? formatEnergyKwh(batteryArrayConfig.totalCapacityKwh) : 'n/a'}</dd>
+              </div>
+              <div>
+                <dt>{t('consumption.battery.autonomy')}</dt>
+                <dd>{batteryCapacityFit.daysOfAutonomy != null ? `${batteryCapacityFit.daysOfAutonomy.toLocaleString('en-US', { maximumFractionDigits: 1 })} d` : 'n/a'}</dd>
+              </div>
+              <div>
+                <dt>{t('consumption.battery.daily_load')}</dt>
+                <dd>{formatEnergyKwh(aggregateLoadDailyEnergyKwh)}</dd>
+              </div>
+              <div>
+                <dt>{t('consumption.battery.discharge_limit')}</dt>
+                <dd>{batteryArrayConfig?.maxDischargePowerW != null ? formatKw(batteryArrayConfig.maxDischargePowerW) : 'n/a'}</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      </section>
       <section className="panel" style={{ marginTop: 16 }}>
         <div className="section-head">
           <h2>{t('consumption.monthly.title')}</h2>
@@ -6232,7 +6230,7 @@ function ConsumptionOverviewPage({
                       key={`solar-${row.month}`}
                       className={row.month === monthlyBalanceSummary.strongestMonth?.month ? 'col-best best' : row.month === monthlyBalanceSummary.weakestMonth?.month ? 'col-worst worst' : undefined}
                     >
-                      {formatEnergyKwh(row.solar_kwh ?? 0)}
+                      {formatEnergyKwh(Math.round(row.solar_kwh ?? 0))}
                     </td>
                   ))}
                 </tr>
@@ -6243,7 +6241,7 @@ function ConsumptionOverviewPage({
                       key={`demand-${row.month}`}
                       className={row.month === monthlyBalanceSummary.strongestMonth?.month ? 'col-best best' : row.month === monthlyBalanceSummary.weakestMonth?.month ? 'col-worst worst' : undefined}
                     >
-                      {formatEnergyKwh(row.load_kwh ?? 0)}
+                      {formatEnergyKwh(Math.round(row.load_kwh ?? 0))}
                     </td>
                   ))}
                 </tr>
@@ -6254,7 +6252,7 @@ function ConsumptionOverviewPage({
                       key={`surplus-${row.month}`}
                       className={row.month === monthlyBalanceSummary.strongestMonth?.month ? 'col-best best' : row.month === monthlyBalanceSummary.weakestMonth?.month ? 'col-worst worst' : undefined}
                     >
-                      {formatEnergyKwh(row.surplus_kwh ?? 0)}
+                      {formatEnergyKwh(Math.round(row.surplus_kwh ?? 0))}
                     </td>
                   ))}
                 </tr>
@@ -6265,42 +6263,12 @@ function ConsumptionOverviewPage({
                       key={`deficit-${row.month}`}
                       className={row.month === monthlyBalanceSummary.strongestMonth?.month ? 'col-best best' : row.month === monthlyBalanceSummary.weakestMonth?.month ? 'col-worst worst' : undefined}
                     >
-                      {formatEnergyKwh(row.deficit_kwh ?? 0)}
+                      {formatEnergyKwh(Math.round(row.deficit_kwh ?? 0))}
                     </td>
                   ))}
                 </tr>
             </tbody>
           </table>
-        </div>
-      </section>
-      <section className="panel">
-        <div className="section-head">
-          <h2>{t('nav.converters')}</h2>
-        </div>
-        <div className="button-row">
-          <button type="button" className="button button-secondary" onClick={() => navigateTo({ kind: 'inverter-array' })}>
-            {t('nav.converters')}
-          </button>
-        </div>
-      </section>
-      <section className="panel">
-        <div className="section-head">
-          <h2>{t('nav.load_circuits')}</h2>
-        </div>
-        <div className="button-row">
-          <button type="button" className="button button-secondary" onClick={() => navigateTo({ kind: 'load-circuits' })}>
-            {t('nav.load_circuits')}
-          </button>
-        </div>
-      </section>
-      <section className="panel">
-        <div className="section-head">
-          <h2>{t('nav.loads')}</h2>
-        </div>
-        <div className="button-row">
-          <button type="button" className="button button-secondary" onClick={() => navigateTo({ kind: 'loads' })}>
-            {t('nav.loads')}
-          </button>
         </div>
       </section>
     </section>
@@ -6540,6 +6508,10 @@ function ConsumptionPage({
                   const nextSize = device?.continuous_power_w != null ? `${device.continuous_power_w} W` : '0 W';
                   const nextPeak = device?.peak_power_va != null ? `${device.peak_power_va} VA` : '0 VA';
                   const isEditing = editorMode === 'edit' && draft.converter_id === projectConverter.converter_id;
+                  const converterCircuits = (data.entities.load_circuits ?? []).filter((c) => c.converter_id === projectConverter.converter_id);
+                  const converterLoads = (data.entities.loads ?? []).filter((l) => converterCircuits.some((c) => c.load_circuit_id === l.load_circuit_id));
+                  const converterLoadSurgeW = converterLoads.reduce((sum, load) => sum + loadSurgePowerW(load), 0);
+                  const converterLoadDailyEnergyKwh = converterLoads.reduce((sum, load) => sum + (loadNominalPowerW(load) / 1000) * load.expected_usage_hours_per_day, 0);
 
                   return (
                     <div id={`project-converter-${projectConverter.converter_id}`} key={projectConverter.converter_id} className="surface-card-stack">
@@ -6602,6 +6574,14 @@ function ConsumptionPage({
                                 <dt>{t('catalog.stat.peak_power')}</dt>
                                 <dd>{draftDevice?.peak_power_va != null ? `${draftDevice.peak_power_va} VA` : '0 VA'}</dd>
                               </div>
+                              <div>
+                                <dt>Load surge</dt>
+                                <dd>{formatPowerW(converterLoadSurgeW)}</dd>
+                              </div>
+                              <div>
+                                <dt>Load daily energy</dt>
+                                <dd>{formatEnergyKwh(converterLoadDailyEnergyKwh)}</dd>
+                              </div>
                             </dl>
                             <div className="button-row">
                               <button type="button" className="button button-success button-sm" onClick={() => void saveProjectConverter()} disabled={isSaving || !draft.title.trim() || !draft.converter_type_id.trim()}>
@@ -6648,6 +6628,14 @@ function ConsumptionPage({
                               <div>
                                 <dt>{t('catalog.stat.peak_power')}</dt>
                                 <dd>{nextPeak}</dd>
+                              </div>
+                              <div>
+                                <dt>Load surge</dt>
+                                <dd>{formatPowerW(converterLoadSurgeW)}</dd>
+                              </div>
+                              <div>
+                                <dt>Load daily energy</dt>
+                                <dd>{formatEnergyKwh(converterLoadDailyEnergyKwh)}</dd>
                               </div>
                             </dl>
                             <div className="button-row">
@@ -8653,7 +8641,7 @@ function VerdictSummaryPage({
         </div>
         {surfaceRows.length > 0 ? (
           <div className="yield-table-wrap">
-            <table className="yield-table">
+            <table className="yield-table verdict-table">
               <thead>
                 <tr>
                   <th>{t('report.table.surface')}</th>
@@ -8664,15 +8652,18 @@ function VerdictSummaryPage({
                 </tr>
               </thead>
               <tbody>
-                {surfaceRows.map(({ surface, panelType, mpptType, status, fit, verdictSummary }) => (
+                {surfaceRows.map(({ surface, panelType, mpptType, status, fit, verdictSummary }) => {
+                  const hasPanels = (surface.panel_count ?? 0) > 0;
+                  return (
                   <tr key={surface.surface_id}>
                     <th>{surface.name}</th>
-                    <td>{panelType?.model ? `${panelType.model} × ${surface.panel_count}` : 'n/a'}</td>
-                    <td>{mpptType?.model ?? 'n/a'}</td>
-                    <td><StatusBadge status={status} fit={fit} /></td>
-                    <td>{verdictSummary ?? t('production.table.not_evaluated')}</td>
+                    <td>{hasPanels && panelType?.model ? `${panelType.model} × ${surface.panel_count}` : 'n/a'}</td>
+                    <td>{hasPanels ? (mpptType?.model ?? 'n/a') : 'n/a'}</td>
+                    <td>{hasPanels ? <StatusBadge status={status} fit={fit} /> : 'n/a'}</td>
+                    <td>{hasPanels && verdictSummary ? verdictSummary : 'n/a'}</td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -8832,7 +8823,7 @@ function CostSummaryPage({
           <h2>{t('page.report.cost_summary')}</h2>
         </div>
         <div className="yield-table-wrap">
-          <table className="yield-table">
+          <table className="yield-table verdict-table">
             <thead>
               <tr>
                 <th>{t('report.table.item')}</th>
@@ -8877,7 +8868,7 @@ function CostSummaryPage({
         </div>
         {surfaceRows.length > 0 ? (
           <div className="yield-table-wrap">
-            <table className="yield-table">
+            <table className="yield-table verdict-table">
               <thead>
                 <tr>
                   <th>{t('report.table.surface')}</th>
@@ -8929,7 +8920,7 @@ function CostSummaryPage({
         </div>
         {selectedBatteryType ? (
           <div className="yield-table-wrap">
-            <table className="yield-table">
+            <table className="yield-table verdict-table">
               <thead>
                 <tr>
                   <th>{t('report.table.item')}</th>
@@ -8975,7 +8966,7 @@ function CostSummaryPage({
         </div>
         {selectedInverterType ? (
           <div className="yield-table-wrap">
-            <table className="yield-table">
+            <table className="yield-table verdict-table">
               <thead>
                 <tr>
                   <th>{t('report.table.item')}</th>
@@ -10546,9 +10537,17 @@ function LoadCircuitsPage({
   const [focusLoadCircuitId, setFocusLoadCircuitId] = useState('');
   const currentSearch = typeof window === 'undefined' ? '' : window.location.search;
 
+  const allLoads = data.entities.loads ?? [];
+
   const filteredLoadCircuits = data.entities.load_circuits.filter((circuit) => (
     filterProjectConverterId === '' || circuit.converter_id === filterProjectConverterId
   ));
+  const aggregateCircuitLoads = allLoads.filter((l) => filteredLoadCircuits.some((c) => c.load_circuit_id === l.load_circuit_id));
+  const aggregateNominalPowerW = aggregateCircuitLoads.reduce((sum, load) => sum + loadNominalPowerW(load), 0);
+  const aggregateSurgePowerW = aggregateCircuitLoads.reduce((sum, load) => sum + loadSurgePowerW(load), 0);
+  const aggregateDailyEnergyKwh = aggregateCircuitLoads.reduce((sum, load) => sum + (loadNominalPowerW(load) / 1000) * load.expected_usage_hours_per_day, 0);
+  const aggregateMonthlyEnergyKwh = aggregateDailyEnergyKwh * 30.4;
+  const aggregateUsageHoursPerDay = aggregateCircuitLoads.reduce((sum, load) => sum + load.expected_usage_hours_per_day, 0);
   const filteredProjectConverter = filterProjectConverterId
     ? data.entities.converters.find((item) => item.converter_id === filterProjectConverterId) ?? null
     : null;
@@ -10737,6 +10736,37 @@ function LoadCircuitsPage({
       </section>
       <section className="detail-shell">
         <section className="panel">
+          <div className="fit-card" style={{ marginBottom: 16 }}>
+            <div className="section-head">
+              <h3>{t('load.circuit.loads')} summary</h3>
+            </div>
+            <dl className="detail-stats compact-stats" style={{ marginTop: 0 }}>
+              <div>
+                <dt>{t('load.circuit.loads')}</dt>
+                <dd>{aggregateCircuitLoads.length}</dd>
+              </div>
+              <div>
+                <dt>{t('load.circuit.nominal_power')}</dt>
+                <dd>{formatPowerW(aggregateNominalPowerW)}</dd>
+              </div>
+              <div>
+                <dt>{t('load.circuit.surge_power')}</dt>
+                <dd>{formatPowerW(aggregateSurgePowerW)}</dd>
+              </div>
+              <div>
+                <dt>Usage h/d</dt>
+                <dd>{aggregateUsageHoursPerDay.toLocaleString('en-US', { maximumFractionDigits: 1 })} h</dd>
+              </div>
+              <div>
+                <dt>{t('load.circuit.daily_energy')}</dt>
+                <dd>{formatEnergyKwh(aggregateDailyEnergyKwh)}</dd>
+              </div>
+              <div>
+                <dt>{t('load.circuit.monthly_energy')}</dt>
+                <dd>{formatEnergyKwh(aggregateMonthlyEnergyKwh)}</dd>
+              </div>
+            </dl>
+          </div>
           <div className="fit-card">
             <div className="button-row button-row-start" style={{ marginTop: 12 }}>
               <button
@@ -10806,8 +10836,9 @@ function LoadCircuitsPage({
                 const circuitLoads = data.entities.loads.filter((load) => load.load_circuit_id === circuit.load_circuit_id);
                 const circuitNominalPowerW = circuitLoads.reduce((sum, load) => sum + loadNominalPowerW(load), 0);
                 const circuitSurgePowerW = circuitLoads.reduce((sum, load) => sum + loadSurgePowerW(load), 0);
-                const circuitDailyEnergyKwh = circuitLoads.reduce((sum, load) => sum + loadDailyEnergyKwh(load), 0);
+                const circuitDailyEnergyKwh = circuitLoads.reduce((sum, load) => sum + (loadNominalPowerW(load) / 1000) * load.expected_usage_hours_per_day, 0);
                 const circuitMonthlyEnergyKwh = circuitDailyEnergyKwh * 30.4;
+                const circuitUsageHoursPerDay = circuitLoads.reduce((sum, load) => sum + load.expected_usage_hours_per_day, 0);
                 const converter = data.entities.converter_types.find((item) => item.converter_type_id === circuit.converter_type_id) ?? null;
                 const isEditing = editorMode === 'edit' && draft.load_circuit_id === circuit.load_circuit_id;
                 const circuitTitle = isEditing ? draft.title.trim() || circuit.title : circuit.title;
@@ -10866,6 +10897,10 @@ function LoadCircuitsPage({
                               <dd>{formatPowerW(circuitSurgePowerW)}</dd>
                             </div>
                             <div>
+                              <dt>Usage h/d</dt>
+                              <dd>{circuitUsageHoursPerDay.toLocaleString('en-US', { maximumFractionDigits: 1 })} h</dd>
+                            </div>
+                            <div>
                               <dt>{t('load.circuit.daily_energy')}</dt>
                               <dd>{formatEnergyKwh(circuitDailyEnergyKwh)}</dd>
                             </div>
@@ -10906,6 +10941,10 @@ function LoadCircuitsPage({
                             <div>
                               <dt>{t('load.circuit.surge_power')}</dt>
                               <dd>{formatPowerW(circuitSurgePowerW)}</dd>
+                            </div>
+                            <div>
+                              <dt>Usage h/d</dt>
+                              <dd>{circuitUsageHoursPerDay.toLocaleString('en-US', { maximumFractionDigits: 1 })} h</dd>
                             </div>
                             <div>
                               <dt>{t('load.circuit.daily_energy')}</dt>

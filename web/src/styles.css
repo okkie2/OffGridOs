@@ -1198,6 +1198,12 @@ h1, h2, h3, p, dl, dd, dt {
 .yield-table .best { color: var(--primary-dim); font-weight: 700; }
 .yield-table .worst { color: var(--warn); font-weight: 700; }
 
+.yield-table.verdict-table th,
+.yield-table.verdict-table td {
+  white-space: normal;
+  word-break: break-word;
+}
+
 .catalog-table tbody tr {
   cursor: pointer;
 }
@@ -1448,6 +1454,18 @@ h1, h2, h3, p, dl, dd, dt {
 
 .battery-selection-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.battery-config-panel .config-field {
+  gap: 2px;
+}
+
+.battery-config-panel .config-field > span {
+  min-height: auto;
+}
+
+.battery-config-panel .config-grid + .config-grid {
+  margin-top: 16px;
 }
 
 .panel-config-grid {
