@@ -16,6 +16,11 @@ Repository-specific guidance for OffGridOS.
 - Record notable repository changes in [CHANGELOG.md](./CHANGELOG.md) in reverse chronological order.
 - Update [README.md](./README.md) when the documentation set changes.
 
+## File structure
+
+- Before adding a component, function, or feature to an existing file, check its line count (`wc -l <file>`). If it exceeds 400 lines, evaluate whether the addition belongs in a new module. A new file is warranted when the addition has a clear name, clear inputs, and no circular dependency on the host file. Never silently grow a file past 400 lines without a recorded decision to do so.
+- `web/src/App.tsx` is a known structural debt hotspot (~12,000 lines). A slice-by-slice decomposition plan lives at `docs/app-tsx-decomposition-plan.md`. Prefer extracting to that plan over growing this file further. Each new addition that would otherwise land in App.tsx should go into the correct target file from the plan instead.
+
 ## Code and docs
 
 - Keep the repository root clean: only governance files (`AGENTS.md`, `UBIQUITOUS_LANGUAGE.md`, `CHANGELOG.md`, `TODO.md`, `ROADMAP.md`, `README.md`) and project runtime files belong at root. Move all design docs, screen specs, and planning notes into `docs/`.
