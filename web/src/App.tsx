@@ -1161,12 +1161,14 @@ type ParsedAppUrl = {
 const CATALOG_ROUTES: Array<{
   catalog: 'panel-types' | 'cabinet-types' | 'conversion-devices' | 'mppt-types' | 'battery-types' | 'inverter-types';
   labelKey: TranslationKey;
+  contextKey: TranslationKey;
 }> = [
-  { catalog: 'panel-types', labelKey: 'nav.catalog.panel_types' },
-  { catalog: 'cabinet-types', labelKey: 'nav.catalog.cabinet_types' },
-  { catalog: 'conversion-devices', labelKey: 'nav.catalog.converter_types' },
-  { catalog: 'mppt-types', labelKey: 'nav.catalog.mppt_types' },
-  { catalog: 'battery-types', labelKey: 'nav.catalog.battery_types' },
+  { catalog: 'panel-types', labelKey: 'nav.catalog.panel_types', contextKey: 'page.catalog.panel_types.context' },
+  { catalog: 'cabinet-types', labelKey: 'nav.catalog.cabinet_types', contextKey: 'page.catalog.cabinet_types.context' },
+  { catalog: 'conversion-devices', labelKey: 'nav.catalog.conversion_devices', contextKey: 'page.catalog.conversion_devices.context' },
+  { catalog: 'mppt-types', labelKey: 'nav.catalog.mppt_types', contextKey: 'page.catalog.mppt_types.context' },
+  { catalog: 'battery-types', labelKey: 'nav.catalog.battery_types', contextKey: 'page.catalog.battery_types.context' },
+  { catalog: 'inverter-types', labelKey: 'nav.catalog.inverter_types', contextKey: 'page.catalog.inverter_types.context' },
 ];
 
 const REPORT_ROUTES: Array<{
@@ -1829,7 +1831,142 @@ function SummaryCard({ label, value, detail, tone }: { label: string; value: str
 }
 
 function findWeakestMonth(rows: MonthlyBalanceRow[]): MonthlyBalanceRow | null {
-  return rows[0] ?? null;
+  return rows.reduce<MonthlyBalanceRow | null>((worst, current) => {
+    if (!worst) {
+      return current;
+    }
+
+    const worstSurplus = worst.surplus_kwh ?? Number.POSITIVE_INFINITY;
+    const currentSurplus = current.surplus_kwh ?? Number.POSITIVE_INFINITY;
+    return currentSurplus < worstSurplus ? current : worst;
+  }, null);
+}
+
+function findStrongestMonth(rows: MonthlyBalanceRow[]): MonthlyBalanceRow | null {
+  return rows.reduce<MonthlyBalanceRow | null>((best, current) => {
+    if (!best) {
+      return current;
+    }
+
+    const bestSurplus = best.surplus_kwh ?? Number.NEGATIVE_INFINITY;
+    const currentSurplus = current.surplus_kwh ?? Number.NEGATIVE_INFINITY;
+    return currentSurplus > bestSurplus ? current : best;
+  }, null);
+}
+
+function formatPercent(value: number): string {
+  return `${value.toLocaleString('en-US', { maximumFractionDigits: 0 })}%`;
+}
+
+function formatSignedEnergyKwh(value: number): string {
+  const prefix = value > 0 ? '+' : '';
+  return `${prefix}${formatEnergyKwh(value)}`;
+}
+
+function summarizeMonthlyBalance(rows: MonthlyBalanceRow[]): {
+  yearlySolarKwh: number;
+  yearlyLoadKwh: number;
+  yearlySurplusKwh: number;
+  yearlyDeficitKwh: number;
+  deficitMonths: number;
+  surplusMonths: number;
+  coverageRatio: number | null;
+  strongestMonth: MonthlyBalanceRow | null;
+  weakestMonth: MonthlyBalanceRow | null;
+} {
+  const yearlySolarKwh = rows.reduce((sum, row) => sum + (row.solar_kwh ?? 0), 0);
+  const yearlyLoadKwh = rows.reduce((sum, row) => sum + (row.load_kwh ?? 0), 0);
+  const yearlySurplusKwh = rows.reduce((sum, row) => sum + (row.surplus_kwh ?? 0), 0);
+  const yearlyDeficitKwh = rows.reduce((sum, row) => sum + (row.deficit_kwh ?? 0), 0);
+  const deficitMonths = rows.filter((row) => (row.deficit_kwh ?? 0) > 0).length;
+  const surplusMonths = rows.filter((row) => (row.surplus_kwh ?? 0) > 0).length;
+  const coverageRatio = yearlySolarKwh > 0 ? yearlyLoadKwh / yearlySolarKwh : null;
+
+  return {
+    yearlySolarKwh,
+    yearlyLoadKwh,
+    yearlySurplusKwh,
+    yearlyDeficitKwh,
+    deficitMonths,
+    surplusMonths,
+    coverageRatio,
+    strongestMonth: findStrongestMonth(rows),
+    weakestMonth: findWeakestMonth(rows),
+  };
+}
+
+function evaluateBatteryCapacityFit(input: {
+  totalCapacityKwh: number | null;
+  expectedDailyLoadKwh: number;
+  maxDischargePowerW: number | null;
+}): {
+  status: Status;
+  fit?: FitStatus;
+  headline: string;
+  daysOfAutonomy: number | null;
+  reasons: string[];
+} {
+  const { totalCapacityKwh, expectedDailyLoadKwh, maxDischargePowerW } = input;
+
+  if (totalCapacityKwh == null) {
+    return {
+      status: 'unknown',
+      headline: 'Battery capacity unknown',
+      daysOfAutonomy: null,
+      reasons: ['Select a battery bank to evaluate the fit against the daily load.'],
+    };
+  }
+
+  if (expectedDailyLoadKwh <= 0) {
+    return {
+      status: 'unknown',
+      headline: 'Daily load unknown',
+      daysOfAutonomy: null,
+      reasons: ['Expected daily load is not available yet, so the battery fit cannot be judged.'],
+    };
+  }
+
+  const daysOfAutonomy = Number((totalCapacityKwh / expectedDailyLoadKwh).toFixed(1));
+  const dischargeLimitNote = maxDischargePowerW != null
+    ? `Battery discharge limit: ${formatKw(maxDischargePowerW)}.`
+    : 'Battery discharge limit is not available yet.';
+
+  if (daysOfAutonomy < 1) {
+    return {
+      status: 'outside_limits',
+      fit: 'fully_utilized',
+      headline: 'Battery capacity is too small',
+      daysOfAutonomy,
+      reasons: [
+        `The bank stores about ${formatEnergyKwh(totalCapacityKwh)} against ${formatEnergyKwh(expectedDailyLoadKwh)} of expected daily load.`,
+        dischargeLimitNote,
+      ],
+    };
+  }
+
+  if (daysOfAutonomy > 5) {
+    return {
+      status: 'within_limits',
+      fit: 'underutilized',
+      headline: 'Battery capacity is generous',
+      daysOfAutonomy,
+      reasons: [
+        `The bank covers about ${daysOfAutonomy.toLocaleString('en-US', { maximumFractionDigits: 1 })} days of expected load.`,
+        dischargeLimitNote,
+      ],
+    };
+  }
+
+  return {
+    status: 'within_limits',
+    fit: 'optimal',
+    headline: 'Battery capacity fits the load',
+    daysOfAutonomy,
+    reasons: [
+      `The bank covers about ${daysOfAutonomy.toLocaleString('en-US', { maximumFractionDigits: 1 })} days of expected load.`,
+      dischargeLimitNote,
+    ],
+  };
 }
 
 function getFactorPairs(panelCount: number): Array<{ panelsPerString: number; parallelStrings: number }> {
@@ -2992,8 +3129,8 @@ function getRouteContext(route: Route, data: DigitalTwinExport | null, t: (key: 
     case 'about':
       return t('page.about.context');
     case 'catalog': {
-      if (route.catalog === 'conversion-devices') return '';
-      return '';
+      const catalog = CATALOG_ROUTES.find((item) => item.catalog === route.catalog);
+      return catalog ? t(catalog.contextKey) : '';
     }
     case 'verdict-summary':
       return '';
@@ -5878,68 +6015,11 @@ function InverterArrayPage({
   );
 }
 
-function ConsumptionOverviewPage({ data }: Pick<PageContext, 'data'>) {
-  const { t } = useTranslation();
-  const projectConverters = data.entities.converters;
-  const loadCircuits = data.entities.load_circuits ?? [];
-  const loads = data.entities.loads ?? [];
-
-  return (
-    <>
-      <section className="detail-shell">
-        <div className="detail-grid detail-intro-grid">
-          <section className="panel panel-span-2">
-            <div className="section-head">
-              <h2>{t('nav.consumption')}</h2>
-            </div>
-            <div className="hero-strip">
-              <SummaryCard label={t('nav.converters')} value={String(projectConverters.length)} />
-              <SummaryCard label={t('nav.load_circuits')} value={String(loadCircuits.length)} />
-              <SummaryCard label={t('nav.loads')} value={String(loads.length)} />
-            </div>
-          </section>
-        </div>
-        <section className="panel">
-          <div className="section-head">
-            <h2>{t('nav.converters')}</h2>
-          </div>
-          <div className="button-row">
-            <button type="button" className="button button-secondary" onClick={() => navigateTo({ kind: 'inverter-array' })}>
-              {t('nav.converters')}
-            </button>
-          </div>
-        </section>
-        <section className="panel">
-          <div className="section-head">
-            <h2>{t('nav.load_circuits')}</h2>
-          </div>
-          <div className="button-row">
-            <button type="button" className="button button-secondary" onClick={() => navigateTo({ kind: 'load-circuits' })}>
-              {t('nav.load_circuits')}
-            </button>
-          </div>
-        </section>
-        <section className="panel">
-          <div className="section-head">
-            <h2>{t('nav.loads')}</h2>
-          </div>
-          <div className="button-row">
-            <button type="button" className="button button-secondary" onClick={() => navigateTo({ kind: 'loads' })}>
-              {t('nav.loads')}
-            </button>
-          </div>
-        </section>
-      </section>
-    </>
-  );
-}
-
-function ConsumptionPage({
+function ConsumptionOverviewPage({
   data,
   batteryBank,
   batteryBankState,
-  refreshProjectData,
-}: PageContext) {
+}: Pick<PageContext, 'data' | 'batteryBank' | 'batteryBankState'>) {
   const { t } = useTranslation();
   const batteryStoragePrefix = `${getLocationStorageKey(data)}:battery-array`;
   const [selectedBatteryTypeId] = usePersistentState(
@@ -5967,14 +6047,272 @@ function ConsumptionPage({
       Math.max(parallelStrings, 1),
     )
     : null;
-
-  const projectConverters = data.entities.converters;
+  const projectConverters = data.entities.converters ?? [];
   const selectedConverters = projectConverters
     .map((converter) => data.entities.converter_types.find((device) => device.converter_type_id === converter.converter_type_id) ?? null)
     .filter((device): device is ConversionDevice => Boolean(device));
   const converterBankCompatibility = selectedConverters.length > 0 && batteryArrayConfig
     ? evaluateConverterBankCompatibility(batteryArrayConfig, selectedConverters)
     : null;
+  const aggregateLoadPeakW = (data.entities.loads ?? []).reduce((sum, load) => sum + loadSurgePowerW(load), 0);
+  const aggregateLoadDailyEnergyKwh = (data.entities.loads ?? []).reduce((sum, load) => sum + loadDailyEnergyKwh(load), 0);
+  const aggregateLoadMonthlyEnergyKwh = aggregateLoadDailyEnergyKwh * 30.4;
+  const monthlyBalanceRows = data.derived.monthly_balance ?? [];
+  const monthlyBalanceSummary = summarizeMonthlyBalance(monthlyBalanceRows);
+  const monthlyFitStatus: Status = monthlyBalanceRows.length === 0
+    ? 'unknown'
+    : monthlyBalanceSummary.deficitMonths > 0
+      ? 'outside_limits'
+      : 'within_limits';
+  const monthlyCoveragePercent = monthlyBalanceSummary.coverageRatio != null
+    ? monthlyBalanceSummary.coverageRatio * 100
+    : null;
+  const monthlyNetKwh = monthlyBalanceSummary.yearlySolarKwh - monthlyBalanceSummary.yearlyLoadKwh;
+  const batteryCapacityFit = evaluateBatteryCapacityFit({
+    totalCapacityKwh: batteryArrayConfig?.totalCapacityKwh ?? null,
+    expectedDailyLoadKwh: aggregateLoadDailyEnergyKwh,
+    maxDischargePowerW: batteryArrayConfig?.maxDischargePowerW ?? null,
+  });
+  const batteryFitTone: 'good' | 'ok' | 'warn' | 'cool' | 'danger' = batteryCapacityFit.status === 'outside_limits'
+    ? 'danger'
+    : batteryCapacityFit.fit === 'underutilized'
+      ? 'cool'
+      : 'good';
+
+  return (
+    <section className="detail-shell">
+      <div className="detail-grid detail-intro-grid">
+        <section className="panel panel-span-2">
+          <div className="section-head">
+            <h2>{t('nav.consumption')}</h2>
+            <p>{t('page.consumption.context')}</p>
+          </div>
+          <div className="hero-strip">
+            <SummaryCard
+              label={t('consumption.summary.peak_load')}
+              value={formatPowerW(aggregateLoadPeakW)}
+              detail={selectedConverters.length > 0 ? `${selectedConverters.length} ${t('nav.converters').toLowerCase()}` : undefined}
+            />
+            <SummaryCard
+              label={t('consumption.summary.expected_daily_load')}
+              value={formatEnergyKwh(aggregateLoadDailyEnergyKwh)}
+              detail={formatEnergyKwh(aggregateLoadMonthlyEnergyKwh)}
+            />
+            <SummaryCard
+              label={t('consumption.summary.monthly_fit')}
+              value={monthlyCoveragePercent != null ? formatPercent(monthlyCoveragePercent) : 'n/a'}
+              detail={monthlyBalanceRows.length > 0 ? formatSignedEnergyKwh(monthlyNetKwh) : undefined}
+              tone={monthlyFitStatus === 'outside_limits' ? 'warn' : monthlyFitStatus === 'within_limits' ? 'good' : 'muted'}
+            />
+            <SummaryCard
+              label={t('consumption.summary.battery_fit')}
+              value={batteryCapacityFit.daysOfAutonomy != null ? `${batteryCapacityFit.daysOfAutonomy.toLocaleString('en-US', { maximumFractionDigits: 1 })} d` : 'n/a'}
+              detail={batteryArrayConfig?.totalCapacityKwh != null ? formatEnergyKwh(batteryArrayConfig.totalCapacityKwh) : undefined}
+              tone={batteryFitTone}
+            />
+          </div>
+          <div className="consumption-insight-grid">
+            <div className="outcome-panel">
+              <div className="outcome-summary">
+                <div className="outcome-status-line">
+                  <p className="result-label">{t('consumption.monthly.title')}</p>
+                  <StatusBadge status={monthlyFitStatus} />
+                </div>
+                <p className="fit-note">
+                  {monthlyFitStatus === 'outside_limits'
+                    ? t('consumption.monthly.outside_limits')
+                    : monthlyFitStatus === 'within_limits'
+                      ? t('consumption.monthly.within_limits')
+                      : t('consumption.monthly.unknown')}
+                </p>
+                <p className="fit-note">{t('consumption.monthly.note')}</p>
+                {monthlyBalanceRows.length > 0 ? (
+                  <ul className="reason-list">
+                    <li>{t('consumption.monthly.yearly_solar', { value: formatEnergyKwh(monthlyBalanceSummary.yearlySolarKwh) })}</li>
+                    <li>{t('consumption.monthly.yearly_load', { value: formatEnergyKwh(monthlyBalanceSummary.yearlyLoadKwh) })}</li>
+                    <li>{t('consumption.monthly.yearly_net', { value: formatSignedEnergyKwh(monthlyNetKwh) })}</li>
+                    <li>{t('consumption.monthly.deficit_months', { value: monthlyBalanceSummary.deficitMonths })}</li>
+                    <li>{t('consumption.monthly.surplus_months', { value: monthlyBalanceSummary.surplusMonths })}</li>
+                  </ul>
+                ) : null}
+              </div>
+              {monthlyBalanceRows.length > 0 ? (
+                <dl className="detail-stats outcome-checks">
+                  <div>
+                    <dt>{t('consumption.summary.yearly_solar_label')}</dt>
+                    <dd>{formatEnergyKwh(monthlyBalanceSummary.yearlySolarKwh)}</dd>
+                  </div>
+                  <div>
+                    <dt>{t('consumption.summary.yearly_load_label')}</dt>
+                    <dd>{formatEnergyKwh(monthlyBalanceSummary.yearlyLoadKwh)}</dd>
+                  </div>
+                  <div>
+                    <dt>{t('consumption.summary.yearly_net_label')}</dt>
+                    <dd>{formatSignedEnergyKwh(monthlyNetKwh)}</dd>
+                  </div>
+                  <div>
+                    <dt>{t('consumption.summary.deficit_months_label')}</dt>
+                    <dd>{monthlyBalanceSummary.deficitMonths}</dd>
+                  </div>
+                </dl>
+              ) : null}
+              <dl className="detail-stats outcome-checks">
+                <div>
+                  <dt>{t('consumption.summary.strongest_month')}</dt>
+                  <dd>{monthlyBalanceSummary.strongestMonth ? getMonthLabel(monthlyBalanceSummary.strongestMonth.month, t) : 'n/a'}</dd>
+                </div>
+                <div>
+                  <dt>{t('consumption.summary.weakest_month')}</dt>
+                  <dd>{monthlyBalanceSummary.weakestMonth ? getMonthLabel(monthlyBalanceSummary.weakestMonth.month, t) : 'n/a'}</dd>
+                </div>
+              </dl>
+            </div>
+            <div className="outcome-panel">
+              <div className="outcome-summary">
+                <div className="outcome-status-line">
+                  <p className="result-label">{t('consumption.battery.title')}</p>
+                  <StatusBadge status={batteryCapacityFit.status} fit={batteryCapacityFit.fit} />
+                </div>
+                <p className="fit-note">{t('consumption.battery.description')}</p>
+                <p className="fit-note">{batteryCapacityFit.headline}</p>
+                <ul className="reason-list">
+                  {batteryCapacityFit.reasons.map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
+              </div>
+              <dl className="detail-stats outcome-checks">
+                <div>
+                  <dt>{t('consumption.battery.capacity')}</dt>
+                  <dd>{batteryArrayConfig?.totalCapacityKwh != null ? formatEnergyKwh(batteryArrayConfig.totalCapacityKwh) : 'n/a'}</dd>
+                </div>
+                <div>
+                  <dt>{t('consumption.battery.autonomy')}</dt>
+                  <dd>{batteryCapacityFit.daysOfAutonomy != null ? `${batteryCapacityFit.daysOfAutonomy.toLocaleString('en-US', { maximumFractionDigits: 1 })} d` : 'n/a'}</dd>
+                </div>
+                <div>
+                  <dt>{t('consumption.battery.daily_load')}</dt>
+                  <dd>{formatEnergyKwh(aggregateLoadDailyEnergyKwh)}</dd>
+                </div>
+                <div>
+                  <dt>{t('consumption.battery.discharge_limit')}</dt>
+                  <dd>{batteryArrayConfig?.maxDischargePowerW != null ? formatKw(batteryArrayConfig.maxDischargePowerW) : 'n/a'}</dd>
+                </div>
+              </dl>
+            </div>
+          </div>
+        </section>
+      </div>
+      <section className="panel" style={{ marginTop: 16 }}>
+        <div className="section-head">
+          <h2>{t('consumption.monthly.title')}</h2>
+          <p>{t('consumption.monthly.description')}</p>
+        </div>
+        <p className="fit-note" style={{ marginBottom: 12 }}>{t('consumption.monthly.note')}</p>
+        <div className="yield-table-wrap">
+          <table className="yield-table">
+            <thead>
+              <tr>
+                  <th>{t('report.table.metric')}</th>
+                  {MONTH_KEYS.map((month) => (
+                    <th
+                      key={month}
+                      className={month === monthlyBalanceSummary.strongestMonth?.month ? 'col-best' : month === monthlyBalanceSummary.weakestMonth?.month ? 'col-worst' : undefined}
+                    >
+                      {getMonthLabel(month, t)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th>{t('consumption.monthly.solar')}</th>
+                  {monthlyBalanceRows.map((row) => (
+                    <td
+                      key={`solar-${row.month}`}
+                      className={row.month === monthlyBalanceSummary.strongestMonth?.month ? 'col-best best' : row.month === monthlyBalanceSummary.weakestMonth?.month ? 'col-worst worst' : undefined}
+                    >
+                      {formatEnergyKwh(row.solar_kwh ?? 0)}
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <th>{t('consumption.monthly.demand')}</th>
+                  {monthlyBalanceRows.map((row) => (
+                    <td
+                      key={`demand-${row.month}`}
+                      className={row.month === monthlyBalanceSummary.strongestMonth?.month ? 'col-best best' : row.month === monthlyBalanceSummary.weakestMonth?.month ? 'col-worst worst' : undefined}
+                    >
+                      {formatEnergyKwh(row.load_kwh ?? 0)}
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <th>{t('consumption.monthly.surplus')}</th>
+                  {monthlyBalanceRows.map((row) => (
+                    <td
+                      key={`surplus-${row.month}`}
+                      className={row.month === monthlyBalanceSummary.strongestMonth?.month ? 'col-best best' : row.month === monthlyBalanceSummary.weakestMonth?.month ? 'col-worst worst' : undefined}
+                    >
+                      {formatEnergyKwh(row.surplus_kwh ?? 0)}
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <th>{t('consumption.monthly.deficit')}</th>
+                  {monthlyBalanceRows.map((row) => (
+                    <td
+                      key={`deficit-${row.month}`}
+                      className={row.month === monthlyBalanceSummary.strongestMonth?.month ? 'col-best best' : row.month === monthlyBalanceSummary.weakestMonth?.month ? 'col-worst worst' : undefined}
+                    >
+                      {formatEnergyKwh(row.deficit_kwh ?? 0)}
+                    </td>
+                  ))}
+                </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section className="panel">
+        <div className="section-head">
+          <h2>{t('nav.converters')}</h2>
+        </div>
+        <div className="button-row">
+          <button type="button" className="button button-secondary" onClick={() => navigateTo({ kind: 'inverter-array' })}>
+            {t('nav.converters')}
+          </button>
+        </div>
+      </section>
+      <section className="panel">
+        <div className="section-head">
+          <h2>{t('nav.load_circuits')}</h2>
+        </div>
+        <div className="button-row">
+          <button type="button" className="button button-secondary" onClick={() => navigateTo({ kind: 'load-circuits' })}>
+            {t('nav.load_circuits')}
+          </button>
+        </div>
+      </section>
+      <section className="panel">
+        <div className="section-head">
+          <h2>{t('nav.loads')}</h2>
+        </div>
+        <div className="button-row">
+          <button type="button" className="button button-secondary" onClick={() => navigateTo({ kind: 'loads' })}>
+            {t('nav.loads')}
+          </button>
+        </div>
+      </section>
+    </section>
+  );
+}
+
+function ConsumptionPage({
+  data,
+  refreshProjectData,
+}: PageContext) {
+  const { t } = useTranslation();
+  const projectConverters = data.entities.converters ?? [];
   const [editorMode, setEditorMode] = useState<'closed' | 'add' | 'edit'>('closed');
   const [draft, setDraft] = useState<ProjectConverterDraft>({
     converter_id: '',
@@ -6133,14 +6471,18 @@ function ConsumptionPage({
   return (
     <>
       <section className="detail-shell">
-        <section className="panel">
-          <div className="fit-card">
+        <div className="detail-grid detail-intro-grid">
+          <section className="panel panel-span-2">
+            <div className="fit-card">
+            <div className="section-head">
+              <h2>{t('consumption.converters.title')}</h2>
+              <p>{t('consumption.converters.description')}</p>
+            </div>
             <div className="button-row button-row-start">
               <button type="button" className="button button-secondary button-sm" onClick={startAddConverter}>
                 Add converter
               </button>
             </div>
-
             {projectConverters.length === 0 && editorMode === 'closed' ? (
               <p className="fit-note">No converters added yet.</p>
             ) : (
@@ -6326,62 +6668,7 @@ function ConsumptionPage({
             )}
           </div>
         </section>
-
-        <section className="panel">
-          {converterBankCompatibility ? (
-            <div className="outcome-panel">
-              <div className="outcome-summary">
-                <div className="outcome-status-line">
-                  <StatusBadge status={converterBankCompatibility.status} />
-                </div>
-                <p className="fit-note">
-                  {converterBankCompatibility.status === 'unknown'
-                    ? 'The selected battery bank does not publish discharge limits, so this fit is unknown.'
-                    : converterBankCompatibility.status === 'outside_limits'
-                    ? (converterBankCompatibility.reasons.includes('battery_discharge_current_unknown') || converterBankCompatibility.reasons.includes('battery_discharge_power_unknown')
-                      ? 'The selected battery bank does not expose discharge limits, so the selected converters cannot be confirmed.'
-                      : 'The selected battery bank cannot support the combined converters.')
-                    : 'The selected battery bank can support the combined converters.'}
-                </p>
-                <ul className="reason-list">
-                  {converterBankCompatibility.reasons.map((reason) => (
-                    <li key={reason}>{formatReasonFallback(reason)}</li>
-                  ))}
-                </ul>
-              </div>
-              <dl className="detail-stats outcome-checks">
-                <div>
-                  <dt>Converters</dt>
-                  <dd>{selectedConverters.length}</dd>
-                </div>
-                <div>
-                  <dt>Combined output</dt>
-                  <dd>{formatKw(converterBankCompatibility.totalContinuousPowerW)}</dd>
-                </div>
-                <div>
-                  <dt>Combined peak</dt>
-                  <dd>{`${converterBankCompatibility.totalPeakPowerVA.toLocaleString('en-US')} VA`}</dd>
-                </div>
-                <div>
-                  <dt>Battery discharge limit</dt>
-                  <dd>{batteryArrayConfig?.maxDischargePowerW != null ? formatKw(batteryArrayConfig.maxDischargePowerW) : 'n/a'}</dd>
-                </div>
-                <div>
-                  <dt>Estimated battery current</dt>
-                  <dd>{converterBankCompatibility.estimatedCurrentA != null ? formatAmps(converterBankCompatibility.estimatedCurrentA) : 'n/a'}</dd>
-                </div>
-              </dl>
-            </div>
-          ) : (
-            <p className="fit-note">
-              {projectConverters.length === 0
-                ? 'No converters added yet.'
-                : selectedConverters.length === 0
-                  ? 'Choose a catalogue converter for each converter to evaluate the battery bank.'
-                  : 'Select a battery bank in Storage first.'}
-            </p>
-          )}
-        </section>
+        </div>
       </section>
       {isRemoveConfirmOpen ? (
         <ConfirmDialog
@@ -6818,7 +7105,8 @@ function ConverterDetailPage({
   return (
     <>
       <section className="detail-shell">
-        <section className="panel panel-with-actions">
+        <div className="detail-grid detail-intro-grid">
+        <section className="panel panel-span-2 panel-with-actions">
           <div className="section-head">
             <h2>{selectedLoadCircuit?.title ?? selectedConverter?.title ?? route.converterId}</h2>
             <p>
@@ -7244,6 +7532,7 @@ function ConverterDetailPage({
 
           {actionError ? <p className="save-error" style={{ marginTop: 16 }}>{actionError}</p> : null}
         </section>
+        </div>
       </section>
     </>
   );
@@ -11155,15 +11444,12 @@ function LoadsPage({
                   <div className="empty-state" style={{ gridColumn: '1 / -1' }}>
                     <p style={{ marginTop: 0, marginBottom: 0 }}>{t('load.workbench.no_loads')}</p>
                   </div>
-                ) : activeCircuitLoads.map((load) => {
+              ) : activeCircuitLoads.map((load) => {
                 const isEditing = editorMode === 'edit' && draft.load_id === load.load_id;
                 const isMoving = editorMode === 'move' && draft.load_id === load.load_id;
                 const loadTitle = isEditing ? draft.title.trim() || load.title : load.title;
                 const loadDescription = isEditing ? draft.description.trim() || load.description?.trim() || t('catalog.entry.load') : load.description?.trim() || t('catalog.entry.load');
                 const moveCircuitOptions = filteredLoadCircuitOptions.filter((circuit) => circuit.load_circuit_id !== load.load_circuit_id);
-                const loadMonthlyDemand = data.derived.load_monthly_demand
-                  .filter((row) => row.load_id === load.load_id)
-                  .sort((left, right) => left.month - right.month);
                 return (
                   <div key={load.load_id} id={`load-card-${load.load_id}`} className="surface-card-stack">
                       <div className={`surface-card consumption-selection-card ${isEditing || isMoving ? 'consumption-selection-editor' : ''}`}>
@@ -11255,23 +11541,6 @@ function LoadsPage({
                                 <dd>{formatPowerW(Number(draft.surge_power_w) || 0)}</dd>
                               </div>
                             </dl>
-                            <div className="outcome-panel" style={{ marginTop: 16 }}>
-                              <div className="outcome-summary">
-                                <div className="outcome-status-line">
-                                  <p className="result-label">{t('load.workbench.monthly_demand')}</p>
-                                  <span>{formatEnergyKwh(loadMonthlyDemand.reduce((sum, row) => sum + row.demand_kwh, 0))}</span>
-                                </div>
-                                <p className="fit-note">{t('load.workbench.monthly_demand_note')}</p>
-                              </div>
-                              <dl className="detail-stats compact-stats">
-                                {loadMonthlyDemand.map((row) => (
-                                  <div key={`${load.load_id}:${row.month}`}>
-                                    <dt>{row.month}</dt>
-                                    <dd>{formatEnergyKwh(row.demand_kwh)}</dd>
-                                  </div>
-                                ))}
-                              </dl>
-                            </div>
                             <div className="button-row">
                               <button type="button" className="button button-success button-sm" onClick={() => void handleSave()} disabled={isSaving || !draft.title.trim()}>
                                 {isSaving ? t('common.saving') : t('common.save')}
@@ -11351,23 +11620,6 @@ function LoadsPage({
                                 <dd>{formatVoltage(activeCircuitVoltageV)}</dd>
                               </div>
                             </dl>
-                            <div className="outcome-panel" style={{ marginTop: 16 }}>
-                              <div className="outcome-summary">
-                                <div className="outcome-status-line">
-                                  <p className="result-label">{t('load.workbench.monthly_demand')}</p>
-                                  <span>{formatEnergyKwh(loadMonthlyDemand.reduce((sum, row) => sum + row.demand_kwh, 0))}</span>
-                                </div>
-                                <p className="fit-note">{t('load.workbench.monthly_demand_note')}</p>
-                              </div>
-                              <dl className="detail-stats compact-stats">
-                                {loadMonthlyDemand.map((row) => (
-                                  <div key={`${load.load_id}:${row.month}`}>
-                                    <dt>{row.month}</dt>
-                                    <dd>{formatEnergyKwh(row.demand_kwh)}</dd>
-                                  </div>
-                                ))}
-                              </dl>
-                            </div>
                             <div className="button-row">
                               <button type="button" className="button button-secondary button-sm" onClick={() => startEditLoad(load)}>
                                 {t('common.edit')}
@@ -11795,7 +12047,7 @@ function AppContent() {
           ) : route.kind === 'battery-array' ? (
             <BatteryArrayPage {...context} />
           ) : route.kind === 'consumption' ? (
-            <ConsumptionOverviewPage data={context.data} />
+            <ConsumptionOverviewPage data={context.data} batteryBank={context.batteryBank} batteryBankState={context.batteryBankState} />
           ) : route.kind === 'inverter-array' ? (
             <ConsumptionPage {...context} />
           ) : route.kind === 'converter' ? (

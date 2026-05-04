@@ -1,12 +1,14 @@
 # CHANGELOG
 
+## 2026-05-04
+
+- Reworked the Consumption overview into a clearer aggregate story with peak load, expected daily load, monthly fit against production, and battery fit against capacity.
+- Added a Playwright smoke test for the canonical workbench routes so startup and reload are verified on the production, battery, consumption, load-circuits, and loads paths.
+- Removed three stale BDD scenarios that tested `InverterArrayPage`, which became dead code when the `inverter-array` route was redirected to `ConsumptionPage`.
+- Fixed the load circuit creation test setup so the primary-location scenario and the secondary-location scenario each receive a converter on the correct location.
+- Fixed `prepareLoadCircuitCreationData` to find the secondary location by `place_name` rather than by list position, eliminating a silent mismatch caused by alphabetical ordering of location IDs.
+
 ## 2026-05-03
-
-- Removed three stale BDD scenarios that tested `InverterArrayPage`, which became dead code when the `inverter-array` route was redirected to `ConsumptionPage`. The scenarios were "Save and reload the inverter configuration title and description", "Save and reload the inverter configuration notes", and "Save and reload the inverter configuration image".
-- Fixed the load circuit creation test setup so the primary-location scenario and the secondary-location scenario each receive a converter on the correct location, preventing a disabled "Add load circuit" button and a mismatched `latestCreatedLoadCircuitLocationId` assertion.
-- Fixed `prepareLoadCircuitCreationData` to find the secondary location by `place_name` rather than by list position, eliminating a silent mismatch caused by alphabetical ordering of location IDs (`'location-2' < 'location-main'`).
-
-## 2026-05-03 (earlier)
 
 - Made shared yield tables layout-fixed so the Consumption monthly table can no longer visually collapse below the Production table width.
 - Moved the Consumption monthly table into its own full-width panel so it matches the Production table layout.

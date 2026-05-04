@@ -114,13 +114,12 @@ Show monthly demand from the downstream side.
 Suggested values:
 
 - load-circuit demand by month
-- load demand by month
 - high-pressure months
 - low-usage months
 
 Purpose:
 
-- connect the load side to the seasonal energy model
+- connect the load-circuit side to the seasonal energy model
 
 ## 6. Adjustment options section
 
@@ -130,21 +129,19 @@ Suggested adjustable items:
 - fuse or breaker rating
 - load grouping
 - load energy assumptions
-- load monthly factors
 
 Suggested actions:
 
 - `Move load to another load circuit`
 - `Split overloaded load circuit`
 - `Aggregate small loads`
-- `Refine monthly demand assumptions`
 
 ## Key questions this screen should answer
 
 The user should quickly be able to answer:
 
 - Which load circuits are close to their limits?
-- Which loads dominate demand?
+- Which loads dominate the circuit demand?
 - Are loads grouped sensibly?
 - Is the current downstream distribution realistic?
 
