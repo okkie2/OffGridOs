@@ -4142,7 +4142,7 @@ function SurfaceDetail({
           <p>{t('surface.yield.description')}</p>
         </div>
         <div className="yield-table-wrap">
-          <table className="yield-table">
+          <table className="yield-table verdict-table">
             <thead>
               <tr>
                 <th>{t('surface.yield.metric')}</th>
@@ -4785,12 +4785,10 @@ function ProductionPage({
             </div>
           ) : (
             <div className="yield-table-wrap">
-              <table className="yield-table">
+              <table className="yield-table verdict-table">
                 <thead>
                   <tr>
                     <th>{t('report.table.surface')}</th>
-                    <th>{t('report.table.verdict')}</th>
-                    <th>{t('report.table.why')}</th>
                     {MONTH_KEYS.map((month) => (
                       <th
                         key={month}
@@ -4803,11 +4801,9 @@ function ProductionPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {surfaceYieldRows.map(({ surface, yieldRows, annualKwh, verdictSummary, verdictText, verdictStatus, verdictFit }) => (
+                  {surfaceYieldRows.map(({ surface, yieldRows, annualKwh }) => (
                     <tr key={`monthly-${surface.surface_id}`}>
                       <th>{surface.name}</th>
-                      <td><StatusBadge status={verdictStatus} fit={verdictFit} /></td>
-                      <td title={verdictSummary ?? undefined}>{verdictText}</td>
                       {yieldRows.map((row) => (
                         <td
                           key={`${surface.surface_id}-${row.month}`}
@@ -4821,8 +4817,6 @@ function ProductionPage({
                   ))}
                   <tr>
                     <th>{t('production.monthly.total_avg_kwh_day')}</th>
-                    <td />
-                    <td>{t('production.monthly.description')}</td>
                     {monthlyTotals.map((row) => (
                       <td
                         key={`total-day-${row.month}`}
